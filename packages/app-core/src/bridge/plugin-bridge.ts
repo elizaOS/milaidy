@@ -350,11 +350,11 @@ export function isFeatureAvailable(
 
 // Export platform info
 export {
-  platform,
-  isNative,
-  isIOS,
   isAndroid,
   isElectronPlatform as isElectron,
-  isWebPlatform as isWeb,
+  isIOS,
   isMacOSPlatform as isMacOS,
+  isNative,
+  isWebPlatform as isWeb,
+  platform,
 };

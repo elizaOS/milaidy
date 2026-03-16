@@ -480,10 +480,10 @@ if (document.readyState === "loading") {
 
 // Export platform utilities for use by other modules
 export {
-  platform,
-  isNative,
-  isIOS,
   isAndroid,
   isElectronPlatform as isElectron,
+  isIOS,
+  isNative,
   isWebPlatform as isWeb,
+  platform,
 };

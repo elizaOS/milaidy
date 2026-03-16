@@ -33,7 +33,7 @@ describe("runtime-package-manifest", () => {
   it("extracts package names from static and dynamic imports", () => {
     const source = `
       import { logger } from "@elizaos/core";
-      export { thing } from "@milady/plugin-retake";
+      export { thing } from "@elizaos/plugin-retake";
       const chalk = require("chalk");
       await import("@scope/pkg/subpath.js");
       await import("./relative.js");
@@ -41,7 +41,7 @@ describe("runtime-package-manifest", () => {
 
     expect(extractBarePackageSpecifiers(source)).toEqual([
       "@elizaos/core",
-      "@milady/plugin-retake",
+      "@elizaos/plugin-retake",
       "@scope/pkg",
       "chalk",
     ]);

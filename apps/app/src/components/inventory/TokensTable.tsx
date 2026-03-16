@@ -135,6 +135,7 @@ export function TokensTable({
             const contractAddress = row.contractAddress;
             return (
               <tr
+                // biome-ignore lint/suspicious/noArrayIndexKey: composite key with index as tiebreaker
                 key={`${row.chain}-${row.symbol}-${idx}`}
                 className="border-b border-border last:border-b-0 hover:bg-bg-hover transition-colors"
               >

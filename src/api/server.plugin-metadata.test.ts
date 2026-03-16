@@ -35,7 +35,7 @@ describe("plugin metadata discovery", () => {
     expect(retake?.setupGuideUrl).toBe(
       "https://docs.milady.ai/plugin-setup-guide#retaketv",
     );
-    expect(retake?.repository).toContain("packages/plugin-retake");
+    expect(retake?.repository).toContain("plugin-retake");
   });
 
   it("fills fallback descriptions and tags for social connectors", () => {

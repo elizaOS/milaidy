@@ -58,7 +58,7 @@ describe("buildAgentMetadata", () => {
 
   it("adds twitch platform and streaming capability from plugin list", () => {
     const meta = buildAgentMetadata(baseConfig, "mila", [
-      "@milady/plugin-twitch-streaming",
+      "@elizaos/plugin-twitch-streaming",
     ]);
     expect(meta.platforms).toContain("twitch");
     expect(meta.capabilities).toContain("live-streaming");

@@ -219,9 +219,7 @@ function RpcConfigSection<T extends string>({
         containerClassName,
         (key: string) => {
           // hack to get t function without breaking hook rules
-          return key === "elizaclouddashboard.ElizaCloud"
-            ? "Eliza Cloud"
-            : key;
+          return key === "elizaclouddashboard.ElizaCloud" ? "Eliza Cloud" : key;
         },
       )}
 

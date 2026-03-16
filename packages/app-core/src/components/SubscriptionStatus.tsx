@@ -253,7 +253,12 @@ export function SubscriptionStatus({
       anthropicExchangeBusyRef.current = false;
       setAnthropicExchangeBusy(false);
     }
-  }, [handleSelectSubscription, loadSubscriptionStatus, setAnthropicConnected, t]);
+  }, [
+    handleSelectSubscription,
+    loadSubscriptionStatus,
+    setAnthropicConnected,
+    t,
+  ]);
 
   const handleOpenAIStart = useCallback(async () => {
     setOpenaiError("");

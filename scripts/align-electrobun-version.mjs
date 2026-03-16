@@ -20,7 +20,7 @@ for (const file of [
   try {
     const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
     pkg.version = version;
-    fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
+    fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
   } catch (e) {
     console.warn(`Could not update ${file}: ${e.message}`);
   }

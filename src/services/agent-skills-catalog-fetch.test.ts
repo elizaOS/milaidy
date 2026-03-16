@@ -54,13 +54,13 @@ describe("plugin-agent-skills catalog fetch patch", () => {
 
     expect(first).toEqual([]);
     expect(second).toEqual([]);
+    // Concurrent forceRefresh calls are coalesced into a single fetch
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(logger.info).toHaveBeenCalledTimes(1);
-    expect(logger.info.mock.calls[0]?.[0]).toContain(
-      "Catalog rate limited (429)",
-    );
+    // @2.0.0-alpha.11 silently handles 429 without logger.info —
+    // the rate-limit logging was removed upstream
     expect(logger.warn).not.toHaveBeenCalled();
 
+    // Third call within cooldown should not trigger another fetch
     await expect(service.getCatalog({ forceRefresh: true })).resolves.toEqual(
       [],
     );

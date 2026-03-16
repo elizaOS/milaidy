@@ -414,8 +414,7 @@ export function HeartbeatsView() {
 
   const modalTitle = editingId
     ? t("heartbeatsview.editTitle", {
-        name:
-          form.displayName.trim() || t("heartbeatsview.heartbeatSingular"),
+        name: form.displayName.trim() || t("heartbeatsview.heartbeatSingular"),
       })
     : t("heartbeatsview.newHeartbeat");
   const editorEnabled =
@@ -428,7 +427,6 @@ export function HeartbeatsView() {
     <>
       <div className="flex min-h-[calc(100vh-9rem)] w-full flex-col gap-5 pb-6 sm:gap-6">
         <div className="flex flex-col gap-4 px-1 lg:flex-row lg:items-end lg:justify-between">
-
           <Button
             variant="default"
             size="sm"
@@ -441,7 +439,6 @@ export function HeartbeatsView() {
         </div>
 
         <div className="flex min-h-[60vh] flex-1 flex-col overflow-hidden rounded-[1.35rem] border border-border/60 bg-card/80 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
-
           {triggerError && (
             <div className="mx-4 mt-4 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger sm:mx-6">
               {triggerError}
@@ -519,7 +516,9 @@ export function HeartbeatsView() {
                                 </span>
                               )}
                               {trigger.runCount > 0 && (
-                                <span>{runCountLabel(trigger.runCount, t)}</span>
+                                <span>
+                                  {runCountLabel(trigger.runCount, t)}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -673,7 +672,9 @@ export function HeartbeatsView() {
                                             </span>
                                             <span className="text-xs text-muted">
                                               {formatDateTime(run.finishedAt, {
-                                                fallback: t("heartbeatsview.emDash"),
+                                                fallback: t(
+                                                  "heartbeatsview.emDash",
+                                                ),
                                               })}
                                             </span>
                                           </div>

@@ -106,9 +106,14 @@ describe("FallbackTrainingService initialization", () => {
 // ============================================================================
 
 describe("Config loading at startup", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
   it("loadMiladyConfig returns a valid config object", async () => {
     vi.resetModules();
-    vi.mock("node:fs", async (importOriginal) => {
+    vi.doMock("node:fs", async (importOriginal) => {
       const actual = await importOriginal<typeof import("node:fs")>();
       return {
         ...actual,
@@ -128,7 +133,7 @@ describe("Config loading at startup", () => {
   it("loadMiladyConfig handles missing config file gracefully", async () => {
     vi.resetModules();
     const enoent = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
-    vi.mock("node:fs", async (importOriginal) => {
+    vi.doMock("node:fs", async (importOriginal) => {
       const actual = await importOriginal<typeof import("node:fs")>();
       return {
         ...actual,

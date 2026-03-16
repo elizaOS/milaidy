@@ -1,7 +1,7 @@
 /**
  * Shared factory for RTMP streaming destination plugins.
  *
- * Both @milady/plugin-twitch-streaming and @milady/plugin-youtube-streaming
+ * Both @elizaos/plugin-twitch-streaming and @elizaos/plugin-youtube-streaming
  * delegate to this factory to eliminate near-identical boilerplate for actions,
  * destination creation, and plugin wiring.
  */

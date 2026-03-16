@@ -12,10 +12,6 @@ export * from "./BugReportModal";
 export * from "./CloudSourceControls";
 export * from "./CodingAgentSettingsSection";
 export * from "./CommandPalette";
-// CompanionSceneHost is intentionally excluded from this barrel — it imports
-// VrmStage which pulls in the heavy 3D stack.  Import directly from
-// "./CompanionSceneHost" or use the hook from "./shared-companion-scene-context".
-export { useSharedCompanionScene } from "./shared-companion-scene-context";
 export * from "./ConfigPageView";
 export * from "./ConfigSaveFooter";
 export * from "./ConfirmModal";
@@ -53,6 +49,10 @@ export * from "./SkillsView";
 export * from "./StartupFailureView";
 export * from "./SubscriptionStatus";
 export * from "./SystemWarningBanner";
+// CompanionSceneHost is intentionally excluded from this barrel — it imports
+// VrmStage which pulls in the heavy 3D stack.  Import directly from
+// "./CompanionSceneHost" or use the hook from "./shared-companion-scene-context".
+export { useSharedCompanionScene } from "./shared-companion-scene-context";
 export * from "./skeletons";
 export * from "./ThemeToggle";
 export * from "./ui-badges";

@@ -17,13 +17,13 @@ export {
 } from "./parsers";
 export {
   applyUiTheme,
-  loadLastNativeTab,
   loadActiveConversationId,
   loadAvatarIndex,
   loadChatAvatarVisible,
   loadChatMode,
   loadChatVoiceMuted,
   loadCompanionMessageCutoffTs,
+  loadLastNativeTab,
   loadUiLanguage,
   loadUiShellMode,
   loadUiTheme,

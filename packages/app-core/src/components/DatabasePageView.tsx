@@ -26,7 +26,6 @@ export function DatabasePageView() {
 
   return (
     <div className="flex flex-col h-full">
-
       {/* Sub-tab bar */}
       <div className="flex gap-1 border-b border-[var(--border)] mb-5">
         {dbTabs.map((tab) => (

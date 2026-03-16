@@ -151,8 +151,8 @@ function req(
 
 type InMemoryTrajectoryLogger = {
   isEnabled: () => boolean;
-  getLlmCallLogs: () => readonly Array<Record<string, unknown>>;
-  getProviderAccessLogs: () => readonly Array<Record<string, unknown>>;
+  getLlmCallLogs: () => ReadonlyArray<Record<string, unknown>>;
+  getProviderAccessLogs: () => ReadonlyArray<Record<string, unknown>>;
   logLlmCall?: (params: Record<string, unknown>) => void;
   llmCalls: Array<Record<string, unknown>>;
   providerAccess: Array<Record<string, unknown>>;
