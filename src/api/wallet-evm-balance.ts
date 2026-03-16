@@ -31,6 +31,17 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 // ── Types ─────────────────────────────────────────────────────────────
 
 type EvmChainProvider = "alchemy" | "ankr";
+type EvmChainRuntimeMode = "alchemy" | "ankr" | "rpc" | "disabled";
+type EvmChainProviderMode = Record<
+  | "ethereum"
+  | "base"
+  | "arbitrum"
+  | "optimism"
+  | "polygon"
+  | "bsc"
+  | "avalanche",
+  EvmChainRuntimeMode
+>;
 
 export interface EvmChainConfig {
   name: string;
@@ -48,7 +59,11 @@ export interface EvmProviderKeys {
   bscRpcUrls?: string[] | null;
   ethereumRpcUrls?: string[] | null;
   baseRpcUrls?: string[] | null;
+  arbitrumRpcUrls?: string[] | null;
+  optimismRpcUrls?: string[] | null;
+  polygonRpcUrls?: string[] | null;
   avaxRpcUrls?: string[] | null;
+  chainProviderMode?: Partial<EvmChainProviderMode> | null;
   nodeRealBscRpcUrl?: string | null;
   quickNodeBscRpcUrl?: string | null;
   /** Standard elizaOS EVM plugin env key for BSC. */
@@ -68,7 +83,11 @@ interface EvmProviderKeyset {
   bscRpcUrls: string[];
   ethereumRpcUrls: string[];
   baseRpcUrls: string[];
+  arbitrumRpcUrls: string[];
+  optimismRpcUrls: string[];
+  polygonRpcUrls: string[];
   avaxRpcUrls: string[];
+  chainProviderMode: EvmChainProviderMode;
   nodeRealBscRpcUrl: string | null;
   quickNodeBscRpcUrl: string | null;
   bscRpcUrl: string | null;
@@ -124,6 +143,7 @@ export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
     chainId: 1,
     nativeSymbol: "ETH",
     provider: "alchemy",
+    ankrChain: "eth",
   },
   {
     name: "Base",
@@ -131,6 +151,7 @@ export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
     chainId: 8453,
     nativeSymbol: "ETH",
     provider: "alchemy",
+    ankrChain: "base",
   },
   {
     name: "Arbitrum",
@@ -138,6 +159,7 @@ export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
     chainId: 42161,
     nativeSymbol: "ETH",
     provider: "alchemy",
+    ankrChain: "arbitrum",
   },
   {
     name: "Optimism",
@@ -145,6 +167,7 @@ export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
     chainId: 10,
     nativeSymbol: "ETH",
     provider: "alchemy",
+    ankrChain: "optimism",
   },
   {
     name: "Polygon",
@@ -152,6 +175,7 @@ export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
     chainId: 137,
     nativeSymbol: "POL",
     provider: "alchemy",
+    ankrChain: "polygon",
   },
   {
     name: "BSC",
@@ -159,6 +183,7 @@ export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
     chainId: 56,
     nativeSymbol: "BNB",
     provider: "alchemy",
+    ankrChain: "bsc",
   },
   {
     name: "Avalanche",
@@ -166,6 +191,7 @@ export const DEFAULT_EVM_CHAINS: readonly EvmChainConfig[] = [
     chainId: 43114,
     nativeSymbol: "AVAX",
     provider: "alchemy",
+    ankrChain: "avalanche",
   },
 ] as const;
 
@@ -200,19 +226,150 @@ function normalizeStringArray(
   ];
 }
 
+function deriveChainProviderMode(args: {
+  alchemyKey: string | null;
+  ankrKey: string | null;
+  ethereumRpcUrls: string[];
+  baseRpcUrls: string[];
+  arbitrumRpcUrls: string[];
+  optimismRpcUrls: string[];
+  polygonRpcUrls: string[];
+  bscRpcUrls: string[];
+  avaxRpcUrls: string[];
+}): EvmChainProviderMode {
+  return {
+    ethereum: args.alchemyKey
+      ? "alchemy"
+      : args.ankrKey
+        ? "ankr"
+        : args.ethereumRpcUrls.length > 0
+          ? "rpc"
+          : "disabled",
+    base: args.alchemyKey
+      ? "alchemy"
+      : args.ankrKey
+        ? "ankr"
+        : args.baseRpcUrls.length > 0
+          ? "rpc"
+          : "disabled",
+    arbitrum: args.alchemyKey
+      ? "alchemy"
+      : args.ankrKey
+        ? "ankr"
+        : args.arbitrumRpcUrls.length > 0
+          ? "rpc"
+          : "disabled",
+    optimism: args.alchemyKey
+      ? "alchemy"
+      : args.ankrKey
+        ? "ankr"
+        : args.optimismRpcUrls.length > 0
+          ? "rpc"
+          : "disabled",
+    polygon: args.alchemyKey
+      ? "alchemy"
+      : args.ankrKey
+        ? "ankr"
+        : args.polygonRpcUrls.length > 0
+          ? "rpc"
+          : "disabled",
+    bsc: args.alchemyKey
+      ? "alchemy"
+      : args.ankrKey
+        ? "ankr"
+        : args.bscRpcUrls.length > 0
+          ? "rpc"
+          : "disabled",
+    avalanche: args.alchemyKey
+      ? "alchemy"
+      : args.ankrKey
+        ? "ankr"
+        : args.avaxRpcUrls.length > 0
+          ? "rpc"
+          : "disabled",
+  };
+}
+
+function getChainKey(chain: EvmChainConfig): keyof EvmChainProviderMode {
+  switch (chain.chainId) {
+    case 1:
+      return "ethereum";
+    case 8453:
+      return "base";
+    case 42161:
+      return "arbitrum";
+    case 10:
+      return "optimism";
+    case 137:
+      return "polygon";
+    case 56:
+      return "bsc";
+    case 43114:
+      return "avalanche";
+    default:
+      return "ethereum";
+  }
+}
+
+function resolveRpcUrlsForChain(
+  chain: EvmChainConfig,
+  keys: EvmProviderKeyset,
+): string[] {
+  switch (chain.chainId) {
+    case 1:
+      return keys.ethereumRpcUrls;
+    case 8453:
+      return keys.baseRpcUrls;
+    case 42161:
+      return keys.arbitrumRpcUrls;
+    case 10:
+      return keys.optimismRpcUrls;
+    case 137:
+      return keys.polygonRpcUrls;
+    case 56:
+      return keys.bscRpcUrls;
+    case 43114:
+      return keys.avaxRpcUrls;
+    default:
+      return [];
+  }
+}
+
 export function resolveEvmProviderKeys(
   alchemyOrKeys: string | EvmProviderKeys | null | undefined,
   maybeAnkrKey?: string | null,
 ): EvmProviderKeyset {
   if (typeof alchemyOrKeys === "string" || alchemyOrKeys == null) {
-    return {
-      alchemyKey: normalizeApiKey(alchemyOrKeys),
-      ankrKey: normalizeApiKey(maybeAnkrKey),
+    const alchemyKey = normalizeApiKey(alchemyOrKeys);
+    const ankrKey = normalizeApiKey(maybeAnkrKey);
+    const bscRpcUrls = resolveBscRpcUrls({ cloudManagedAccess: false });
+    const ethereumRpcUrls = resolveEthereumRpcUrls({
       cloudManagedAccess: false,
-      bscRpcUrls: resolveBscRpcUrls({ cloudManagedAccess: false }),
-      ethereumRpcUrls: resolveEthereumRpcUrls({ cloudManagedAccess: false }),
-      baseRpcUrls: resolveBaseRpcUrls({ cloudManagedAccess: false }),
-      avaxRpcUrls: resolveAvalancheRpcUrls({ cloudManagedAccess: false }),
+    });
+    const baseRpcUrls = resolveBaseRpcUrls({ cloudManagedAccess: false });
+    const avaxRpcUrls = resolveAvalancheRpcUrls({ cloudManagedAccess: false });
+    return {
+      alchemyKey,
+      ankrKey,
+      cloudManagedAccess: false,
+      bscRpcUrls,
+      ethereumRpcUrls,
+      baseRpcUrls,
+      arbitrumRpcUrls: [],
+      optimismRpcUrls: [],
+      polygonRpcUrls: [],
+      avaxRpcUrls,
+      chainProviderMode: deriveChainProviderMode({
+        alchemyKey,
+        ankrKey,
+        ethereumRpcUrls,
+        baseRpcUrls,
+        arbitrumRpcUrls: [],
+        optimismRpcUrls: [],
+        polygonRpcUrls: [],
+        bscRpcUrls,
+        avaxRpcUrls,
+      }),
       nodeRealBscRpcUrl: normalizeApiKey(
         process.env.NODEREAL_BSC_RPC_URL ?? null,
       ),
@@ -226,32 +383,64 @@ export function resolveEvmProviderKeys(
     };
   }
   const cloudManagedAccess = Boolean(alchemyOrKeys.cloudManagedAccess);
+  const alchemyKey = normalizeApiKey(alchemyOrKeys.alchemyKey);
+  const ankrKey = normalizeApiKey(alchemyOrKeys.ankrKey ?? maybeAnkrKey);
+  const bscRpcUrls = normalizeStringArray([
+    ...(alchemyOrKeys.bscRpcUrls ?? []),
+    alchemyOrKeys.nodeRealBscRpcUrl ?? process.env.NODEREAL_BSC_RPC_URL,
+    alchemyOrKeys.quickNodeBscRpcUrl ?? process.env.QUICKNODE_BSC_RPC_URL,
+    alchemyOrKeys.bscRpcUrl ?? process.env.BSC_RPC_URL,
+    ...resolveBscRpcUrls({ cloudManagedAccess }),
+  ]);
+  const ethereumRpcUrls = normalizeStringArray([
+    ...(alchemyOrKeys.ethereumRpcUrls ?? []),
+    alchemyOrKeys.ethereumRpcUrl ?? process.env.ETHEREUM_RPC_URL,
+    ...resolveEthereumRpcUrls({ cloudManagedAccess }),
+  ]);
+  const baseRpcUrls = normalizeStringArray([
+    ...(alchemyOrKeys.baseRpcUrls ?? []),
+    alchemyOrKeys.baseRpcUrl ?? process.env.BASE_RPC_URL,
+    ...resolveBaseRpcUrls({ cloudManagedAccess }),
+  ]);
+  const arbitrumRpcUrls = normalizeStringArray(
+    alchemyOrKeys.arbitrumRpcUrls ?? [],
+  );
+  const optimismRpcUrls = normalizeStringArray(
+    alchemyOrKeys.optimismRpcUrls ?? [],
+  );
+  const polygonRpcUrls = normalizeStringArray(
+    alchemyOrKeys.polygonRpcUrls ?? [],
+  );
+  const avaxRpcUrls = normalizeStringArray([
+    ...(alchemyOrKeys.avaxRpcUrls ?? []),
+    alchemyOrKeys.avaxRpcUrl ?? process.env.AVALANCHE_RPC_URL,
+    ...resolveAvalancheRpcUrls({ cloudManagedAccess }),
+  ]);
   return {
-    alchemyKey: normalizeApiKey(alchemyOrKeys.alchemyKey),
-    ankrKey: normalizeApiKey(alchemyOrKeys.ankrKey ?? maybeAnkrKey),
+    alchemyKey,
+    ankrKey,
     cloudManagedAccess,
-    bscRpcUrls: normalizeStringArray([
-      ...(alchemyOrKeys.bscRpcUrls ?? []),
-      alchemyOrKeys.nodeRealBscRpcUrl ?? process.env.NODEREAL_BSC_RPC_URL,
-      alchemyOrKeys.quickNodeBscRpcUrl ?? process.env.QUICKNODE_BSC_RPC_URL,
-      alchemyOrKeys.bscRpcUrl ?? process.env.BSC_RPC_URL,
-      ...resolveBscRpcUrls({ cloudManagedAccess }),
-    ]),
-    ethereumRpcUrls: normalizeStringArray([
-      ...(alchemyOrKeys.ethereumRpcUrls ?? []),
-      alchemyOrKeys.ethereumRpcUrl ?? process.env.ETHEREUM_RPC_URL,
-      ...resolveEthereumRpcUrls({ cloudManagedAccess }),
-    ]),
-    baseRpcUrls: normalizeStringArray([
-      ...(alchemyOrKeys.baseRpcUrls ?? []),
-      alchemyOrKeys.baseRpcUrl ?? process.env.BASE_RPC_URL,
-      ...resolveBaseRpcUrls({ cloudManagedAccess }),
-    ]),
-    avaxRpcUrls: normalizeStringArray([
-      ...(alchemyOrKeys.avaxRpcUrls ?? []),
-      alchemyOrKeys.avaxRpcUrl ?? process.env.AVALANCHE_RPC_URL,
-      ...resolveAvalancheRpcUrls({ cloudManagedAccess }),
-    ]),
+    bscRpcUrls,
+    ethereumRpcUrls,
+    baseRpcUrls,
+    arbitrumRpcUrls,
+    optimismRpcUrls,
+    polygonRpcUrls,
+    avaxRpcUrls,
+    chainProviderMode: {
+      ...deriveChainProviderMode({
+        alchemyKey,
+        ankrKey,
+        ethereumRpcUrls,
+        baseRpcUrls,
+        arbitrumRpcUrls,
+        optimismRpcUrls,
+        polygonRpcUrls,
+        bscRpcUrls,
+        avaxRpcUrls,
+      }),
+      ...(alchemyOrKeys.chainProviderMode ?? {}),
+    },
     nodeRealBscRpcUrl: normalizeApiKey(
       alchemyOrKeys.nodeRealBscRpcUrl ?? process.env.NODEREAL_BSC_RPC_URL,
     ),
@@ -271,12 +460,6 @@ export function resolveEvmProviderKeys(
       alchemyOrKeys.avaxRpcUrl ?? process.env.AVALANCHE_RPC_URL,
     ),
   };
-}
-
-function isBscChain(chain: EvmChainConfig): boolean {
-  return (
-    chain.chainId === 56 || (chain.ankrChain ?? "").toLowerCase() === "bsc"
-  );
 }
 
 function describeRpcEndpoint(url: string): string {
@@ -865,77 +1048,39 @@ export async function fetchEvmBalances(
   knownTokenAddresses?: string[],
 ): Promise<EvmChainBalance[]> {
   const keys = resolveEvmProviderKeys(alchemyOrKeys, maybeAnkrKey);
-  const bscRpcUrls = keys.bscRpcUrls;
-  const ethRpcUrls = keys.ethereumRpcUrls;
-  const baseRpcUrls = keys.baseRpcUrls;
-  const avaxRpcUrls = keys.avaxRpcUrls;
-
-  const hasManagedBscRpc = bscRpcUrls.length > 0;
   const activeChains = DEFAULT_EVM_CHAINS.filter((chain) => {
-    if (chain.provider === "ankr") {
-      return Boolean(keys.ankrKey) || (isBscChain(chain) && hasManagedBscRpc);
-    }
-
-    // Prefer Alchemy when available (tokens + USD value). Otherwise, fall back to
-    // public RPC for native balances on the chains we support out-of-box.
-    if (keys.alchemyKey) return true;
-    if (chain.chainId === 1) return ethRpcUrls.length > 0;
-    if (chain.chainId === 8453) return baseRpcUrls.length > 0;
-    if (chain.chainId === 56) return hasManagedBscRpc;
-    if (chain.chainId === 43114) return avaxRpcUrls.length > 0;
+    const mode = keys.chainProviderMode[getChainKey(chain)];
+    if (mode === "alchemy") return Boolean(keys.alchemyKey);
+    if (mode === "ankr") return Boolean(keys.ankrKey);
+    if (mode === "rpc") return resolveRpcUrlsForChain(chain, keys).length > 0;
     return false;
   });
 
   return Promise.all(
     activeChains.map(async (chain): Promise<EvmChainBalance> => {
+      const mode = keys.chainProviderMode[getChainKey(chain)];
+      const rpcUrls = resolveRpcUrlsForChain(chain, keys);
       try {
-        if (chain.provider === "ankr") {
-          if (keys.ankrKey) {
-            return await fetchAnkrChainBalances(chain, address, keys.ankrKey);
+        if (mode === "ankr") {
+          if (!keys.ankrKey) {
+            return makeEvmChainFailure(chain, "Missing ANKR_API_KEY");
           }
-          if (isBscChain(chain) && hasManagedBscRpc) {
-            return await fetchEvmChainBalancesViaRpc(
-              chain,
-              address,
-              bscRpcUrls,
-              knownTokenAddresses,
-            );
-          }
-          return makeEvmChainFailure(chain, "Missing ANKR_API_KEY");
+          return await fetchAnkrChainBalances(chain, address, keys.ankrKey);
         }
-        if (!keys.alchemyKey) {
-          if (chain.chainId === 1 && ethRpcUrls.length > 0) {
-            return await fetchEvmChainBalancesViaRpc(
-              chain,
-              address,
-              ethRpcUrls,
-              knownTokenAddresses,
-            );
+
+        if (mode === "rpc") {
+          if (rpcUrls.length === 0) {
+            return makeEvmChainFailure(chain, `${chain.name} RPC unavailable`);
           }
-          if (chain.chainId === 8453 && baseRpcUrls.length > 0) {
-            return await fetchEvmChainBalancesViaRpc(
-              chain,
-              address,
-              baseRpcUrls,
-              knownTokenAddresses,
-            );
-          }
-          if (chain.chainId === 56 && hasManagedBscRpc) {
-            return await fetchEvmChainBalancesViaRpc(
-              chain,
-              address,
-              bscRpcUrls,
-              knownTokenAddresses,
-            );
-          }
-          if (chain.chainId === 43114 && avaxRpcUrls.length > 0) {
-            return await fetchEvmChainBalancesViaRpc(
-              chain,
-              address,
-              avaxRpcUrls,
-              knownTokenAddresses,
-            );
-          }
+          return await fetchEvmChainBalancesViaRpc(
+            chain,
+            address,
+            rpcUrls,
+            knownTokenAddresses,
+          );
+        }
+
+        if (mode !== "alchemy" || !keys.alchemyKey) {
           return makeEvmChainFailure(chain, "Missing ALCHEMY_API_KEY");
         }
         return await fetchAlchemyChainBalances(chain, address, keys.alchemyKey);
@@ -954,30 +1099,26 @@ export async function fetchEvmNfts(
   maybeAnkrKey?: string | null,
 ): Promise<Array<{ chain: string; nfts: EvmNft[] }>> {
   const keys = resolveEvmProviderKeys(alchemyOrKeys, maybeAnkrKey);
-  const hasManagedBscRpc = keys.bscRpcUrls.length > 0;
   const activeChains = DEFAULT_EVM_CHAINS.filter((chain) => {
-    if (chain.provider === "ankr") {
-      return (isBscChain(chain) && hasManagedBscRpc) || Boolean(keys.ankrKey);
-    }
-    if (keys.alchemyKey) return true;
-    // BSC without Alchemy: include if managed RPC exists (NFTs will be empty)
-    if (chain.chainId === 56) return hasManagedBscRpc;
+    const mode = keys.chainProviderMode[getChainKey(chain)];
+    if (mode === "alchemy") return Boolean(keys.alchemyKey);
+    if (mode === "ankr") return Boolean(keys.ankrKey);
+    if (mode === "rpc") return resolveRpcUrlsForChain(chain, keys).length > 0;
     return false;
   });
 
   return Promise.all(
     activeChains.map(
       async (chain): Promise<{ chain: string; nfts: EvmNft[] }> => {
+        const mode = keys.chainProviderMode[getChainKey(chain)];
         try {
-          if (chain.provider === "ankr") {
-            if (!keys.ankrKey) {
-              // Managed NodeReal/QuickNode mode currently provides native-balance
-              // readiness only; token/NFT indexing is added in later phases.
-              return { chain: chain.name, nfts: [] };
-            }
+          if (mode === "ankr") {
+            if (!keys.ankrKey) return { chain: chain.name, nfts: [] };
             return await fetchAnkrChainNfts(chain, address, keys.ankrKey);
           }
-          if (!keys.alchemyKey) return { chain: chain.name, nfts: [] };
+          if (mode === "rpc" || !keys.alchemyKey) {
+            return { chain: chain.name, nfts: [] };
+          }
           return await fetchAlchemyChainNfts(chain, address, keys.alchemyKey);
         } catch (err) {
           logger.warn(`EVM NFT fetch failed for ${chain.name}: ${err}`);

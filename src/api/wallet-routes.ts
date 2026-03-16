@@ -16,9 +16,13 @@ import {
   type WalletBalancesResponse,
   type WalletChain,
   type WalletConfigStatus,
+  type WalletConfigUpdateRequest,
   type WalletNftsResponse,
 } from "./wallet";
-import { resolveWalletRpcReadiness } from "./wallet-rpc";
+import {
+  applyWalletRpcConfigUpdate,
+  resolveWalletRpcReadiness,
+} from "./wallet-rpc";
 
 interface WalletExportRequestBody {
   confirm?: boolean;
@@ -28,6 +32,68 @@ interface WalletExportRequestBody {
 interface WalletExportRejectionLike {
   status: 401 | 403;
   reason: string;
+}
+
+const WALLET_CONFIG_COMPAT_KEYS = new Set([
+  "ALCHEMY_API_KEY",
+  "INFURA_API_KEY",
+  "ANKR_API_KEY",
+  "ETHEREUM_RPC_URL",
+  "BASE_RPC_URL",
+  "AVALANCHE_RPC_URL",
+  "HELIUS_API_KEY",
+  "BIRDEYE_API_KEY",
+  "NODEREAL_BSC_RPC_URL",
+  "QUICKNODE_BSC_RPC_URL",
+  "BSC_RPC_URL",
+  "SOLANA_RPC_URL",
+]);
+
+function resolveWalletConfigUpdateRequest(
+  body: unknown,
+  currentSelections: WalletConfigStatus["selectedRpcProviders"],
+): WalletConfigUpdateRequest | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return null;
+  }
+
+  const record = body as Record<string, unknown>;
+  if (
+    record.selections &&
+    typeof record.selections === "object" &&
+    !Array.isArray(record.selections)
+  ) {
+    const credentials =
+      record.credentials &&
+      typeof record.credentials === "object" &&
+      !Array.isArray(record.credentials)
+        ? Object.fromEntries(
+            Object.entries(
+              record.credentials as Record<string, unknown>,
+            ).filter(([, value]) => typeof value === "string"),
+          )
+        : undefined;
+    return {
+      selections: record.selections as WalletConfigUpdateRequest["selections"],
+      credentials: credentials as WalletConfigUpdateRequest["credentials"],
+    };
+  }
+
+  const compatCredentials = Object.fromEntries(
+    Object.entries(record).filter(
+      ([key, value]) =>
+        WALLET_CONFIG_COMPAT_KEYS.has(key) && typeof value === "string",
+    ),
+  );
+
+  if (Object.keys(compatCredentials).length === 0) {
+    return null;
+  }
+
+  return {
+    selections: currentSelections,
+    credentials: compatCredentials,
+  };
 }
 
 export interface WalletRouteDependencies {
@@ -96,9 +162,9 @@ export async function handleWalletRoutes(
   if (method === "GET" && pathname === "/api/wallet/balances") {
     const addresses = deps.getWalletAddresses();
     const rpcReadiness = resolveWalletRpcReadiness(config);
-    const alchemyKey = process.env.ALCHEMY_API_KEY?.trim() || null;
-    const ankrKey = process.env.ANKR_API_KEY?.trim() || null;
-    const heliusKey = process.env.HELIUS_API_KEY?.trim() || null;
+    const alchemyKey = rpcReadiness.activeAlchemyKey;
+    const ankrKey = rpcReadiness.activeAnkrKey;
+    const heliusKey = rpcReadiness.activeHeliusKey;
 
     const result: WalletBalancesResponse = { evm: null, solana: null };
 
@@ -115,13 +181,11 @@ export async function handleWalletRoutes(
           bscRpcUrls: rpcReadiness.bscRpcUrls,
           ethereumRpcUrls: rpcReadiness.ethereumRpcUrls,
           baseRpcUrls: rpcReadiness.baseRpcUrls,
+          arbitrumRpcUrls: rpcReadiness.arbitrumRpcUrls,
+          optimismRpcUrls: rpcReadiness.optimismRpcUrls,
+          polygonRpcUrls: rpcReadiness.polygonRpcUrls,
           avaxRpcUrls: rpcReadiness.avalancheRpcUrls,
-          nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-          quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-          bscRpcUrl: process.env.BSC_RPC_URL,
-          ethereumRpcUrl: process.env.ETHEREUM_RPC_URL,
-          baseRpcUrl: process.env.BASE_RPC_URL,
-          avaxRpcUrl: process.env.AVALANCHE_RPC_URL,
+          chainProviderMode: rpcReadiness.chainProviderMode,
         });
         result.evm = { address: addresses.evmAddress, chains };
         evmBalancesSpan.success();
@@ -159,16 +223,13 @@ export async function handleWalletRoutes(
   if (method === "GET" && pathname === "/api/wallet/nfts") {
     const addresses = deps.getWalletAddresses();
     const rpcReadiness = resolveWalletRpcReadiness(config);
-    const alchemyKey = process.env.ALCHEMY_API_KEY?.trim() || null;
-    const ankrKey = process.env.ANKR_API_KEY?.trim() || null;
-    const heliusKey = process.env.HELIUS_API_KEY?.trim() || null;
+    const alchemyKey = rpcReadiness.activeAlchemyKey;
+    const ankrKey = rpcReadiness.activeAnkrKey;
+    const heliusKey = rpcReadiness.activeHeliusKey;
 
     const result: WalletNftsResponse = { evm: [], solana: null };
 
-    if (
-      addresses.evmAddress &&
-      (Boolean(alchemyKey) || rpcReadiness.managedBscRpcReady)
-    ) {
+    if (addresses.evmAddress && rpcReadiness.evmBalanceReady) {
       const evmNftsSpan = createIntegrationTelemetrySpan({
         boundary: "wallet",
         operation: "fetch_evm_nfts",
@@ -181,13 +242,11 @@ export async function handleWalletRoutes(
           bscRpcUrls: rpcReadiness.bscRpcUrls,
           ethereumRpcUrls: rpcReadiness.ethereumRpcUrls,
           baseRpcUrls: rpcReadiness.baseRpcUrls,
+          arbitrumRpcUrls: rpcReadiness.arbitrumRpcUrls,
+          optimismRpcUrls: rpcReadiness.optimismRpcUrls,
+          polygonRpcUrls: rpcReadiness.polygonRpcUrls,
           avaxRpcUrls: rpcReadiness.avalancheRpcUrls,
-          nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
-          quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
-          bscRpcUrl: process.env.BSC_RPC_URL,
-          ethereumRpcUrl: process.env.ETHEREUM_RPC_URL,
-          baseRpcUrl: process.env.BASE_RPC_URL,
-          avaxRpcUrl: process.env.AVALANCHE_RPC_URL,
+          chainProviderMode: rpcReadiness.chainProviderMode,
         });
         evmNftsSpan.success();
       } catch (err) {
@@ -328,28 +387,24 @@ export async function handleWalletRoutes(
   if (method === "GET" && pathname === "/api/wallet/config") {
     const addresses = deps.getWalletAddresses();
     const rpcReadiness = resolveWalletRpcReadiness(config);
-    const alchemyKeySet = Boolean(process.env.ALCHEMY_API_KEY?.trim());
-    const ankrKeySet = Boolean(process.env.ANKR_API_KEY?.trim());
-    const nodeRealSet = Boolean(process.env.NODEREAL_BSC_RPC_URL?.trim());
-    const quickNodeSet = Boolean(process.env.QUICKNODE_BSC_RPC_URL?.trim());
     const configStatus: WalletConfigStatus = {
-      alchemyKeySet,
-      infuraKeySet: Boolean(process.env.INFURA_API_KEY?.trim()),
-      ankrKeySet,
-      nodeRealBscRpcSet: nodeRealSet,
-      quickNodeBscRpcSet: quickNodeSet,
+      selectedRpcProviders: rpcReadiness.selectedRpcProviders,
+      legacyCustomChains: rpcReadiness.legacyCustomChains,
+      alchemyKeySet: rpcReadiness.alchemyKeySet,
+      infuraKeySet: rpcReadiness.infuraKeySet,
+      ankrKeySet: rpcReadiness.ankrKeySet,
+      nodeRealBscRpcSet: rpcReadiness.nodeRealBscRpcSet,
+      quickNodeBscRpcSet: rpcReadiness.quickNodeBscRpcSet,
       managedBscRpcReady: rpcReadiness.managedBscRpcReady,
       cloudManagedAccess: rpcReadiness.cloudManagedAccess,
       evmBalanceReady: rpcReadiness.evmBalanceReady,
-      ethereumBalanceReady:
-        alchemyKeySet || rpcReadiness.ethereumRpcUrls.length > 0,
-      baseBalanceReady: alchemyKeySet || rpcReadiness.baseRpcUrls.length > 0,
-      bscBalanceReady: ankrKeySet || rpcReadiness.bscRpcUrls.length > 0,
-      avalancheBalanceReady:
-        alchemyKeySet || rpcReadiness.avalancheRpcUrls.length > 0,
+      ethereumBalanceReady: rpcReadiness.ethereumBalanceReady,
+      baseBalanceReady: rpcReadiness.baseBalanceReady,
+      bscBalanceReady: rpcReadiness.bscBalanceReady,
+      avalancheBalanceReady: rpcReadiness.avalancheBalanceReady,
       solanaBalanceReady: rpcReadiness.solanaBalanceReady,
-      heliusKeySet: Boolean(process.env.HELIUS_API_KEY?.trim()),
-      birdeyeKeySet: Boolean(process.env.BIRDEYE_API_KEY?.trim()),
+      heliusKeySet: rpcReadiness.heliusKeySet,
+      birdeyeKeySet: rpcReadiness.birdeyeKeySet,
       evmChains: [
         "Ethereum",
         "Base",
@@ -368,40 +423,19 @@ export async function handleWalletRoutes(
 
   // PUT /api/wallet/config
   if (method === "PUT" && pathname === "/api/wallet/config") {
-    const body = await readJsonBody<Record<string, string>>(req, res);
+    const body = await readJsonBody<Record<string, unknown>>(req, res);
     if (!body) return true;
-
-    const allowedKeys = [
-      "ALCHEMY_API_KEY",
-      "INFURA_API_KEY",
-      "ANKR_API_KEY",
-      "ETHEREUM_RPC_URL",
-      "BASE_RPC_URL",
-      "AVALANCHE_RPC_URL",
-      "HELIUS_API_KEY",
-      "BIRDEYE_API_KEY",
-      "NODEREAL_BSC_RPC_URL",
-      "QUICKNODE_BSC_RPC_URL",
-      "BSC_RPC_URL",
-      "SOLANA_RPC_URL",
-    ];
-
-    if (!config.env) config.env = {};
-
-    for (const key of allowedKeys) {
-      const value = body[key];
-      if (typeof value === "string" && value.trim()) {
-        process.env[key] = value.trim();
-        (config.env as Record<string, string>)[key] = value.trim();
-      }
+    const currentSelections = resolveWalletRpcReadiness(config);
+    const updateRequest = resolveWalletConfigUpdateRequest(
+      body,
+      currentSelections.selectedRpcProviders,
+    );
+    if (!updateRequest) {
+      error(res, "Invalid wallet config payload", 400);
+      return true;
     }
 
-    const heliusValue = body.HELIUS_API_KEY;
-    if (typeof heliusValue === "string" && heliusValue.trim()) {
-      const rpcUrl = `https://mainnet.helius-rpc.com/?api-key=${heliusValue.trim()}`;
-      process.env.SOLANA_RPC_URL = rpcUrl;
-      (config.env as Record<string, string>).SOLANA_RPC_URL = rpcUrl;
-    }
+    applyWalletRpcConfigUpdate(config, updateRequest);
 
     ensureWalletKeysInEnvAndConfig(config);
 

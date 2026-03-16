@@ -29,6 +29,13 @@ interface PluginInfo {
   configUiHints?: Record<string, ConfigUiHint>;
 }
 
+function normalizeAiProviderPluginId(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/^@[^/]+\//, "")
+    .replace(/^plugin-/, "");
+}
+
 interface ProviderSwitcherProps {
   elizaCloudEnabled?: boolean;
   elizaCloudConnected?: boolean;
@@ -68,7 +75,7 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
     props.elizaCloudCreditsLow ?? Boolean(app.elizaCloudCreditsLow);
   const elizaCloudCreditsCritical =
     props.elizaCloudCreditsCritical ?? Boolean(app.elizaCloudCreditsCritical);
-  const elizaCloudTopUpUrl =
+  const _elizaCloudTopUpUrl =
     props.elizaCloudTopUpUrl ??
     (typeof app.elizaCloudTopUpUrl === "string" ? app.elizaCloudTopUpUrl : "");
   const elizaCloudUserId =
@@ -363,12 +370,18 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
     async (providerId: string) => {
       hasManualSelection.current = true;
       setSelectedProviderId(providerId);
-      const pluginId =
-        providerId === "anthropic-subscription"
-          ? "@elizaos/plugin-anthropic"
-          : "@elizaos/plugin-openai";
-      const target = allAiProviders.find((p) => p.id === pluginId);
-      if (!target) return;
+      const providerFamily =
+        providerId === "anthropic-subscription" ? "anthropic" : "openai";
+      const target =
+        allAiProviders.find((plugin) => {
+          const normalizedId = normalizeAiProviderPluginId(plugin.id);
+          const normalizedName = plugin.name.toLowerCase();
+          return (
+            normalizedId === providerFamily ||
+            normalizedId.startsWith(`${providerFamily}-`) ||
+            normalizedName.includes(providerFamily)
+          );
+        }) ?? null;
 
       try {
         // Disable cloud inference but keep cloud connected for RPC/services
@@ -389,11 +402,11 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
       } catch (err) {
         console.warn("[milady] Provider switch failed", err);
       }
-      if (!target.enabled) {
+      if (target && !target.enabled) {
         await handlePluginToggle(target.id, true);
       }
       for (const p of enabledAiProviders) {
-        if (p.id !== target.id) {
+        if (!target || p.id !== target.id) {
           await handlePluginToggle(p.id, false);
         }
       }

@@ -41,11 +41,21 @@ import type {
   WalletAddresses,
   WalletBalancesResponse,
   WalletConfigStatus,
+  WalletConfigUpdateRequest,
   WalletNftsResponse,
+  WalletRpcChain,
+  WalletRpcCredentialKey,
+  WalletRpcSelections,
   TradePermissionMode as WalletTradePermissionMode,
   WalletTradingProfileResponse,
   WalletTradingProfileSourceFilter,
   WalletTradingProfileWindow,
+} from "../../../../src/contracts/wallet";
+import {
+  type DEFAULT_WALLET_RPC_SELECTIONS,
+  normalizeWalletRpcProviderId,
+  normalizeWalletRpcSelections,
+  type WALLET_RPC_PROVIDER_OPTIONS,
 } from "../../../../src/contracts/wallet";
 import type {
   AllPermissionsState,
@@ -73,6 +83,7 @@ export type {
   CustomActionDef,
   CustomActionHandler,
   DatabaseProviderType,
+  DEFAULT_WALLET_RPC_SELECTIONS,
   DropStatus,
   EvmChainBalance,
   EvmNft,
@@ -95,14 +106,21 @@ export type {
   VideoProvider,
   VisionConfig,
   VisionProvider,
+  WALLET_RPC_PROVIDER_OPTIONS,
   WalletAddresses,
   WalletBalancesResponse,
   WalletConfigStatus,
+  WalletConfigUpdateRequest,
   WalletNftsResponse,
+  WalletRpcChain,
+  WalletRpcCredentialKey,
+  WalletRpcSelections,
   WalletTradingProfileResponse,
   WalletTradingProfileSourceFilter,
   WalletTradingProfileWindow,
 };
+
+export { normalizeWalletRpcProviderId, normalizeWalletRpcSelections };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -558,6 +576,7 @@ export interface OnboardingData {
   // Messaging channel setup
   channels?: Record<string, unknown>;
   // Inventory / wallet setup
+  walletConfig?: WalletConfigUpdateRequest;
   inventoryProviders?: Array<{
     chain: string;
     rpcProvider: string;
@@ -3360,7 +3379,7 @@ export class MiladyClient {
     return this.fetch("/api/wallet/config");
   }
   async updateWalletConfig(
-    config: Record<string, string>,
+    config: WalletConfigUpdateRequest,
   ): Promise<{ ok: boolean }> {
     return this.fetch("/api/wallet/config", {
       method: "PUT",

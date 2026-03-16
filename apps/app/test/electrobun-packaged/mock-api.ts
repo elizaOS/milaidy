@@ -158,11 +158,39 @@ const onboardingOptions = {
       description: "Ethereum-compatible chains",
       rpcProviders: [
         {
-          id: "elizacloud",
+          id: "eliza-cloud",
           name: "Eliza Cloud",
           description: "Managed RPC",
           envKey: null,
           requiresKey: false,
+        },
+        {
+          id: "alchemy",
+          name: "Alchemy",
+          description: "Shared multi-chain RPC",
+          envKey: "ALCHEMY_API_KEY",
+          requiresKey: true,
+        },
+      ],
+    },
+    {
+      id: "bsc",
+      name: "BSC",
+      description: "BNB Smart Chain",
+      rpcProviders: [
+        {
+          id: "eliza-cloud",
+          name: "Eliza Cloud",
+          description: "Managed RPC",
+          envKey: null,
+          requiresKey: false,
+        },
+        {
+          id: "nodereal",
+          name: "NodeReal",
+          description: "Dedicated BSC RPC",
+          envKey: "NODEREAL_BSC_RPC_URL",
+          requiresKey: true,
         },
       ],
     },
@@ -172,11 +200,18 @@ const onboardingOptions = {
       description: "Solana chain",
       rpcProviders: [
         {
-          id: "elizacloud",
+          id: "eliza-cloud",
           name: "Eliza Cloud",
           description: "Managed RPC",
           envKey: null,
           requiresKey: false,
+        },
+        {
+          id: "helius-birdeye",
+          name: "Helius + Birdeye",
+          description: "Solana RPC plus metadata",
+          envKey: "HELIUS_API_KEY",
+          requiresKey: true,
         },
       ],
     },

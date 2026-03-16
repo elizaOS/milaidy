@@ -314,7 +314,7 @@ function onboardingOptions() {
         description: "EVM chains",
         rpcProviders: [
           {
-            id: "elizacloud",
+            id: "eliza-cloud",
             name: "Eliza Cloud",
             description: "Managed RPC",
             envKey: null,

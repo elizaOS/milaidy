@@ -51,6 +51,7 @@ export type {
   WalletBalancesResponse,
   WalletChain,
   WalletConfigStatus,
+  WalletConfigUpdateRequest,
   WalletGenerateResult,
   WalletImportResult,
   WalletKeys,

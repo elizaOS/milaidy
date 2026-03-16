@@ -62,6 +62,7 @@ import {
   type WalletAddresses,
   type WalletBalancesResponse,
   type WalletConfigStatus,
+  type WalletConfigUpdateRequest,
   type WalletExportResult,
   type WalletNftsResponse,
   type WalletTradingProfileResponse,
@@ -235,6 +236,7 @@ import {
   useConfirm,
   usePrompt,
 } from "../components/ConfirmModal";
+import { buildWalletRpcUpdateRequest } from "../wallet-rpc";
 
 const GREETING_EMOTE_DELAY_MS = 1400;
 const GREETING_WAVE_EMOTE: AppEmoteEventDetail = {
@@ -2495,8 +2497,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearChatInput?: boolean;
       },
     ) => {
+      const hasAttachedImages = Boolean(options?.images?.length);
       const rawText = rawInput.trim();
-      if (!rawText) return;
+      if (!rawText && !hasAttachedImages) return;
       if (chatSendBusyRef.current) return;
       chatSendBusyRef.current = true;
       const sendNonce = ++chatSendNonceRef.current;
@@ -2509,31 +2512,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let controller: AbortController | null = null;
 
       try {
-        let text = rawText;
-        let commandResult: { handled: boolean; rewrittenText?: string };
-        try {
-          commandResult = await tryHandlePrefixedChatCommand(rawText);
-        } catch (err) {
-          appendLocalCommandTurn(
-            rawText,
-            `Command failed: ${err instanceof Error ? err.message : "unknown error"}`,
-          );
-          if (options?.clearChatInput) {
-            setChatInput("");
+        let text = hasAttachedImages
+          ? rawText || "Please review the attached image."
+          : rawText;
+        if (rawText) {
+          let commandResult: { handled: boolean; rewrittenText?: string };
+          try {
+            commandResult = await tryHandlePrefixedChatCommand(rawText);
+          } catch (err) {
+            appendLocalCommandTurn(
+              rawText,
+              `Command failed: ${err instanceof Error ? err.message : "unknown error"}`,
+            );
+            if (options?.clearChatInput) {
+              setChatInput("");
+            }
+            return;
           }
-          return;
-        }
-        if (commandResult.handled) {
-          if (options?.clearChatInput) {
-            setChatInput("");
+          if (commandResult.handled) {
+            if (options?.clearChatInput) {
+              setChatInput("");
+            }
+            return;
           }
-          return;
-        }
-        if (
-          typeof commandResult.rewrittenText === "string" &&
-          commandResult.rewrittenText.trim()
-        ) {
-          text = commandResult.rewrittenText.trim();
+          if (
+            typeof commandResult.rewrittenText === "string" &&
+            commandResult.rewrittenText.trim()
+          ) {
+            text = commandResult.rewrittenText.trim();
+          }
         }
 
         let convId: string =
@@ -3598,8 +3605,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Inventory actions ──────────────────────────────────────────────
 
   const handleWalletApiKeySave = useCallback(
-    async (config: Record<string, string>) => {
-      if (Object.keys(config).length === 0) return;
+    async (config: WalletConfigUpdateRequest) => {
+      if (
+        Object.keys(config.credentials ?? {}).length === 0 &&
+        Object.keys(config.selections ?? {}).length === 0
+      ) {
+        return;
+      }
       if (walletApiKeySavingRef.current || walletApiKeySaving) return;
       walletApiKeySavingRef.current = true;
       setWalletApiKeySaving(true);
@@ -3609,7 +3621,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await loadWalletConfig();
         await loadBalances();
         setActionNotice(
-          "Wallet API keys saved. Restart required to apply.",
+          "Wallet RPC settings saved. Restart required to apply.",
           "success",
         );
       } catch (err) {
@@ -3883,44 +3895,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingFinishSavingRef.current = true;
 
     try {
-      // Build inventoryProviders from RPC selections/keys
-      const inventoryProviders: Array<{
-        chain: string;
-        rpcProvider: string;
-        rpcApiKey?: string;
-      }> = [];
       const rpcSel = onboardingRpcSelections as Record<string, string>;
       const rpcK = onboardingRpcKeys as Record<string, string>;
-
-      const defaultRpcProvider =
-        elizaCloudProvisioned || elizaCloudConnected
-          ? "eliza-cloud"
-          : undefined;
-      const evmProvider = rpcSel.evm || defaultRpcProvider;
-      const bscProvider = rpcSel.bsc || defaultRpcProvider;
-      const solanaProvider = rpcSel.solana || defaultRpcProvider;
-
-      if (evmProvider) {
-        inventoryProviders.push({
-          chain: "evm",
-          rpcProvider: evmProvider,
-          rpcApiKey: rpcK.ALCHEMY_API_KEY || undefined,
-        });
-      }
-      if (bscProvider) {
-        inventoryProviders.push({
-          chain: "bsc",
-          rpcProvider: bscProvider,
-          rpcApiKey: rpcK.ALCHEMY_API_KEY || undefined,
-        });
-      }
-      if (solanaProvider) {
-        inventoryProviders.push({
-          chain: "solana",
-          rpcProvider: solanaProvider,
-          rpcApiKey: rpcK.HELIUS_API_KEY || undefined,
-        });
-      }
+      const nextWalletConfig = buildWalletRpcUpdateRequest({
+        walletConfig,
+        rpcFieldValues: rpcK,
+        selectedProviders: {
+          evm: rpcSel.evm,
+          bsc: rpcSel.bsc,
+          solana: rpcSel.solana,
+        },
+      });
 
       await client.submitOnboarding({
         name: onboardingName,
@@ -3948,8 +3933,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           apiRunMode === "local"
             ? onboardingPrimaryModel.trim() || undefined
             : undefined,
-        inventoryProviders:
-          inventoryProviders.length > 0 ? inventoryProviders : undefined,
+        walletConfig: nextWalletConfig,
       });
       try {
         setAgentStatus(await client.restartAgent());
@@ -3988,9 +3972,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingPrimaryModel,
     onboardingRpcSelections,
     onboardingRpcKeys,
+    walletConfig,
     hydrateInitialConversationState,
     setTab,
-    elizaCloudConnected,
     requestGreetingWhenRunning,
   ]);
 

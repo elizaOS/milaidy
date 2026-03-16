@@ -43,6 +43,12 @@ import {
   isStreamingDestinationConfigured,
 } from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
+import {
+  DEFAULT_WALLET_RPC_SELECTIONS,
+  normalizeWalletRpcProviderId,
+  type WalletConfigUpdateRequest,
+  type WalletRpcCredentialKey,
+} from "../contracts/wallet";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
 import {
@@ -179,7 +185,11 @@ import {
 import { TxService } from "./tx-service";
 import { generateWalletKeys, getWalletAddresses } from "./wallet";
 import { handleWalletRoutes } from "./wallet-routes";
-import { resolveWalletRpcReadiness } from "./wallet-rpc";
+import {
+  applyWalletRpcConfigUpdate,
+  getInventoryProviderOptions,
+  resolveWalletRpcReadiness,
+} from "./wallet-rpc";
 import {
   loadWalletTradingProfile,
   recordWalletTradeLedgerEntry,
@@ -1090,6 +1100,7 @@ export const CONFIG_WRITE_ALLOWED_TOP_KEYS = new Set([
   "memory",
   "database",
   "cloud",
+  "wallet",
   "x402",
   "mcp",
   "features",
@@ -3645,6 +3656,23 @@ export function buildUserMessages(params: {
   return { userMessage, messageToStore };
 }
 
+export const IMAGE_ONLY_CHAT_FALLBACK_PROMPT =
+  "Please review the attached image.";
+
+export function normalizeIncomingChatPrompt(
+  text: string | undefined,
+  images: ChatImageAttachment[] | undefined,
+): string | null {
+  const trimmed = text?.trim() ?? "";
+  if (trimmed) {
+    return trimmed;
+  }
+  if (Array.isArray(images) && images.length > 0) {
+    return IMAGE_ONLY_CHAT_FALLBACK_PROMPT;
+  }
+  return null;
+}
+
 async function readChatRequestPayload(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -3672,10 +3700,6 @@ async function readChatRequestPayload(
     conversationMode?: string;
   }>(req, res, { maxBytes });
   if (!body) return null;
-  if (!body.text?.trim()) {
-    helpers.error(res, "text is required");
-    return null;
-  }
   const channelType = parseRequestChannelType(body.channelType, ChannelType.DM);
   if (!channelType) {
     helpers.error(res, "channelType is invalid", 400);
@@ -3700,8 +3724,13 @@ async function readChatRequestPayload(
         mimeType: img.mimeType.toLowerCase(),
       }))
     : undefined;
+  const prompt = normalizeIncomingChatPrompt(body.text, images);
+  if (!prompt) {
+    helpers.error(res, "text is required");
+    return null;
+  }
   return {
-    prompt: body.text.trim(),
+    prompt,
     channelType,
     images,
     ...(conversationMode ? { conversationMode } : {}),
@@ -4917,76 +4946,128 @@ async function getOrFetchAllProviders(
   return result;
 }
 
-function getInventoryProviderOptions(): Array<{
-  id: string;
-  name: string;
-  description: string;
-  rpcProviders: Array<{
-    id: string;
-    name: string;
-    description: string;
-    envKey: string | null;
-    requiresKey: boolean;
-  }>;
-}> {
-  return [
-    {
-      id: "evm",
-      name: "EVM",
-      description: "Ethereum, Base, Arbitrum, Optimism, Polygon.",
-      rpcProviders: [
-        {
-          id: "elizacloud",
-          name: "Eliza Cloud",
-          description: "Managed RPC. No setup needed.",
-          envKey: null,
-          requiresKey: false,
-        },
-        {
-          id: "infura",
-          name: "Infura",
-          description: "Reliable EVM infrastructure.",
-          envKey: "INFURA_API_KEY",
-          requiresKey: true,
-        },
-        {
-          id: "alchemy",
-          name: "Alchemy",
-          description: "Full-featured EVM data platform.",
-          envKey: "ALCHEMY_API_KEY",
-          requiresKey: true,
-        },
-        {
-          id: "ankr",
-          name: "Ankr",
-          description: "Decentralized RPC provider.",
-          envKey: "ANKR_API_KEY",
-          requiresKey: true,
-        },
-      ],
-    },
-    {
-      id: "solana",
-      name: "Solana",
-      description: "Solana mainnet tokens and NFTs.",
-      rpcProviders: [
-        {
-          id: "elizacloud",
-          name: "Eliza Cloud",
-          description: "Managed RPC. No setup needed.",
-          envKey: null,
-          requiresKey: false,
-        },
-        {
-          id: "helius",
-          name: "Helius",
-          description: "Solana-native data platform.",
-          envKey: "HELIUS_API_KEY",
-          requiresKey: true,
-        },
-      ],
-    },
-  ];
+function resolveOnboardingWalletConfigUpdate(
+  body: Record<string, unknown>,
+): WalletConfigUpdateRequest | null {
+  const walletConfigCandidate = body.walletConfig;
+  if (
+    walletConfigCandidate &&
+    typeof walletConfigCandidate === "object" &&
+    !Array.isArray(walletConfigCandidate)
+  ) {
+    const candidate = walletConfigCandidate as {
+      selections?: Partial<Record<string, string | null | undefined>>;
+      credentials?: Partial<Record<string, string | null | undefined>>;
+    };
+    const credentials =
+      candidate.credentials &&
+      typeof candidate.credentials === "object" &&
+      !Array.isArray(candidate.credentials)
+        ? Object.fromEntries(
+            Object.entries(candidate.credentials).filter(
+              ([, value]) => typeof value === "string",
+            ),
+          )
+        : undefined;
+    return {
+      selections: {
+        evm:
+          normalizeWalletRpcProviderId("evm", candidate.selections?.evm) ??
+          DEFAULT_WALLET_RPC_SELECTIONS.evm,
+        bsc:
+          normalizeWalletRpcProviderId("bsc", candidate.selections?.bsc) ??
+          DEFAULT_WALLET_RPC_SELECTIONS.bsc,
+        solana:
+          normalizeWalletRpcProviderId(
+            "solana",
+            candidate.selections?.solana,
+          ) ?? DEFAULT_WALLET_RPC_SELECTIONS.solana,
+      },
+      credentials: credentials as
+        | Partial<Record<WalletRpcCredentialKey, string>>
+        | undefined,
+    };
+  }
+
+  if (!Array.isArray(body.inventoryProviders)) {
+    return null;
+  }
+
+  const selections: WalletConfigUpdateRequest["selections"] = {
+    ...DEFAULT_WALLET_RPC_SELECTIONS,
+  };
+  const credentials: Partial<Record<WalletRpcCredentialKey, string>> = {};
+  const allInventory = getInventoryProviderOptions();
+
+  for (const item of body.inventoryProviders) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+    const inv = item as {
+      chain?: string;
+      rpcProvider?: string;
+      rpcApiKey?: string;
+    };
+    const chain =
+      inv.chain === "evm" || inv.chain === "bsc" || inv.chain === "solana"
+        ? inv.chain
+        : null;
+    if (!chain) {
+      continue;
+    }
+
+    let providerId: string | null = null;
+    switch (chain) {
+      case "evm": {
+        const provider = normalizeWalletRpcProviderId("evm", inv.rpcProvider);
+        if (!provider) {
+          continue;
+        }
+        selections.evm = provider;
+        providerId = provider;
+        break;
+      }
+      case "bsc": {
+        const provider = normalizeWalletRpcProviderId("bsc", inv.rpcProvider);
+        if (!provider) {
+          continue;
+        }
+        selections.bsc = provider;
+        providerId = provider;
+        break;
+      }
+      case "solana": {
+        const provider = normalizeWalletRpcProviderId(
+          "solana",
+          inv.rpcProvider,
+        );
+        if (!provider) {
+          continue;
+        }
+        selections.solana = provider;
+        providerId = provider;
+        break;
+      }
+    }
+    if (!providerId) {
+      continue;
+    }
+
+    const chainDef = allInventory.find((candidate) => candidate.id === chain);
+    const providerDef = chainDef?.rpcProviders.find(
+      (candidate) => candidate.id === providerId,
+    );
+    const rpcApiKey =
+      typeof inv.rpcApiKey === "string" ? inv.rpcApiKey.trim() : "";
+    if (providerDef?.envKey && rpcApiKey) {
+      credentials[providerDef.envKey as WalletRpcCredentialKey] = rpcApiKey;
+    }
+  }
+
+  return {
+    selections,
+    credentials,
+  };
 }
 
 function ensureWalletKeysInEnvAndConfig(config: MiladyConfig): boolean {
@@ -8281,24 +8362,11 @@ async function handleRequest(
     }
 
     // ── Inventory / RPC providers ─────────────────────────────────────────
-    if (Array.isArray(body.inventoryProviders)) {
-      if (!config.env) config.env = {};
-      const allInventory = getInventoryProviderOptions();
-      for (const inv of body.inventoryProviders as Array<{
-        chain: string;
-        rpcProvider: string;
-        rpcApiKey?: string;
-      }>) {
-        const chainDef = allInventory.find((ip) => ip.id === inv.chain);
-        if (!chainDef) continue;
-        const rpcDef = chainDef.rpcProviders.find(
-          (rp) => rp.id === inv.rpcProvider,
-        );
-        if (rpcDef?.envKey && inv.rpcApiKey) {
-          (config.env as Record<string, string>)[rpcDef.envKey] = inv.rpcApiKey;
-          process.env[rpcDef.envKey] = inv.rpcApiKey;
-        }
-      }
+    const walletConfigUpdate = resolveOnboardingWalletConfigUpdate(
+      body as Record<string, unknown>,
+    );
+    if (walletConfigUpdate) {
+      applyWalletRpcConfigUpdate(config, walletConfigUpdate);
     }
 
     // ── Ensure wallet keys exist so inventory can resolve addresses ───────

@@ -551,6 +551,23 @@ export const MiladySchema = z
       .strict()
       .optional(),
     connectors: ConnectorsSchema,
+    wallet: z
+      .object({
+        rpcProviders: z
+          .object({
+            evm: z
+              .enum(["eliza-cloud", "alchemy", "infura", "ankr"])
+              .optional(),
+            bsc: z
+              .enum(["eliza-cloud", "alchemy", "ankr", "nodereal", "quicknode"])
+              .optional(),
+            solana: z.enum(["eliza-cloud", "helius-birdeye"]).optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
     streaming: StreamingSchema,
     /** @deprecated Use `connectors`. Kept for backward compatibility. */
     channels: ConnectorsSchema,

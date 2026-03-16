@@ -555,6 +555,17 @@ export type CloudConfig = {
   container?: CloudContainerDefaults;
 };
 
+export type WalletRpcProviderSelectionsConfig = {
+  evm?: "eliza-cloud" | "alchemy" | "infura" | "ankr";
+  bsc?: "eliza-cloud" | "alchemy" | "ankr" | "nodereal" | "quicknode";
+  solana?: "eliza-cloud" | "helius-birdeye";
+};
+
+export type WalletConfig = {
+  /** Canonical wallet RPC provider selection per chain family. */
+  rpcProviders?: WalletRpcProviderSelectionsConfig;
+};
+
 /** CUA (Computer Use Agent) configuration. Supports local (Lume VM) and cloud modes. */
 export type CuaConfig = {
   /** Enable the CUA plugin. Default: false. */
@@ -728,6 +739,8 @@ export type MiladyConfig = {
   database?: DatabaseConfig;
   /** Eliza Cloud integration for remote agent provisioning and inference. */
   cloud?: CloudConfig;
+  /** Canonical wallet RPC provider selection state. */
+  wallet?: WalletConfig;
   /** CUA (Computer Use Agent) cloud sandbox configuration. */
   cua?: CuaConfig;
   x402?: X402Config;

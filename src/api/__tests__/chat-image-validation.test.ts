@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildChatAttachments,
   buildUserMessages,
+  IMAGE_ONLY_CHAT_FALLBACK_PROMPT,
+  normalizeIncomingChatPrompt,
   validateChatImages,
 } from "../server";
 
@@ -311,6 +313,28 @@ describe("buildChatAttachments", () => {
     ]);
     expect(attachments).toHaveLength(3);
     expect(compactAttachments).toHaveLength(3);
+  });
+});
+
+describe("normalizeIncomingChatPrompt", () => {
+  it("keeps explicit chat text when present", () => {
+    expect(
+      normalizeIncomingChatPrompt("  show me what this means  ", [
+        { data: "abc", mimeType: "image/png", name: "x.png" },
+      ]),
+    ).toBe("show me what this means");
+  });
+
+  it("uses the image fallback prompt when uploads are present without text", () => {
+    expect(
+      normalizeIncomingChatPrompt("", [
+        { data: "abc", mimeType: "image/png", name: "x.png" },
+      ]),
+    ).toBe(IMAGE_ONLY_CHAT_FALLBACK_PROMPT);
+  });
+
+  it("still rejects empty chat requests with no uploads", () => {
+    expect(normalizeIncomingChatPrompt("   ", undefined)).toBeNull();
   });
 });
 

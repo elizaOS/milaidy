@@ -38,7 +38,6 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     walletError,
     loadBalances,
     loadNfts,
-    elizaCloudConnected,
     setTab,
     setState,
     setActionNotice,
@@ -59,10 +58,7 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
 
   // ── RPC + wallet readiness ───────────────────────────────────────
   const cfg = walletConfig;
-  const hasManagedBscRpc = Boolean(cfg?.managedBscRpcReady);
-  const cloudManagedAccess = Boolean(
-    cfg?.cloudManagedAccess || elizaCloudConnected,
-  );
+  const legacyCustomChainSet = new Set(cfg?.legacyCustomChains ?? []);
 
   const goToRpcSettings = useCallback(() => {
     setTab("settings");
@@ -111,41 +107,25 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   const ethereumReady = Boolean(
     evmAddr &&
       !evmChainErrors.get("ethereum") &&
-      (loadedEvmChainKeys.has("ethereum") ||
-        cfg?.ethereumBalanceReady ||
-        cfg?.alchemyKeySet ||
-        cloudManagedAccess),
+      (loadedEvmChainKeys.has("ethereum") || cfg?.ethereumBalanceReady),
   );
   const baseReady = Boolean(
     evmAddr &&
       !evmChainErrors.get("base") &&
-      (loadedEvmChainKeys.has("base") ||
-        cfg?.baseBalanceReady ||
-        cfg?.alchemyKeySet ||
-        cloudManagedAccess),
+      (loadedEvmChainKeys.has("base") || cfg?.baseBalanceReady),
   );
   const bscReady = Boolean(
     evmAddr &&
       !evmChainErrors.get("bsc") &&
-      (loadedEvmChainKeys.has("bsc") ||
-        cfg?.bscBalanceReady ||
-        cfg?.ankrKeySet ||
-        hasManagedBscRpc),
+      (loadedEvmChainKeys.has("bsc") || cfg?.bscBalanceReady),
   );
   const avaxReady = Boolean(
     evmAddr &&
       !evmChainErrors.get("avax") &&
-      (loadedEvmChainKeys.has("avax") ||
-        cfg?.avalancheBalanceReady ||
-        cfg?.alchemyKeySet ||
-        cloudManagedAccess),
+      (loadedEvmChainKeys.has("avax") || cfg?.avalancheBalanceReady),
   );
   const solanaReady = Boolean(
-    solAddr &&
-      (Boolean(walletBalances?.solana) ||
-        cfg?.solanaBalanceReady ||
-        cfg?.heliusKeySet ||
-        cloudManagedAccess),
+    solAddr && (Boolean(walletBalances?.solana) || cfg?.solanaBalanceReady),
   );
   const tradeReady = bnbBalance >= BSC_GAS_THRESHOLD;
   const addresses = [
@@ -166,6 +146,19 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           retryTitle: `Retry fetching ${focusedChainLabel ?? "chain"} balances`,
         }
       : null;
+  const genericEvmReady = Boolean(cfg?.evmBalanceReady);
+  const focusedEvmReady =
+    chainFocus === "ethereum"
+      ? ethereumReady
+      : chainFocus === "base"
+        ? baseReady
+        : chainFocus === "avax"
+          ? avaxReady
+          : chainFocus !== "all" &&
+              chainFocus !== "bsc" &&
+              chainFocus !== "solana"
+            ? loadedEvmChainKeys.has(chainFocus) || genericEvmReady
+            : false;
 
   const headerWarning =
     chainFocus === "bsc" && evmAddr && !bscReady
@@ -184,19 +177,37 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
             chainFocus !== "bsc" &&
             chainFocus !== "solana" &&
             evmAddr &&
-            !(chainFocus === "ethereum"
-              ? ethereumReady
-              : chainFocus === "base"
-                ? baseReady
-                : chainFocus === "avax"
-                  ? avaxReady
-                  : false)
+            !focusedEvmReady
           ? {
               title: `${focusedChainLabel ?? "Chain"} access is not configured.`,
               body: `Connect via Eliza Cloud or configure ${focusedChainLabel ?? "this chain"} RPC access in Settings to load balances.`,
               actionLabel: t("wallet.setup.configureRpc"),
             }
           : null;
+  const legacyRpcWarning =
+    chainFocus === "all"
+      ? null
+      : chainFocus === "bsc" && legacyCustomChainSet.has("bsc")
+        ? {
+            title: "BSC is using legacy raw RPC config.",
+            body: "This chain is still running on a legacy raw RPC URL. Re-save a supported provider in Settings to migrate fully.",
+            actionLabel: t("wallet.setup.configureRpc"),
+          }
+        : chainFocus === "solana" && legacyCustomChainSet.has("solana")
+          ? {
+              title: "Solana is using legacy raw RPC config.",
+              body: "This chain is still running on a legacy raw RPC URL. Re-save a supported provider in Settings to migrate fully.",
+              actionLabel: t("wallet.setup.configureRpc"),
+            }
+          : chainFocus !== "bsc" &&
+              chainFocus !== "solana" &&
+              legacyCustomChainSet.has("evm")
+            ? {
+                title: `${focusedChainLabel ?? "Chain"} is using legacy raw RPC config.`,
+                body: "This chain is still running on a legacy raw RPC URL. Re-save a supported provider in Settings to migrate fully.",
+                actionLabel: t("wallet.setup.configureRpc"),
+              }
+            : null;
 
   // ── Tracked token handlers ────────────────────────────────────────
   const handleAddToken = useCallback(
@@ -316,23 +327,25 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           </div>
         )}
 
-        {headerWarning && (
+        {(legacyRpcWarning ?? headerWarning) && (
           <div className="border-l-2 border-accent/70 pl-3 py-1 text-[11px]">
             <div className="font-semibold text-txt-strong">
-              {headerWarning.title}
+              {(legacyRpcWarning ?? headerWarning)?.title}
             </div>
-            <div className="mt-1 text-muted">{headerWarning.body}</div>
+            <div className="mt-1 text-muted">
+              {(legacyRpcWarning ?? headerWarning)?.body}
+            </div>
             <button
               type="button"
               className="mt-1 text-[11px] font-medium text-accent cursor-pointer"
               onClick={goToRpcSettings}
             >
-              {headerWarning.actionLabel}
+              {(legacyRpcWarning ?? headerWarning)?.actionLabel}
             </button>
           </div>
         )}
 
-        {chainFocus === "bsc" && evmAddr && !bscHasError && (
+        {chainFocus === "bsc" && evmAddr && bscReady && !bscHasError && (
           <TradePanel
             tradeReady={tradeReady}
             bnbBalance={bnbBalance}

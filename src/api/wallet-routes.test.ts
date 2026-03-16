@@ -273,6 +273,12 @@ describe("wallet routes", () => {
     expect(result.handled).toBe(true);
     expect(result.payload).toEqual(
       expect.objectContaining({
+        selectedRpcProviders: {
+          evm: "eliza-cloud",
+          bsc: "eliza-cloud",
+          solana: "eliza-cloud",
+        },
+        legacyCustomChains: [],
         cloudManagedAccess: true,
         nodeRealBscRpcSet: false,
         quickNodeBscRpcSet: false,
@@ -368,8 +374,16 @@ describe("wallet routes", () => {
       method: "PUT",
       pathname: "/api/wallet/config",
       body: {
-        ALCHEMY_API_KEY: "a-key",
-        HELIUS_API_KEY: "h-key",
+        selections: {
+          evm: "alchemy",
+          bsc: "alchemy",
+          solana: "helius-birdeye",
+        },
+        credentials: {
+          ALCHEMY_API_KEY: "a-key",
+          HELIUS_API_KEY: "h-key",
+          BIRDEYE_API_KEY: "bird-key",
+        },
       },
       config: { env: {} } as MiladyConfig,
     });
@@ -378,12 +392,78 @@ describe("wallet routes", () => {
     expect(result.status).toBe(200);
     expect(process.env.ALCHEMY_API_KEY).toBe("a-key");
     expect(process.env.HELIUS_API_KEY).toBe("h-key");
+    expect(process.env.BIRDEYE_API_KEY).toBe("bird-key");
     expect(process.env.SOLANA_RPC_URL).toBe(
       "https://mainnet.helius-rpc.com/?api-key=h-key",
     );
+    expect(result.config.wallet?.rpcProviders).toEqual({
+      evm: "alchemy",
+      bsc: "alchemy",
+      solana: "helius-birdeye",
+    });
     expect(result.ensureWalletKeysInEnvAndConfig).toHaveBeenCalledWith(
       result.config,
     );
+    expect(result.saveConfig).toHaveBeenCalledWith(result.config);
+    expect(result.payload).toEqual({ ok: true });
+  });
+
+  test("clears explicitly blank wallet RPC config keys", async () => {
+    process.env.ALCHEMY_API_KEY = "alchemy";
+    process.env.HELIUS_API_KEY = "helius";
+    process.env.BIRDEYE_API_KEY = "birdeye";
+    process.env.SOLANA_RPC_URL =
+      "https://mainnet.helius-rpc.com/?api-key=helius";
+
+    const config = {
+      env: {
+        ALCHEMY_API_KEY: "alchemy",
+        HELIUS_API_KEY: "helius",
+        BIRDEYE_API_KEY: "birdeye",
+        SOLANA_RPC_URL: "https://mainnet.helius-rpc.com/?api-key=helius",
+      },
+    } as MiladyConfig;
+
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/wallet/config",
+      body: {
+        selections: {
+          evm: "eliza-cloud",
+          bsc: "eliza-cloud",
+          solana: "eliza-cloud",
+        },
+        credentials: {
+          ALCHEMY_API_KEY: "",
+          HELIUS_API_KEY: "",
+          BIRDEYE_API_KEY: "",
+        },
+      },
+      config,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(process.env.ALCHEMY_API_KEY).toBeUndefined();
+    expect(process.env.HELIUS_API_KEY).toBeUndefined();
+    expect(process.env.BIRDEYE_API_KEY).toBeUndefined();
+    expect(process.env.SOLANA_RPC_URL).toBeUndefined();
+    expect((result.config.env as Record<string, string>).ALCHEMY_API_KEY).toBe(
+      undefined,
+    );
+    expect((result.config.env as Record<string, string>).HELIUS_API_KEY).toBe(
+      undefined,
+    );
+    expect((result.config.env as Record<string, string>).BIRDEYE_API_KEY).toBe(
+      undefined,
+    );
+    expect((result.config.env as Record<string, string>).SOLANA_RPC_URL).toBe(
+      undefined,
+    );
+    expect(result.config.wallet?.rpcProviders).toEqual({
+      evm: "eliza-cloud",
+      bsc: "eliza-cloud",
+      solana: "eliza-cloud",
+    });
     expect(result.saveConfig).toHaveBeenCalledWith(result.config);
     expect(result.payload).toEqual({ ok: true });
   });

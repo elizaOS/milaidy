@@ -24,6 +24,7 @@ import {
 import {
   type AllPermissionsState,
   client,
+  type PermissionState,
   type PermissionStatus,
   type PluginInfo,
   type SystemPermissionId,
@@ -284,11 +285,43 @@ function CapabilityToggle({
 function usePermissionActions(
   setPermissions: Dispatch<SetStateAction<AllPermissionsState | null>>,
 ) {
+  const loadPermissionsSnapshot = useCallback(
+    async (forceRefresh = false): Promise<AllPermissionsState> => {
+      const bridged = await invokeDesktopBridgeRequest<AllPermissionsState>({
+        rpcMethod: "permissionsGetAll",
+        ipcChannel: "permissions:getAll",
+        params: forceRefresh ? { forceRefresh: true } : undefined,
+      });
+      if (bridged) {
+        return bridged;
+      }
+      if (forceRefresh) {
+        await client.refreshPermissions();
+      }
+      return client.getPermissions();
+    },
+    [],
+  );
+
   const handleRequest = useCallback(
     async (id: SystemPermissionId) => {
       try {
-        const state = await client.requestPermission(id);
-        setPermissions((prev) => (prev ? { ...prev, [id]: state } : prev));
+        const bridged = await invokeDesktopBridgeRequest<PermissionState>({
+          rpcMethod: "permissionsRequest",
+          ipcChannel: "permissions:request",
+          params: { id },
+        });
+        const state =
+          bridged ??
+          (await (async () => {
+            await client.requestPermission(id);
+            return client.getPermission(id);
+          })());
+        setPermissions((prev) =>
+          prev
+            ? { ...prev, [id]: state }
+            : ({ [id]: state } as AllPermissionsState),
+        );
       } catch (err) {
         console.error("Failed to request permission:", err);
       }
@@ -313,7 +346,7 @@ function usePermissionActions(
     }
   }, []);
 
-  return { handleRequest, handleOpenSettings };
+  return { handleRequest, handleOpenSettings, loadPermissionsSnapshot };
 }
 
 /** Mobile (Capacitor) permission UI for streaming to cloud sandbox. */
@@ -362,7 +395,7 @@ export function PermissionsSection() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [shellEnabled, setShellEnabled] = useState(true);
-  const { handleRequest, handleOpenSettings } =
+  const { handleRequest, handleOpenSettings, loadPermissionsSnapshot } =
     usePermissionActions(setPermissions);
 
   // On web, show informational view immediately
@@ -383,9 +416,15 @@ export function PermissionsSection() {
     void (async () => {
       setLoading(true);
       try {
+        const bridgedShellEnabled = await invokeDesktopBridgeRequest<boolean>({
+          rpcMethod: "permissionsIsShellEnabled",
+          ipcChannel: "permissions:isShellEnabled",
+        });
         const [perms, isShell] = await Promise.all([
-          client.getPermissions(),
-          client.isShellEnabled(),
+          loadPermissionsSnapshot(),
+          bridgedShellEnabled === null
+            ? client.isShellEnabled()
+            : Promise.resolve(bridgedShellEnabled),
         ]);
         setPermissions(perms);
         setShellEnabled(isShell);
@@ -401,27 +440,36 @@ export function PermissionsSection() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [loadPermissionsSnapshot]);
 
   /** Refresh permissions from OS. */
   // biome-ignore lint/correctness/useHookAtTopLevel: see above
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const perms = await client.refreshPermissions();
+      const perms = await loadPermissionsSnapshot(true);
       setPermissions(perms);
     } catch (err) {
       console.error("Failed to refresh permissions:", err);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [loadPermissionsSnapshot]);
 
   /** Toggle shell access. */
   // biome-ignore lint/correctness/useHookAtTopLevel: see above
   const handleToggleShell = useCallback(async (enabled: boolean) => {
     try {
-      const state = await client.setShellEnabled(enabled);
+      const result = (await client.setShellEnabled(enabled)) as
+        | PermissionState
+        | { permission?: PermissionState };
+      const state =
+        result &&
+        typeof result === "object" &&
+        "permission" in result &&
+        result.permission
+          ? result.permission
+          : (result as PermissionState);
       setShellEnabled(enabled);
       setPermissions((prev) => (prev ? { ...prev, shell: state } : prev));
     } catch (err) {

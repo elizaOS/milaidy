@@ -20,6 +20,23 @@ const { mockUseApp, mockIsWeb, mockIsElectron, mockIsNative } = vi.hoisted(
     mockIsNative: { value: false },
   }),
 );
+const {
+  mockGetPermissions,
+  mockIsShellEnabled,
+  mockRefreshPermissions,
+  mockRequestPermission,
+  mockOpenPermissionSettings,
+  mockSetShellEnabled,
+  mockInvokeDesktopBridgeRequest,
+} = vi.hoisted(() => ({
+  mockGetPermissions: vi.fn(),
+  mockIsShellEnabled: vi.fn(),
+  mockRefreshPermissions: vi.fn(),
+  mockRequestPermission: vi.fn(),
+  mockOpenPermissionSettings: vi.fn(),
+  mockSetShellEnabled: vi.fn(),
+  mockInvokeDesktopBridgeRequest: vi.fn(),
+}));
 
 vi.mock("@milady/app-core/state", () => ({
   useApp: () => mockUseApp(),
@@ -39,23 +56,17 @@ vi.mock("@milady/app-core/platform", () => ({
 
 vi.mock("@milady/app-core/api", () => ({
   client: {
-    getPermissions: vi.fn().mockResolvedValue({
-      accessibility: { status: "granted", canRequest: false },
-      "screen-recording": { status: "granted", canRequest: false },
-      microphone: { status: "granted", canRequest: false },
-      camera: { status: "granted", canRequest: false },
-      shell: { status: "granted", canRequest: false },
-    }),
-    isShellEnabled: vi.fn().mockResolvedValue(true),
-    refreshPermissions: vi.fn(),
-    requestPermission: vi.fn(),
-    openPermissionSettings: vi.fn(),
-    setShellEnabled: vi.fn(),
+    getPermissions: mockGetPermissions,
+    isShellEnabled: mockIsShellEnabled,
+    refreshPermissions: mockRefreshPermissions,
+    requestPermission: mockRequestPermission,
+    openPermissionSettings: mockOpenPermissionSettings,
+    setShellEnabled: mockSetShellEnabled,
   },
 }));
 
 vi.mock("@milady/app-core/bridge", () => ({
-  invokeDesktopBridgeRequest: vi.fn(),
+  invokeDesktopBridgeRequest: mockInvokeDesktopBridgeRequest,
 }));
 
 vi.mock("@milady/app-core/components/ui-badges", () => ({
@@ -118,11 +129,51 @@ function collectText(node: TestRenderer.ReactTestInstance): string {
 // ====================================================================
 
 describe("PermissionsSection", () => {
+  const defaultPermissions = {
+    accessibility: {
+      id: "accessibility",
+      status: "granted",
+      canRequest: false,
+    },
+    "screen-recording": {
+      id: "screen-recording",
+      status: "granted",
+      canRequest: false,
+    },
+    microphone: {
+      id: "microphone",
+      status: "not-determined",
+      canRequest: true,
+    },
+    camera: { id: "camera", status: "granted", canRequest: false },
+    shell: { id: "shell", status: "granted", canRequest: false },
+  };
+
   beforeEach(() => {
     mockUseApp.mockReset();
     mockIsWeb.mockReturnValue(false);
     mockIsElectron.mockReturnValue(true);
     mockIsNative.value = false;
+    mockGetPermissions.mockReset();
+    mockIsShellEnabled.mockReset();
+    mockRefreshPermissions.mockReset();
+    mockRequestPermission.mockReset();
+    mockOpenPermissionSettings.mockReset();
+    mockSetShellEnabled.mockReset();
+    mockInvokeDesktopBridgeRequest.mockReset();
+    mockGetPermissions.mockResolvedValue(defaultPermissions);
+    mockIsShellEnabled.mockResolvedValue(true);
+    mockInvokeDesktopBridgeRequest.mockImplementation(
+      async (options: { rpcMethod: string }) => {
+        if (options.rpcMethod === "permissionsGetAll") {
+          return defaultPermissions;
+        }
+        if (options.rpcMethod === "permissionsIsShellEnabled") {
+          return true;
+        }
+        return null;
+      },
+    );
   });
 
   it("renders web informational message when isWebPlatform() is true", async () => {
@@ -182,5 +233,74 @@ describe("PermissionsSection", () => {
     // Should show system permissions section with permission rows
     expect(text).toContain("permissionssection.SystemPermissions");
     expect(text).toContain("appsview.Capabilities");
+  });
+
+  it("uses the Electrobun bridge for permission requests", async () => {
+    mockUseApp.mockReturnValue(baseContext());
+    mockInvokeDesktopBridgeRequest.mockImplementation(
+      async (options: { rpcMethod: string; params?: { id?: string } }) => {
+        if (options.rpcMethod === "permissionsGetAll") {
+          return defaultPermissions;
+        }
+        if (options.rpcMethod === "permissionsIsShellEnabled") {
+          return true;
+        }
+        if (options.rpcMethod === "permissionsRequest") {
+          return {
+            id: options.params?.id ?? "microphone",
+            status: "granted",
+            canRequest: false,
+            lastChecked: Date.now(),
+          };
+        }
+        return null;
+      },
+    );
+
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(PermissionsSection));
+    });
+
+    const requestButton = tree?.root.findByProps({
+      children: "permissionssection.Request",
+    });
+    expect(requestButton).toBeDefined();
+
+    await act(async () => {
+      requestButton?.props.onClick();
+    });
+
+    expect(mockInvokeDesktopBridgeRequest).toHaveBeenCalledWith({
+      rpcMethod: "permissionsRequest",
+      ipcChannel: "permissions:request",
+      params: { id: "microphone" },
+    });
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+  });
+
+  it("uses the Electrobun bridge for permission refresh", async () => {
+    mockUseApp.mockReturnValue(baseContext());
+
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(PermissionsSection));
+    });
+
+    mockInvokeDesktopBridgeRequest.mockClear();
+
+    const refreshButton = tree?.root.findByProps({ children: "Refresh" });
+    expect(refreshButton).toBeDefined();
+
+    await act(async () => {
+      refreshButton?.props.onClick();
+    });
+
+    expect(mockInvokeDesktopBridgeRequest).toHaveBeenCalledWith({
+      rpcMethod: "permissionsGetAll",
+      ipcChannel: "permissions:getAll",
+      params: { forceRefresh: true },
+    });
+    expect(mockRefreshPermissions).not.toHaveBeenCalled();
   });
 });
