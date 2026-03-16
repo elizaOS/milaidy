@@ -159,7 +159,7 @@ export function OnboardingWizard() {
         />
       </svg>
 
-      <div className="onboarding-brand" aria-label="Milady">
+      <div className="onboarding-brand" role="img" aria-label="Milady">
         {showBrandLogo ? (
           <img
             src={brandLogoUrl}
