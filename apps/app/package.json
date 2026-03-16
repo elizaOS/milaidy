@@ -44,6 +44,7 @@
     "@milady/capacitor-swabble": "workspace:*",
     "@milady/capacitor-talkmode": "workspace:*",
     "@milady/ui": "workspace:*",
+    "lucide-react": "^0.575.0",
     "@noble/curves": "^2.0.1",
     "@pixiv/three-vrm": "^3.4.5",
     "@sparkjsdev/spark": "^0.1.10",
