@@ -125,6 +125,7 @@ describe("collectPluginNames", () => {
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
     "MILADY_USE_PI_AI",
+    "MILADY_DISABLE_LOCAL_EMBEDDINGS",
     "OBSIDIAN_VAULT_PATH",
     "OBSIDAN_VAULT_PATH",
   ];
@@ -168,6 +169,14 @@ describe("collectPluginNames", () => {
 
       // Verify local-embedding IS in the set for offline/zero-config setups
       expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(true);
+    });
+
+    it("should omit @elizaos/plugin-local-embedding when explicitly disabled via env", async () => {
+      process.env.MILADY_DISABLE_LOCAL_EMBEDDINGS = "1";
+
+      const plugins = collectPluginNames({} as MiladyConfig);
+
+      expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(false);
     });
   });
   afterEach(() => snap.restore());

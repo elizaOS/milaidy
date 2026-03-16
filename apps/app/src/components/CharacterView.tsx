@@ -1039,7 +1039,7 @@ export function CharacterView({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 shrink-0 text-muted hover:bg-danger/10 hover:text-danger"
+                            className="h-7 w-7 shrink-0 text-danger hover:bg-danger/10"
                             onClick={() => handleRemoveStyleEntry(key, index)}
                             title={t("characterview.remove", {
                               defaultValue: "Remove",
@@ -1102,12 +1102,12 @@ export function CharacterView({
     >
       <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-          <div className="text-sm font-bold tracking-wide text-txt">
+          <div className="text-sm font-bold tracking-wide text-white">
             {t("characterview.chatExamples", {
               defaultValue: "Chat Examples",
             })}
           </div>
-          <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
+          <span className="shrink-0 whitespace-nowrap rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[11px] font-medium text-white/90">
             {t("characterview.HowTheAgentResp", {
               defaultValue: "How the agent responds in chat",
             })}
@@ -1133,7 +1133,7 @@ export function CharacterView({
             className="rounded-xl border border-border/40 bg-black/10 p-4 shadow-inner backdrop-blur-sm"
           >
             <div className="mb-3 flex items-center justify-between border-b border-border/30 pb-2">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-muted">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-white/90">
                 {t("characterview.conversation", {
                   defaultValue: "Conversation",
                 })}{" "}
@@ -1142,7 +1142,7 @@ export function CharacterView({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-[10px] font-bold text-muted transition-all hover:bg-danger/10 hover:text-danger"
+                className="h-6 px-2 text-[10px] font-bold text-danger transition-all hover:bg-danger/10"
                 onClick={() => {
                   const updated = [...(d.messageExamples ?? [])];
                   updated.splice(ci, 1);
@@ -1161,7 +1161,7 @@ export function CharacterView({
                   className="flex items-center gap-3"
                 >
                   <span
-                    className={`w-12 shrink-0 text-right text-[11px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-muted" : "text-accent"}`}
+                    className={`w-12 shrink-0 text-right text-[11px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-white/70" : "text-accent"}`}
                   >
                     {msg.name === "{{user1}}" ? "user" : "agent"}
                   </span>
@@ -1188,9 +1188,7 @@ export function CharacterView({
           </div>
         ))}
         {(d.messageExamples ?? []).length === 0 && (
-          <div
-            className={`${hintCls} rounded-xl border border-white/5 bg-black/5 py-3 text-center`}
-          >
+          <div className="rounded-xl border border-white/10 bg-black/5 py-3 text-center text-[11px] text-white/70">
             {t("characterview.noChatExamplesYet", {
               defaultValue: "No chat examples yet.",
             })}
@@ -1206,12 +1204,12 @@ export function CharacterView({
     >
       <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/40 pb-3">
         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-          <div className="text-sm font-bold tracking-wide text-txt">
+          <div className="text-sm font-bold tracking-wide text-white">
             {t("characterview.postExamples", {
               defaultValue: "Post Examples",
             })}
           </div>
-          <span className="rounded-full border border-white/5 bg-black/10 px-2 py-0.5 text-[11px] font-medium text-muted">
+          <span className="shrink-0 whitespace-nowrap rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[11px] font-medium text-white/90">
             {t("characterview.SocialMediaVoice", {
               defaultValue: "Social media voice and style",
             })}
@@ -1244,7 +1242,7 @@ export function CharacterView({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted hover:bg-danger/10 hover:text-danger"
+              className="h-8 w-8 text-danger hover:bg-danger/10"
               onClick={() => {
                 const updated = [...(d.postExamples ?? [])];
                 updated.splice(pi, 1);
@@ -1437,7 +1435,8 @@ export function CharacterView({
                           <img
                             src={getVrmPreviewUrl(entry.avatarIndex)}
                             alt={entry.name}
-                            className={`h-full w-full object-cover transition-transform duration-300 ease-out ${
+                            draggable={false}
+                            className={`h-full w-full select-none object-cover transition-transform duration-300 ease-out ${
                               isSelected
                                 ? "scale-[1.04]"
                                 : "scale-100 group-hover:scale-[1.02]"

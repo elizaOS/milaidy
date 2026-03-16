@@ -482,22 +482,6 @@ export interface UpdateTriggerRequest {
   cronExpression?: string;
   maxRuns?: number;
 }
-
-export interface RpcProviderOption {
-  id: string;
-  name: string;
-  description: string;
-  envKey: string | null;
-  requiresKey: boolean;
-}
-
-export interface InventoryProviderOption {
-  id: string;
-  name: string;
-  description: string;
-  rpcProviders: RpcProviderOption[];
-}
-
 export interface SandboxPlatformStatus {
   platform: string;
   arch?: string;

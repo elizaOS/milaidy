@@ -1,6 +1,6 @@
 # Build and release (CI, desktop binaries)
 
-> Branch note: on `test/electrobun-cross-platform`, `.github/workflows/release-electrobun.yml` is the canonical tag-triggered desktop release workflow. `.github/workflows/release.yml` is kept as a manual legacy Electron fallback only.
+`.github/workflows/release-electrobun.yml` is the canonical desktop release workflow. `.github/workflows/release.yml` remains a manual legacy Electron fallback only.
 
 Why the release pipeline and desktop bundle work the way they do.
 
@@ -9,11 +9,11 @@ Why the release pipeline and desktop bundle work the way they do.
 We ship **separate** `Milady-arm64.dmg` and `Milady-x64.dmg` because:
 
 - **Native Node addons** (e.g. `onnxruntime-node`, `whisper-node`) ship prebuilt `.node` binaries per OS and arch. There is no single "universal" npm artifact that contains both arm64 and x64; the addon is built for the arch of the machine that ran `npm install` / `bun install`.
-- **CI runs on arm64** (macos-14). If we only ran `bun install` and `bun run build` in the host arch, `node_modules` would contain only arm64 `.node` files. The packaged app would then fail on Intel with "Cannot find module .../darwin/x64/onnxruntime_binding.node".
-- **So for the macos-x64 artifact** we run install and build under **Rosetta** (`arch -x86_64 bun install`, `arch -x86_64 electrobun build`, etc.). That makes the install and any native rebuilds produce x64 binaries, so the Intel DMG works.
-- **Both macOS builds run on the same runner (macos-14).** We do not use the deprecated `macos-15-intel` runner; the Intel artifact is built on the Apple Silicon runner under Rosetta.
+- **CI builds both macOS architectures separately.** The Apple Silicon artifact runs on `macos-14`, and the Intel artifact runs on the dedicated `macos-15-intel` runner.
+- **The Intel artifact still uses explicit x64 invocations** through the shared desktop builder (`MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64"`) so native modules and helper binaries are resolved consistently as x64 throughout the packaging path.
+- **Why this still matters on the Intel runner:** our workflow shares the same commands and staging logic across all jobs, and the explicit x64 path avoids accidental host/translation drift in the install and packaging steps.
 
-See `.github/workflows/release-electrobun.yml`: the "Install root dependencies", "Build core dist", "Build renderer", "Build native macOS effects dylib", "Build whisper", "Bundle backend node_modules", "Install electrobun CLI", and "Build Electrobun app" steps run under `arch -x86_64` when `matrix.platform.artifact-name === "macos-x64"`.
+See `.github/workflows/release-electrobun.yml`: the platform jobs run `arch -x86_64` for the macOS Intel leg during "Install root dependencies", `scripts/desktop-build.mjs stage`, and `scripts/desktop-build.mjs package`.
 
 ## Desktop bundle: why we copy plugins and deps
 
@@ -59,13 +59,13 @@ CI workflows that need Node (for node-gyp / native modules or npm registry) were
 
 ## Where this runs
 
-- **Electrobun release (current desktop path on this branch):** `.github/workflows/release-electrobun.yml` — on version tag push; builds macOS arm64 and macOS x64 (both on macos-14, Intel via Rosetta), Windows x64, and Linux x64 Electrobun artifacts plus update channel files.
+- **Electrobun release:** `.github/workflows/release-electrobun.yml` — on version tag push; builds macOS arm64, macOS x64, Windows x64, and Linux x64 Electrobun artifacts plus update channel files.
 - **Legacy Electron compatibility stub:** `.github/workflows/release.yml` — manual workflow that only points maintainers at the Electrobun release path.
 - **Local desktop build:** From repo root, use the Electrobun path: `bun run build:desktop` for a local bundle build, then `bash apps/app/electrobun/scripts/smoke-test.sh` for packaged desktop verification.
 
 ## Electrobun update-channel naming
 
-Electrobun v1.15.x writes **platform-prefixed flat artifact names** into `apps/app/electrobun/artifacts/`, for example:
+Electrobun writes **platform-prefixed flat artifact names** into `apps/app/electrobun/artifacts/`, for example:
 
 - `canary-macos-arm64-Milady-canary.app.tar.zst`
 - `canary-macos-arm64-Milady-canary.dmg`
@@ -76,6 +76,19 @@ Why the workflow mirrors that shape directly to `https://milady.ai/releases/`:
 - The Electrobun updater resolves manifests at `${baseUrl}/${platformPrefix}-update.json`, not `${baseUrl}/${channel}/update.json`.
 - It also resolves tarballs at `${baseUrl}/${platformPrefix}-${tarballFileName}`.
 - Because of that, the release upload step must publish `*-update.json`, `*.tar.zst`, and optional `*.patch` files at the **flat release root**. Uploading only a generic `update.json` or nesting files under version folders breaks in-app updates.
+
+## CLI usage in this repo
+
+The official Electrobun docs expect the CLI to come from the project dependency and be invoked through npm scripts or `bunx`. Milady now uses the shared desktop builder to reach that package-local path:
+
+- `apps/app/electrobun/package.json` declares `electrobun` as a dependency.
+- `scripts/desktop-build.mjs stage` installs the Electrobun workspace package before packaging.
+- `scripts/desktop-build.mjs package` drives `bun run build -- --env=...` inside `apps/app/electrobun`, and that script invokes `bunx electrobun build` against the package-local dependency.
+
+We still keep two Windows-specific guards around that documented flow:
+
+- **Pre-extract the Electrobun CLI tarball:** `electrobun@1.16.0` still shells out to plain `tar -xzf ...` on Windows. On GitHub runners that can resolve to GNU tar and fail on `C:` paths, so the workflow downloads the official `electrobun-cli-win-x64.tar.gz`, verifies its SHA256 from the GitHub release metadata, and extracts it with `C:\\Windows\\System32\\tar.exe` before the build runs.
+- **Seed `rcedit` when needed:** the CLI still imports `rcedit` dynamically during Windows packaging, so the workflow ensures a known-good `rcedit-x64.exe` is present under the installed Electrobun package before invoking `bun run build`.
 
 ## Desktop WebGPU: browser + native
 

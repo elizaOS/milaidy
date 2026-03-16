@@ -722,6 +722,15 @@ function isPiAiEnabledFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
   return value === "1" || value === "true" || value === "yes";
 }
 
+function isLocalEmbeddingDisabledFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const raw = env.MILADY_DISABLE_LOCAL_EMBEDDINGS;
+  if (!raw) return false;
+  const value = String(raw).trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
+
 /** Maps environment variable names to model-provider plugin packages. */
 const PROVIDER_PLUGIN_MAP: Readonly<Record<string, string>> = {
   ANTHROPIC_API_KEY: "@elizaos/plugin-anthropic",
@@ -914,10 +923,17 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   const hasExplicitEnabledProvider = explicitProviderEntries.some(
     ([, entry]) => entry?.enabled === true,
   );
+  const localEmbeddingsDisabled = isLocalEmbeddingDisabledFromEnv(process.env);
 
   // Allow-list entries are additive (extra plugins), not exclusive.
   const allowList = config.plugins?.allow;
-  const pluginsToLoad = new Set<string>(CORE_PLUGINS);
+  const pluginsToLoad = new Set<string>(
+    localEmbeddingsDisabled
+      ? CORE_PLUGINS.filter(
+          (pluginName) => pluginName !== "@elizaos/plugin-local-embedding",
+        )
+      : CORE_PLUGINS,
+  );
 
   // Allow list is additive — extra plugins on top of auto-detection,
   // not an exclusive whitelist that blocks everything else.
@@ -4057,6 +4073,10 @@ export async function startEliza(
     await runtime.registerPlugin(localEmbeddingPlugin.plugin);
     logger.info(
       "[milady] plugin-local-embedding pre-registered (TEXT_EMBEDDING ready)",
+    );
+  } else if (isLocalEmbeddingDisabledFromEnv(process.env)) {
+    logger.info(
+      "[milady] Local embeddings disabled for this process via MILADY_DISABLE_LOCAL_EMBEDDINGS=1",
     );
   } else {
     logger.warn(

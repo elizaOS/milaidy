@@ -57,7 +57,9 @@ export default {
     mac: {
       bundleWGPU: true,
       codesign: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
-      notarize: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
+      notarize:
+        process.env.ELECTROBUN_SKIP_CODESIGN !== "1" &&
+        process.env.MILADY_ELECTROBUN_NOTARIZE !== "0",
       defaultRenderer: "native",
       icons: "assets/appIcon.iconset",
       entitlements: {

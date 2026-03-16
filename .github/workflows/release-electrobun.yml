@@ -48,7 +48,7 @@ env:
 jobs:
   prepare:
     name: Prepare Release
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -82,7 +82,7 @@ jobs:
   validate-release:
     name: Validate Release Inputs
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     defaults:
       run:
         shell: bash -euo pipefail {0}
@@ -104,8 +104,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: bun-electrobun-${{ matrix.platform.artifact-name }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-electrobun-${{ matrix.platform.artifact-name }}-
+          key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-validate-
 
       - name: Install root dependencies
         run: bun install --frozen-lockfile --ignore-scripts
@@ -127,21 +127,8 @@ jobs:
           echo '{"type":"module"}' > dist/package.json
           node --import tsx scripts/write-build-info.ts
 
-      - name: Build renderer (vite)
-        run: bunx vite build
-        working-directory: apps/app
-
       - name: Release readiness checks
         run: bun run release:check
-
-      - name: Upload arch-neutral build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: electrobun-shared-build
-          path: |
-            dist/
-            apps/app/dist/
-          retention-days: 1
 
   build:
     name: Build ${{ matrix.platform.name }}
@@ -167,7 +154,7 @@ jobs:
             artifact-name: macos-x64
           - name: Windows
             os: windows
-            runner: windows-latest
+            runner: blacksmith-4vcpu-windows-2025
             artifact-name: windows-x64
           - name: Linux
             os: linux
@@ -209,10 +196,8 @@ jobs:
             bun install --frozen-lockfile --ignore-scripts
           fi
 
-      - name: Download arch-neutral build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: electrobun-shared-build
+      - name: Run repository postinstall patches
+        run: bun run postinstall
 
       - name: Cache Whisper models and binaries
         if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
@@ -230,49 +215,13 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
-      # dist/ and apps/app/dist/ are downloaded from the shared build artifact
-      # (built once in validate-release, arch-neutral JS/CSS/HTML).
-
-      # Copy the vite-built frontend into the Electrobun renderer directory.
-      # The bun entry point (src/index.ts) resolves the renderer at
-      # ../renderer/index.html relative to itself, which maps to
-      # apps/app/electrobun/renderer/ at build time and
-      # Resources/app/renderer/ in the packaged bundle.
-      # Without this step the renderer directory is absent from the package
-      # and the window opens to a file-not-found error.
-      - name: Stage renderer for Electrobun bundle
-        run: |
-          rm -rf apps/app/electrobun/renderer
-          cp -r apps/app/dist apps/app/electrobun/renderer
-
-      # macOS: compile Objective-C++ native effects dylib
-      - name: Build native macOS effects dylib
-        if: matrix.platform.os == 'macos'
-        run: |
-          if [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun run build:native-effects
-          else
-            bun run build:native-effects
-          fi
-        working-directory: apps/app/electrobun
-
-      # Build the webview bridge preload (direct Electrobun RPC bridge injected into the webview)
-      - name: Build webview bridge preload
-        run: bun run build:preload
-        working-directory: apps/app/electrobun
-
-      # Build whisper.cpp binary for on-device speech recognition (macOS/Linux only)
-      # Skipped on Windows (no make) — STT falls back to swabbleAudioChunkPush mode.
-      # macOS Intel: keep the whisper build on an explicit x64 path.
-      - name: Build whisper.cpp (on-device STT)
-        if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
+      - name: Stage desktop bundle inputs
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun run build:whisper
+            MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs stage --variant=base --build-whisper
           else
-            bun run build:whisper
+            node scripts/desktop-build.mjs stage --variant=base --build-whisper
           fi
-        working-directory: apps/app/electrobun
 
       # Import the Developer ID certificate into a temporary keychain.
       # Requires CSC_LINK (base64-encoded .p12) + CSC_KEY_PASSWORD.
@@ -344,66 +293,13 @@ jobs:
         run: |
           wrapper_dir="$RUNNER_TEMP/milady-notary-bin"
           mkdir -p "$wrapper_dir"
+          cp apps/app/electrobun/scripts/hdiutil-wrapper.sh "$wrapper_dir/hdiutil"
           cp apps/app/electrobun/scripts/xcrun-wrapper.sh "$wrapper_dir/xcrun"
           cp apps/app/electrobun/scripts/zip-wrapper.sh "$wrapper_dir/zip"
+          chmod +x "$wrapper_dir/hdiutil"
           chmod +x "$wrapper_dir/xcrun"
           chmod +x "$wrapper_dir/zip"
           echo "$wrapper_dir" >> "$GITHUB_PATH"
-
-      # Install electrobun globally so the binary is in PATH at ~/.bun/bin/electrobun
-      # (no @ in path, avoiding the GNU tar user@host misinterpretation on Windows)
-      # Copy the runtime package closure that the built server bundle still imports
-      # by bare specifier, plus the installed @elizaos/* and @milady/plugin-* set.
-      # agent.ts sets NODE_PATH to milady-dist/node_modules, which resolves to these copies.
-      # macOS Intel: keep the x64 node_modules copy on an explicit x64 path.
-      - name: Bundle backend node_modules into dist/
-        run: |
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
-          else
-            node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
-          fi
-
-      - name: Install electrobun CLI
-        # macOS Intel: keep the global electrobun install on an explicit x64 path.
-        run: |
-          ELECTROBUN_VERSION="$(node -p "require('./apps/app/electrobun/package.json').dependencies.electrobun.replace(/^[^0-9]*/, '')")"
-          echo "Installing electrobun@$ELECTROBUN_VERSION"
-          echo "ELECTROBUN_VERSION=$ELECTROBUN_VERSION" >> "$GITHUB_ENV"
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun install -g "electrobun@$ELECTROBUN_VERSION"
-          else
-            bun install -g "electrobun@$ELECTROBUN_VERSION"
-          fi
-
-      - name: Materialize local electrobun package for build
-        run: |
-          node -e "
-            const fs = require('node:fs');
-            const path = require('node:path');
-            const { execSync } = require('node:child_process');
-            // electrobun is installed globally — resolve from global node_modules
-            let src;
-            try {
-              src = fs.realpathSync('node_modules/electrobun');
-            } catch {
-              // Not in workspace node_modules — find from global install
-              const globalDir = execSync('bun pm -g bin', { encoding: 'utf8' }).trim();
-              const globalModules = path.resolve(globalDir, '..', 'install', 'global', 'node_modules', 'electrobun');
-              if (fs.existsSync(globalModules)) {
-                src = fs.realpathSync(globalModules);
-              } else {
-                // Fallback: resolve via require
-                const pkgPath = require.resolve('electrobun/package.json');
-                src = path.dirname(pkgPath);
-              }
-            }
-            const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');
-            fs.rmSync(dest, { recursive: true, force: true });
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.cpSync(src, dest, { recursive: true });
-            console.log('Materialized local electrobun package:', dest, '<-', src);
-          "
 
       - name: Cache local electrobun core downloads
         uses: actions/cache@v4
@@ -416,8 +312,27 @@ jobs:
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
+          $electrobunDir = Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"
+          $resolvedElectrobunDir = node -e @'
+            const fs = require("node:fs");
+            const packageDir = process.argv[1];
+            try {
+              process.stdout.write(fs.realpathSync(packageDir));
+            } catch (error) {
+              process.stdout.write(packageDir);
+            }
+          '@ $electrobunDir
+          if ($null -eq $resolvedElectrobunDir) {
+            $resolvedElectrobunDir = $electrobunDir
+          } elseif ($resolvedElectrobunDir -is [array]) {
+            $resolvedElectrobunDir = ($resolvedElectrobunDir -join "")
+          }
+          $resolvedElectrobunDir = "$resolvedElectrobunDir".Trim()
+          if ([string]::IsNullOrWhiteSpace($resolvedElectrobunDir)) {
+            $resolvedElectrobunDir = $electrobunDir
+          }
+          Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"
           $globalNodeModules = Join-Path $env:USERPROFILE ".bun\install\global\node_modules"
-          $electrobunDir = Join-Path $globalNodeModules "electrobun"
           $globalRceditDir = Join-Path $globalNodeModules "rcedit"
           $globalRceditExe = Join-Path $globalRceditDir "bin\rcedit-x64.exe"
 
@@ -438,10 +353,16 @@ jobs:
             }
           '@ $electrobunDir
 
-          $resolvedRceditPackageJson = $resolvedRceditPackageJson.Trim()
+          if ($null -eq $resolvedRceditPackageJson) {
+            $resolvedRceditPackageJson = ""
+          } elseif ($resolvedRceditPackageJson -is [array]) {
+            $resolvedRceditPackageJson = ($resolvedRceditPackageJson -join "")
+          }
+
+          $resolvedRceditPackageJson = "$resolvedRceditPackageJson".Trim()
           if ([string]::IsNullOrWhiteSpace($resolvedRceditPackageJson)) {
             Write-Warning "Electrobun could not resolve rcedit/package.json; seeding a local copy under the electrobun package."
-            $resolvedRceditDir = Join-Path $electrobunDir "node_modules\rcedit"
+            $resolvedRceditDir = Join-Path $resolvedElectrobunDir "node_modules\rcedit"
           } else {
             $resolvedRceditDir = Split-Path -Parent $resolvedRceditPackageJson
           }
@@ -475,9 +396,28 @@ jobs:
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
-          $electrobunDir = Join-Path $env:USERPROFILE ".bun\install\global\node_modules\electrobun"
-          $cacheDir     = Join-Path $electrobunDir ".cache"
-          $binDir       = Join-Path $electrobunDir "bin"
+          $electrobunDir = Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"
+          $resolvedElectrobunDir = node -e @'
+            const fs = require("node:fs");
+            const packageDir = process.argv[1];
+            try {
+              process.stdout.write(fs.realpathSync(packageDir));
+            } catch (error) {
+              process.stdout.write(packageDir);
+            }
+          '@ $electrobunDir
+          if ($null -eq $resolvedElectrobunDir) {
+            $resolvedElectrobunDir = $electrobunDir
+          } elseif ($resolvedElectrobunDir -is [array]) {
+            $resolvedElectrobunDir = ($resolvedElectrobunDir -join "")
+          }
+          $resolvedElectrobunDir = "$resolvedElectrobunDir".Trim()
+          if ([string]::IsNullOrWhiteSpace($resolvedElectrobunDir)) {
+            $resolvedElectrobunDir = $electrobunDir
+          }
+          Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"
+          $cacheDir     = Join-Path $resolvedElectrobunDir ".cache"
+          $binDir       = Join-Path $resolvedElectrobunDir "bin"
           $cliBinary    = Join-Path $cacheDir "electrobun.exe"
           $binBinary    = Join-Path $binDir "electrobun.exe"
 
@@ -486,7 +426,7 @@ jobs:
             exit 0
           }
 
-          $version      = (Get-Content (Join-Path $electrobunDir "package.json") | ConvertFrom-Json).version
+          $version      = (Get-Content (Join-Path $resolvedElectrobunDir "package.json") | ConvertFrom-Json).version
           $assetName    = "electrobun-cli-win-x64.tar.gz"
           $releaseApiUrl = "https://api.github.com/repos/blackboardsh/electrobun/releases/tags/v$version"
           $headers = @{
@@ -539,14 +479,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Electrobun app
-        # macOS Intel: keep the packaged app build on an explicit x64 path.
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 electrobun build --env=${{ needs.prepare.outputs.env }}
+            MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
           else
-            electrobun build --env=${{ needs.prepare.outputs.env }}
+            node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
           fi
-        working-directory: apps/app/electrobun
         env:
           # Electrobun reads these env vars directly. The workflow derives the
           # signing identity from CSC_LINK/CSC_KEY_PASSWORD during keychain setup
@@ -556,6 +494,8 @@ jobs:
           ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
+          ELECTROBUN_REAL_HDIUTIL: /usr/bin/hdiutil
+          MILADY_ELECTROBUN_NOTARIZE: 0
           ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
           ELECTROBUN_REAL_ZIP: /usr/bin/zip
 
@@ -640,6 +580,10 @@ jobs:
         if: matrix.platform.os == 'windows'
         shell: pwsh
         env:
+          # GitHub's Windows runner crashes Bun inside node-llama-cpp during
+          # packaged smoke startup; disable local embeddings for this smoke path
+          # so we only validate launcher/bootstrap behavior here.
+          MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
           MILADY_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\milady-windows-ui-launcher
           MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\milady-windows-ui-launcher.txt
         run: |
@@ -664,6 +608,8 @@ jobs:
 
       - name: Run Windows packaged renderer bootstrap check
         if: matrix.platform.os == 'windows'
+        env:
+          MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
         run: |
           cd apps/app
           bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts
@@ -942,7 +888,7 @@ jobs:
   release:
     name: Create Release
     needs: [prepare, build]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     permissions:
       contents: write

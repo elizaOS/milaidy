@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  main,
   resolveBundleLayout,
   resolveDiagnosticsOutputPath,
   resolveWrapperBundlePath,
@@ -70,5 +71,38 @@ describe("resolveDiagnosticsOutputPath", () => {
     expect(resolveDiagnosticsOutputPath("/tmp/build/Milady.app", {})).toBe(
       "/tmp/build/wrapper-diagnostics.json",
     );
+  });
+});
+
+describe("main", () => {
+  it("uses the CLI wrapper path argument when Electrobun passes it directly", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-main-"));
+    const wrapperBundle = path.join(tempDir, "Milady");
+    fs.mkdirSync(path.join(wrapperBundle, "bin"), { recursive: true });
+    fs.mkdirSync(path.join(wrapperBundle, "resources"), { recursive: true });
+
+    main([wrapperBundle], {
+      ELECTROBUN_ARCH: "x64",
+      ELECTROBUN_OS: "linux",
+    });
+
+    const diagnosticsPath = path.join(tempDir, "wrapper-diagnostics.json");
+    const diagnostics = JSON.parse(
+      fs.readFileSync(diagnosticsPath, "utf8"),
+    ) as {
+      binaryDir: string;
+      os: string;
+      outputPath: string;
+      resourcesDir: string;
+      wrapperBundlePath: string;
+    };
+
+    expect(diagnostics).toMatchObject({
+      binaryDir: path.join(wrapperBundle, "bin"),
+      os: "linux",
+      outputPath: diagnosticsPath,
+      resourcesDir: path.join(wrapperBundle, "resources"),
+      wrapperBundlePath: wrapperBundle,
+    });
   });
 });

@@ -3906,7 +3906,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!connection) {
         throw new Error("Onboarding connection is incomplete");
       }
-
       const rpcSel = onboardingRpcSelections as Record<string, string>;
       const rpcK = onboardingRpcKeys as Record<string, string>;
       const nextWalletConfig = buildWalletRpcUpdateRequest({
