@@ -311,6 +311,25 @@ jobs:
         shell: pwsh
         run: |
           $electrobunDir = Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"
+          $resolvedElectrobunDir = node -e @'
+            const fs = require("node:fs");
+            const packageDir = process.argv[1];
+            try {
+              process.stdout.write(fs.realpathSync(packageDir));
+            } catch (error) {
+              process.stdout.write(packageDir);
+            }
+          '@ $electrobunDir
+          if ($null -eq $resolvedElectrobunDir) {
+            $resolvedElectrobunDir = $electrobunDir
+          } elseif ($resolvedElectrobunDir -is [array]) {
+            $resolvedElectrobunDir = ($resolvedElectrobunDir -join "")
+          }
+          $resolvedElectrobunDir = "$resolvedElectrobunDir".Trim()
+          if ([string]::IsNullOrWhiteSpace($resolvedElectrobunDir)) {
+            $resolvedElectrobunDir = $electrobunDir
+          }
+          Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"
           $globalNodeModules = Join-Path $env:USERPROFILE ".bun\install\global\node_modules"
           $globalRceditDir = Join-Path $globalNodeModules "rcedit"
           $globalRceditExe = Join-Path $globalRceditDir "bin\rcedit-x64.exe"
@@ -341,7 +360,7 @@ jobs:
           $resolvedRceditPackageJson = "$resolvedRceditPackageJson".Trim()
           if ([string]::IsNullOrWhiteSpace($resolvedRceditPackageJson)) {
             Write-Warning "Electrobun could not resolve rcedit/package.json; seeding a local copy under the electrobun package."
-            $resolvedRceditDir = Join-Path $electrobunDir "node_modules\rcedit"
+            $resolvedRceditDir = Join-Path $resolvedElectrobunDir "node_modules\rcedit"
           } else {
             $resolvedRceditDir = Split-Path -Parent $resolvedRceditPackageJson
           }
@@ -376,7 +395,25 @@ jobs:
         shell: pwsh
         run: |
           $electrobunDir = Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"
-          $resolvedElectrobunDir = (Resolve-Path -LiteralPath $electrobunDir).ProviderPath
+          $resolvedElectrobunDir = node -e @'
+            const fs = require("node:fs");
+            const packageDir = process.argv[1];
+            try {
+              process.stdout.write(fs.realpathSync(packageDir));
+            } catch (error) {
+              process.stdout.write(packageDir);
+            }
+          '@ $electrobunDir
+          if ($null -eq $resolvedElectrobunDir) {
+            $resolvedElectrobunDir = $electrobunDir
+          } elseif ($resolvedElectrobunDir -is [array]) {
+            $resolvedElectrobunDir = ($resolvedElectrobunDir -join "")
+          }
+          $resolvedElectrobunDir = "$resolvedElectrobunDir".Trim()
+          if ([string]::IsNullOrWhiteSpace($resolvedElectrobunDir)) {
+            $resolvedElectrobunDir = $electrobunDir
+          }
+          Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"
           $cacheDir     = Join-Path $resolvedElectrobunDir ".cache"
           $binDir       = Join-Path $resolvedElectrobunDir "bin"
           $cliBinary    = Join-Path $cacheDir "electrobun.exe"

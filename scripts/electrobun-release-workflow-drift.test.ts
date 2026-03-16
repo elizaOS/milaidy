@@ -129,11 +129,15 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(workflow).toContain("electrobun CLI checksum mismatch");
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
+    expect(workflow).toContain('process.stdout.write(fs.realpathSync(packageDir));');
     expect(workflow).toContain(
-      "$resolvedElectrobunDir = (Resolve-Path -LiteralPath $electrobunDir).ProviderPath",
+      'Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"',
     );
     expect(workflow).toContain(
       '$cacheDir     = Join-Path $resolvedElectrobunDir ".cache"',
+    );
+    expect(workflow).toContain(
+      '$resolvedRceditDir = Join-Path $resolvedElectrobunDir "node_modules\\rcedit"',
     );
   });
 
