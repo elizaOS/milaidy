@@ -15,10 +15,7 @@ import { useApp } from "@milady/app-core/state";
 import { confirmDesktopAction } from "@milady/app-core/utils";
 import { Button, Input } from "@milady/ui";
 import { useCallback, useEffect, useState } from "react";
-import {
-  parsePositiveFloat,
-  parsePositiveInteger,
-} from "../../../../src/utils/number-parsing";
+import { parsePositiveFloat, parsePositiveInteger } from "../utils/number-parsing";
 
 const TRAINING_EVENT_KINDS = new Set<TrainingStreamEvent["kind"]>([
   "job_started",

@@ -376,38 +376,38 @@ export function TrajectoryDetailView({
       </div>
 
       {/* Orchestrator metadata (if present) */}
-      {trajectory.metadata?.orchestrator &&
-        (() => {
-          const orch = trajectory.metadata.orchestrator as Record<
-            string,
-            unknown
-          >;
-          const decisionType = String(orch.decisionType ?? "");
-          const taskLabel = orch.taskLabel ? String(orch.taskLabel) : "";
-          const sessionId = orch.sessionId ? String(orch.sessionId) : "";
-          return (
-            <div className="flex flex-wrap gap-4 text-xs mb-3 pb-3 border-b border-border">
-              <div>
-                <span className="text-muted">Decision Type: </span>
-                <span className="text-purple-400 font-semibold">
-                  {decisionType}
-                </span>
-              </div>
-              {taskLabel && (
-                <div>
-                  <span className="text-muted">Task: </span>
-                  <span>{taskLabel}</span>
-                </div>
-              )}
-              {sessionId && (
-                <div>
-                  <span className="text-muted">Session: </span>
-                  <span className="font-mono text-[10px]">{sessionId}</span>
-                </div>
-              )}
+      {(() => {
+        const orchestrator = trajectory.metadata?.orchestrator;
+        if (!orchestrator || typeof orchestrator !== "object") return null;
+
+        const orch = orchestrator as Record<string, unknown>;
+        const decisionType = String(orch.decisionType ?? "");
+        const taskLabel = orch.taskLabel ? String(orch.taskLabel) : "";
+        const sessionId = orch.sessionId ? String(orch.sessionId) : "";
+
+        return (
+          <div className="flex flex-wrap gap-4 text-xs mb-3 pb-3 border-b border-border">
+            <div>
+              <span className="text-muted">Decision Type: </span>
+              <span className="text-purple-400 font-semibold">
+                {decisionType}
+              </span>
             </div>
-          );
-        })()}
+            {taskLabel && (
+              <div>
+                <span className="text-muted">Task: </span>
+                <span>{taskLabel}</span>
+              </div>
+            )}
+            {sessionId && (
+              <div>
+                <span className="text-muted">Session: </span>
+                <span className="font-mono text-[10px]">{sessionId}</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* LLM calls list */}
       <div className="flex-1 min-h-0 overflow-y-auto">

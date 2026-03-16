@@ -1,14 +1,6 @@
 import { LanguageDropdown } from "@milady/app-core/components";
 import type { UiLanguage } from "@milady/app-core/i18n";
 import { normalizeLanguage } from "@milady/app-core/i18n";
-import { VrmStage } from "@milady/app-core/components/companion/VrmStage";
-import { ActivateStep } from "@milady/app-core/components/onboarding/ActivateStep";
-import { ConnectionStep } from "@milady/app-core/components/onboarding/ConnectionStep";
-import { OnboardingPanel } from "@milady/app-core/components/onboarding/OnboardingPanel";
-import { OnboardingStepNav } from "@milady/app-core/components/onboarding/OnboardingStepNav";
-import { PermissionsStep } from "@milady/app-core/components/onboarding/PermissionsStep";
-import { RpcStep } from "@milady/app-core/components/onboarding/RpcStep";
-import { WakeUpStep } from "@milady/app-core/components/onboarding/WakeUpStep";
 import {
   applyUiTheme,
   getVrmPreviewUrl,
@@ -17,6 +9,14 @@ import {
 } from "@milady/app-core/state";
 import { resolveAppAssetUrl } from "@milady/app-core/utils";
 import { useEffect } from "react";
+import { VrmStage } from "./companion/VrmStage";
+import { ActivateStep } from "./onboarding/ActivateStep";
+import { ConnectionStep } from "./onboarding/ConnectionStep";
+import { OnboardingPanel } from "./onboarding/OnboardingPanel";
+import { OnboardingStepNav } from "./onboarding/OnboardingStepNav";
+import { PermissionsStep } from "./onboarding/PermissionsStep";
+import { RpcStep } from "./onboarding/RpcStep";
+import { WakeUpStep } from "./onboarding/WakeUpStep";
 
 export function OnboardingWizard() {
   const {

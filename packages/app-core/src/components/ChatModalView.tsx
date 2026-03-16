@@ -1,8 +1,8 @@
 import { useRenderGuard } from "@milady/app-core/hooks";
-import { ChatView } from "@milady/app-core/components/ChatView";
-import { ConversationsSidebar } from "@milady/app-core/components/ConversationsSidebar";
 import { useApp } from "@milady/app-core/state";
 import { memo, useEffect, useState } from "react";
+import { ChatView } from "./ChatView.js";
+import { ConversationsSidebar } from "./ConversationsSidebar.js";
 
 const CHAT_MODAL_NARROW_BREAKPOINT = 768;
 

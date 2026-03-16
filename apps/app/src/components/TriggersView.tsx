@@ -1,1 +1,1 @@
-export { HeartbeatsView as TriggersView } from "@milady/app-core/components";
+export * from "@milady/app-core/components/TriggersView";

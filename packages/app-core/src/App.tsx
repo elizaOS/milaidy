@@ -4,17 +4,32 @@
 
 import { Keyboard } from "@capacitor/keyboard";
 import {
+  AdvancedPageView,
   AppsPageView,
   AvatarLoader,
+  CharacterView,
+  ChatView,
   ConnectionFailedBanner,
+  ConversationsSidebar,
   ConnectorsPageView,
+  CompanionShell,
+  CompanionView,
+  CustomActionEditor,
+  CustomActionsPanel,
   ErrorBoundary,
   GameViewOverlay,
   HeartbeatsView,
+  Header,
+  InventoryView,
+  KnowledgeView,
+  OnboardingWizard,
   PairingView,
   SaveCommandModal,
   SettingsView,
+  SharedCompanionScene,
+  ShellOverlays,
   StartupFailureView,
+  StreamView,
   SystemWarningBanner,
 } from "./components";
 import {
@@ -25,24 +40,9 @@ import {
 } from "./hooks";
 import type { Tab } from "./navigation";
 import { APPS_ENABLED, COMPANION_ENABLED } from "./navigation";
-import { isIOS, isLifoPopoutValue, isNative } from "./platform";
+import { isIOS, isLifoPopoutValue, isNative } from "@milady/app-core/platform";
 import { useApp } from "./state";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { AdvancedPageView } from "./components/AdvancedPageView";
-import { CharacterView } from "./components/CharacterView";
-import { ChatView } from "./components/ChatView";
-import { CompanionShell } from "./components/CompanionShell";
-import { CompanionView } from "./components/CompanionView";
-import { ConversationsSidebar } from "./components/ConversationsSidebar";
-import { CustomActionEditor } from "./components/CustomActionEditor";
-import { CustomActionsPanel } from "./components/CustomActionsPanel";
-import { SharedCompanionScene } from "./components/companion/CompanionSceneHost";
-import { Header } from "./components/Header";
-import { InventoryView } from "./components/InventoryView";
-import { KnowledgeView } from "./components/KnowledgeView";
-import { OnboardingWizard } from "./components/OnboardingWizard";
-import { ShellOverlays } from "./components/ShellOverlays";
-import { StreamView } from "./components/StreamView";
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 

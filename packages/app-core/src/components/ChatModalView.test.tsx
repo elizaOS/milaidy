@@ -10,7 +10,7 @@ vi.mock("@milady/app-core/state", () => ({
   useApp: vi.fn(),
 }));
 
-vi.mock("@milady/app-core/components/ChatView", () => ({
+vi.mock("./ChatView.js", () => ({
   ChatView: ({ variant }: { variant?: string }) =>
     React.createElement("div", {
       "data-testid": "chat-view",
@@ -18,7 +18,7 @@ vi.mock("@milady/app-core/components/ChatView", () => ({
     }),
 }));
 
-vi.mock("@milady/app-core/components/ConversationsSidebar", () => ({
+vi.mock("./ConversationsSidebar.js", () => ({
   ConversationsSidebar: ({
     mobile,
     variant,

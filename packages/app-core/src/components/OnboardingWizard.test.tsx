@@ -32,37 +32,37 @@ vi.mock("@milady/app-core/utils", () => ({
   resolveAppAssetUrl: (path: string) => path,
 }));
 
-vi.mock("@milady/app-core/components/companion/VrmStage", () => ({
+vi.mock("./companion/VrmStage", () => ({
   VrmStage: (props: unknown) => mockVrmStage(props),
 }));
 
-vi.mock("@milady/app-core/components/onboarding/ActivateStep", () => ({
+vi.mock("./onboarding/ActivateStep", () => ({
   ActivateStep: () => React.createElement("div", null, "ActivateStep"),
 }));
 
-vi.mock("@milady/app-core/components/onboarding/ConnectionStep", () => ({
+vi.mock("./onboarding/ConnectionStep", () => ({
   ConnectionStep: () => React.createElement("div", null, "ConnectionStep"),
 }));
 
-vi.mock("@milady/app-core/components/onboarding/OnboardingPanel", () => ({
+vi.mock("./onboarding/OnboardingPanel", () => ({
   OnboardingPanel: ({ children }: { children: React.ReactNode }) =>
     React.createElement("div", null, children),
 }));
 
-vi.mock("@milady/app-core/components/onboarding/OnboardingStepNav", () => ({
+vi.mock("./onboarding/OnboardingStepNav", () => ({
   OnboardingStepNav: () =>
     React.createElement("div", null, "OnboardingStepNav"),
 }));
 
-vi.mock("@milady/app-core/components/onboarding/PermissionsStep", () => ({
+vi.mock("./onboarding/PermissionsStep", () => ({
   PermissionsStep: () => React.createElement("div", null, "PermissionsStep"),
 }));
 
-vi.mock("@milady/app-core/components/onboarding/RpcStep", () => ({
+vi.mock("./onboarding/RpcStep", () => ({
   RpcStep: () => React.createElement("div", null, "RpcStep"),
 }));
 
-vi.mock("@milady/app-core/components/onboarding/WakeUpStep", () => ({
+vi.mock("./onboarding/WakeUpStep", () => ({
   WakeUpStep: () => React.createElement("div", null, "WakeUpStep"),
 }));
 

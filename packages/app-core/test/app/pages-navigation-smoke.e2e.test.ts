@@ -34,10 +34,17 @@ const { companionOverlayTabs, mockUseApp, noop } = vi.hoisted(() => ({
   noop: vi.fn(),
 }));
 
-vi.mock("@milady/app-core/state", () => ({
-  useApp: () => mockUseApp(),
-  getVrmUrl: vi.fn(() => "mock-vrm-url"),
-}));
+vi.mock("@milady/app-core/state", async () => {
+  const actual = await vi.importActual<typeof import("@milady/app-core/state")>(
+    "@milady/app-core/state",
+  );
+  return {
+    ...actual,
+    useApp: () => mockUseApp(),
+    getVrmUrl: vi.fn(() => "mock-vrm-url"),
+    getVrmPreviewUrl: vi.fn(() => "mock-vrm-preview"),
+  };
+});
 
 vi.mock("@milady/app-core/components", async () => {
   const actual = await vi.importActual<
@@ -45,18 +52,40 @@ vi.mock("@milady/app-core/components", async () => {
   >("@milady/app-core/components");
   return {
     ...actual,
+    AdvancedPageView: () =>
+      React.createElement("section", null, "AdvancedPageView Ready"),
     AppsPageView: () =>
       React.createElement("section", null, "AppsPageView Ready"),
     BugReportModal: () => React.createElement("div", null, "BugReportModal"),
+    CharacterView: () =>
+      React.createElement("section", null, "CharacterView Ready"),
+    ChatView: () => React.createElement("section", null, "ChatView Ready"),
     CloudDashboard: () =>
       React.createElement("section", null, "ElizaCloudDashboard Ready"),
     CommandPalette: () => React.createElement("div", null, "CommandPalette"),
+    CompanionShell: ({ tab }: { tab: string }) =>
+      React.createElement("main", null, `CompanionShell Ready: ${tab}`),
+    CompanionView: () =>
+      React.createElement("section", null, "CompanionView Ready"),
     ConnectorsPageView: () =>
       React.createElement("section", null, "ConnectorsPageView Ready"),
+    ConversationsSidebar: () =>
+      React.createElement("aside", null, "ConversationsSidebar"),
+    CustomActionEditor: () =>
+      React.createElement("aside", null, "CustomActionEditor"),
+    CustomActionsPanel: () =>
+      React.createElement("aside", null, "CustomActionsPanel"),
+    FineTuningView: () =>
+      React.createElement("section", null, "FineTuningView Ready"),
     ErrorBoundary: ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children),
+    Header: () => React.createElement("header", null, "Header"),
     HeartbeatsView: () =>
       React.createElement("section", null, "HeartbeatsView Ready"),
+    InventoryView: () =>
+      React.createElement("section", null, "InventoryView Ready"),
+    KnowledgeView: () =>
+      React.createElement("section", null, "KnowledgeView Ready"),
     SaveCommandModal: () =>
       React.createElement("div", null, "SaveCommandModal"),
     ConnectionFailedBanner: () =>
@@ -64,115 +93,137 @@ vi.mock("@milady/app-core/components", async () => {
     DatabasePageView: () =>
       React.createElement("section", null, "DatabasePageView Ready"),
     EmotePicker: () => React.createElement("div", null, "EmotePicker"),
+    LifoSandboxView: () =>
+      React.createElement("section", null, "LifoSandboxView Ready"),
     LogsPageView: () =>
       React.createElement("section", null, "LogsPageView Ready"),
+    OnboardingWizard: () =>
+      React.createElement("div", null, "OnboardingWizard"),
     PairingView: () => React.createElement("div", null, "PairingView"),
     PluginsPageView: () =>
       React.createElement("section", null, "PluginsPageView Ready"),
-    RuntimeView: () =>
-      React.createElement("section", null, "RuntimeView Ready"),
-    SettingsView: () =>
-      React.createElement("section", null, "SettingsView Ready"),
-    SkillsView: () => React.createElement("section", null, "SkillsView Ready"),
-    SystemWarningBanner: () =>
-      React.createElement("div", null, "SystemWarningBanner"),
-  };
-});
-
-vi.mock("../../src/components/Header", () => ({
-  Header: () => React.createElement("header", null, "Header"),
-}));
-
-vi.mock("../../src/components/CommandPalette", () => ({
-  CommandPalette: () => React.createElement("div", null, "CommandPalette"),
-}));
-
-vi.mock("../../src/components/EmotePicker", () => ({
-  EmotePicker: () => React.createElement("div", null, "EmotePicker"),
-}));
-
-vi.mock("../../src/components/PairingView", () => ({
-  PairingView: () => React.createElement("div", null, "PairingView"),
-}));
-
-vi.mock("../../src/components/OnboardingWizard", () => ({
-  OnboardingWizard: () => React.createElement("div", null, "OnboardingWizard"),
-}));
-
-vi.mock("../../src/components/ChatView", () => ({
-  ChatView: () => React.createElement("section", null, "ChatView Ready"),
-}));
-
-vi.mock("../../src/components/StreamView", () => ({
-  StreamView: () => React.createElement("section", null, "StreamView Ready"),
-}));
-
-vi.mock("../../src/components/ConversationsSidebar", () => ({
-  ConversationsSidebar: () =>
-    React.createElement("aside", null, "ConversationsSidebar"),
-}));
-
-vi.mock("../../src/components/CustomActionsPanel", () => ({
-  CustomActionsPanel: () =>
-    React.createElement("aside", null, "CustomActionsPanel"),
-}));
-
-vi.mock("../../src/components/CustomActionEditor", () => ({
-  CustomActionEditor: () =>
-    React.createElement("aside", null, "CustomActionEditor"),
-}));
-
-vi.mock("../../src/components/AppsPageView", () => ({
-  AppsPageView: () =>
-    React.createElement("section", null, "AppsPageView Ready"),
-}));
-
-vi.mock("../../src/components/CharacterView", () => ({
-  CharacterView: () =>
-    React.createElement("section", null, "CharacterView Ready"),
-}));
-
-vi.mock("../../src/components/CompanionView", () => ({
-  CompanionView: () =>
-    React.createElement("section", null, "CompanionView Ready"),
-}));
-
-vi.mock("../../src/components/CompanionShell", () => ({
-  COMPANION_OVERLAY_TABS: companionOverlayTabs,
-  CompanionShell: ({ tab }: { tab: string }) =>
-    React.createElement("main", null, `CompanionShell Ready: ${tab}`),
-}));
-
-vi.mock("../../src/components/companion/CompanionSceneHost", async () => {
-  const React = await vi.importActual<typeof import("react")>("react");
-  return {
     SharedCompanionScene: ({
       children,
     }: {
       active: boolean;
       children: React.ReactNode;
     }) => React.createElement(React.Fragment, null, children),
-    CompanionSceneHost: () => null,
-    useSharedCompanionScene: () => true,
+    RuntimeView: () =>
+      React.createElement("section", null, "RuntimeView Ready"),
+    SettingsView: () =>
+      React.createElement("section", null, "SettingsView Ready"),
+    ShellOverlays: () => null,
+    SkillsView: () => React.createElement("section", null, "SkillsView Ready"),
+    StreamView: () => React.createElement("section", null, "StreamView Ready"),
+    TrajectoriesView: () =>
+      React.createElement("section", null, "TrajectoriesView Ready"),
+    TrajectoryDetailView: () =>
+      React.createElement("section", null, "TrajectoryDetailView Ready"),
+    SystemWarningBanner: () =>
+      React.createElement("div", null, "SystemWarningBanner"),
   };
 });
 
-vi.mock("../../src/components/TriggersView", () => ({
+vi.mock("../../../packages/app-core/src/components/Header", () => ({
+  Header: () => React.createElement("header", null, "Header"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/CommandPalette", () => ({
+  CommandPalette: () => React.createElement("div", null, "CommandPalette"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/EmotePicker", () => ({
+  EmotePicker: () => React.createElement("div", null, "EmotePicker"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/PairingView", () => ({
+  PairingView: () => React.createElement("div", null, "PairingView"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/OnboardingWizard", () => ({
+  OnboardingWizard: () => React.createElement("div", null, "OnboardingWizard"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/ChatView", () => ({
+  ChatView: () => React.createElement("section", null, "ChatView Ready"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/StreamView", () => ({
+  StreamView: () => React.createElement("section", null, "StreamView Ready"),
+}));
+
+vi.mock(
+  "../../../packages/app-core/src/components/ConversationsSidebar",
+  () => ({
+    ConversationsSidebar: () =>
+      React.createElement("aside", null, "ConversationsSidebar"),
+  }),
+);
+
+vi.mock("../../../packages/app-core/src/components/CustomActionsPanel", () => ({
+  CustomActionsPanel: () =>
+    React.createElement("aside", null, "CustomActionsPanel"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/CustomActionEditor", () => ({
+  CustomActionEditor: () =>
+    React.createElement("aside", null, "CustomActionEditor"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/AppsPageView", () => ({
+  AppsPageView: () =>
+    React.createElement("section", null, "AppsPageView Ready"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/CharacterView", () => ({
+  CharacterView: () =>
+    React.createElement("section", null, "CharacterView Ready"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/CompanionView", () => ({
+  CompanionView: () =>
+    React.createElement("section", null, "CompanionView Ready"),
+}));
+
+vi.mock("../../../packages/app-core/src/components/CompanionShell", () => ({
+  COMPANION_OVERLAY_TABS: companionOverlayTabs,
+  CompanionShell: ({ tab }: { tab: string }) =>
+    React.createElement("main", null, `CompanionShell Ready: ${tab}`),
+}));
+
+vi.mock(
+  "../../../packages/app-core/src/components/companion/CompanionSceneHost",
+  async () => {
+    const React = await vi.importActual<typeof import("react")>("react");
+    return {
+      SharedCompanionScene: ({
+        children,
+      }: {
+        active: boolean;
+        children: React.ReactNode;
+      }) => React.createElement(React.Fragment, null, children),
+      CompanionSceneHost: () => null,
+      useSharedCompanionScene: () => true,
+    };
+  },
+);
+
+vi.mock("../../../packages/app-core/src/components/TriggersView", () => ({
   TriggersView: () =>
     React.createElement("section", null, "TriggersView Ready"),
 }));
 
-vi.mock("../../src/components/ConnectorsPageView", () => ({
+vi.mock("../../../packages/app-core/src/components/ConnectorsPageView", () => ({
   ConnectorsPageView: () =>
     React.createElement("section", null, "ConnectorsPageView Ready"),
 }));
 
-vi.mock("../../src/components/InventoryView", () => ({
+vi.mock("../../../packages/app-core/src/components/InventoryView", () => ({
   InventoryView: () =>
     React.createElement("section", null, "InventoryView Ready"),
 }));
 
-vi.mock("../../src/components/KnowledgeView", () => ({
+vi.mock("../../../packages/app-core/src/components/KnowledgeView", () => ({
   KnowledgeView: () =>
     React.createElement("section", null, "KnowledgeView Ready"),
 }));
@@ -181,36 +232,39 @@ vi.mock("@milady/app-core/components/AvatarLoader", () => ({
   AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 
-vi.mock("../../src/components/PluginsPageView", () => ({
+vi.mock("../../../packages/app-core/src/components/PluginsPageView", () => ({
   PluginsPageView: () =>
     React.createElement("section", null, "PluginsPageView Ready"),
 }));
 
-vi.mock("../../src/components/SkillsView", () => ({
+vi.mock("../../../packages/app-core/src/components/SkillsView", () => ({
   SkillsView: () => React.createElement("section", null, "SkillsView Ready"),
 }));
 
-vi.mock("../../src/components/CustomActionsView", () => ({
+vi.mock("../../../packages/app-core/src/components/CustomActionsView", () => ({
   CustomActionsView: () =>
     React.createElement("section", null, "CustomActionsView Ready"),
 }));
 
-vi.mock("../../src/components/FineTuningView", () => ({
+vi.mock("../../../packages/app-core/src/components/FineTuningView", () => ({
   FineTuningView: () =>
     React.createElement("section", null, "FineTuningView Ready"),
 }));
 
-vi.mock("../../src/components/TrajectoriesView", () => ({
+vi.mock("../../../packages/app-core/src/components/TrajectoriesView", () => ({
   TrajectoriesView: () =>
     React.createElement("section", null, "TrajectoriesView Ready"),
 }));
 
-vi.mock("../../src/components/TrajectoryDetailView", () => ({
-  TrajectoryDetailView: () =>
-    React.createElement("section", null, "TrajectoryDetailView Ready"),
-}));
+vi.mock(
+  "../../../packages/app-core/src/components/TrajectoryDetailView",
+  () => ({
+    TrajectoryDetailView: () =>
+      React.createElement("section", null, "TrajectoryDetailView Ready"),
+  }),
+);
 
-vi.mock("../../src/components/LifoSandboxView", () => ({
+vi.mock("../../../packages/app-core/src/components/LifoSandboxView", () => ({
   LifoSandboxView: () =>
     React.createElement("section", null, "LifoSandboxView Ready"),
 }));
@@ -339,6 +393,8 @@ describe("pages navigation smoke (e2e)", () => {
       tab: "chat",
       actionNotice: null,
       plugins: [],
+      conversations: [],
+      elizaCloudCredits: null,
       uiShellMode: "companion",
       setUiShellMode: vi.fn(),
       uiLanguage: "en",
@@ -528,6 +584,8 @@ describe("pages navigation smoke (e2e)", () => {
         tab: "chat",
         actionNotice: null,
         plugins: [],
+        conversations: [],
+        elizaCloudCredits: null,
         uiShellMode: "companion",
         setUiShellMode: vi.fn(),
         uiLanguage: "en",

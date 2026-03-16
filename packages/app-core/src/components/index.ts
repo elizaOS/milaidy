@@ -76,6 +76,7 @@ export * from "./SubscriptionStatus";
 export * from "./SystemWarningBanner";
 export * from "./skeletons";
 export * from "./ThemeToggle";
+export * from "./TriggersView";
 export * from "./TrajectoriesView";
 export * from "./TrajectoryDetailView";
 export * from "./trajectory-format";

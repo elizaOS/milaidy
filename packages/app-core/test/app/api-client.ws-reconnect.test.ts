@@ -51,13 +51,12 @@ vi.stubGlobal(
   }),
 );
 
-// Mock deep type imports that api-client.ts relies on
-vi.mock("../../../../src/config/types.milady", () => ({}));
-vi.mock("../../../../src/contracts/drop", () => ({}));
-vi.mock("../../../../src/contracts/onboarding", () => ({}));
-vi.mock("../../../../src/contracts/verification", () => ({}));
-vi.mock("../../../../src/contracts/wallet", () => ({}));
-vi.mock("../../../../src/permissions/types", () => ({}));
+// Mock contract modules that api-client.ts imports from autonomous.
+vi.mock("@milady/autonomous/contracts/drop", () => ({}));
+vi.mock("@milady/autonomous/contracts/onboarding", () => ({}));
+vi.mock("@milady/autonomous/contracts/verification", () => ({}));
+vi.mock("@milady/autonomous/contracts/wallet", () => ({}));
+vi.mock("@milady/autonomous/contracts/permissions", () => ({}));
 
 // Provide window.location so connectWs() can build a WS URL
 vi.stubGlobal("window", {

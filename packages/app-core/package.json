@@ -19,6 +19,7 @@
   "main": "src/index.ts",
   "scripts": {
     "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "build:dist": "rimraf dist && tsc -p tsconfig.build.json && node ../../scripts/copy-package-assets.mjs packages/app-core src/styles src/i18n/locales && node ../../scripts/prepare-package-dist.mjs packages/app-core",
     "pack:dry-run": "cd dist && npm pack --dry-run"
   },
