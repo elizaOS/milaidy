@@ -293,8 +293,10 @@ jobs:
         run: |
           wrapper_dir="$RUNNER_TEMP/milady-notary-bin"
           mkdir -p "$wrapper_dir"
+          cp apps/app/electrobun/scripts/hdiutil-wrapper.sh "$wrapper_dir/hdiutil"
           cp apps/app/electrobun/scripts/xcrun-wrapper.sh "$wrapper_dir/xcrun"
           cp apps/app/electrobun/scripts/zip-wrapper.sh "$wrapper_dir/zip"
+          chmod +x "$wrapper_dir/hdiutil"
           chmod +x "$wrapper_dir/xcrun"
           chmod +x "$wrapper_dir/zip"
           echo "$wrapper_dir" >> "$GITHUB_PATH"
@@ -492,6 +494,7 @@ jobs:
           ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
+          ELECTROBUN_REAL_HDIUTIL: /usr/bin/hdiutil
           MILADY_ELECTROBUN_NOTARIZE: 0
           ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
           ELECTROBUN_REAL_ZIP: /usr/bin/zip

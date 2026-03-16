@@ -171,6 +171,8 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "name: Stage desktop bundle inputs",
     );
+    expect(workflow).toContain("apps/app/electrobun/scripts/hdiutil-wrapper.sh");
+    expect(workflow).toContain("ELECTROBUN_REAL_HDIUTIL: /usr/bin/hdiutil");
   });
 
   it("keeps updater transport files off the public GitHub release asset list", () => {
