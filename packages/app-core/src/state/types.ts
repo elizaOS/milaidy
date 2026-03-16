@@ -212,6 +212,7 @@ export interface AppState {
   uiShellMode: UiShellMode;
   uiLanguage: UiLanguage;
   uiTheme: UiTheme;
+  showAdvancedFeatures: boolean;
   connected: boolean;
   agentStatus: AgentStatus | null;
   onboardingComplete: boolean;

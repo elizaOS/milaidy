@@ -63,6 +63,12 @@ export function applyUiTheme(theme: UiTheme): void {
 const UI_LANGUAGE_STORAGE_KEY = "milady:ui-language";
 const UI_SHELL_MODE_STORAGE_KEY = "milady:ui-shell-mode";
 const LAST_NATIVE_TAB_STORAGE_KEY = "milady:last-native-tab";
+const SHOW_ADVANCED_FEATURES_KEY = "milady:show-advanced-features";
+
+const SHOW_ADVANCED_FEATURES_DEFAULT =
+  String(
+    import.meta.env.VITE_SHOW_ADVANCED_FEATURES_DEFAULT ?? "false",
+  ).toLowerCase() === "true";
 
 export function loadUiLanguage(): UiLanguage {
   try {
@@ -147,6 +153,24 @@ export function saveLastNativeTab(tab: Tab): void {
       LAST_NATIVE_TAB_STORAGE_KEY,
       normalizeLastNativeTab(tab),
     );
+  } catch {
+    // ignore
+  }
+}
+
+export function loadShowAdvancedFeatures(): boolean {
+  try {
+    const stored = localStorage.getItem(SHOW_ADVANCED_FEATURES_KEY);
+    if (stored === null) return SHOW_ADVANCED_FEATURES_DEFAULT;
+    return stored === "true";
+  } catch {
+    return SHOW_ADVANCED_FEATURES_DEFAULT;
+  }
+}
+
+export function saveShowAdvancedFeatures(value: boolean): void {
+  try {
+    localStorage.setItem(SHOW_ADVANCED_FEATURES_KEY, String(value));
   } catch {
     // ignore
   }

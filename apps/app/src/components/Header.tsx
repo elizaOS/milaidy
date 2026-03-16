@@ -46,6 +46,7 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
     setUiLanguage,
     uiTheme,
     setUiTheme,
+    showAdvancedFeatures,
     t,
   } = useApp();
 
@@ -85,8 +86,8 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
     [plugins],
   );
   const tabGroups = useMemo(
-    () => getTabGroups(streamingEnabled),
-    [streamingEnabled],
+    () => getTabGroups(streamingEnabled, showAdvancedFeatures),
+    [showAdvancedFeatures, streamingEnabled],
   );
 
   const creditColor = elizaCloudCreditsCritical

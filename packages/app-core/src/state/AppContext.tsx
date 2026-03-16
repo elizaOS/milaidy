@@ -129,6 +129,7 @@ import {
   loadChatVoiceMuted,
   loadCompanionMessageCutoffTs,
   loadLastNativeTab,
+  loadShowAdvancedFeatures,
   loadUiLanguage,
   loadUiShellMode,
   loadUiTheme,
@@ -155,6 +156,7 @@ import {
   saveChatVoiceMuted,
   saveCompanionMessageCutoffTs,
   saveLastNativeTab,
+  saveShowAdvancedFeatures,
   saveUiLanguage,
   saveUiShellMode,
   saveUiTheme,
@@ -399,6 +401,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useState<UiShellMode>(loadUiShellMode);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
   const [uiTheme, setUiThemeState] = useState<UiTheme>(loadUiTheme);
+  const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(
+    loadShowAdvancedFeatures,
+  );
   const [connected, setConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -1057,6 +1062,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveLastNativeTab(lastNativeTab);
   }, [lastNativeTab]);
+
+  useEffect(() => {
+    saveShowAdvancedFeatures(showAdvancedFeatures);
+  }, [showAdvancedFeatures]);
 
   // ── Theme ──────────────────────────────────────────────────────────
 
@@ -4427,6 +4436,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         companionMessageCutoffTs: setCompanionMessageCutoffTs,
         uiShellMode: setUiShellModeState,
         uiLanguage: setUiLanguageState,
+        showAdvancedFeatures: setShowAdvancedFeatures,
         autonomousRunHealthByRunId: setAutonomousRunHealthByRunId,
         startupError: setStartupError,
         pairingCodeInput: setPairingCodeInput,
@@ -5387,6 +5397,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     uiShellMode,
     uiLanguage,
     uiTheme,
+    showAdvancedFeatures,
     connected,
     agentStatus,
     onboardingComplete,

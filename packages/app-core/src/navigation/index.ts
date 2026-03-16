@@ -129,11 +129,15 @@ export const ALL_TAB_GROUPS: TabGroup[] = [
 ];
 
 /** Compute visible tab groups. Pass streamEnabled explicitly for React reactivity. */
-export function getTabGroups(streamEnabled = STREAM_ENABLED): TabGroup[] {
+export function getTabGroups(
+  streamEnabled = STREAM_ENABLED,
+  showAdvanced = true,
+): TabGroup[] {
   return ALL_TAB_GROUPS.filter(
     (g) =>
       (APPS_ENABLED || g.label !== "Apps") &&
-      (streamEnabled || g.label !== "Stream"),
+      (streamEnabled || g.label !== "Stream") &&
+      (showAdvanced || g.label !== "Advanced"),
   );
 }
 

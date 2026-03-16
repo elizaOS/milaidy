@@ -235,8 +235,10 @@ function UpdatesSection() {
 /* ── Advanced Section ─────────────────────────────────────────────────── */
 
 function AdvancedSection() {
-  const { t } = useApp();
   const {
+    t,
+    setTab,
+    showAdvancedFeatures,
     handleReset,
     exportBusy,
     exportPassword,
@@ -296,6 +298,39 @@ function AdvancedSection() {
   return (
     <>
       <div className="space-y-6">
+        <section className="rounded-2xl border border-border/60 bg-card/50 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-txt-strong">
+                {t("settings.showAdvancedNavigation")}
+              </h3>
+              <p className="mt-1 text-xs text-muted">
+                {t("settings.showAdvancedNavigationDescription")}
+              </p>
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm text-txt">
+              <input
+                type="checkbox"
+                checked={showAdvancedFeatures}
+                onChange={(e) =>
+                  setState("showAdvancedFeatures", e.target.checked)
+                }
+              />
+              {t("settings.showAdvancedNavigationToggle")}
+            </label>
+          </div>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => setTab("advanced")}
+            >
+              {t("settings.openAdvancedWorkspace")}
+            </Button>
+          </div>
+        </section>
+
         {/* Export/Import */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
