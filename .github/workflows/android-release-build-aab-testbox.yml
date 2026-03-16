@@ -16,13 +16,13 @@ jobs:
     name: Build Signed AAB (Testbox Warmup)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Begin Testbox
         uses: useblacksmith/begin-testbox@d0e04585c26905fdd92c94a09c159544c7ee1b67 # v2
         with:
           testbox_id: ${{ inputs.testbox_id }}
-
-      - name: Checkout
-        uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
