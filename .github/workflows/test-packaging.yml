@@ -7,7 +7,7 @@ on:
       - '.github/workflows/publish-packages.yml'
       - '.github/workflows/test-packaging.yml'
   push:
-    branches: [main]
+    branches: [main, feature/eliza-home]
     paths:
       - 'packaging/**'
   workflow_dispatch:
