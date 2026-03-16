@@ -206,7 +206,7 @@ describe("ChatView game-modal variant", () => {
     expect(text).not.toContain("five");
   });
 
-  it("shows avatar typing instead of starter prompts when companion chat is empty", async () => {
+  it("stays idle instead of showing starter prompts when companion chat is empty", async () => {
     mockUseApp.mockReturnValue(createContext({ conversationMessages: [] }));
 
     let tree: TestRenderer.ReactTestRenderer;
@@ -217,7 +217,7 @@ describe("ChatView game-modal variant", () => {
     });
 
     const text = textOf(tree?.root).toLowerCase();
-    expect(text).toContain("milady");
+    expect(text).not.toContain("milady");
     expect(text).not.toContain("startaconversation");
     expect(text).not.toContain("tell me a joke");
   });

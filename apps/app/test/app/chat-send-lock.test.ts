@@ -54,6 +54,12 @@ const { mockClient } = vi.hoisted(() => ({
       text: "ok",
       agentName: "Milady",
     })),
+    requestGreeting: vi.fn(async () => ({
+      text: "hello",
+      agentName: "Milady",
+      generated: true,
+      persisted: false,
+    })),
     listCustomActions: vi.fn(async () => []),
     testCustomAction: vi.fn(async () => ({
       ok: true,
@@ -243,6 +249,12 @@ describe("chat send locking", () => {
     mockClient.sendConversationMessageStream.mockResolvedValue({
       text: "ok",
       agentName: "Milady",
+    });
+    mockClient.requestGreeting.mockResolvedValue({
+      text: "hello",
+      agentName: "Milady",
+      generated: true,
+      persisted: false,
     });
     mockClient.listCustomActions.mockResolvedValue([]);
     mockClient.testCustomAction.mockResolvedValue({
@@ -1065,6 +1077,96 @@ describe("chat send locking", () => {
       deferred.resolve({ text: "Hello world", agentName: "Milady" });
       await sendPromise;
     });
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("does not mark a fallback greeting bootstrap as an active chat send", async () => {
+    const deferred = createDeferred<{
+      text: string;
+      agentName: string;
+      generated: boolean;
+      persisted: boolean;
+    }>();
+    mockClient.createConversation.mockResolvedValue({
+      conversation: {
+        id: "conv-fresh",
+        title: "Fresh chat",
+        roomId: "room-fresh",
+        createdAt: "2026-02-02T00:00:00.000Z",
+        updatedAt: "2026-02-02T00:00:00.000Z",
+      },
+      greeting: undefined,
+    });
+    mockClient.requestGreeting.mockReturnValue(deferred.promise);
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(api).not.toBeNull();
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+    });
+
+    await act(async () => {
+      await api?.handleNewConversation();
+    });
+
+    await vi.waitFor(() => {
+      expect(mockClient.requestGreeting).toHaveBeenCalledWith(
+        "conv-fresh",
+        "en",
+      );
+    });
+
+    expect(api?.snapshot()).toEqual(
+      expect.objectContaining({
+        activeConversationId: "conv-fresh",
+        chatSending: false,
+        chatFirstTokenReceived: false,
+        conversationMessages: [],
+      }),
+    );
+
+    await act(async () => {
+      deferred.resolve({
+        text: "Hey there.",
+        agentName: "Milady",
+        generated: true,
+        persisted: false,
+      });
+      await Promise.resolve();
+    });
+
+    expect(api?.snapshot()).toEqual(
+      expect.objectContaining({
+        chatSending: false,
+        conversationMessages: [
+          expect.objectContaining({
+            role: "assistant",
+            text: "Hey there.",
+            source: "agent_greeting",
+          }),
+        ],
+      }),
+    );
 
     await act(async () => {
       tree?.unmount();

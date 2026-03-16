@@ -131,6 +131,11 @@ vi.mock("../../src/components/CharacterView", () => ({
     React.createElement("section", null, "CharacterView Ready"),
 }));
 
+vi.mock("../../src/components/AdvancedPageView", () => ({
+  AdvancedPageView: () =>
+    React.createElement("section", null, "AdvancedPageView Ready"),
+}));
+
 vi.mock("../../src/components/CompanionView", () => ({
   CompanionView: () =>
     React.createElement("section", null, "CompanionView Ready"),
@@ -282,6 +287,50 @@ function mainContent(tree: TestRenderer.ReactTestRenderer): string {
   return textOf(mains[0]);
 }
 
+function shellModeForTab(tab: Tab): "native" | "companion" {
+  return tab === "companion" ? "companion" : "native";
+}
+
+function expectedTokenForTab(tab: Tab): string {
+  switch (tab) {
+    case "chat":
+      return "ChatView Ready";
+    case "companion":
+      return "CompanionShell Ready";
+    case "apps":
+      return "ChatView Ready";
+    case "character":
+    case "character-select":
+      return "CharacterView Ready";
+    case "wallets":
+      return "InventoryView Ready";
+    case "knowledge":
+      return "KnowledgeView Ready";
+    case "connectors":
+      return "ConnectorsPageView Ready";
+    case "triggers":
+      return "HeartbeatsView Ready";
+    case "settings":
+    case "voice":
+      return "SettingsView Ready";
+    case "advanced":
+    case "plugins":
+    case "skills":
+    case "actions":
+    case "fine-tuning":
+    case "trajectories":
+    case "runtime":
+    case "database":
+    case "logs":
+    case "security":
+      return "AdvancedPageView Ready";
+    case "stream":
+      return "StreamView Ready";
+    default:
+      return "ChatView Ready";
+  }
+}
+
 function requireTree(
   tree: TestRenderer.ReactTestRenderer | null,
 ): TestRenderer.ReactTestRenderer {
@@ -330,8 +379,10 @@ describe("pages navigation smoke (e2e)", () => {
       tab: "chat",
       actionNotice: null,
       plugins: [],
-      uiShellMode: "companion",
-      setUiShellMode: vi.fn(),
+      uiShellMode: "native",
+      setUiShellMode: vi.fn((mode: "native" | "companion") => {
+        state.uiShellMode = mode;
+      }),
       uiLanguage: "en",
       agentStatus: { state: "running", agentName: "Milady" },
       loadDropStatus: vi.fn(),
@@ -344,6 +395,7 @@ describe("pages navigation smoke (e2e)", () => {
       setActionNotice: vi.fn(),
       setTab: (tab: Tab) => {
         state.tab = tab;
+        state.uiShellMode = shellModeForTab(tab);
       },
     };
     mockUseApp.mockReset();
@@ -363,12 +415,12 @@ describe("pages navigation smoke (e2e)", () => {
     // Navigate by directly setting state.tab (nav buttons are inside the mocked Header)
     for (const group of getTabGroups(false)) {
       const nextTab = group.tabs[0];
-      state.tab = nextTab;
+      state.setTab(nextTab);
       await act(async () => {
         renderedTree.update(React.createElement(App));
       });
       const content = mainContent(renderedTree);
-      expect(content).toContain("CompanionShell Ready");
+      expect(content).toContain(expectedTokenForTab(nextTab));
       expectValidContent(content);
     }
 
@@ -429,12 +481,12 @@ describe("pages navigation smoke (e2e)", () => {
     const renderedTree = requireTree(tree);
 
     for (const tab of tabsToVerify) {
-      state.tab = tab;
+      state.setTab(tab);
       await act(async () => {
         renderedTree.update(React.createElement(App));
       });
       const content = mainContent(renderedTree);
-      expect(content).toContain("CompanionShell Ready");
+      expect(content).toContain(expectedTokenForTab(tab));
       expectValidContent(content);
     }
 
@@ -514,7 +566,7 @@ describe("pages navigation smoke (e2e)", () => {
         tab: "chat",
         actionNotice: null,
         plugins: [],
-        uiShellMode: "companion",
+        uiShellMode: "native",
         setUiShellMode: vi.fn(),
         uiLanguage: "en",
         agentStatus: { state: "running", agentName: "Milady" },

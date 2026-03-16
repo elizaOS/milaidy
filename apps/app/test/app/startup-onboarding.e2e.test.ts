@@ -343,7 +343,7 @@ function createHarnessState(): AppHarnessState {
     elizaCloudLoginBusy: false,
     elizaCloudLoginError: "",
     elizaCloudUserId: "",
-    uiShellMode: "native",
+    uiShellMode: "companion",
   };
 }
 
@@ -396,7 +396,8 @@ describe("app startup onboarding flow (e2e)", () => {
     const handleOnboardingNext = async () => {
       if (state.onboardingStep === "activate") {
         state.onboardingComplete = true;
-        state.tab = "chat";
+        state.uiShellMode = "native";
+        state.tab = "character-select";
         return;
       }
       const idx = STEP_ORDER.indexOf(state.onboardingStep);
@@ -433,7 +434,7 @@ describe("app startup onboarding flow (e2e)", () => {
     }));
   });
 
-  it("progresses through onboarding and lands in chat", async () => {
+  it("progresses through onboarding and lands in character select", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
     await act(async () => {
@@ -474,8 +475,26 @@ describe("app startup onboarding flow (e2e)", () => {
 
     const renderedText = textOf(renderedTree.root);
 
-    expect(renderedText).toContain("ChatView");
+    expect(renderedText).toContain("CharacterView");
     expect(renderedText).not.toContain("OnboardingWizard");
+  });
+
+  it("renders character select when the tab is character-select even if companion mode lingers", async () => {
+    state.onboardingComplete = true;
+    state.tab = "character-select";
+    state.uiShellMode = "companion";
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(App));
+    });
+    if (!tree) throw new Error("failed to render App");
+
+    const renderedText = textOf(tree.root);
+
+    expect(renderedText).toContain("CharacterView");
+    expect(renderedText).not.toContain("CompanionView");
   });
 });
 vi.mock("@milady/app-core/components", async () => {
