@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "preview": "vite preview",
+    "design-review": "node --import tsx test/design-review/run-design-review.ts",
     "test": "vitest run --config vitest.config.ts",
     "test:ui": "vitest run --config vitest.config.ts test/app/command-palette.test.tsx test/app/chat-view.test.tsx test/app/conversations-sidebar.test.tsx test/app/events.test.ts test/app/command-registry.test.ts test/app/shell-overlays.test.tsx test/app/shortcuts-overlay.test.tsx test/app/confirm-modal.test.tsx",
     "test:watch": "vitest --config vitest.config.ts",
