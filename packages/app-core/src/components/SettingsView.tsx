@@ -155,13 +155,13 @@ function SettingsSidebar({
                 }`}
               >
                 <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border p-2 ${
                     isActive
                       ? "border-accent/30 bg-accent/18 text-txt-strong"
                       : "border-border/50 bg-bg-accent/80 text-muted"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4 shrink-0" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold leading-snug text-current">
