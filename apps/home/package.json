@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@miladyai/app-core": "^1.0.0",
+    "@miladyai/app-core": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

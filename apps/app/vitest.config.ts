@@ -52,7 +52,10 @@ export default defineConfig({
         here,
         "plugins/desktop/src/index.ts",
       ),
-      "@miladyai/capacitor-agent": path.join(here, "plugins/agent/src/index.ts"),
+      "@miladyai/capacitor-agent": path.join(
+        here,
+        "plugins/agent/src/index.ts",
+      ),
     },
     testTimeout: 30000,
     globals: true,

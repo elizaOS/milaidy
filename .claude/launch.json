@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 2138
+    },
+    {
+      "name": "dev-ui-only",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:ui"],
+      "port": 2138
+    },
+    {
+      "name": "homepage",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:homepage"],
+      "port": 2139
+    },
+    {
+      "name": "storybook",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "--prefix", "apps/app", "storybook"],
+      "port": 6007
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "docs:dev"],
+      "port": 3000
+    }
+  ]
+}

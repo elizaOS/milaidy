@@ -12,7 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { OnboardingConnection } from "../../../../src/contracts/onboarding";
+import type { OnboardingConnection } from "@miladyai/autonomous/contracts/onboarding";
 import { prepareDraftForSave } from "../actions/character";
 import {
   type AgentStartupDiagnostics,

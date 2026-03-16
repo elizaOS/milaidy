@@ -90,7 +90,10 @@ export default defineConfig({
       },
       {
         find: /^@miladyai\/autonomous$/,
-        replacement: path.resolve(miladyRoot, "packages/autonomous/src/index.ts"),
+        replacement: path.resolve(
+          miladyRoot,
+          "packages/autonomous/src/index.ts",
+        ),
       },
       {
         find: /^@miladyai\/autonomous\/(.*)$/,
