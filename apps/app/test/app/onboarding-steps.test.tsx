@@ -28,9 +28,15 @@ vi.mock("@milady/app-core/api", () => ({
   },
 }));
 
-vi.mock("@milady/app-core/providers", () => ({
-  getProviderLogo: () => "/logos/placeholder.png",
-}));
+vi.mock("@milady/app-core/providers", async () => {
+  const actual = await vi.importActual<
+    typeof import("@milady/app-core/providers")
+  >("@milady/app-core/providers");
+  return {
+    ...actual,
+    getProviderLogo: () => "/logos/placeholder.png",
+  };
+});
 
 vi.mock("@milady/app-core/platform", () => ({
   get isNative() {
@@ -63,7 +69,6 @@ function baseContext(overrides?: Record<string, unknown>) {
       ],
       models: { small: [], large: [] },
       openrouterModels: [],
-      inventoryProviders: [],
       piAiModels: [],
       piAiDefaultModel: "",
     },
@@ -300,7 +305,6 @@ describe("ConnectionStep", () => {
           ],
           models: { small: [], large: [] },
           openrouterModels: [],
-          inventoryProviders: [],
           piAiModels: [],
           piAiDefaultModel: "",
         },

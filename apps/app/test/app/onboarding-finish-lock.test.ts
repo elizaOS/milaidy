@@ -18,7 +18,6 @@ const { mockClient } = vi.hoisted(() => ({
       providers: [],
       cloudProviders: [],
       models: { small: [], large: [] },
-      inventoryProviders: [],
       sharedStyleRules: "",
     })),
     listConversations: vi.fn(async () => ({ conversations: [] })),
@@ -128,6 +127,7 @@ type ProbeApi = {
   }) => Promise<void>;
   hasOnboardingOptions: () => boolean;
   getOnboardingStep: () => string;
+  setState: (key: string, value: unknown) => void;
   snapshot: () => {
     onboardingComplete: boolean;
     activeConversationId: string | null;
@@ -148,6 +148,7 @@ function Probe(props: { onReady: (api: ProbeApi) => void }) {
       handleOnboardingNext: app.handleOnboardingNext,
       hasOnboardingOptions: () => Boolean(app.onboardingOptions),
       getOnboardingStep: () => app.onboardingStep,
+      setState: app.setState,
       snapshot: () => ({
         onboardingComplete: app.onboardingComplete,
         activeConversationId: app.activeConversationId,
@@ -205,6 +206,12 @@ async function waitForOnboardingOptions(getApi: () => ProbeApi) {
   throw new Error("Onboarding options did not load");
 }
 
+function configureOnboardingConnection(api: ProbeApi) {
+  api.setState("onboardingRunMode", "local");
+  api.setState("onboardingProvider", "openai");
+  api.setState("onboardingApiKey", "sk-test-onboarding-key");
+}
+
 describe("onboarding finish locking", () => {
   beforeEach(() => {
     Object.assign(window.location, { protocol: "file:", pathname: "/chat" });
@@ -236,7 +243,6 @@ describe("onboarding finish locking", () => {
       providers: [],
       cloudProviders: [],
       models: { small: [], large: [] },
-      inventoryProviders: [],
       sharedStyleRules: "",
     });
     mockClient.listConversations.mockResolvedValue({ conversations: [] });
@@ -334,6 +340,7 @@ describe("onboarding finish locking", () => {
     };
 
     await waitForOnboardingOptions(requireApi);
+    configureOnboardingConnection(requireApi());
     await advanceToActivate(requireApi);
 
     await act(async () => {
@@ -381,6 +388,7 @@ describe("onboarding finish locking", () => {
     };
 
     await waitForOnboardingOptions(requireApi);
+    configureOnboardingConnection(requireApi());
     await advanceToActivate(requireApi);
 
     await act(async () => {
@@ -432,6 +440,7 @@ describe("onboarding finish locking", () => {
     };
 
     await waitForOnboardingOptions(requireApi);
+    configureOnboardingConnection(requireApi());
     await advanceToSenses(requireApi);
 
     await act(async () => {
@@ -473,6 +482,7 @@ describe("onboarding finish locking", () => {
     };
 
     await waitForOnboardingOptions(requireApi);
+    configureOnboardingConnection(requireApi());
     await advanceToActivate(requireApi);
 
     await act(async () => {

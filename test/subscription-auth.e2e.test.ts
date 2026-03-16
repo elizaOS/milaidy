@@ -256,7 +256,7 @@ describe("subscription auth routes (e2e contract)", () => {
       );
 
       expect(exchangeRes.status).toBe(500);
-      expect(exchangeRes.data.error).toBe("Anthropic exchange failed");
+      expect(exchangeRes.data.error).toBe("Claude exchange failed");
       expect(submitCode).toHaveBeenCalledWith("valid-looking-code");
       expect(saveCredentials).not.toHaveBeenCalled();
     });
@@ -301,7 +301,7 @@ describe("subscription auth routes (e2e contract)", () => {
 
       const res = await req(port, "POST", "/api/subscription/anthropic/start");
       expect(res.status).toBe(500);
-      expect(res.data.error).toContain("Failed to start Anthropic login");
+      expect(res.data.error).toContain("Failed to start Claude login");
     });
   });
 

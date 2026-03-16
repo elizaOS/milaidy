@@ -22,7 +22,22 @@ import type {
   VisionProvider,
 } from "../../../../src/config/types.milady";
 import type { DropStatus, MintResult } from "../../../../src/contracts/drop";
-import type { StylePreset } from "../../../../src/contracts/onboarding";
+import type {
+  CloudProviderOption,
+  ConnectorConfig,
+  MessageExample,
+  MessageExampleContent,
+  ModelOption,
+  OnboardingConnection,
+  OnboardingData,
+  OnboardingOptions,
+  OpenRouterModelOption,
+  PiAiModelOption,
+  ProviderOption,
+  StylePreset,
+  SubscriptionProviderStatus,
+  SubscriptionStatusResponse,
+} from "../../../../src/contracts/onboarding";
 import type { VerificationResult } from "../../../../src/contracts/verification";
 import type {
   BscTradeExecuteRequest,
@@ -80,6 +95,8 @@ export type {
   BscTradeTxStatusResponse,
   BscTransferExecuteRequest,
   BscTransferExecuteResponse,
+  CloudProviderOption,
+  ConnectorConfig,
   CustomActionDef,
   CustomActionHandler,
   DatabaseProviderType,
@@ -92,13 +109,24 @@ export type {
   ImageProvider,
   MediaConfig,
   MediaMode,
+  MessageExample,
+  MessageExampleContent,
   MintResult,
+  ModelOption,
+  OnboardingConnection,
+  OnboardingData,
+  OnboardingOptions,
+  OpenRouterModelOption,
   PermissionState,
   PermissionStatus,
+  PiAiModelOption,
+  ProviderOption,
   ReleaseChannel,
   SolanaNft,
   SolanaTokenBalance,
   StylePreset,
+  SubscriptionProviderStatus,
+  SubscriptionStatusResponse,
   SystemPermissionDefinition as PermissionDefinition,
   SystemPermissionId,
   VerificationResult,
@@ -455,38 +483,6 @@ export interface UpdateTriggerRequest {
   maxRuns?: number;
 }
 
-export interface MessageExampleContent {
-  text: string;
-  actions?: string[];
-}
-
-export interface MessageExample {
-  user: string;
-  content: MessageExampleContent;
-}
-
-export interface ProviderOption {
-  id: string;
-  name: string;
-  envKey: string | null;
-  pluginName: string;
-  keyPrefix: string | null;
-  description: string;
-}
-
-export interface CloudProviderOption {
-  id: string;
-  name: string;
-  description: string;
-}
-
-export interface ModelOption {
-  id: string;
-  name: string;
-  provider: string;
-  description: string;
-}
-
 export interface RpcProviderOption {
   id: string;
   name: string;
@@ -500,110 +496,6 @@ export interface InventoryProviderOption {
   name: string;
   description: string;
   rpcProviders: RpcProviderOption[];
-}
-
-export interface OpenRouterModelOption {
-  id: string;
-  name: string;
-  description: string;
-}
-
-export interface PiAiModelOption {
-  id: string;
-  name: string;
-  provider: string;
-  isDefault: boolean;
-}
-
-export interface OnboardingOptions {
-  names: string[];
-  styles: StylePreset[];
-  providers: ProviderOption[];
-  cloudProviders: CloudProviderOption[];
-  models: {
-    small: ModelOption[];
-    large: ModelOption[];
-  };
-  openrouterModels?: OpenRouterModelOption[];
-  piAiModels?: PiAiModelOption[];
-  piAiDefaultModel?: string | null;
-  inventoryProviders: InventoryProviderOption[];
-  sharedStyleRules: string;
-  githubOAuthAvailable?: boolean;
-}
-
-/** Configuration for a single messaging connector. */
-export interface ConnectorConfig {
-  enabled?: boolean;
-  botToken?: string;
-  token?: string;
-  apiKey?: string;
-  [key: string]:
-    | string
-    | boolean
-    | number
-    | string[]
-    | Record<string, unknown>
-    | undefined;
-}
-
-export interface OnboardingData {
-  name: string;
-  runMode: "local" | "cloud";
-  /** Sandbox execution mode: "off" (rawdog), "light" (cloud), "standard" (local sandbox), "max". */
-  sandboxMode?: "off" | "light" | "standard" | "max";
-  bio: string[];
-  systemPrompt: string;
-  style?: {
-    all: string[];
-    chat: string[];
-    post: string[];
-  };
-  adjectives?: string[];
-  postExamples?: string[];
-  messageExamples?: MessageExample[][];
-  // Cloud-specific
-  cloudProvider?: string;
-  smallModel?: string;
-  largeModel?: string;
-  // Local-specific
-  provider?: string;
-  providerApiKey?: string;
-  /** Optional primary model override (provider/model), used by pi-ai mode. */
-  primaryModel?: string;
-  openrouterModel?: string;
-  subscriptionProvider?: string;
-  // Messaging channel setup
-  channels?: Record<string, unknown>;
-  // Inventory / wallet setup
-  walletConfig?: WalletConfigUpdateRequest;
-  inventoryProviders?: Array<{
-    chain: string;
-    rpcProvider: string;
-    rpcApiKey?: string;
-  }>;
-  // Connector setup (Telegram, Discord, etc.)
-  connectors?: Record<string, ConnectorConfig>;
-  telegramToken?: string;
-  discordToken?: string;
-  whatsappSessionPath?: string;
-  twilioAccountSid?: string;
-  twilioAuthToken?: string;
-  twilioPhoneNumber?: string;
-  blooioApiKey?: string;
-  blooioPhoneNumber?: string;
-  githubToken?: string;
-}
-
-export interface SubscriptionProviderStatus {
-  provider: string;
-  configured: boolean;
-  valid: boolean;
-  expiresAt: number | null;
-}
-
-export interface SubscriptionStatusResponse {
-  providers: SubscriptionProviderStatus[];
 }
 
 export interface SandboxPlatformStatus {

@@ -1,3 +1,7 @@
+import {
+  buildOnboardingConnectionConfig,
+  isElizaCloudConnectionReady,
+} from "@milady/app-core/onboarding-config";
 import { useApp } from "@milady/app-core/state";
 import { useState } from "react";
 
@@ -11,6 +15,14 @@ export function RpcStep() {
     onboardingRunMode,
     onboardingCloudProvider,
     onboardingApiKey,
+    onboardingProvider,
+    onboardingPrimaryModel,
+    onboardingOpenRouterModel,
+    onboardingRemoteConnected,
+    onboardingRemoteApiBase,
+    onboardingRemoteToken,
+    onboardingSmallModel,
+    onboardingLargeModel,
     handleCloudLogin,
     handleOnboardingNext,
     handleOnboardingBack,
@@ -19,11 +31,23 @@ export function RpcStep() {
     t,
   } = useApp();
 
-  const elizaCloudReady =
-    elizaCloudConnected ||
-    (onboardingRunMode === "cloud" &&
-      onboardingCloudProvider === "elizacloud" &&
-      onboardingApiKey.trim().length > 0);
+  const connection = buildOnboardingConnectionConfig({
+    onboardingRunMode,
+    onboardingCloudProvider,
+    onboardingProvider,
+    onboardingApiKey,
+    onboardingPrimaryModel,
+    onboardingOpenRouterModel,
+    onboardingRemoteConnected,
+    onboardingRemoteApiBase,
+    onboardingRemoteToken,
+    onboardingSmallModel,
+    onboardingLargeModel,
+  });
+  const elizaCloudReady = isElizaCloudConnectionReady({
+    connection,
+    elizaCloudConnected,
+  });
   const [mode, setMode] = useState<RpcMode>(elizaCloudReady ? "cloud" : "");
 
   const rpcKeys = onboardingRpcKeys as Record<string, string>;

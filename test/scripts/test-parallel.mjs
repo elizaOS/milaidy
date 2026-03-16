@@ -99,9 +99,21 @@ const runOnce = (entry, extraArgs = []) =>
       shell: process.platform === "win32",
     });
     children.add(child);
-    child.on("exit", (code, signal) => {
+    let settled = false;
+    const settle = (code) => {
+      if (settled) return;
+      settled = true;
       children.delete(child);
-      resolve(code ?? (signal ? 1 : 0));
+      resolve(code);
+    };
+    child.once("error", (err) => {
+      console.error(
+        `[test-parallel] Failed to start ${entry.name}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      settle(1);
+    });
+    child.once("close", (code, signal) => {
+      settle(code ?? (signal ? 1 : 0));
     });
   });
 

@@ -265,4 +265,38 @@ describe("ProviderSwitcher provider dropdown default", () => {
     expect(handlePluginToggle).toHaveBeenCalledWith("plugin-anthropic", true);
     expect(handlePluginToggle).toHaveBeenCalledWith("plugin-openai", false);
   });
+
+  it("restores Claude Subscription from saved config instead of collapsing to anthropic", async () => {
+    mockGetConfig.mockResolvedValue({
+      models: {},
+      cloud: {
+        enabled: false,
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+      agents: {
+        defaults: {
+          subscriptionProvider: "anthropic-subscription",
+        },
+      },
+      env: { vars: {} },
+    });
+    mockGetOnboardingOptions.mockResolvedValue({
+      models: [],
+      piAiModels: [],
+      piAiDefaultModel: "",
+    });
+    mockGetSubscriptionStatus.mockResolvedValue({ providers: [] });
+
+    let tree!: ReactTestRenderer;
+    await act(async () => {
+      tree = create(React.createElement(ProviderSwitcher, defaultProps()));
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(getSelectValue(tree)).toBe("anthropic-subscription");
+  });
 });

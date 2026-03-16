@@ -4,8 +4,16 @@ import type {
   ProviderOption,
 } from "@milady/app-core/api";
 import { client } from "@milady/app-core/api";
+import {
+  buildOnboardingConnectionConfig,
+  isElizaCloudConnectionReady,
+} from "@milady/app-core/onboarding-config";
 import { isNative } from "@milady/app-core/platform";
-import { getProviderLogo } from "@milady/app-core/providers";
+import {
+  getProviderLogo,
+  isSubscriptionProviderSelectionId,
+  sortOnboardingProviders,
+} from "@milady/app-core/providers";
 import { useApp } from "@milady/app-core/state";
 import { openExternalUrl } from "@milady/app-core/utils";
 import { useState } from "react";
@@ -22,6 +30,8 @@ export function ConnectionStep() {
     onboardingOptions,
     onboardingRunMode,
     onboardingCloudProvider,
+    onboardingSmallModel,
+    onboardingLargeModel,
     onboardingProvider,
     onboardingSubscriptionTab,
     onboardingApiKey,
@@ -150,49 +160,25 @@ export function ConnectionStep() {
   const providers = (onboardingOptions?.providers ?? []).filter(
     (provider: ProviderOption) => provider.id !== "elizacloud",
   );
-  const elizaCloudReady =
-    elizaCloudConnected ||
-    (onboardingRunMode === "cloud" &&
-      onboardingCloudProvider === "elizacloud" &&
-      onboardingApiKey.trim().length > 0);
+  const connection = buildOnboardingConnectionConfig({
+    onboardingRunMode,
+    onboardingCloudProvider,
+    onboardingProvider,
+    onboardingApiKey,
+    onboardingPrimaryModel,
+    onboardingOpenRouterModel,
+    onboardingRemoteConnected,
+    onboardingRemoteApiBase,
+    onboardingRemoteToken,
+    onboardingSmallModel,
+    onboardingLargeModel,
+  });
+  const elizaCloudReady = isElizaCloudConnectionReady({
+    connection,
+    elizaCloudConnected,
+  });
   const showProviderSelection =
     onboardingRemoteConnected || onboardingRunMode === "local";
-
-  const recommendedIds = new Set([
-    "anthropic-subscription",
-    "openai-subscription",
-  ]);
-
-  const providerOverrides: Record<
-    string,
-    { name: string; description?: string }
-  > = {
-    elizacloud: { name: "Eliza Cloud", description: "Managed hosting" },
-    "anthropic-subscription": {
-      name: "Claude Sub",
-      description: "Pro/Max subscription",
-    },
-    "openai-subscription": {
-      name: "ChatGPT Sub",
-      description: "Plus/Pro subscription",
-    },
-    anthropic: { name: "Anthropic", description: "Claude API key" },
-    openai: { name: "OpenAI", description: "GPT API key" },
-    openrouter: { name: "OpenRouter", description: "Multi-model API" },
-    gemini: { name: "Gemini", description: "Google AI" },
-    grok: { name: "xAI (Grok)" },
-    groq: { name: "Groq", description: "Fast inference" },
-    deepseek: { name: "DeepSeek" },
-    "pi-ai": { name: "Pi Credentials", description: "Local auth" },
-  };
-
-  const getProviderDisplay = (provider: ProviderOption) => {
-    const override = providerOverrides[provider.id];
-    return {
-      name: override?.name ?? provider.name,
-      description: override?.description ?? provider.description,
-    };
-  };
 
   const handleSelectLocalHosting = () => {
     setState("onboardingRunMode", "local");
@@ -229,13 +215,7 @@ export function ConnectionStep() {
   };
 
   const availableProviders = providers;
-  const recommendedProviders = availableProviders.filter((p: ProviderOption) =>
-    recommendedIds.has(p.id),
-  );
-  const otherProviders = availableProviders.filter(
-    (p: ProviderOption) => !recommendedIds.has(p.id),
-  );
-  const sortedProviders = [...recommendedProviders, ...otherProviders];
+  const sortedProviders = sortOnboardingProviders(availableProviders);
 
   const piAiModels = onboardingOptions?.piAiModels ?? [];
   const piAiDefaultModel = onboardingOptions?.piAiDefaultModel ?? "";
@@ -254,7 +234,10 @@ export function ConnectionStep() {
     setState("onboardingProvider", providerId);
     setState("onboardingApiKey", "");
     setState("onboardingPrimaryModel", "");
-    if (providerId === "anthropic-subscription") {
+    if (
+      isSubscriptionProviderSelectionId(providerId) &&
+      providerId === "anthropic-subscription"
+    ) {
       setState("onboardingSubscriptionTab", "token");
     }
   };
@@ -703,8 +686,7 @@ export function ConnectionStep() {
         </div>
         <div className="onboarding-provider-grid">
           {sortedProviders.map((p: ProviderOption) => {
-            const display = getProviderDisplay(p);
-            const isRecommended = recommendedIds.has(p.id);
+            const isRecommended = Boolean(p.recommended);
             return (
               <button
                 type="button"
@@ -714,14 +696,14 @@ export function ConnectionStep() {
               >
                 <img
                   src={getProviderLogo(p.id, false)}
-                  alt={display.name}
+                  alt={p.name}
                   className="onboarding-provider-icon"
                 />
                 <div>
-                  <div className="onboarding-provider-name">{display.name}</div>
-                  {display.description && (
+                  <div className="onboarding-provider-name">{p.name}</div>
+                  {p.description && (
                     <div className="onboarding-provider-desc">
-                      {display.description}
+                      {p.description}
                     </div>
                   )}
                 </div>
@@ -757,7 +739,7 @@ export function ConnectionStep() {
     (p: ProviderOption) => p.id === onboardingProvider,
   );
   const selectedDisplay = selectedProvider
-    ? getProviderDisplay(selectedProvider)
+    ? { name: selectedProvider.name, description: selectedProvider.description }
     : { name: onboardingProvider, description: "" };
 
   return (

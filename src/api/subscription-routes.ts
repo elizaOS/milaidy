@@ -1,5 +1,9 @@
 import { logger } from "@elizaos/core";
 import type { MiladyConfig } from "../config/config";
+import {
+  applyOnboardingConnectionConfig,
+  clearSubscriptionProviderConfig,
+} from "./provider-switch-config";
 import type { RouteRequestContext } from "./route-helpers";
 
 export interface SubscriptionRouteState {
@@ -48,7 +52,7 @@ export async function handleSubscriptionRoutes(
       logger.error(
         `[api] Failed to start Anthropic login: ${err instanceof Error ? err.stack : err}`,
       );
-      error(res, "Failed to start Anthropic login", 500);
+      error(res, "Failed to start Claude login", 500);
     }
     return true;
   }
@@ -66,9 +70,7 @@ export async function handleSubscriptionRoutes(
       return true;
     }
     try {
-      const { saveCredentials, applySubscriptionCredentials } = await import(
-        "../auth/index"
-      );
+      const { saveCredentials } = await import("../auth/index");
       const flow = state._anthropicFlow;
       if (!flow) {
         error(res, "No active flow — call /start first", 400);
@@ -78,7 +80,11 @@ export async function handleSubscriptionRoutes(
       flow.submitCode(body.code);
       const credentials = await flow.credentials;
       saveCredentials("anthropic-subscription", credentials);
-      await applySubscriptionCredentials(state.config);
+      await applyOnboardingConnectionConfig(state.config, {
+        kind: "local-provider",
+        provider: "anthropic-subscription",
+      });
+      ctx.saveConfig(state.config);
       delete state._anthropicFlow;
       json(res, { success: true, expiresAt: credentials.expires });
     } catch (err) {
@@ -87,7 +93,7 @@ export async function handleSubscriptionRoutes(
       logger.error(
         `[api] Anthropic exchange failed: ${err instanceof Error ? err.stack : err}`,
       );
-      error(res, "Anthropic exchange failed", 500);
+      error(res, "Claude exchange failed", 500);
     }
     return true;
   }
@@ -105,12 +111,11 @@ export async function handleSubscriptionRoutes(
       return true;
     }
     try {
-      // Setup tokens are direct API keys — set in env immediately
-      process.env.ANTHROPIC_API_KEY = body.token.trim();
-      // Also save to config so it persists across restarts
-      if (!state.config.env) state.config.env = {};
-      (state.config.env as Record<string, string>).ANTHROPIC_API_KEY =
-        body.token.trim();
+      await applyOnboardingConnectionConfig(state.config, {
+        kind: "local-provider",
+        provider: "anthropic-subscription",
+        apiKey: body.token.trim(),
+      });
       ctx.saveConfig(state.config);
       json(res, { success: true });
     } catch (err) {
@@ -180,9 +185,7 @@ export async function handleSubscriptionRoutes(
     }>(req, res);
     if (!body) return true;
     try {
-      const { saveCredentials, applySubscriptionCredentials } = await import(
-        "../auth/index"
-      );
+      const { saveCredentials } = await import("../auth/index");
       const flow = state._codexFlow;
 
       if (!flow) {
@@ -220,7 +223,11 @@ export async function handleSubscriptionRoutes(
         return true;
       }
       saveCredentials("openai-codex", credentials);
-      await applySubscriptionCredentials(state.config);
+      await applyOnboardingConnectionConfig(state.config, {
+        kind: "local-provider",
+        provider: "openai-subscription",
+      });
+      ctx.saveConfig(state.config);
       flow.close();
       delete state._codexFlow;
       clearTimeout(state._codexFlowTimer);
@@ -246,6 +253,12 @@ export async function handleSubscriptionRoutes(
       try {
         const { deleteCredentials } = await import("../auth/index");
         deleteCredentials(provider);
+        const activeProvider =
+          state.config.agents?.defaults?.subscriptionProvider ?? null;
+        if (activeProvider === provider) {
+          clearSubscriptionProviderConfig(state.config);
+          ctx.saveConfig(state.config);
+        }
         json(res, { success: true });
       } catch (err) {
         logger.error(

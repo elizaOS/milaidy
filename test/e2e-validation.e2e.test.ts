@@ -347,6 +347,10 @@ describe("Fresh Install Simulation", () => {
           name: "FreshInstallAgent",
           bio: ["A freshly installed test agent"],
           systemPrompt: "You are a test agent for E2E validation.",
+          connection: {
+            kind: "local-provider",
+            provider: "anthropic",
+          },
         },
       );
       expect(status).toBe(200);

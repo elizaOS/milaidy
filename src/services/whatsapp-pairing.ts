@@ -48,6 +48,12 @@ export interface WhatsAppPairingOptions {
   onEvent: (event: WhatsAppPairingEvent) => void;
 }
 
+type WhatsAppDisconnectError = {
+  output?: {
+    statusCode?: number;
+  };
+};
+
 export class WhatsAppPairingSession {
   private socket: ReturnType<
     typeof import("@whiskeysockets/baileys").default
@@ -74,7 +80,6 @@ export class WhatsAppPairingSession {
       DisconnectReason,
     } = baileys;
     const QRCode = (await import("qrcode")).default;
-    const { Boom } = await import("@hapi/boom");
 
     // Ensure auth directory exists
     fs.mkdirSync(this.options.authDir, { recursive: true });
@@ -132,7 +137,7 @@ export class WhatsAppPairingSession {
       }
 
       if (connection === "close") {
-        const statusCode = (lastDisconnect?.error as InstanceType<typeof Boom>)
+        const statusCode = (lastDisconnect?.error as WhatsAppDisconnectError)
           ?.output?.statusCode;
         console.info(
           `${LOG_PREFIX} Connection closed, statusCode=${statusCode}, status=${this.status}`,

@@ -98,6 +98,7 @@ import {
   type UiLanguage,
 } from "../i18n";
 import { pathForTab, type Tab, tabFromPath } from "../navigation";
+import { buildOnboardingConnectionConfig } from "../onboarding-config";
 import { getMissingOnboardingPermissions } from "../platform";
 import {
   alertDesktopMessage,
@@ -3884,17 +3885,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const systemPrompt = style?.system
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
       : `You are ${onboardingName}, an autonomous AI agent powered by elizaOS. ${onboardingOptions.sharedStyleRules}`;
-    const elizaCloudProvisioned =
-      onboardingRunMode === "cloud" &&
-      onboardingCloudProvider === "elizacloud" &&
-      !onboardingRemoteConnected;
-    const apiRunMode = elizaCloudProvisioned ? "cloud" : "local";
-
     onboardingFinishBusyRef.current = true;
     setOnboardingRestarting(true);
     onboardingFinishSavingRef.current = true;
 
     try {
+      const connection = buildOnboardingConnectionConfig({
+        onboardingRunMode,
+        onboardingCloudProvider,
+        onboardingProvider,
+        onboardingApiKey,
+        onboardingPrimaryModel,
+        onboardingOpenRouterModel,
+        onboardingRemoteConnected,
+        onboardingRemoteApiBase,
+        onboardingRemoteToken,
+        onboardingSmallModel,
+        onboardingLargeModel,
+      });
+      if (!connection) {
+        throw new Error("Onboarding connection is incomplete");
+      }
+
       const rpcSel = onboardingRpcSelections as Record<string, string>;
       const rpcK = onboardingRpcKeys as Record<string, string>;
       const nextWalletConfig = buildWalletRpcUpdateRequest({
@@ -3909,7 +3921,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       await client.submitOnboarding({
         name: onboardingName,
-        runMode: apiRunMode,
         sandboxMode: "off" as const,
         bio: style?.bio ?? ["An autonomous AI agent."],
         systemPrompt,
@@ -3917,22 +3928,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         adjectives: style?.adjectives,
         postExamples: style?.postExamples,
         messageExamples: style?.messageExamples,
-        cloudProvider: elizaCloudProvisioned
-          ? onboardingCloudProvider
-          : undefined,
-        smallModel: elizaCloudProvisioned
-          ? onboardingSmallModel.trim() || undefined
-          : undefined,
-        largeModel: elizaCloudProvisioned
-          ? onboardingLargeModel.trim() || undefined
-          : undefined,
-        provider:
-          apiRunMode === "local" ? onboardingProvider || undefined : undefined,
-        providerApiKey: onboardingApiKey || undefined,
-        primaryModel:
-          apiRunMode === "local"
-            ? onboardingPrimaryModel.trim() || undefined
-            : undefined,
+        connection,
         walletConfig: nextWalletConfig,
       });
       try {
@@ -3968,7 +3964,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
+    onboardingRemoteApiBase,
     onboardingRemoteConnected,
+    onboardingRemoteToken,
+    onboardingOpenRouterModel,
     onboardingPrimaryModel,
     onboardingRpcSelections,
     onboardingRpcKeys,

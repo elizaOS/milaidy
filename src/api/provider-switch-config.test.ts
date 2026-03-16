@@ -1,9 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MiladyConfig } from "../config/types.milady";
+
+const { applySubscriptionCredentials, deleteCredentials } = vi.hoisted(() => ({
+  applySubscriptionCredentials: vi.fn(async () => undefined),
+  deleteCredentials: vi.fn(),
+}));
+
+vi.mock("../auth/index", () => ({
+  applySubscriptionCredentials,
+  deleteCredentials,
+}));
+
 import {
+  applyOnboardingConnectionConfig,
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
+  createProviderSwitchConnection,
 } from "./provider-switch-config";
 
 // ---------------------------------------------------------------------------
@@ -19,6 +32,11 @@ function configWithDefaults(
 ): Partial<MiladyConfig> {
   return { agents: { defaults } };
 }
+
+beforeEach(() => {
+  applySubscriptionCredentials.mockClear();
+  deleteCredentials.mockClear();
+});
 
 // ============================================================================
 //  applySubscriptionProviderConfig
@@ -153,5 +171,67 @@ describe("clearSubscriptionProviderConfig", () => {
     clearSubscriptionProviderConfig(config);
 
     expect(config.agents?.defaults?.subscriptionProvider).toBeUndefined();
+  });
+});
+
+describe("applyOnboardingConnectionConfig", () => {
+  it("applies a Claude subscription connection and keeps the selection distinct", async () => {
+    const config = emptyConfig();
+
+    await applyOnboardingConnectionConfig(config, {
+      kind: "local-provider",
+      provider: "anthropic-subscription",
+    });
+
+    expect(config.agents?.defaults?.subscriptionProvider).toBe(
+      "anthropic-subscription",
+    );
+    expect(config.agents?.defaults?.model?.primary).toBe("anthropic");
+    expect(applySubscriptionCredentials).toHaveBeenCalledWith(config);
+    expect(deleteCredentials).toHaveBeenCalledWith("openai-codex");
+  });
+
+  it("applies the same config mutation for onboarding and provider-switch paths", async () => {
+    const onboardingConfig = configWithDefaults({
+      subscriptionProvider: "openai-codex",
+      model: { primary: "openai" },
+    });
+    const providerSwitchConfig = configWithDefaults({
+      subscriptionProvider: "openai-codex",
+      model: { primary: "openai" },
+    });
+    const providerSwitchConnection = createProviderSwitchConnection({
+      provider: "anthropic-subscription",
+    });
+    if (!providerSwitchConnection) {
+      throw new Error("provider switch connection should be created");
+    }
+
+    await applyOnboardingConnectionConfig(onboardingConfig, {
+      kind: "local-provider",
+      provider: "anthropic-subscription",
+    });
+    await applyOnboardingConnectionConfig(
+      providerSwitchConfig,
+      providerSwitchConnection,
+    );
+
+    expect(providerSwitchConfig).toEqual(onboardingConfig);
+  });
+
+  it("applies openrouter model overrides through the normalized path", async () => {
+    const config = emptyConfig();
+
+    await applyOnboardingConnectionConfig(config, {
+      kind: "local-provider",
+      provider: "openrouter",
+      apiKey: "sk-or-test",
+      primaryModel: "openai/gpt-5-mini",
+    });
+
+    expect(config.agents?.defaults?.model?.primary).toBe("openai/gpt-5-mini");
+    expect((config.env as Record<string, string>)?.OPENROUTER_API_KEY).toBe(
+      "sk-or-test",
+    );
   });
 });

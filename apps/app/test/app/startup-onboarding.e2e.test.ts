@@ -49,18 +49,6 @@ type AppHarnessState = {
         description: string;
       }>;
     };
-    inventoryProviders: Array<{
-      id: string;
-      name: string;
-      description: string;
-      rpcProviders: Array<{
-        id: string;
-        name: string;
-        description: string;
-        envKey: string | null;
-        requiresKey: boolean;
-      }>;
-    }>;
     sharedStyleRules: string;
   } | null;
   onboardingName: string;
@@ -307,22 +295,6 @@ function onboardingOptions() {
         },
       ],
     },
-    inventoryProviders: [
-      {
-        id: "evm",
-        name: "EVM",
-        description: "EVM chains",
-        rpcProviders: [
-          {
-            id: "eliza-cloud",
-            name: "Eliza Cloud",
-            description: "Managed RPC",
-            envKey: null,
-            requiresKey: false,
-          },
-        ],
-      },
-    ],
     sharedStyleRules: "",
   };
 }
