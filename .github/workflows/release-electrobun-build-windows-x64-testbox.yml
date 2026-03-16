@@ -1,0 +1,240 @@
+name: Blacksmith Testbox (Electrobun Windows Release)
+
+on:
+  workflow_dispatch:
+    inputs:
+      testbox_id:
+        type: string
+        description: "Testbox session ID"
+        required: true
+
+env:
+  CI: "true"
+  BUN_VERSION: "1.3.9"
+
+jobs:
+  build-windows-x64:
+    name: Build Windows (Testbox Warmup)
+    runs-on: blacksmith-4vcpu-windows-2025
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    steps:
+      - name: Begin Testbox
+        uses: useblacksmith/begin-testbox@v2
+        with:
+          testbox_id: ${{ inputs.testbox_id }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-electrobun-windows-x64-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-windows-x64-
+
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Ensure avatar assets
+        run: node scripts/ensure-avatars.mjs
+
+      - name: Build core dist
+        run: |
+          bunx tsdown
+          echo '{"type":"module"}' > dist/package.json
+          node --import tsx scripts/write-build-info.ts
+
+      - name: Build renderer
+        working-directory: apps/app
+        run: bunx vite build
+
+      - name: Stage renderer
+        run: |
+          rm -rf apps/app/electrobun/renderer
+          cp -r apps/app/dist apps/app/electrobun/renderer
+
+      - name: Build webview bridge preload
+        working-directory: apps/app/electrobun
+        run: bun run build:preload
+
+      - name: Bundle backend node_modules into dist/
+        run: node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
+
+      - name: Install electrobun CLI
+        run: |
+          ELECTROBUN_VERSION="$(node -p "require('./apps/app/electrobun/package.json').dependencies.electrobun.replace(/^[^0-9]*/, '')")"
+          echo "Installing electrobun@$ELECTROBUN_VERSION"
+          bun install -g "electrobun@$ELECTROBUN_VERSION"
+
+      - name: Materialize local electrobun package for build
+        run: |
+          node -e "
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const { execSync } = require('node:child_process');
+            let src;
+            try {
+              src = fs.realpathSync('node_modules/electrobun');
+            } catch {
+              const globalDir = execSync('bun pm -g bin', { encoding: 'utf8' }).trim();
+              const globalModules = path.resolve(globalDir, '..', 'install', 'global', 'node_modules', 'electrobun');
+              if (fs.existsSync(globalModules)) {
+                src = fs.realpathSync(globalModules);
+              } else {
+                const pkgPath = require.resolve('electrobun/package.json');
+                src = path.dirname(pkgPath);
+              }
+            }
+            const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');
+            fs.rmSync(dest, { recursive: true, force: true });
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.cpSync(src, dest, { recursive: true });
+            console.log('Materialized local electrobun package:', dest, '<-', src);
+          "
+
+      - name: Cache local electrobun core downloads
+        uses: actions/cache@v4
+        with:
+          path: apps/app/electrobun/node_modules/electrobun/.cache
+          key: electrobun-core-windows-x64-${{ hashFiles('apps/app/electrobun/package.json') }}
+          restore-keys: electrobun-core-windows-x64-
+
+      - name: Ensure Windows rcedit binary is available for Electrobun
+        shell: pwsh
+        run: |
+          $globalNodeModules = Join-Path $env:USERPROFILE ".bun\install\global\node_modules"
+          $electrobunDir = Join-Path $globalNodeModules "electrobun"
+          $globalRceditDir = Join-Path $globalNodeModules "rcedit"
+          $globalRceditExe = Join-Path $globalRceditDir "bin\rcedit-x64.exe"
+
+          if (-not (Test-Path $globalRceditExe)) {
+            Write-Host "Installing global rcedit helper..."
+            bun install -g "rcedit@4.0.1"
+          }
+
+          $resolvedRceditPackageJson = node -e @'
+            const { createRequire } = require("node:module");
+            const path = require("node:path");
+            const electrobunDir = process.argv[1];
+            try {
+              const req = createRequire(path.join(electrobunDir, "package.json"));
+              process.stdout.write(req.resolve("rcedit/package.json"));
+            } catch (error) {
+              process.stdout.write("");
+            }
+          '@ $electrobunDir
+
+          $resolvedRceditPackageJson = $resolvedRceditPackageJson.Trim()
+          if ([string]::IsNullOrWhiteSpace($resolvedRceditPackageJson)) {
+            Write-Warning "Electrobun could not resolve rcedit/package.json; seeding a local copy under the electrobun package."
+            $resolvedRceditDir = Join-Path $electrobunDir "node_modules\rcedit"
+          } else {
+            $resolvedRceditDir = Split-Path -Parent $resolvedRceditPackageJson
+          }
+          $resolvedRceditExe = Join-Path $resolvedRceditDir "bin\rcedit-x64.exe"
+
+          if (-not (Test-Path $resolvedRceditExe)) {
+            Write-Warning "Electrobun resolved rcedit without a bundled binary at $resolvedRceditExe; copying known-good package into place."
+            $resolvedNodeModulesDir = Split-Path -Parent $resolvedRceditDir
+            New-Item -ItemType Directory -Force -Path $resolvedNodeModulesDir | Out-Null
+            if (Test-Path $resolvedRceditDir) {
+              Remove-Item -Recurse -Force $resolvedRceditDir
+            }
+            Copy-Item -Recurse -Force $globalRceditDir $resolvedNodeModulesDir
+          }
+
+          if (-not (Test-Path $resolvedRceditExe)) {
+            Write-Error "rcedit-x64.exe is still missing at $resolvedRceditExe"
+            exit 1
+          }
+
+          Write-Host "Using rcedit from $resolvedRceditDir"
+
+      - name: Pre-extract electrobun native CLI on Windows
+        shell: pwsh
+        run: |
+          $electrobunDir = Join-Path $env:USERPROFILE ".bun\install\global\node_modules\electrobun"
+          $cacheDir = Join-Path $electrobunDir ".cache"
+          $binDir = Join-Path $electrobunDir "bin"
+          $cliBinary = Join-Path $cacheDir "electrobun.exe"
+          $binBinary = Join-Path $binDir "electrobun.exe"
+
+          if (Test-Path $binBinary) {
+            Write-Host "electrobun CLI already present at $binBinary — skipping download"
+            exit 0
+          }
+
+          $version = (Get-Content (Join-Path $electrobunDir "package.json") | ConvertFrom-Json).version
+          $assetName = "electrobun-cli-win-x64.tar.gz"
+          $releaseApiUrl = "https://api.github.com/repos/blackboardsh/electrobun/releases/tags/v$version"
+          $headers = @{
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "milady-release-electrobun-testbox"
+          }
+          if ($env:GITHUB_TOKEN) {
+            $headers.Authorization = "Bearer $env:GITHUB_TOKEN"
+          }
+
+          Write-Host "Fetching electrobun release metadata from $releaseApiUrl"
+          $release = Invoke-RestMethod -Uri $releaseApiUrl -Headers $headers
+          $asset = @($release.assets) | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
+          if (-not $asset) {
+            Write-Error "Could not find $assetName in electrobun release v$version"
+            exit 1
+          }
+          if (-not $asset.digest -or -not $asset.digest.StartsWith("sha256:")) {
+            Write-Error "GitHub release metadata for $assetName is missing a sha256 digest"
+            exit 1
+          }
+
+          $tarUrl = $asset.browser_download_url
+          $expectedHash = $asset.digest.Substring(7).ToLowerInvariant()
+          $tarPath = Join-Path $cacheDir "electrobun-win-x64.tar.gz"
+
+          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+          Write-Host "Downloading electrobun CLI from $tarUrl"
+          Invoke-WebRequest -Uri $tarUrl -OutFile $tarPath -UseBasicParsing
+          $actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $expectedHash) {
+            Write-Error "electrobun CLI checksum mismatch: expected $expectedHash but got $actualHash"
+            exit 1
+          }
+          Write-Host "Verified electrobun CLI SHA256: $actualHash"
+
+          Write-Host "Extracting with Windows BSD tar..."
+          & "C:\Windows\System32\tar.exe" -xzf $tarPath -C $cacheDir
+          Remove-Item $tarPath -Force
+
+          if (-not (Test-Path $cliBinary)) {
+            Write-Error "electrobun.exe not found in $cacheDir after extraction"
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+          Copy-Item $cliBinary $binBinary
+          Write-Host "electrobun CLI ready at $binBinary"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Testbox
+        uses: useblacksmith/run-testbox@v2
+        if: always()
+        env:
+          ELECTROBUN_BUILD_ENV: stable
