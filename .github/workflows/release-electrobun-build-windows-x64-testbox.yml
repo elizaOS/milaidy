@@ -234,7 +234,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Testbox
-        uses: useblacksmith/run-testbox@5ca05834db1d3813554d1dd109e5f2087a8d7cbc # v2
+        uses: ./.github/actions/run-testbox-quiet
         if: always()
         env:
           ELECTROBUN_BUILD_ENV: stable

@@ -1,0 +1,103 @@
+name: "Run Testbox Quiet"
+description: "Local wrapper for Blacksmith run-testbox that avoids logging connection details."
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Testbox Quietly
+      env:
+        JOB_STATUS: ${{ job.status }}
+      shell: bash
+      run: |
+        STATE=/tmp/.testbox
+        if [ ! -d "$STATE" ]; then
+          if [ "$JOB_STATUS" = "success" ]; then
+            echo ""
+            echo "============================================"
+            echo "Testbox validation passed!"
+            echo "  All setup steps completed successfully."
+            echo "  Merge this PR, then warm up a testbox:"
+            echo "    blacksmith testbox warmup <workflow-file>"
+            echo "============================================"
+          fi
+          exit 0
+        fi
+
+        TESTBOX_ID=$(cat "$STATE/testbox_id")
+        INSTALLATION_MODEL_ID=$(cat "$STATE/installation_model_id")
+        AUTH_TOKEN=$(cat "$STATE/auth_token")
+        IDLE_TIMEOUT=$(cat "$STATE/idle_timeout" 2>/dev/null)
+        IDLE_TIMEOUT="${IDLE_TIMEOUT:-10}"
+        API_URL=$(cat "$STATE/api_url")
+        RUNNER_HOST=$(cat "$STATE/runner_host")
+        RUNNER_SSH_PORT=$(cat "$STATE/runner_ssh_port")
+        WORKING_DIRECTORY=$(cat "$STATE/working_directory")
+        ADOPTED_RUN_ID=$(cat "$STATE/adopted_run_id")
+
+        if [ "$JOB_STATUS" != "success" ]; then
+          curl -s -o /dev/null -f -X POST "${API_URL}/api/testbox/phone-home" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${AUTH_TOKEN}" \
+            -d "{
+              \"testbox_id\": \"${TESTBOX_ID}\",
+              \"installation_model_id\": ${INSTALLATION_MODEL_ID},
+              \"status\": \"hydration_failed\",
+              \"ip_address\": \"${RUNNER_HOST}\",
+              \"adopted_run_id\": \"${ADOPTED_RUN_ID}\",
+              \"metadata\": {}
+            }" || echo "Warning: phone-home (hydration_failed) failed"
+          echo "Hydration failed — reported to backend."
+          exit 0
+        fi
+
+        curl -s -o /dev/null -f -X POST "${API_URL}/api/testbox/phone-home" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${AUTH_TOKEN}" \
+          -d "{
+            \"testbox_id\": \"${TESTBOX_ID}\",
+            \"installation_model_id\": ${INSTALLATION_MODEL_ID},
+            \"status\": \"ready\",
+            \"ip_address\": \"${RUNNER_HOST}\",
+            \"ssh_port\": \"${RUNNER_SSH_PORT}\",
+            \"working_directory\": \"${WORKING_DIRECTORY}\",
+            \"adopted_run_id\": \"${ADOPTED_RUN_ID}\",
+            \"metadata\": {}
+          }" || echo "Warning: phone-home (ready) failed, continuing in degraded mode"
+        echo "Phone-home (ready) complete."
+        echo "Testbox ready."
+
+        LAST_ACTIVITY=$(date +%s)
+        IDLE_TIMEOUT_SECONDS=$(( IDLE_TIMEOUT * 60 ))
+
+        while true; do
+          sleep 30
+
+          NOW=$(date +%s)
+
+          if ss -tnp 2>/dev/null | grep -q ":${RUNNER_SSH_PORT}\b" ; then
+            LAST_ACTIVITY=$NOW
+          elif [ -f ~/.testbox-last-activity ]; then
+            FILE_MTIME=$(stat -c %Y ~/.testbox-last-activity)
+            if [ "$FILE_MTIME" -gt "$LAST_ACTIVITY" ]; then
+              LAST_ACTIVITY=$FILE_MTIME
+            fi
+          fi
+
+          IDLE_SECONDS=$(( NOW - LAST_ACTIVITY ))
+
+          if [ "$IDLE_SECONDS" -ge "$IDLE_TIMEOUT_SECONDS" ]; then
+            echo "Idle timeout reached (${IDLE_TIMEOUT} minutes). Shutting down."
+            curl -s -o /dev/null -f --max-time 10 -X POST "${API_URL}/api/testbox/phone-home" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${AUTH_TOKEN}" \
+              -d "{
+                \"testbox_id\": \"${TESTBOX_ID}\",
+                \"installation_model_id\": ${INSTALLATION_MODEL_ID},
+                \"status\": \"completed\",
+                \"ip_address\": \"${RUNNER_HOST}\",
+                \"adopted_run_id\": \"${ADOPTED_RUN_ID}\",
+                \"metadata\": {}
+              }" || echo "Warning: phone-home (completed) failed"
+            exit 0
+          fi
+        done
