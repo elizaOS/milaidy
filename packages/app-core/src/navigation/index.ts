@@ -7,6 +7,7 @@ import {
   Brain,
   Clock3,
   Gamepad2,
+  LayoutDashboard,
   MessageSquare,
   Radio,
   Settings,
@@ -29,6 +30,7 @@ export const COMPANION_ENABLED =
   "false";
 
 export type Tab =
+  | "dashboard"
   | "chat"
   | "companion"
   | "stream"
@@ -60,6 +62,12 @@ export interface TabGroup {
 }
 
 export const ALL_TAB_GROUPS: TabGroup[] = [
+  {
+    label: "Dashboard",
+    tabs: ["dashboard"],
+    icon: LayoutDashboard,
+    description: "Agent overview",
+  },
   {
     label: "Chat",
     tabs: ["chat"],
@@ -138,6 +146,7 @@ export function getTabGroups(streamEnabled = STREAM_ENABLED): TabGroup[] {
 }
 
 const TAB_PATHS: Record<Tab, string> = {
+  dashboard: "/dashboard",
   chat: "/chat",
   companion: "/companion",
   stream: "/stream",
@@ -192,7 +201,7 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
   }
   let normalized = normalizePath(p).toLowerCase();
   if (normalized.endsWith("/index.html")) normalized = "/";
-  if (normalized === "/") return "chat";
+  if (normalized === "/") return "dashboard";
   if (normalized === "/voice") return "settings";
   // Companion disabled unless explicitly feature-flagged
   if (!COMPANION_ENABLED && normalized === "/companion") {
@@ -227,6 +236,8 @@ function normalizePath(p: string): string {
 
 export function titleForTab(tab: Tab): string {
   switch (tab) {
+    case "dashboard":
+      return "Dashboard";
     case "chat":
       return "Chat";
     case "companion":

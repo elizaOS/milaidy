@@ -16,6 +16,7 @@ export * from "./ConfigPageView";
 export * from "./ConfigSaveFooter";
 export * from "./ConfirmModal";
 export * from "./ConnectionFailedBanner";
+export * from "./DashboardView";
 export * from "./ConnectorsPageView";
 export * from "./confirm-delete-control";
 export * from "./DatabasePageView";

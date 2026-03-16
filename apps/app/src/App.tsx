@@ -8,6 +8,7 @@ import {
   AvatarLoader,
   ConnectionFailedBanner,
   ConnectorsPageView,
+  DashboardView,
   ErrorBoundary,
   GameViewOverlay,
   HeartbeatsView,
@@ -110,6 +111,12 @@ function ViewRouter({
   const { tab } = useApp();
   const view = (() => {
     switch (tab) {
+      case "dashboard":
+        return (
+          <TabContentView>
+            <DashboardView />
+          </TabContentView>
+        );
       case "chat":
         return <ChatView />;
       case "companion":
