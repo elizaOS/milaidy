@@ -3,7 +3,7 @@
 .onboarding-screen {
   width: 100vw;
   height: 100vh;
-  background: #0c0e14;
+  background: #0b0f16;
   position: relative;
   overflow: hidden;
 }
@@ -21,7 +21,13 @@
 .onboarding-bg-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(8, 10, 16, 0.45);
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(22, 31, 46, 0.18) 0%,
+      rgba(22, 31, 46, 0) 42%
+    ),
+    linear-gradient(180deg, rgba(6, 9, 14, 0.28) 0%, rgba(6, 9, 14, 0.42) 100%);
   z-index: 1;
 }
 @keyframes onboarding-bg-drift {
@@ -198,12 +204,12 @@
 .onboarding-step-name {
   font-size: 15px;
   letter-spacing: 0.08em;
-  color: rgba(240, 238, 250, 0.25);
+  color: rgba(240, 238, 250, 0.45);
   font-weight: 500;
   transition: all 0.5s;
 }
 .onboarding-step-item--done .onboarding-step-name {
-  color: rgba(240, 238, 250, 0.4);
+  color: rgba(240, 238, 250, 0.62);
 }
 .onboarding-step-item--active .onboarding-step-name {
   color: var(--text);
@@ -212,12 +218,12 @@
 
 .onboarding-step-sub {
   font-size: 13px;
-  color: rgba(240, 238, 250, 0.15);
+  color: rgba(240, 238, 250, 0.38);
   letter-spacing: 0.05em;
   transition: all 0.5s;
 }
 .onboarding-step-item--active .onboarding-step-sub {
-  color: rgba(240, 185, 11, 0.45);
+  color: rgba(240, 185, 11, 0.75);
 }
 
 /* === RIGHT PANEL — Content === */
@@ -232,10 +238,10 @@
 
 /* Glassmorphism panel */
 .onboarding-panel {
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(40px) saturate(1.4);
-  -webkit-backdrop-filter: blur(40px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(11, 14, 22, 0.72);
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
   padding: 36px 32px;
   display: flex;
@@ -339,7 +345,7 @@
   font-size: 12px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(240, 238, 250, 0.45);
+  color: rgba(240, 238, 250, 0.7);
   font-weight: 600;
   text-align: center;
   margin-bottom: 0;
@@ -350,7 +356,7 @@
   font-size: 20px;
   font-weight: 300;
   line-height: 1.4;
-  color: rgba(240, 238, 250, 0.85);
+  color: rgba(246, 246, 252, 0.96);
   text-align: center;
   margin-bottom: 18px;
 }
@@ -359,8 +365,8 @@
 .onboarding-input {
   width: 100%;
   padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 6px;
   color: rgba(240, 238, 250, 0.92);
   font-size: 16px;
@@ -377,16 +383,45 @@
   box-shadow: 0 0 12px rgba(240, 185, 11, 0.08);
 }
 .onboarding-input::placeholder {
-  color: rgba(240, 238, 250, 0.15);
+  color: rgba(240, 238, 250, 0.45);
 }
 
 /* Description text */
 .onboarding-desc {
   font-size: 14px;
-  color: rgba(240, 238, 250, 0.35);
+  color: rgba(240, 238, 250, 0.65);
   text-align: center;
   line-height: 1.6;
   margin-top: 12px;
+}
+
+.onboarding-brand {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(10, 14, 22, 0.68);
+  border: 1px solid rgba(240, 185, 11, 0.22);
+  border-radius: 12px;
+  padding: 8px 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.onboarding-brand-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
+}
+
+.onboarding-brand-text {
+  font-size: 13px;
+  color: rgba(246, 246, 252, 0.95);
+  letter-spacing: 0.06em;
+  font-weight: 600;
 }
 
 /* Pill buttons (language selection) */

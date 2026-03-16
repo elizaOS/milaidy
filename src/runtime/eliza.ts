@@ -104,7 +104,10 @@ import {
 } from "../providers/workspace";
 import { SandboxAuditLog } from "../security/audit-log";
 import { SandboxManager, type SandboxMode } from "../services/sandbox-manager";
-import { diagnoseNoAIProvider } from "../services/version-compat";
+import {
+  AI_PROVIDER_PLUGINS,
+  diagnoseNoAIProvider,
+} from "../services/version-compat";
 import { CORE_PLUGINS, OPTIONAL_CORE_PLUGINS } from "./core-plugins";
 import { detectEmbeddingPreset } from "./embedding-presets";
 import { createMiladyPlugin } from "./milady-plugin";
@@ -3771,6 +3774,9 @@ export async function startEliza(
   const resolvedPlugins = await resolvePlugins(config, {
     quiet: preOnboarding,
   });
+  const hasLoadedAiProvider = resolvedPlugins.some((resolved) =>
+    AI_PROVIDER_PLUGINS.includes(resolved.name),
+  );
 
   if (resolvedPlugins.length === 0) {
     if (preOnboarding) {
@@ -4068,7 +4074,7 @@ export async function startEliza(
   //     (ActionFilterService, EmbeddingGenerationService) race ahead and use
   //     the cloud plugin's TEXT_EMBEDDING handler — which hits a paid API —
   //     because local-embedding's heavier init hasn't completed yet.
-  if (localEmbeddingPlugin) {
+  if (localEmbeddingPlugin && hasLoadedAiProvider) {
     configureLocalEmbeddingPlugin(localEmbeddingPlugin.plugin, config);
     await runtime.registerPlugin(localEmbeddingPlugin.plugin);
     logger.info(
@@ -4077,6 +4083,10 @@ export async function startEliza(
   } else if (isLocalEmbeddingDisabledFromEnv(process.env)) {
     logger.info(
       "[milady] Local embeddings disabled for this process via MILADY_DISABLE_LOCAL_EMBEDDINGS=1",
+    );
+  } else if (localEmbeddingPlugin && !hasLoadedAiProvider) {
+    logger.info(
+      "[milady] Skipping plugin-local-embedding pre-registration before onboarding (no AI provider loaded yet)",
     );
   } else {
     logger.warn(
@@ -4090,10 +4100,10 @@ export async function startEliza(
   //     Each registerPlugin() call runs the plugin's init() before proceeding
   //     to the next, guaranteeing that cross-plugin getService() calls resolve.
   {
-    const alreadyPreRegistered = new Set([
-      "@elizaos/plugin-sql",
-      "@elizaos/plugin-local-embedding",
-    ]);
+    const alreadyPreRegistered = new Set<string>(["@elizaos/plugin-sql"]);
+    if (localEmbeddingPlugin && hasLoadedAiProvider) {
+      alreadyPreRegistered.add("@elizaos/plugin-local-embedding");
+    }
     for (const name of CORE_PLUGINS) {
       if (alreadyPreRegistered.has(name)) continue;
       const resolved = resolvedPlugins.find((p) => p.name === name);

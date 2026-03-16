@@ -7984,9 +7984,7 @@ async function handleRequest(
   // ── GET /api/onboarding/status ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/onboarding/status") {
     let config = state.config;
-    let complete =
-      Boolean(state.runtime) ||
-      (configFileExists() && hasPersistedOnboardingState(config));
+    let complete = configFileExists() && hasPersistedOnboardingState(config);
 
     // Hot restarts and transient config-load failures can leave state.config
     // stale even though the persisted config is valid. Re-read from disk once
@@ -7994,8 +7992,7 @@ async function handleRequest(
     if (!complete && configFileExists()) {
       try {
         config = loadMiladyConfig();
-        complete =
-          Boolean(state.runtime) || hasPersistedOnboardingState(config);
+        complete = hasPersistedOnboardingState(config);
         if (complete) {
           state.config = config;
         }

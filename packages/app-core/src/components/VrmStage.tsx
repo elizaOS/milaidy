@@ -63,6 +63,7 @@ const VrmStageLayer = memo(function VrmStageLayer({
 }) {
   const [vrmLoaded, setVrmLoaded] = useState(false);
   const [showVrmFallback, setShowVrmFallback] = useState(false);
+  const [fallbackPreviewBroken, setFallbackPreviewBroken] = useState(false);
   const chatAvatarVoice = useChatAvatarVoiceState();
 
   const handleVrmEngineReady = useCallback(
@@ -106,6 +107,7 @@ const VrmStageLayer = memo(function VrmStageLayer({
   useEffect(() => {
     setVrmLoaded(false);
     setShowVrmFallback(false);
+    setFallbackPreviewBroken(false);
   }, [vrmPath]);
 
   return (
@@ -131,12 +133,21 @@ const VrmStageLayer = memo(function VrmStageLayer({
           onRevealStart={() => onRevealStart?.(vrmPath)}
         />
       </div>
-      {visible && showVrmFallback && !vrmLoaded && (
+      {visible && showVrmFallback && !vrmLoaded && !fallbackPreviewBroken && (
         <img
           src={fallbackPreviewUrl}
           alt={t("companion.avatarPreviewAlt")}
-          className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 h-[90%] object-contain opacity-70"
-          style={{ zIndex }}
+          onError={() => setFallbackPreviewBroken(true)}
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "52%",
+            transform: "translate(-50%, -50%)",
+            height: "90%",
+            objectFit: "contain",
+            opacity: 0.7,
+            zIndex,
+          }}
         />
       )}
       {visible && !vrmLoaded && !showVrmFallback && (

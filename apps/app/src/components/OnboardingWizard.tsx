@@ -8,7 +8,7 @@ import {
   useApp,
 } from "@milady/app-core/state";
 import { resolveAppAssetUrl } from "@milady/app-core/utils";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { VrmStage } from "./companion/VrmStage";
 import { ActivateStep } from "./onboarding/ActivateStep";
 import { ConnectionStep } from "./onboarding/ConnectionStep";
@@ -29,6 +29,7 @@ export function OnboardingWizard() {
     setState,
     t,
   } = useApp();
+  const [showBrandLogo, setShowBrandLogo] = useState(true);
 
   const setUiLanguage = (lang: UiLanguage) =>
     setState("uiLanguage", normalizeLanguage(lang));
@@ -44,6 +45,7 @@ export function OnboardingWizard() {
       ? getVrmPreviewUrl(safeSelectedVrmIndex)
       : getVrmPreviewUrl(1);
   const worldUrl = resolveAppAssetUrl("worlds/companion-day.spz");
+  const brandLogoUrl = resolveAppAssetUrl("logos/elizaos-icon.png");
 
   useEffect(() => {
     // Onboarding keeps a fixed "light" chrome; companion mode owns day/night scenes.
@@ -156,6 +158,18 @@ export function OnboardingWizard() {
           stroke="none"
         />
       </svg>
+
+      <div className="onboarding-brand" aria-label="Milady">
+        {showBrandLogo ? (
+          <img
+            src={brandLogoUrl}
+            alt="Milady"
+            className="onboarding-brand-logo"
+            onError={() => setShowBrandLogo(false)}
+          />
+        ) : null}
+        <span className="onboarding-brand-text">Milady</span>
+      </div>
 
       {/* Language selector — top right */}
       <div
