@@ -122,7 +122,7 @@ describe("Electrobun release workflow drift", () => {
       "name: Materialize local electrobun package for build",
     );
     expect(workflow).toContain(
-      "const src = fs.realpathSync('node_modules/electrobun');",
+      "src = fs.realpathSync('node_modules/electrobun');",
     );
     expect(workflow).toContain(
       "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
