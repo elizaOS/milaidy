@@ -173,7 +173,10 @@ function CompanionSceneSurface({
     (_vrmPath: string, engine: VrmEngine) => {
       stageEnginesRef.current.add(engine);
       engine.setCompanionZoomNormalized(companionZoomRef.current);
-      engine.setDragOrbitTarget(dragOrbitRef.current.yaw, dragOrbitRef.current.pitch);
+      engine.setDragOrbitTarget(
+        dragOrbitRef.current.yaw,
+        dragOrbitRef.current.pitch,
+      );
     },
     [],
   );

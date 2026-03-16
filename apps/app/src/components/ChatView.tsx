@@ -866,6 +866,7 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
         >
           {chatPendingImages.map((img, i) => (
             <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: composite key with index as tiebreaker
               key={`${img.name}-${i}`}
               className="relative group w-16 h-16 shrink-0"
             >

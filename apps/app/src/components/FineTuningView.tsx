@@ -1053,6 +1053,7 @@ export function FineTuningView() {
           ) : (
             trainingEvents.map((event, index) => (
               <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: composite key with index as tiebreaker
                 key={`${event.ts}-${event.kind}-${index}`}
                 className="px-2 py-1.5 border-b border-border text-xs"
               >

@@ -17,6 +17,7 @@ const UI_THEME_STORAGE_KEY = "milady:ui-theme";
 function normalizeUiTheme(value: unknown): UiTheme {
   return value === "light" ? "light" : "dark";
 }
+
 export { normalizeUiTheme };
 
 export function loadUiTheme(): UiTheme {
@@ -83,6 +84,7 @@ export function saveUiLanguage(language: UiLanguage): void {
 function normalizeUiShellMode(mode: unknown): UiShellMode {
   return mode === "native" ? "native" : "companion";
 }
+
 export { normalizeUiShellMode };
 
 export function loadUiShellMode(): UiShellMode {

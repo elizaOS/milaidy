@@ -991,6 +991,7 @@ export function CustomActionEditor({
             </div>
             {parameters.map((param, i) => (
               <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: composite key with index as tiebreaker
                 key={`${param.name}-${i}`}
                 className="flex gap-2 items-start"
               >

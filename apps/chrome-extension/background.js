@@ -26,7 +26,7 @@ const childSessionToTab = new Map();
 /** @type {Map<number, {resolve:(v:any)=>void, reject:(e:Error)=>void}>} */
 const pending = new Map();
 
-export { tabs, tabBySession, childSessionToTab, pending };
+export { childSessionToTab, pending, tabBySession, tabs };
 
 export function _resetForTest() {
   relayWs = null;

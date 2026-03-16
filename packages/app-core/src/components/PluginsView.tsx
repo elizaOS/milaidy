@@ -2017,7 +2017,8 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                           }`}
                         >
                           {renderResolvedIcon(plugin, {
-                            className: "h-4 w-4 shrink-0 rounded-sm object-contain",
+                            className:
+                              "h-4 w-4 shrink-0 rounded-sm object-contain",
                             emojiClassName: "text-sm",
                           })}
                         </span>
@@ -2163,7 +2164,8 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                             }`}
                           >
                             {renderResolvedIcon(plugin, {
-                              className: "h-4 w-4 shrink-0 rounded-sm object-contain",
+                              className:
+                                "h-4 w-4 shrink-0 rounded-sm object-contain",
                               emojiClassName: "text-base",
                             })}
                           </span>

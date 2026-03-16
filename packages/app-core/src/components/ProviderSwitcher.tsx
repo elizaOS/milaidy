@@ -67,8 +67,7 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
   const elizaCloudCreditsLow =
     props.elizaCloudCreditsLow ?? Boolean(app.elizaCloudCreditsLow);
   const elizaCloudCreditsCritical =
-    props.elizaCloudCreditsCritical ??
-    Boolean(app.elizaCloudCreditsCritical);
+    props.elizaCloudCreditsCritical ?? Boolean(app.elizaCloudCreditsCritical);
   const elizaCloudTopUpUrl =
     props.elizaCloudTopUpUrl ??
     (typeof app.elizaCloudTopUpUrl === "string" ? app.elizaCloudTopUpUrl : "");
@@ -98,8 +97,7 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
       ? app.pluginSaveSuccess
       : new Set<string>());
   const loadPlugins = props.loadPlugins ?? app.loadPlugins;
-  const handlePluginToggle =
-    props.handlePluginToggle ?? app.handlePluginToggle;
+  const handlePluginToggle = props.handlePluginToggle ?? app.handlePluginToggle;
   const handlePluginConfigSave =
     props.handlePluginConfigSave ?? app.handlePluginConfigSave;
   const handleCloudLogin = props.handleCloudLogin ?? app.handleCloudLogin;
@@ -643,12 +641,16 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
                       small: {
                         type: "string",
                         enum: modelOptions.small.map((m) => m.id),
-                        description: t("providerswitcher.smallModelDescription"),
+                        description: t(
+                          "providerswitcher.smallModelDescription",
+                        ),
                       },
                       large: {
                         type: "string",
                         enum: modelOptions.large.map((m) => m.id),
-                        description: t("providerswitcher.largeModelDescription"),
+                        description: t(
+                          "providerswitcher.largeModelDescription",
+                        ),
                       },
                     },
                     required: [] as string[],
