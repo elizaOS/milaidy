@@ -32,6 +32,17 @@ describe("electrobun runtime detection", () => {
     expect(getBackendStartupTimeoutMs()).toBe(180_000);
   });
 
+  it("uses the desktop timeout when the Electrobun bridge is injected", () => {
+    Object.defineProperty(globalThis, "window", {
+      value: { __MILADY_ELECTROBUN_RPC__: {} },
+      configurable: true,
+      writable: true,
+    });
+
+    expect(isElectrobunRuntime()).toBe(false);
+    expect(getBackendStartupTimeoutMs()).toBe(180_000);
+  });
+
   it("falls back to the web timeout when Electrobun globals are absent", () => {
     Object.defineProperty(globalThis, "window", {
       value: {},
@@ -40,7 +51,7 @@ describe("electrobun runtime detection", () => {
     });
 
     expect(isElectrobunRuntime()).toBe(false);
-    expect(getBackendStartupTimeoutMs()).toBe(30_000);
+    expect(getBackendStartupTimeoutMs()).toBe(60_000);
   });
 
   it("detects Electrobun from the injected webview id", () => {

@@ -1,6 +1,8 @@
 interface ElectrobunBrowserWindow extends Window {
   __electrobunWindowId?: number;
   __electrobunWebviewId?: number;
+  __electrobun?: unknown;
+  __MILADY_ELECTROBUN_RPC__?: unknown;
 }
 
 function getRuntimeWindow(): ElectrobunBrowserWindow | null {
@@ -24,5 +26,14 @@ export function isElectrobunRuntime(): boolean {
 }
 
 export function getBackendStartupTimeoutMs(): number {
-  return isElectrobunRuntime() ? 180_000 : 30_000;
+  const runtimeWindow = getRuntimeWindow();
+  if (
+    isElectrobunRuntime() ||
+    (runtimeWindow &&
+      (typeof runtimeWindow.__electrobun !== "undefined" ||
+        typeof runtimeWindow.__MILADY_ELECTROBUN_RPC__ !== "undefined"))
+  ) {
+    return 180_000;
+  }
+  return 60_000;
 }
