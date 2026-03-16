@@ -1,14 +1,11 @@
 name: Build & Release (Electrobun) QA
 
 on:
-  push:
-    branches:
-      - "feature/eliza-home"
   workflow_dispatch:
 
 concurrency:
   group: electrobun-matrix-qa-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read

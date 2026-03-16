@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [main, feature/eliza-home]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
