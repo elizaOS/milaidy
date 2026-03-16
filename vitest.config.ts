@@ -13,6 +13,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@milady\/app-core\/(.*)/,
+        replacement: path.join(repoRoot, "packages", "app-core", "src", "$1"),
+      },
+      {
         find: "milady/plugin-sdk",
         replacement: path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       },

@@ -28,7 +28,7 @@ jobs:
       matrix:
         include:
           - lane: benchmark-tests
-            command: bunx vitest run --config vitest.unit.config.ts src/benchmark/*.test.ts
+            command: bunx vitest run src/benchmark/*.test.ts
           - lane: benchmark-lint
             command: bunx @biomejs/biome check src/benchmark
 
