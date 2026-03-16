@@ -99,6 +99,22 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("needs: [prepare, validate-release]");
   });
 
+  it("uses a non-matrix cache key in validate-release", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const validateSection = workflow.slice(
+      workflow.indexOf("name: Validate Release Inputs"),
+      workflow.indexOf("  build:"),
+    );
+
+    expect(validateSection).toContain(
+      "key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}",
+    );
+    expect(validateSection).toContain(
+      "restore-keys: bun-electrobun-validate-",
+    );
+    expect(validateSection).not.toContain("matrix.platform.artifact-name");
+  });
+
   it("verifies the Windows electrobun tarball digest before extraction", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 

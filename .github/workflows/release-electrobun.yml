@@ -104,8 +104,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: bun-electrobun-${{ matrix.platform.artifact-name }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-electrobun-${{ matrix.platform.artifact-name }}-
+          key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-validate-
 
       - name: Install root dependencies
         run: bun install --frozen-lockfile --ignore-scripts

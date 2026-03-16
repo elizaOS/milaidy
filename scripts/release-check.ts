@@ -26,6 +26,8 @@ const requiredWorkflowSnippets = [
   "bun-version: $" + "{{ env.BUN_VERSION }}",
   "name: Release readiness checks",
   "run: bun run release:check",
+  "key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}",
+  "restore-keys: bun-electrobun-validate-",
   "name: Ensure avatar assets",
   "node scripts/ensure-avatars.mjs",
   "Install quiet macOS packaging wrappers",
