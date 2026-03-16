@@ -138,10 +138,10 @@ describe("Electrobun release workflow drift", () => {
   it("caches whisper models for release builds and avoids repeated renderer reinstalls", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
-    expect(workflow).toContain("name: Cache Whisper models");
-    expect(workflow).toContain("path: ~/.cache/milady/whisper");
+    expect(workflow).toContain("name: Cache Whisper models and binaries");
+    expect(workflow).toContain("~/.cache/milady/whisper");
     expect(workflow).toContain(
-      "restore-keys: whisper-model-$" + "{{ matrix.platform.artifact-name }}-",
+      "restore-keys: whisper-$" + "{{ matrix.platform.artifact-name }}-",
     );
     expect(workflow).toContain(
       "# vite output is arch-neutral JS/CSS/HTML; rely on the root workspace install",

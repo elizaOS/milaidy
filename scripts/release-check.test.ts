@@ -4,6 +4,7 @@ import {
   bundlesDependency,
   findLocalPackHotspots,
   hasLifecycleScriptReferencingMissingFile,
+  isExactVersion,
   isPackPathCoveredByFilesList,
   shouldSkipExactPackDryRun,
 } from "./release-check";
@@ -83,6 +84,35 @@ describe("release-check package guards", () => {
         "@elizaos/plugin-agent-orchestrator",
       ),
     ).toBe(true);
+  });
+
+  it("accepts exact pinned version specifiers", () => {
+    expect(isExactVersion("0.3.14")).toBe(true);
+    expect(isExactVersion("1.0.0")).toBe(true);
+    expect(isExactVersion("2.0.0-alpha.87")).toBe(true);
+    expect(isExactVersion("0.0.1-beta.1")).toBe(true);
+    expect(isExactVersion("3.2.1-rc.0")).toBe(true);
+  });
+
+  it("rejects floating tags and range specifiers", () => {
+    expect(isExactVersion("next")).toBe(false);
+    expect(isExactVersion("latest")).toBe(false);
+    expect(isExactVersion("^0.3.14")).toBe(false);
+    expect(isExactVersion("~1.0.0")).toBe(false);
+    expect(isExactVersion(">=1.0.0")).toBe(false);
+    expect(isExactVersion("*")).toBe(false);
+    expect(isExactVersion("<2.0.0")).toBe(false);
+    expect(isExactVersion("")).toBe(false);
+  });
+
+  it("rejects workspace, npm, and URL specifiers", () => {
+    expect(isExactVersion("workspace:*")).toBe(false);
+    expect(isExactVersion("npm:foo@1.0.0")).toBe(false);
+    expect(isExactVersion("file:../local-pkg")).toBe(false);
+    expect(isExactVersion("git+https://github.com/foo/bar")).toBe(false);
+    expect(
+      isExactVersion("https://registry.npmjs.org/foo/-/foo-1.0.0.tgz"),
+    ).toBe(false);
   });
 
   it("flags lifecycle hooks that reference missing files", () => {

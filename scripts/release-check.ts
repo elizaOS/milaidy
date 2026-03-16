@@ -80,9 +80,27 @@ const localPackHotspotPaths = [
 type RootPackageJson = {
   bundleDependencies?: string[];
   bundledDependencies?: string[];
+  dependencies?: Record<string, string>;
   files?: string[];
   scripts?: Record<string, string>;
 };
+
+/**
+ * Returns true if the version specifier is an exact pinned version
+ * (no range operators, no tags, no URLs).
+ *
+ * Accepted: "0.3.14", "1.0.0", "2.0.0-alpha.87"
+ * Rejected: "^0.3.14", "~1.0.0", ">=1.0.0", "next", "latest", "*",
+ *           "workspace:*", "npm:foo@1.0.0", "https://...", "git+..."
+ */
+export function isExactVersion(specifier: string): boolean {
+  if (!specifier || specifier.length === 0) return false;
+  // Reject range operators, tags, URLs, workspace protocol
+  if (/^[~^>=<*]/.test(specifier)) return false;
+  if (/^(workspace|npm|file|git\+|https?):/.test(specifier)) return false;
+  // Must look like a semver: starts with a digit, contains only digits/dots/hyphens/alphanumeric
+  return /^\d+\.\d+\.\d+/.test(specifier);
+}
 
 type DependencyPackageJson = {
   scripts?: Record<string, string>;
@@ -256,6 +274,25 @@ function assertBundledAgentOrchestratorInstallFix() {
     process.exit(1);
   }
 }
+function assertOrchestratorVersionPinned() {
+  const rootPackage = JSON.parse(
+    readFileSync("package.json", "utf8"),
+  ) as RootPackageJson;
+  const version = rootPackage.dependencies?.[orchestratorPackageName];
+  if (!version) {
+    console.error(
+      `release-check: ${orchestratorPackageName} is not in dependencies.`,
+    );
+    process.exit(1);
+  }
+  if (!isExactVersion(version)) {
+    console.error(
+      `release-check: ${orchestratorPackageName} must be pinned to an exact version (e.g. "0.3.14"), but found "${version}". Floating tags like "next" or ranges like "^0.3.14" are not allowed for release builds.`,
+    );
+    process.exit(1);
+  }
+}
+
 function assertReleaseWorkflowHasNotaryWrapper() {
   const workflow = readFileSync(
     ".github/workflows/release-electrobun.yml",
@@ -472,6 +509,7 @@ function main() {
   assertWindowsSmokeScriptHasLeadingParamBlock();
   assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
   assertBundledAgentOrchestratorInstallFix();
+  assertOrchestratorVersionPinned();
   const localHotspots = findLocalPackHotspots();
   if (shouldSkipExactPackDryRun(localHotspots)) {
     runFastLocalPackCheck(localHotspots);
