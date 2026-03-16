@@ -17,7 +17,7 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Begin Testbox
-        uses: useblacksmith/begin-testbox@v2
+        uses: useblacksmith/begin-testbox@d0e04585c26905fdd92c94a09c159544c7ee1b67 # v2
         with:
           testbox_id: ${{ inputs.testbox_id }}
 
@@ -45,7 +45,7 @@ jobs:
           MAJOR=$(echo "$VERSION_NAME" | cut -d. -f1)
           MINOR=$(echo "$VERSION_NAME" | cut -d. -f2 | cut -d- -f1)
           PATCH=$(echo "$VERSION_NAME" | cut -d. -f3 | cut -d- -f1)
-          PRE=$(echo "$VERSION_NAME" | grep -oP '(?<=\\.).*\\d+$' || echo "0")
+          PRE=$(echo "$VERSION_NAME" | grep -oP '(?<=\.)\d+$' || echo "0")
           VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 10000 + PATCH * 100 + PRE ))
           echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
@@ -54,20 +54,13 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Decode keystore
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/milady-upload.jks
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-
       - name: Run Testbox
-        uses: useblacksmith/run-testbox@v2
+        uses: useblacksmith/run-testbox@5ca05834db1d3813554d1dd109e5f2087a8d7cbc # v2
         if: always()
         env:
           MILADY_VERSION_NAME: ${{ steps.version.outputs.name }}
           MILADY_VERSION_CODE: ${{ steps.version.outputs.code }}
-          MILADY_KEYSTORE_PATH: /tmp/milady-upload.jks
-          MILADY_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          MILADY_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          MILADY_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Clean up temporary keystore material
+        if: always()
+        run: rm -f /tmp/milady-upload.jks
