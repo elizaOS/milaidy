@@ -55,7 +55,7 @@ jobs:
         run: bun install
 
       - name: Run Testbox
-        uses: useblacksmith/run-testbox@5ca05834db1d3813554d1dd109e5f2087a8d7cbc # v2
+        uses: ./.github/actions/run-testbox-quiet
         if: always()
         env:
           MILADY_VERSION_NAME: ${{ steps.version.outputs.name }}
