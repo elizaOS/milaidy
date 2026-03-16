@@ -2,6 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +11,7 @@ type ExecFileSyncFn = typeof execFileSync;
 
 const NATIVE_EXTENSIONS = new Set([".bare", ".dylib", ".node", ".so"]);
 const KNOWN_NATIVE_HELPERS = new Set(["spawn-helper"]);
+const SUPPORTED_LAUNCHER_ARCHES = new Set(["arm64", "x86_64"]);
 const CODESIGN_MAX_ATTEMPTS = 4;
 const CODESIGN_RETRY_DELAY_MS = 5_000;
 const WINDOWS_ABS_PATH_RE = /^[A-Za-z]:[\\/]/;
@@ -71,7 +73,9 @@ function normalizeBundleStem(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
+export function resolveBuildBundlePath(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
   const buildDir = env.ELECTROBUN_BUILD_DIR?.trim();
   if (!buildDir || env.ELECTROBUN_OS !== "macos") {
     return null;
@@ -111,6 +115,50 @@ function resolveBuildBundlePath(env: NodeJS.ProcessEnv): string | null {
   throw new Error(
     `runtime-sign: multiple app bundles found in ${resolvedBuildDir}: ${bundleCandidates.join(", ")}`,
   );
+}
+
+export function resolveDirectLauncherSourcePath(
+  scriptPath = fileURLToPath(import.meta.url),
+): string {
+  return path.join(path.dirname(scriptPath), "macos-direct-launcher.c");
+}
+
+export function parseLauncherArchitectures(output: string): string[] {
+  const architectures = output
+    .split(/\s+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (architectures.length === 0) {
+    throw new Error("runtime-sign: failed to determine launcher architecture");
+  }
+
+  for (const architecture of architectures) {
+    if (!SUPPORTED_LAUNCHER_ARCHES.has(architecture)) {
+      throw new Error(
+        `runtime-sign: unsupported launcher architecture: ${architecture}`,
+      );
+    }
+  }
+
+  return architectures;
+}
+
+export function buildDirectLauncherCompileArgs(
+  sourcePath: string,
+  outputPath: string,
+  architectures: string[],
+): string[] {
+  return [
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    ...architectures.flatMap((architecture) => ["-arch", architecture]),
+    "-mmacosx-version-min=11.0",
+    sourcePath,
+    "-o",
+    outputPath,
+  ];
 }
 
 export function resolveRuntimeNodeModulesPath(
@@ -193,6 +241,17 @@ function formatExecSyncFailure(error: unknown): string {
   return String(error);
 }
 
+function execText(
+  command: string,
+  args: string[],
+  execFile: ExecFileSyncFn = execFileSync,
+): string {
+  return execFile(command, args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+}
+
 function sleepMs(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
@@ -259,10 +318,7 @@ function signRuntimeFile(
   developerId: string,
   execFile: ExecFileSyncFn = execFileSync,
 ): boolean {
-  const fileDescription = execFileSync("file", ["-b", filePath], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  const fileDescription = execText("file", ["-b", filePath], execFile);
   const machOKind = classifyMachOKind(fileDescription);
   if (!machOKind) {
     return false;
@@ -296,6 +352,95 @@ function signRuntimeFile(
   }
 
   return true;
+}
+
+export function installDirectLauncher(
+  buildBundlePath: string,
+  execFile: ExecFileSyncFn = execFileSync,
+): string {
+  const launcherPath = joinPortable(
+    buildBundlePath,
+    "Contents",
+    "MacOS",
+    "launcher",
+  );
+  const sourcePath = resolveDirectLauncherSourcePath();
+
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(
+      `runtime-sign: direct launcher source not found: ${sourcePath}`,
+    );
+  }
+  if (!fs.existsSync(launcherPath)) {
+    throw new Error(`runtime-sign: launcher not found at ${launcherPath}`);
+  }
+
+  const architectures = parseLauncherArchitectures(
+    execText("lipo", ["-archs", launcherPath], execFile),
+  );
+  const tempRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "milady-direct-launcher-"),
+  );
+  const tempLauncherPath = path.join(tempRoot, "launcher");
+
+  try {
+    execFile(
+      "/usr/bin/clang",
+      buildDirectLauncherCompileArgs(
+        sourcePath,
+        tempLauncherPath,
+        architectures,
+      ),
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    fs.copyFileSync(tempLauncherPath, launcherPath);
+    fs.chmodSync(launcherPath, 0o755);
+  } finally {
+    fs.rmSync(tempRoot, { force: true, recursive: true });
+  }
+
+  console.log(
+    `[runtime-sign] rebuilt direct launcher at ${launcherPath} (${architectures.join(", ")})`,
+  );
+  return launcherPath;
+}
+
+type SignBuildBundleArtifactsDeps = {
+  collectNativeCandidates?: typeof collectNativeCandidates;
+  installDirectLauncher?: typeof installDirectLauncher;
+  signRuntimeFile?: typeof signRuntimeFile;
+};
+
+export function signBuildBundleArtifacts(
+  buildBundlePath: string,
+  runtimeNodeModulesPath: string,
+  developerId: string,
+  deps: SignBuildBundleArtifactsDeps = {},
+): number {
+  const installLauncher = deps.installDirectLauncher ?? installDirectLauncher;
+  const collectCandidates =
+    deps.collectNativeCandidates ?? collectNativeCandidates;
+  const signFile = deps.signRuntimeFile ?? signRuntimeFile;
+
+  const launcherPath = installLauncher(buildBundlePath);
+
+  let signedCount = 0;
+  for (const candidate of collectCandidates(runtimeNodeModulesPath)) {
+    if (signFile(candidate, developerId)) {
+      signedCount += 1;
+    }
+  }
+
+  if (!signFile(launcherPath, developerId)) {
+    throw new Error(
+      `runtime-sign: failed to sign rebuilt launcher at ${launcherPath}`,
+    );
+  }
+
+  return signedCount;
 }
 
 function shouldRun(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -332,10 +477,20 @@ function main(): void {
     );
   }
 
-  let signedCount = 0;
-  for (const candidate of collectNativeCandidates(runtimeNodeModulesPath)) {
-    if (signRuntimeFile(candidate, developerId)) {
-      signedCount += 1;
+  const buildBundlePath = resolveBuildBundlePath();
+  let signedCount: number;
+  if (buildBundlePath) {
+    signedCount = signBuildBundleArtifacts(
+      buildBundlePath,
+      runtimeNodeModulesPath,
+      developerId,
+    );
+  } else {
+    signedCount = 0;
+    for (const candidate of collectNativeCandidates(runtimeNodeModulesPath)) {
+      if (signRuntimeFile(candidate, developerId)) {
+        signedCount += 1;
+      }
     }
   }
 

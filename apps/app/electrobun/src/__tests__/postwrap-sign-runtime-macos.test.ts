@@ -6,10 +6,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCodesignArgs,
+  buildDirectLauncherCompileArgs,
   classifyMachOKind,
   isRetryableCodesignFailure,
+  parseLauncherArchitectures,
+  resolveBuildBundlePath,
   resolveRuntimeNodeModulesPath,
   shouldConsiderForCodesign,
+  signBuildBundleArtifacts,
 } from "../../scripts/postwrap-sign-runtime-macos";
 
 describe("classifyMachOKind", () => {
@@ -77,6 +81,22 @@ describe("isRetryableCodesignFailure", () => {
 });
 
 describe("resolveRuntimeNodeModulesPath", () => {
+  it("resolves the matching build bundle from ELECTROBUN_BUILD_DIR", () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "postwrap-sign-"));
+    const stableBundle = path.join(tempDir, "Milady.app");
+    const canaryBundle = path.join(tempDir, "Milady canary.app");
+    fs.mkdirSync(stableBundle, { recursive: true });
+    fs.mkdirSync(canaryBundle, { recursive: true });
+
+    expect(
+      resolveBuildBundlePath({
+        ELECTROBUN_BUILD_DIR: tempDir,
+        ELECTROBUN_OS: "macos",
+        ELECTROBUN_APP_NAME: "Milady-canary",
+      }),
+    ).toBe(canaryBundle);
+  });
+
   it("accepts an explicit runtime node_modules path", () => {
     expect(
       resolveRuntimeNodeModulesPath(
@@ -181,6 +201,79 @@ describe("resolveRuntimeNodeModulesPath", () => {
     expect(resolveRuntimeNodeModulesPath(["/tmp/dist/node_modules"], {})).toBe(
       "/tmp/dist/node_modules",
     );
+  });
+});
+
+describe("parseLauncherArchitectures", () => {
+  it("preserves the packaged launcher architecture list", () => {
+    expect(parseLauncherArchitectures("x86_64 arm64")).toEqual([
+      "x86_64",
+      "arm64",
+    ]);
+  });
+
+  it("rejects unsupported launcher architectures", () => {
+    expect(() => parseLauncherArchitectures("arm64 ppc64")).toThrow(
+      "runtime-sign: unsupported launcher architecture: ppc64",
+    );
+  });
+});
+
+describe("buildDirectLauncherCompileArgs", () => {
+  it("builds clang args for every packaged launcher architecture", () => {
+    expect(
+      buildDirectLauncherCompileArgs(
+        "/tmp/macos-direct-launcher.c",
+        "/tmp/out/launcher",
+        ["arm64", "x86_64"],
+      ),
+    ).toEqual([
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-arch",
+      "arm64",
+      "-arch",
+      "x86_64",
+      "-mmacosx-version-min=11.0",
+      "/tmp/macos-direct-launcher.c",
+      "-o",
+      "/tmp/out/launcher",
+    ]);
+  });
+});
+
+describe("signBuildBundleArtifacts", () => {
+  it("rebuilds the launcher before nested runtime signing and signs it last", () => {
+    const calls: string[] = [];
+
+    const signedCount = signBuildBundleArtifacts(
+      "/tmp/Milady.app",
+      "/tmp/Milady.app/Contents/Resources/app/milady-dist/node_modules",
+      "Developer ID Application: Test",
+      {
+        installDirectLauncher: (bundlePath) => {
+          calls.push(`install:${bundlePath}`);
+          return `${bundlePath}/Contents/MacOS/launcher`;
+        },
+        collectNativeCandidates: (runtimeNodeModulesPath) => {
+          calls.push(`collect:${runtimeNodeModulesPath}`);
+          return ["/tmp/addon.node"];
+        },
+        signRuntimeFile: (filePath, developerId) => {
+          calls.push(`sign:${filePath}:${developerId}`);
+          return true;
+        },
+      },
+    );
+
+    expect(signedCount).toBe(1);
+    expect(calls).toEqual([
+      "install:/tmp/Milady.app",
+      "collect:/tmp/Milady.app/Contents/Resources/app/milady-dist/node_modules",
+      "sign:/tmp/addon.node:Developer ID Application: Test",
+      "sign:/tmp/Milady.app/Contents/MacOS/launcher:Developer ID Application: Test",
+    ]);
   });
 });
 

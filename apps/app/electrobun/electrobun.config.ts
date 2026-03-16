@@ -12,8 +12,9 @@ export default {
     exitOnLastWindowClosed: false,
   },
   scripts: {
-    // Sign native code inside milady-dist/node_modules on the inner app bundle
-    // before Electrobun runs the platform signing/notarization flow.
+    // Rebuild the direct macOS launcher, sign nested runtime binaries, then
+    // sign the rebuilt launcher on the inner app bundle before Electrobun runs
+    // its normal platform signing flow.
     postBuild: "scripts/postwrap-sign-runtime-macos.ts",
     // Capture wrapper-bundle binary metadata after the self-extractor is created.
     postWrap: "scripts/postwrap-diagnostics.ts",
@@ -57,6 +58,8 @@ export default {
     mac: {
       bundleWGPU: true,
       codesign: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
+      // Keep Electrobun's app notarization enabled so updater tarballs ship a
+      // notarized inner app bundle before the DMG staging script runs.
       notarize: process.env.ELECTROBUN_SKIP_CODESIGN !== "1",
       defaultRenderer: "native",
       icons: "assets/appIcon.iconset",

@@ -75,7 +75,6 @@ LAUNCHER_PATH="$STAGED_APP_PATH/Contents/MacOS/launcher"
 WGPU_PATH="$STAGED_APP_PATH/Contents/MacOS/libwebgpu_dawn.dylib"
 VERSION_JSON_PATH="$STAGED_APP_PATH/Contents/Resources/version.json"
 RUNTIME_DIR="$STAGED_APP_PATH/Contents/Resources/app/milady-dist"
-DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"
 
 for required_path in "$LAUNCHER_PATH" "$WGPU_PATH" "$VERSION_JSON_PATH" "$RUNTIME_DIR"; do
   if [[ ! -e "$required_path" ]]; then
@@ -84,65 +83,11 @@ for required_path in "$LAUNCHER_PATH" "$WGPU_PATH" "$VERSION_JSON_PATH" "$RUNTIM
   fi
 done
 
-if [[ ! -f "$DIRECT_LAUNCHER_SOURCE" ]]; then
-  echo "stage-macos-release-artifacts: direct launcher source not found: $DIRECT_LAUNCHER_SOURCE"
-  exit 1
-fi
-
-entitlement_args=()
-if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
-  TMP_ENTITLEMENTS_PATH="$TMP_ROOT/staged-entitlements.plist"
-  if ! codesign -d --entitlements :- "$STAGED_APP_PATH" >"$TMP_ENTITLEMENTS_PATH" 2>/dev/null; then
-    echo "stage-macos-release-artifacts: failed to extract entitlements from staged app bundle"
-    exit 1
-  fi
-  if [[ ! -s "$TMP_ENTITLEMENTS_PATH" ]]; then
-    echo "stage-macos-release-artifacts: extracted entitlements were empty"
-    exit 1
-  fi
-  entitlement_args=(--entitlements "$TMP_ENTITLEMENTS_PATH")
-fi
-
-TMP_LAUNCHER_PATH="$TMP_ROOT/direct-launcher"
-LAUNCHER_ARCHES="$(lipo -archs "$LAUNCHER_PATH" 2>/dev/null || true)"
-if [[ -z "$LAUNCHER_ARCHES" ]]; then
-  echo "stage-macos-release-artifacts: failed to determine launcher architecture for $LAUNCHER_PATH"
-  exit 1
-fi
-
-clang_arch_args=()
-for arch in $LAUNCHER_ARCHES; do
-  case "$arch" in
-    arm64|x86_64)
-      clang_arch_args+=(-arch "$arch")
-      ;;
-    *)
-      echo "stage-macos-release-artifacts: unsupported launcher architecture: $arch"
-      exit 1
-      ;;
-  esac
-done
-
-/usr/bin/clang \
-  -O2 \
-  -Wall \
-  -Wextra \
-  "${clang_arch_args[@]}" \
-  -mmacosx-version-min=11.0 \
-  "$DIRECT_LAUNCHER_SOURCE" \
-  -o "$TMP_LAUNCHER_PATH"
-install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"
-
 echo "Staged app bundle: $STAGED_APP_PATH"
 if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
-  # The extracted updater app bundle is already correctly signed/notarized by
-  # electrobun. Re-sign only what changed and keep the original entitlements so
-  # we do not rewrite valid nested signatures with a blanket --deep pass.
-  if ! codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" --options runtime "${entitlement_args[@]}" "$LAUNCHER_PATH"; then
-    echo "stage-macos-release-artifacts: launcher runtime signing failed, retrying without hardened runtime" >&2
-    codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "${entitlement_args[@]}" "$LAUNCHER_PATH"
-  fi
-  codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" --options runtime "${entitlement_args[@]}" "$STAGED_APP_PATH"
+  # The updater tarball app bundle should already be signed by Electrobun's
+  # build pipeline. Verify the copied app, then only sign/notarize the DMG we
+  # create from it here.
   codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
 else
   echo "Skipping staged app signature verification (unsigned/local build)."

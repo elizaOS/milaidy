@@ -254,6 +254,24 @@ export function matchesRuntimeVariant(
   return true;
 }
 
+export function matchesRuntimePackageNameHint(
+  packageName: string,
+  targetOS = process.platform,
+  targetArch = process.arch,
+): boolean {
+  const packageBaseName = packageName.split("/").pop() ?? packageName;
+  const constraints = getRuntimeVariantConstraints(packageBaseName);
+
+  // Only treat the package name as a platform hint when it actually carries
+  // an OS token like linux/win32/darwin/openbsd. Generic package names that
+  // happen to contain an arch token should not be filtered here.
+  if (!constraints.os) {
+    return true;
+  }
+
+  return matchesRuntimeVariant(packageBaseName, targetOS, targetArch);
+}
+
 export function shouldKeepPackageRelativePath(
   relativePath: string,
   targetOS = process.platform,
@@ -343,8 +361,7 @@ function copyPackageDir(
     dereference: true,
     filter: shouldCopyPackageEntry,
   });
-  pruneCopiedPackageDir(dest);
-  patchCopiedPackageRuntimeSurface(name, dest);
+  finalizeRuntimePackageDir(dest, name);
   return true;
 }
 
@@ -385,6 +402,30 @@ function patchCopiedPackageRuntimeSurface(
   const rewritten = stripPackagedCronCliRegistration(original);
   if (rewritten !== original) {
     fs.writeFileSync(cronEntryPath, rewritten);
+  }
+}
+
+export function finalizeRuntimePackageDir(
+  packageDir: string,
+  packageName: string | null = null,
+): void {
+  // Keep cached package roots trimmed to the same platform-specific payload
+  // we actually ship so repeated packaging runs do not balloon tmp usage.
+  pruneCopiedPackageDir(packageDir);
+
+  let resolvedPackageName = packageName;
+  if (!resolvedPackageName) {
+    try {
+      resolvedPackageName =
+        readJson<{ name?: string }>(path.join(packageDir, "package.json"))
+          .name ?? null;
+    } catch {
+      resolvedPackageName = null;
+    }
+  }
+
+  if (resolvedPackageName) {
+    patchCopiedPackageRuntimeSurface(resolvedPackageName, packageDir);
   }
 }
 
@@ -465,6 +506,7 @@ function fetchPublishedPackage(
   const packageRoot = path.join(cacheDir, "package");
   const manifestPath = path.join(packageRoot, "package.json");
   if (fs.existsSync(manifestPath)) {
+    finalizeRuntimePackageDir(packageRoot, name);
     const resolved = { sourceDir: packageRoot, packageJsonPath: manifestPath };
     registryPackageIndex.set(key, resolved);
     return resolved;
@@ -474,6 +516,7 @@ function fetchPublishedPackage(
   fs.mkdirSync(cacheDir, { recursive: true });
 
   try {
+    let tarballPath: string | null = null;
     const tarballName = execFileSync(
       "npm",
       ["pack", `${name}@${version}`, "--silent"],
@@ -488,13 +531,19 @@ function fetchPublishedPackage(
       .pop();
 
     if (!tarballName) return null;
+    tarballPath = path.join(cacheDir, tarballName);
 
-    execFileSync("tar", ["-xzf", tarballName, "-C", cacheDir], {
-      cwd: cacheDir,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    try {
+      execFileSync("tar", ["-xzf", tarballName, "-C", cacheDir], {
+        cwd: cacheDir,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } finally {
+      fs.rmSync(tarballPath, { force: true });
+    }
 
     if (!fs.existsSync(manifestPath)) return null;
+    finalizeRuntimePackageDir(packageRoot, name);
 
     const resolved = { sourceDir: packageRoot, packageJsonPath: manifestPath };
     registryPackageIndex.set(key, resolved);
@@ -520,6 +569,7 @@ function materializeTrackedWorkspacePackage(
   const packageRoot = path.join(cacheDir, relative);
   const manifestPath = path.join(packageRoot, "package.json");
   if (fs.existsSync(manifestPath)) {
+    finalizeRuntimePackageDir(packageRoot);
     const resolved = { sourceDir: packageRoot, packageJsonPath: manifestPath };
     trackedPackageIndex.set(relative, resolved);
     return resolved;
@@ -544,6 +594,7 @@ function materializeTrackedWorkspacePackage(
     });
 
     if (!fs.existsSync(manifestPath)) return null;
+    finalizeRuntimePackageDir(packageRoot);
 
     const resolved = { sourceDir: packageRoot, packageJsonPath: manifestPath };
     trackedPackageIndex.set(relative, resolved);
@@ -797,6 +848,49 @@ export function getRuntimeDependencies(pkgPath: string): string[] {
   return getRuntimeDependencyEntries(pkgPath).map((entry) => entry.name);
 }
 
+function compareLooseSemverVersions(left: string, right: string): number {
+  const leftMatch = left.match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  const rightMatch = right.match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  if (!leftMatch || !rightMatch) {
+    return left.localeCompare(right, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+  }
+
+  const leftParts = leftMatch.slice(1).map((part) => Number(part));
+  const rightParts = rightMatch.slice(1).map((part) => Number(part));
+
+  for (let index = 0; index < leftParts.length; index += 1) {
+    if (leftParts[index] === rightParts[index]) {
+      continue;
+    }
+    return leftParts[index] < rightParts[index] ? -1 : 1;
+  }
+
+  return 0;
+}
+
+function shouldAlwaysHoistPackage(name: string): boolean {
+  return ALWAYS_HOISTED_PACKAGES.has(name) || name === "tslib";
+}
+
+export function shouldRefreshTopLevelPackageCopy(
+  name: string,
+  currentVersion: string | null | undefined,
+  nextVersion: string | null | undefined,
+): boolean {
+  if (name !== "tslib" || !nextVersion) {
+    return false;
+  }
+
+  if (!currentVersion) {
+    return true;
+  }
+
+  return compareLooseSemverVersions(currentVersion, nextVersion) < 0;
+}
+
 type CopyTargetOptions = {
   name: string;
   requesterDestDir: string;
@@ -818,7 +912,7 @@ export function selectCopyTargetNodeModules({
     return targetNodeModules;
   }
 
-  if (ALWAYS_HOISTED_PACKAGES.has(name) && topLevelVersions.has(name)) {
+  if (shouldAlwaysHoistPackage(name) && topLevelVersions.has(name)) {
     return targetNodeModules;
   }
 
@@ -915,6 +1009,11 @@ function main(): void {
 
     const { name, spec, requesterDir, requesterDestDir } = request;
     if (!name || DEP_SKIP.has(name)) continue;
+    if (!matchesRuntimePackageNameHint(name)) {
+      missingAlwaysBundled.delete(name);
+      missingDiscovered.delete(name);
+      continue;
+    }
 
     const resolved = resolvePackage(name, spec, requesterDir);
     if (!resolved) {
@@ -942,6 +1041,16 @@ function main(): void {
       resolvedVersion,
     });
     const destination = packagePath(name, copyTargetNodeModules);
+    if (
+      copyTargetNodeModules === targetNodeModules &&
+      shouldRefreshTopLevelPackageCopy(
+        name,
+        topLevelVersions.get(name),
+        resolvedVersion,
+      )
+    ) {
+      copiedDestinations.delete(destination);
+    }
 
     if (copiedDestinations.has(destination)) {
       missingAlwaysBundled.delete(name);

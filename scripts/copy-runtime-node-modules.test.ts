@@ -5,17 +5,20 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  finalizeRuntimePackageDir,
   getRuntimeDependencies,
   getRuntimeDependencyEntries,
   inferVersionFromBunEntryPath,
   isExactVersionSpecifier,
   isPackageCompatibleWithCurrentPlatform,
+  matchesRuntimePackageNameHint,
   matchesRuntimeVariant,
   normalizeResolvedPackage,
   selectCopyTargetNodeModules,
   selectResolvedCandidate,
   shouldCopyPackageEntry,
   shouldKeepPackageRelativePath,
+  shouldRefreshTopLevelPackageCopy,
   shouldSkipPackagedDependency,
   stripPackagedCronCliRegistration,
 } from "./copy-runtime-node-modules";
@@ -185,6 +188,54 @@ describe("packaged dependency overrides", () => {
   });
 });
 
+describe("finalizeRuntimePackageDir", () => {
+  it("prunes cached package payloads and patches cron's CLI import", () => {
+    const otherPlatform =
+      ["darwin", "linux", "win32"].find(
+        (value) => value !== process.platform,
+      ) ?? "darwin";
+    const packageDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "runtime-package-finalize-test-"),
+    );
+    const currentVariantDir = path.join(
+      packageDir,
+      "prebuilds",
+      `${process.platform}-${process.arch}`,
+    );
+    const otherVariantDir = path.join(
+      packageDir,
+      "prebuilds",
+      `${otherPlatform}-${process.arch}`,
+    );
+    const cronEntryPath = path.join(packageDir, "dist", "index.js");
+
+    fs.mkdirSync(currentVariantDir, { recursive: true });
+    fs.mkdirSync(otherVariantDir, { recursive: true });
+    fs.mkdirSync(path.dirname(cronEntryPath), { recursive: true });
+    fs.writeFileSync(
+      path.join(packageDir, "package.json"),
+      JSON.stringify({ name: "@elizaos/plugin-cron", version: "1.0.0" }),
+    );
+    fs.writeFileSync(path.join(currentVariantDir, "kept.node"), "");
+    fs.writeFileSync(path.join(otherVariantDir, "pruned.node"), "");
+    fs.writeFileSync(
+      cronEntryPath,
+      [
+        'import { defineCliCommand, registerCliCommand } from "@elizaos/plugin-cli";',
+        'registerCliCommand(defineCliCommand("cron", "Cron", () => {}));',
+      ].join("\n"),
+    );
+
+    finalizeRuntimePackageDir(packageDir);
+
+    expect(fs.existsSync(path.join(currentVariantDir, "kept.node"))).toBe(true);
+    expect(fs.existsSync(otherVariantDir)).toBe(false);
+    expect(fs.readFileSync(cronEntryPath, "utf8")).toContain(
+      "const defineCliCommand = () => null;",
+    );
+  });
+});
+
 describe("isExactVersionSpecifier", () => {
   it("detects exact semver pins", () => {
     expect(isExactVersionSpecifier("1.3.2")).toBe(true);
@@ -290,6 +341,19 @@ describe("selectCopyTargetNodeModules", () => {
     );
   });
 
+  it("always hoists tslib so helper copies do not explode the bundle tree", () => {
+    expect(
+      selectCopyTargetNodeModules({
+        name: "tslib",
+        requesterDestDir: "/tmp/app/dist/node_modules/@smithy/util-utf8",
+        rootDestDir: "/tmp/app/dist",
+        targetNodeModules: "/tmp/app/dist/node_modules",
+        topLevelVersions: new Map([["tslib", "2.7.0"]]),
+        resolvedVersion: "2.8.1",
+      }),
+    ).toBe("/tmp/app/dist/node_modules");
+  });
+
   it("always hoists @elizaos/core to the top level once present", () => {
     expect(
       selectCopyTargetNodeModules({
@@ -301,6 +365,27 @@ describe("selectCopyTargetNodeModules", () => {
         resolvedVersion: "2.0.0-alpha.3",
       }),
     ).toBe("/tmp/app/dist/node_modules");
+  });
+});
+
+describe("shouldRefreshTopLevelPackageCopy", () => {
+  it("upgrades the hoisted tslib copy when a newer helper version appears", () => {
+    expect(shouldRefreshTopLevelPackageCopy("tslib", "2.7.0", "2.8.1")).toBe(
+      true,
+    );
+    expect(shouldRefreshTopLevelPackageCopy("tslib", "2.8.1", "2.7.0")).toBe(
+      false,
+    );
+  });
+
+  it("does not force-refresh unrelated packages", () => {
+    expect(
+      shouldRefreshTopLevelPackageCopy(
+        "discord-api-types",
+        "0.37.120",
+        "0.38.40",
+      ),
+    ).toBe(false);
   });
 });
 
@@ -421,6 +506,30 @@ describe("matchesRuntimeVariant", () => {
     );
     expect(matchesRuntimeVariant("musl_arm64", "darwin", "arm64")).toBe(false);
     expect(matchesRuntimeVariant("win32-x64", "darwin", "arm64")).toBe(false);
+  });
+});
+
+describe("matchesRuntimePackageNameHint", () => {
+  it("skips package names that clearly target a foreign platform", () => {
+    expect(
+      matchesRuntimePackageNameHint("@esbuild/openbsd-x64", "darwin", "arm64"),
+    ).toBe(false);
+    expect(
+      matchesRuntimePackageNameHint(
+        "@rollup/rollup-linux-x64-gnu",
+        "darwin",
+        "arm64",
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps generic package names and the active platform variant", () => {
+    expect(
+      matchesRuntimePackageNameHint("@aws-sdk/util-utf8", "darwin", "arm64"),
+    ).toBe(true);
+    expect(
+      matchesRuntimePackageNameHint("@esbuild/darwin-arm64", "darwin", "arm64"),
+    ).toBe(true);
   });
 });
 

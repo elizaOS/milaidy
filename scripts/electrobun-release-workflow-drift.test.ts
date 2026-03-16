@@ -15,6 +15,10 @@ const MACOS_STAGE_SCRIPT_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
 );
+const MACOS_POSTBUILD_SIGN_SCRIPT_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/postwrap-sign-runtime-macos.ts",
+);
 const MACOS_EFFECTS_BUILD_SCRIPT_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/build-macos-effects.sh",
@@ -33,30 +37,30 @@ const WINDOWS_PACKAGED_TEST_PATH = path.join(
 );
 
 describe("Electrobun release workflow drift", () => {
-  it("stages the built renderer before packaging", () => {
+  it("uses the shared desktop-build script to stage bundle inputs before packaging", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
-    expect(workflow).toContain("name: Build renderer (vite)");
-    expect(workflow).toContain("name: Stage renderer for Electrobun bundle");
+    expect(workflow).toContain("name: Stage desktop bundle inputs");
     expect(workflow).toContain(
-      "cp -r apps/app/dist apps/app/electrobun/renderer",
+      "node scripts/desktop-build.mjs stage --variant=base --build-whisper",
     );
   });
 
-  it("injects version.json into packaged bundles after the build step", () => {
+  it("relies on Electrobun's built-in version.json generation", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
-    const buildIndex = workflow.indexOf("name: Build Electrobun app");
-    const windowsIndex = workflow.indexOf(
+
+    expect(workflow).not.toContain(
       "name: Inject version.json into bundle (Windows)",
     );
-    const unixIndex = workflow.indexOf(
+    expect(workflow).not.toContain(
       "name: Inject version.json into bundle (macOS / Linux)",
     );
-
-    expect(buildIndex).toBeGreaterThan(-1);
-    expect(windowsIndex).toBeGreaterThan(buildIndex);
-    expect(unixIndex).toBeGreaterThan(buildIndex);
-    expect(workflow).toContain('"identifier":"com.miladyai.milady"');
+    expect(workflow).not.toContain(
+      'Get-ChildItem -Path $buildRoot -Recurse -Directory -Filter "Resources"',
+    );
+    expect(workflow).not.toContain(
+      'find apps/app/electrobun/build -type d -name "Resources"',
+    );
   });
 
   it("builds the Intel macOS artifact on the real Intel runner", () => {
@@ -69,10 +73,11 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "arch -x86_64 bun install --frozen-lockfile --ignore-scripts",
     );
-    // tsdown and vite are now built once in validate-release and shared as artifacts
-    expect(workflow).toContain("arch -x86_64 bun run build:whisper");
     expect(workflow).toContain(
-      `arch -x86_64 electrobun build --env=\${{ needs.prepare.outputs.env }}`,
+      'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs stage --variant=base --build-whisper',
+    );
+    expect(workflow).toContain(
+      'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}',
     );
     expect(workflow).not.toContain("arch -x86_64 bun install --ignore-scripts");
     expect(workflow).not.toContain(
@@ -99,6 +104,28 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("needs: [prepare, validate-release]");
   });
 
+  it("uses a non-matrix cache key in validate-release", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const validateSection = workflow.slice(
+      workflow.indexOf("name: Validate Release Inputs"),
+      workflow.indexOf("  build:"),
+    );
+
+    expect(validateSection).toContain(
+      "key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}",
+    );
+    expect(validateSection).toContain("restore-keys: bun-electrobun-validate-");
+    expect(validateSection).not.toContain("matrix.platform.artifact-name");
+  });
+
+  it("restores the Bun cache without saving it on Windows build jobs", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Restore Bun install cache (Windows)");
+    expect(workflow).toContain("if: matrix.platform.os == 'windows'");
+    expect(workflow).toContain("uses: actions/cache/restore@v4");
+  });
+
   it("verifies the Windows electrobun tarball digest before extraction", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
@@ -113,28 +140,49 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(workflow).toContain("electrobun CLI checksum mismatch");
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
+    expect(workflow).toContain(
+      "process.stdout.write(fs.realpathSync(packageDir));",
+    );
+    expect(workflow).toContain(
+      'Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"',
+    );
+    expect(workflow).toContain(
+      '$cacheDir     = Join-Path $resolvedElectrobunDir ".cache"',
+    );
+    expect(workflow).toContain(
+      "Installing local rcedit helper under Electrobun...",
+    );
+    expect(workflow).toContain(
+      'npm install --prefix $resolvedElectrobunDir --no-save --no-package-lock --ignore-scripts --fund=false --audit=false "rcedit@4.0.1"',
+    );
+    expect(workflow).toContain(
+      '$resolvedRceditDir = Join-Path $resolvedElectrobunDir "node_modules\\rcedit"',
+    );
+    expect(workflow).not.toContain('bun install -g "rcedit@4.0.1"');
   });
 
-  it("materializes a local electrobun package before packaging", () => {
+  it("stages the desktop bundle before restoring local electrobun caches", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const stageIndex = workflow.indexOf("name: Stage desktop bundle inputs");
+    const cacheIndex = workflow.indexOf(
+      "name: Cache local electrobun core downloads",
+    );
 
-    expect(workflow).toContain(
-      "name: Materialize local electrobun package for build",
-    );
-    expect(workflow).toContain(
-      "src = fs.realpathSync('node_modules/electrobun');",
-    );
-    expect(workflow).toContain(
-      "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
-    );
-    expect(workflow).toContain("fs.cpSync(src, dest, { recursive: true });");
+    expect(stageIndex).toBeGreaterThan(-1);
+    expect(cacheIndex).toBeGreaterThan(stageIndex);
     expect(workflow).toContain("name: Cache local electrobun core downloads");
     expect(workflow).toContain(
       "path: apps/app/electrobun/node_modules/electrobun/.cache",
     );
+    expect(workflow).not.toContain(
+      "name: Materialize local electrobun package for build",
+    );
+    expect(workflow).not.toContain(
+      'bun install -g "electrobun@$ELECTROBUN_VERSION"',
+    );
   });
 
-  it("caches whisper models for release builds and avoids repeated renderer reinstalls", () => {
+  it("caches whisper models for release builds and avoids workflow-local staging drift", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
     expect(workflow).toContain("name: Cache Whisper models and binaries");
@@ -142,10 +190,12 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "restore-keys: whisper-$" + "{{ matrix.platform.artifact-name }}-",
     );
-    // Vite build is now shared via artifact from validate-release
+    expect(workflow).toContain("name: Stage desktop bundle inputs");
     expect(workflow).toContain(
-      "# dist/ and apps/app/dist/ are downloaded from the shared build artifact",
+      "apps/app/electrobun/scripts/hdiutil-wrapper.sh",
     );
+    expect(workflow).toContain("ELECTROBUN_REAL_HDIUTIL: /usr/bin/hdiutil");
+    expect(workflow).not.toContain("MILADY_ELECTROBUN_NOTARIZE: 0");
   });
 
   it("keeps updater transport files off the public GitHub release asset list", () => {
@@ -166,48 +216,58 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("update-channel/");
   });
 
-  it("treats the staged macOS app as an intermediate signed bundle, not a notarized final artifact", () => {
+  it("treats the staged macOS app as a copied signed bundle and only signs the DMG", () => {
     const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
 
+    expect(stageScript).toContain("Electrobun's");
     expect(stageScript).toContain(
-      "electrobun. Re-sign only what changed and keep the original entitlements",
-    );
-    expect(stageScript).toContain(
-      'codesign -d --entitlements :- "$STAGED_APP_PATH"',
-    );
-    expect(stageScript).toContain(
-      `--options runtime "\${entitlement_args[@]}" "$LAUNCHER_PATH"`,
-    );
-    expect(stageScript).toContain(
-      `--options runtime "\${entitlement_args[@]}" "$STAGED_APP_PATH"`,
+      'ditto "$APP_BUNDLE_PATH" "$STAGED_APP_PATH"',
     );
     expect(stageScript).toContain(
       'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     );
-    expect(stageScript).toContain("command_status=$?");
-    expect(stageScript).not.toContain(
-      'codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"',
+    expect(stageScript).toContain("command_status=0");
+    expect(stageScript).toContain(
+      'codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$TEMP_DMG_PATH"',
     );
     expect(stageScript).not.toContain(
-      'spctl -a -vv --type exec "$STAGED_APP_PATH"',
+      'codesign -d --entitlements :- "$STAGED_APP_PATH"',
+    );
+    expect(stageScript).not.toContain(
+      'codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" --options runtime "${entitlement_args[@]}" "$STAGED_APP_PATH"',
     );
     expect(stageScript).toContain("xcrun notarytool submit \\");
     expect(stageScript).toContain('xcrun stapler staple "$TEMP_DMG_PATH"');
   });
 
-  it("rebuilds the staged macOS direct launcher with the packaged launcher architecture", () => {
-    const stageScript = fs.readFileSync(MACOS_STAGE_SCRIPT_PATH, "utf8");
+  it("rebuilds the direct launcher in the macOS postBuild hook", () => {
+    const postBuildScript = fs.readFileSync(
+      MACOS_POSTBUILD_SIGN_SCRIPT_PATH,
+      "utf8",
+    );
 
-    expect(stageScript).toContain(
-      'LAUNCHER_ARCHES="$(lipo -archs "$LAUNCHER_PATH" 2>/dev/null || true)"',
+    expect(postBuildScript).toContain(
+      'return path.join(path.dirname(scriptPath), "macos-direct-launcher.c");',
     );
-    expect(stageScript).toContain("clang_arch_args=()");
-    expect(stageScript).toContain('clang_arch_args+=(-arch "$arch")');
-    expect(stageScript).toContain(
-      'echo "stage-macos-release-artifacts: unsupported launcher architecture: $arch"',
+    expect(postBuildScript).toContain(
+      "const architectures = parseLauncherArchitectures(",
     );
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: bash variable expansion in shell script assertion
-    expect(stageScript).toContain('"${clang_arch_args[@]}"');
+    expect(postBuildScript).toContain(
+      'execText("lipo", ["-archs", launcherPath]',
+    );
+    expect(postBuildScript).toContain('"/usr/bin/clang"');
+    expect(postBuildScript).toContain(
+      "runtime-sign: unsupported launcher architecture:",
+    );
+    expect(postBuildScript).toContain(
+      "const launcherPath = installLauncher(buildBundlePath);",
+    );
+    expect(postBuildScript).toContain(
+      "if (!signFile(launcherPath, developerId)) {",
+    );
+    expect(postBuildScript).toContain(
+      "[runtime-sign] rebuilt direct launcher at",
+    );
   });
 
   it("pins the native macOS effects build to C++17", () => {
@@ -274,6 +334,7 @@ describe("Electrobun release workflow drift", () => {
       "MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: $" +
         "{{ runner.temp }}\\milady-windows-ui-launcher.txt",
     );
+    expect(workflow).toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
     expect(workflow).toContain(
       'Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"',
     );
@@ -320,6 +381,7 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
     );
+    expect(workflow).toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
     expect(workflow).not.toContain(
       "name: Install Playwright Chromium (Windows)",
     );

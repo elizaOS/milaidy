@@ -9,18 +9,25 @@ const STAGE_MACOS_RELEASE_ARTIFACTS_PATH = path.resolve(
 );
 
 describe("stage-macos-release-artifacts.sh", () => {
-  it("rebuilds the direct launcher using the packaged launcher architecture", () => {
+  it("stages the signed app without rebuilding or re-signing it", () => {
     const script = fs.readFileSync(STAGE_MACOS_RELEASE_ARTIFACTS_PATH, "utf8");
 
+    expect(script).toContain('ditto "$APP_BUNDLE_PATH" "$STAGED_APP_PATH"');
     expect(script).toContain(
-      'LAUNCHER_ARCHES="$(lipo -archs "$LAUNCHER_PATH" 2>/dev/null || true)"',
+      'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     );
-    expect(script).toContain("clang_arch_args=()");
-    expect(script).toContain('clang_arch_args+=(-arch "$arch")');
+    expect(script).not.toContain(
+      'DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"',
+    );
+    expect(script).not.toContain(
+      'codesign -d --entitlements :- "$STAGED_APP_PATH"',
+    );
+    expect(script).not.toContain("/usr/bin/clang \\");
+    expect(script).not.toContain(
+      'install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"',
+    );
     expect(script).toContain(
-      'echo "stage-macos-release-artifacts: unsupported launcher architecture: $arch"',
+      'codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$TEMP_DMG_PATH"',
     );
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: bash variable expansion in shell script assertion
-    expect(script).toContain('"${clang_arch_args[@]}"');
   });
 });

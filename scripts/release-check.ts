@@ -26,18 +26,19 @@ const requiredWorkflowSnippets = [
   "bun-version: $" + "{{ env.BUN_VERSION }}",
   "name: Release readiness checks",
   "run: bun run release:check",
+  "key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}",
+  "restore-keys: bun-electrobun-validate-",
   "name: Ensure avatar assets",
   "node scripts/ensure-avatars.mjs",
   "Install quiet macOS packaging wrappers",
+  "apps/app/electrobun/scripts/hdiutil-wrapper.sh",
   "apps/app/electrobun/scripts/xcrun-wrapper.sh",
   "apps/app/electrobun/scripts/zip-wrapper.sh",
+  "ELECTROBUN_REAL_HDIUTIL: /usr/bin/hdiutil",
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
   "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
-  "Stage renderer for Electrobun bundle",
-  "cp -r apps/app/dist apps/app/electrobun/renderer",
-  "Inject version.json into bundle (Windows)",
-  "Inject version.json into bundle (macOS / Linux)",
-  '"identifier":"com.miladyai.milady"',
+  "Stage desktop bundle inputs",
+  "node scripts/desktop-build.mjs stage --variant=base --build-whisper",
   "Stage standard macOS release app",
   "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
   "retry_stapler_validate()",
@@ -61,15 +62,30 @@ const requiredWorkflowSnippets = [
   "$expectedHash = $asset.digest.Substring(7).ToLowerInvariant()",
   "$actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()",
   "electrobun CLI checksum mismatch",
-  "name: Materialize local electrobun package for build",
-  "src = fs.realpathSync('node_modules/electrobun');",
-  "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
-  "fs.cpSync(src, dest, { recursive: true });",
+  "process.stdout.write(fs.realpathSync(packageDir));",
+  'Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"',
+  '$cacheDir     = Join-Path $resolvedElectrobunDir ".cache"',
+  "name: Restore Bun install cache (Windows)",
+  "uses: actions/cache/restore@v4",
+  "Installing local rcedit helper under Electrobun...",
+  'npm install --prefix $resolvedElectrobunDir --no-save --no-package-lock --ignore-scripts --fund=false --audit=false "rcedit@4.0.1"',
+  '$resolvedRceditDir = Join-Path $resolvedElectrobunDir "node_modules\\rcedit"',
+  "node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}",
+  'MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"',
+  'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
+  "function Resolve-RceditPackageJson([string]$packageDir)",
 ];
-const forbiddenWorkflowSnippets = [' -name "*.exe" -o \\'];
+const forbiddenWorkflowSnippets = [
+  ' -name "*.exe" -o \\',
+  "Inject version.json into bundle (Windows)",
+  "Inject version.json into bundle (macOS / Linux)",
+  'bun install -g "rcedit@4.0.1"',
+  "MILADY_ELECTROBUN_NOTARIZE: 0",
+];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
   'postWrap: "scripts/postwrap-diagnostics.ts"',
+  'notarize: process.env.ELECTROBUN_SKIP_CODESIGN !== "1"',
 ];
 const localPackHotspotPaths = [
   "dist/node_modules",
@@ -347,6 +363,44 @@ function assertElectrobunConfigHasPostWrapSigner() {
   }
 }
 
+function assertMacPostBuildHookLooksCorrect() {
+  const script = readFileSync(
+    "apps/app/electrobun/scripts/postwrap-sign-runtime-macos.ts",
+    "utf8",
+  );
+  const requiredSnippets = [
+    'return path.join(path.dirname(scriptPath), "macos-direct-launcher.c");',
+    "export function parseLauncherArchitectures",
+    "runtime-sign: unsupported launcher architecture:",
+    "export function buildDirectLauncherCompileArgs",
+    'execText("lipo", ["-archs", launcherPath], execFile)',
+    "export function installDirectLauncher",
+    "export function signBuildBundleArtifacts",
+    "const launcherPath = installLauncher(buildBundlePath);",
+    "if (!signFile(launcherPath, developerId)) {",
+    "[runtime-sign] rebuilt direct launcher at",
+  ];
+  const missing = requiredSnippets.filter(
+    (snippet) => !script.includes(snippet),
+  );
+  const requiredPatterns = [
+    /buildDirectLauncherCompileArgs\(\s*sourcePath,\s*tempLauncherPath,\s*architectures,\s*\)/m,
+  ];
+  const missingPatterns = requiredPatterns
+    .filter((pattern) => !pattern.test(script))
+    .map((pattern) => pattern.toString());
+
+  if (missing.length > 0 || missingPatterns.length > 0) {
+    console.error(
+      "release-check: macOS postBuild signer is missing launcher rebuild wiring:",
+    );
+    for (const snippet of [...missing, ...missingPatterns]) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+}
+
 function assertMacArtifactStagerLooksCorrect() {
   const script = readFileSync(
     "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
@@ -355,14 +409,10 @@ function assertMacArtifactStagerLooksCorrect() {
   const requiredSnippets = [
     'find "$ARTIFACTS_DIR" -maxdepth 1 -type f -name "*-macos-*.app.tar.zst"',
     "no macOS updater tarball found",
-    'DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"',
-    'codesign -d --entitlements :- "$STAGED_APP_PATH"',
-    "/usr/bin/clang \\",
-    'install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"',
-    `--options runtime "\${entitlement_args[@]}" "$LAUNCHER_PATH"`,
-    `--options runtime "\${entitlement_args[@]}" "$STAGED_APP_PATH"`,
+    'ditto "$APP_BUNDLE_PATH" "$STAGED_APP_PATH"',
     'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     "hdiutil create \\",
+    'codesign --force --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$TEMP_DMG_PATH"',
     "retry_command 3 20 xcrun notarytool submit \\",
     'retry_command 5 15 xcrun stapler staple "$TEMP_DMG_PATH"',
     'mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"',
@@ -382,7 +432,10 @@ function assertMacArtifactStagerLooksCorrect() {
   }
 
   const forbiddenSnippets = [
-    'codesign --force --deep --timestamp --sign "$ELECTROBUN_DEVELOPER_ID" "$STAGED_APP_PATH"',
+    'DIRECT_LAUNCHER_SOURCE="$SCRIPT_DIR/macos-direct-launcher.c"',
+    'codesign -d --entitlements :- "$STAGED_APP_PATH"',
+    "/usr/bin/clang \\",
+    'install -m 0755 "$TMP_LAUNCHER_PATH" "$LAUNCHER_PATH"',
     "exit_code=$?",
   ];
   const forbidden = forbiddenSnippets.filter((snippet) =>
@@ -505,6 +558,7 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
 function main() {
   assertReleaseWorkflowHasNotaryWrapper();
   assertElectrobunConfigHasPostWrapSigner();
+  assertMacPostBuildHookLooksCorrect();
   assertMacArtifactStagerLooksCorrect();
   assertWindowsSmokeScriptHasLeadingParamBlock();
   assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
