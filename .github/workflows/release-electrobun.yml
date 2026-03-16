@@ -118,14 +118,30 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
+      - name: Ensure avatar assets
+        run: node scripts/ensure-avatars.mjs
+
       - name: Build core dist (server bundle)
         run: |
           bunx tsdown
           echo '{"type":"module"}' > dist/package.json
           node --import tsx scripts/write-build-info.ts
 
+      - name: Build renderer (vite)
+        run: bunx vite build
+        working-directory: apps/app
+
       - name: Release readiness checks
         run: bun run release:check
+
+      - name: Upload arch-neutral build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-shared-build
+          path: |
+            dist/
+            apps/app/dist/
+          retention-days: 1
 
   build:
     name: Build ${{ matrix.platform.name }}
@@ -193,16 +209,10 @@ jobs:
             bun install --frozen-lockfile --ignore-scripts
           fi
 
-      - name: Cache avatar assets
-        uses: actions/cache@v4
+      - name: Download arch-neutral build artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            apps/app/public/vrms
-            apps/app/public/animations
-          key: avatars-${{ hashFiles('scripts/ensure-avatars.mjs') }}
-
-      - name: Ensure avatar assets
-        run: node scripts/ensure-avatars.mjs
+          name: electrobun-shared-build
 
       - name: Cache Whisper models and binaries
         if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
@@ -220,31 +230,8 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
-      - name: Build core dist (server bundle)
-        # tsdown output is pure JS (arch-neutral), but keep the Intel build on
-        # an explicit x64 invocation so any native tsx/node resolution matches
-        # the x64 install.
-        run: |
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bunx tsdown
-            echo '{"type":"module"}' > dist/package.json
-            arch -x86_64 node --import tsx scripts/write-build-info.ts
-          else
-            bunx tsdown
-            echo '{"type":"module"}' > dist/package.json
-            node --import tsx scripts/write-build-info.ts
-          fi
-
-      - name: Build renderer (vite)
-        # vite output is arch-neutral JS/CSS/HTML; rely on the root workspace install
-        # above rather than repeating bun install in apps/app for every release job.
-        run: |
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bunx vite build
-          else
-            bunx vite build
-          fi
-        working-directory: apps/app
+      # dist/ and apps/app/dist/ are downloaded from the shared build artifact
+      # (built once in validate-release, arch-neutral JS/CSS/HTML).
 
       # Copy the vite-built frontend into the Electrobun renderer directory.
       # The bun entry point (src/index.ts) resolves the renderer at
