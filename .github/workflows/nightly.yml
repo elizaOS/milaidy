@@ -143,7 +143,9 @@ jobs:
           echo '{"type":"module"}' > dist/package.json
 
       - name: Run tests
-        run: bun run test
+        # Native-module tests (tfjs-node, canvas) need native addon compilation
+        # which --ignore-scripts skips. Run unit tests only for nightly.
+        run: bunx vitest run --config vitest.unit.config.ts
 
       - name: Upload build artifacts for publish
         uses: actions/upload-artifact@v4
