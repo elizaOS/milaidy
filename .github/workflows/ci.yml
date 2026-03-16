@@ -168,5 +168,7 @@ jobs:
     name: Build & Release (Electrobun) QA
     if: github.event_name == 'push'
     needs: [tests]
+    permissions:
+      contents: write
     uses: ./.github/workflows/electrobun-matrix-qa.yml
     secrets: inherit

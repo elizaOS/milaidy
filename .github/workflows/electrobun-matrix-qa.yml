@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   CI: "true"
@@ -336,3 +336,69 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           compression-level: 0
+
+  publish-canary-release:
+    name: Publish Electrobun Canary Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref_name == 'feature/eliza-home'
+    permissions:
+      contents: write
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: electrobun-*
+          merge-multiple: true
+          path: ./release-assets
+
+      - name: Publish GitHub prerelease assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TAG="eliza-home-canary"
+          TITLE="Eliza Home Canary"
+          NOTES_FILE="$(mktemp)"
+
+          {
+            echo "Automated canary build from \`${GITHUB_SHA}\`."
+            echo
+            echo "- Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- Branch: ${GITHUB_REF_NAME}"
+          } > "$NOTES_FILE"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --title "$TITLE" \
+              --notes-file "$NOTES_FILE" \
+              --prerelease
+          else
+            gh release create "$TAG" \
+              --title "$TITLE" \
+              --notes-file "$NOTES_FILE" \
+              --prerelease
+          fi
+
+          mapfile -t assets < <(find ./release-assets -maxdepth 1 -type f | sort)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "No release assets found under ./release-assets"
+            exit 1
+          fi
+
+          gh release upload "$TAG" "${assets[@]}" --clobber
+
+      - name: Add release links to run summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="eliza-home-canary"
+          RELEASE_URL="$(gh release view "$TAG" --json url --jq .url)"
+          {
+            echo "## Electrobun Canary Downloads"
+            echo
+            echo "- Release page: $RELEASE_URL"
+            echo "- Tag: \`$TAG\`"
+          } >> "$GITHUB_STEP_SUMMARY"
