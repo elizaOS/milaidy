@@ -110,6 +110,9 @@ jobs:
       - name: Install root dependencies
         run: bun install --frozen-lockfile --ignore-scripts
 
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
       - name: Align version with release tag
         run: node scripts/align-electrobun-version.mjs
         env:
@@ -873,6 +876,22 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Compress Windows artifacts before upload
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $artifactsDir = Join-Path $PWD "apps/app/electrobun/artifacts"
+          $exeFiles = Get-ChildItem -Path $artifactsDir -Filter "*.exe"
+          foreach ($exe in $exeFiles) {
+            $zipPath = $exe.FullName + ".zip"
+            Write-Host "Compressing $($exe.Name) -> $($exe.Name).zip"
+            Compress-Archive -Path $exe.FullName -DestinationPath $zipPath -CompressionLevel Optimal
+            Remove-Item $exe.FullName -Force
+            $originalMB = [math]::Round($exe.Length / 1MB, 1)
+            $compressedMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
+            Write-Host "Compressed: ${originalMB}MB -> ${compressedMB}MB"
+          }
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -881,13 +900,23 @@ jobs:
             apps/app/electrobun/artifacts/*.dmg
             apps/app/electrobun/artifacts/*.tar.zst
             apps/app/electrobun/artifacts/*.exe
-            apps/app/electrobun/artifacts/*.zip
+            apps/app/electrobun/artifacts/*.exe.zip
             apps/app/electrobun/artifacts/*.tar.gz
             apps/app/electrobun/artifacts/*-update.json
             apps/app/electrobun/artifacts/*.patch
-            apps/app/electrobun/artifacts/*.msix
           if-no-files-found: error
           retention-days: 30
+          compression-level: 0
+
+      - name: Upload MSIX artifact
+        if: matrix.platform.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact-name }}-msix
+          path: apps/app/electrobun/artifacts/*.msix
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 6
 
   release:
     name: Create Release
@@ -919,8 +948,18 @@ jobs:
             -name "*.dmg" -o \
             -name "*Setup*.zip" -o \
             -name "*Setup*.tar.gz" -o \
+            -name "*.exe.zip" -o \
             -name "*.msix" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
+
+          # Decompress Windows .exe.zip back to .exe for end-user downloads
+          # (zip was only used for inter-job artifact transfer to avoid SAS token timeout)
+          for f in release-files/*.exe.zip; do
+            [ -f "$f" ] || continue
+            echo "Decompressing $f"
+            cd release-files && unzip -o "$(basename "$f")" && rm "$(basename "$f")" && cd ..
+          done
+
           echo "=== Public release files ==="
           ls -lh release-files/ 2>/dev/null || echo "None"
 
