@@ -10,7 +10,7 @@
     "cli.js"
   ],
   "dependencies": {
-    "miladyai": "file:../.."
+    "miladyai": "next"
   },
   "license": "MIT"
 }
