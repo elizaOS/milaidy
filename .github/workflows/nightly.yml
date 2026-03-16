@@ -145,6 +145,15 @@ jobs:
       - name: Run tests
         run: bun run test
 
+      - name: Upload build artifacts for publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-dist
+          path: |
+            dist/
+            package.json
+          retention-days: 1
+
       - name: Validate package
         run: |
           PACK_OUTPUT=$(npm pack --dry-run 2>&1)
@@ -163,10 +172,7 @@ jobs:
           echo "Pack summary: $SIZE_LINE"
 
   # ── Publish to npm ──────────────────────────────────────────────────────
-  # Note: This job does a full checkout + rebuild rather than reusing
-  # build-and-test artifacts because npm publish requires the complete
-  # package tree (all `files` entries from package.json), and
-  # setup-node with registry-url configures .npmrc for authentication.
+  # Reuses build artifacts from build-and-test to avoid redundant rebuilds.
   publish-npm:
     name: Publish to npm (nightly)
     needs: [check-commits, build-and-test]
@@ -198,26 +204,13 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
 
-      - name: Install dependencies
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-dist
+
+      - name: Install dependencies (for npm publish file resolution)
         run: bun install --frozen-lockfile --ignore-scripts
-
-      - name: Run repository postinstall patches
-        run: bun run postinstall
-
-      - name: Set nightly version
-        run: |
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '${{ needs.build-and-test.outputs.nightly_version }}';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-
-      - name: Build
-        run: |
-          bunx tsdown
-          node --import tsx scripts/write-build-info.ts
-          echo '{"type":"module"}' > dist/package.json
 
       - name: Publish with nightly dist-tag
         run: npm publish --tag nightly --access public

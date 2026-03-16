@@ -2,14 +2,20 @@ export * from "./ApiKeyConfig";
 export * from "./AppsPageView";
 export * from "./AppsView";
 export * from "./AvatarLoader";
-export * from "./avatar/VrmEngine";
-export * from "./avatar/VrmViewer";
+// VrmEngine and VrmViewer are intentionally excluded from this barrel.
+// They pull in three / @pixiv/three-vrm / @sparkjsdev/spark and are only
+// consumed internally by VrmStage and CompanionSceneHost.  Keeping them
+// out of the barrel lets consumers lazy-load the 3D scene.
 export * from "./BugReportModal";
-export * from "./ChatAvatar";
+// ChatAvatar is intentionally excluded from this barrel — it imports
+// VrmViewer which pulls in three.  Import directly from "./ChatAvatar".
 export * from "./CloudSourceControls";
 export * from "./CodingAgentSettingsSection";
 export * from "./CommandPalette";
-export * from "./CompanionSceneHost";
+// CompanionSceneHost is intentionally excluded from this barrel — it imports
+// VrmStage which pulls in the heavy 3D stack.  Import directly from
+// "./CompanionSceneHost" or use the hook from "./shared-companion-scene-context".
+export { useSharedCompanionScene } from "./shared-companion-scene-context";
 export * from "./ConfigPageView";
 export * from "./ConfigSaveFooter";
 export * from "./ConfirmModal";
@@ -53,5 +59,7 @@ export * from "./ui-badges";
 export * from "./ui-switch";
 export * from "./VectorBrowserView";
 export * from "./VoiceConfigView";
-export * from "./VrmStage";
+// VrmStage is intentionally excluded from this barrel for the same reason
+// as VrmEngine/VrmViewer — it statically imports the heavy 3D stack.
+// Import directly from "./VrmStage" when needed.
 export * from "./WhatsAppQrOverlay";
