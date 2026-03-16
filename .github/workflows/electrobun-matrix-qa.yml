@@ -188,6 +188,97 @@ jobs:
           MILADY_ELECTROBUN_NOTARIZE: 0
           ELECTROBUN_SKIP_CODESIGN: 1
 
+      - name: Cache Windows embedding model
+        if: matrix.platform.os == 'windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/.eliza/models
+          key: embedding-model-nomic-embed-text-v1.5-Q4_K_S
+
+      - name: Seed Windows embedding model cache
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $modelsDir = Join-Path $env:USERPROFILE ".eliza\models"
+          $modelName = "nomic-embed-text-v1.5.Q4_K_S.gguf"
+          $modelRepo = "nomic-ai/nomic-embed-text-v1.5-GGUF"
+          $modelPath = Join-Path $modelsDir $modelName
+
+          if (-not (Test-Path $modelPath)) {
+            New-Item -ItemType Directory -Force -Path $modelsDir | Out-Null
+            $url = "https://huggingface.co/$modelRepo/resolve/main/$modelName"
+            Write-Host "Downloading Windows embedding model cache seed: $url"
+            Invoke-WebRequest -Uri $url -OutFile $modelPath
+          }
+
+          Write-Host "Windows embedding model cache ready: $modelPath"
+
+      - name: Smoke test packaged Windows app
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        env:
+          MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
+          MILADY_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\milady-windows-ui-launcher
+          MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\milady-windows-ui-launcher.txt
+        run: |
+          Remove-Item $env:MILADY_TEST_WINDOWS_LAUNCHER_DIR -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE -Force -ErrorAction SilentlyContinue
+
+          pwsh -File apps/app/electrobun/scripts/smoke-test-windows.ps1
+
+          if (-not (Test-Path $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE)) {
+            Write-Error "Smoke test did not emit a reusable Windows launcher path."
+            exit 1
+          }
+
+          $launcherPath = (Get-Content $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($launcherPath) -or -not (Test-Path $launcherPath)) {
+            Write-Error "Reusable Windows launcher path is invalid: $launcherPath"
+            exit 1
+          }
+
+          Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"
+          Write-Host "Reusing packaged Windows launcher for Playwright: $launcherPath"
+
+      - name: Run Windows packaged renderer bootstrap check
+        if: matrix.platform.os == 'windows'
+        env:
+          MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
+        run: |
+          cd apps/app
+          bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts
+
+      - name: Upload Windows Playwright UI diagnostics
+        if: failure() && matrix.platform.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-windows-ui-playwright-diagnostics
+          path: apps/app/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Smoke test packaged macOS app
+        if: matrix.platform.os == 'macos'
+        env:
+          SMOKE_DIAGNOSTICS_DIR: ${{ runner.temp }}/milady-smoke-diagnostics
+        run: |
+          STARTUP_TIMEOUT=420 \
+          LIVENESS_TIMEOUT=10 \
+          SKIP_BUILD=1 \
+          SKIP_SIGNATURE_CHECK=1 \
+          bash apps/app/electrobun/scripts/smoke-test.sh
+
+      - name: Upload macOS smoke diagnostics
+        if: failure() && matrix.platform.os == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-${{ matrix.platform.artifact_name }}-smoke-diagnostics
+          path: |
+            ${{ runner.temp }}/milady-smoke-diagnostics/**
+            apps/app/electrobun/build/**/wrapper-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Stage Windows setup executables
         if: matrix.platform.os == 'windows'
         shell: pwsh
