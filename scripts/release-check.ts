@@ -61,10 +61,10 @@ const requiredWorkflowSnippets = [
   "$expectedHash = $asset.digest.Substring(7).ToLowerInvariant()",
   "$actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()",
   "electrobun CLI checksum mismatch",
-  "name: Materialize local electrobun package for build",
-  "src = fs.realpathSync('node_modules/electrobun');",
-  "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
-  "fs.cpSync(src, dest, { recursive: true });",
+  "name: Install Electrobun workspace dependencies",
+  "working-directory: apps/app/electrobun",
+  "bun run build -- --env=${{ needs.prepare.outputs.env }}",
+  'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
 ];
 const forbiddenWorkflowSnippets = [' -name "*.exe" -o \\'];
 const requiredElectrobunConfigSnippets = [

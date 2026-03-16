@@ -72,7 +72,7 @@ describe("Electrobun release workflow drift", () => {
     // tsdown and vite are now built once in validate-release and shared as artifacts
     expect(workflow).toContain("arch -x86_64 bun run build:whisper");
     expect(workflow).toContain(
-      `arch -x86_64 electrobun build --env=\${{ needs.prepare.outputs.env }}`,
+      `arch -x86_64 bun run build -- --env=\${{ needs.prepare.outputs.env }}`,
     );
     expect(workflow).not.toContain("arch -x86_64 bun install --ignore-scripts");
     expect(workflow).not.toContain(
@@ -115,23 +115,26 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
   });
 
-  it("materializes a local electrobun package before packaging", () => {
+  it("installs the electrobun workspace package before packaging", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
     expect(workflow).toContain(
-      "name: Materialize local electrobun package for build",
+      "name: Install Electrobun workspace dependencies",
     );
     expect(workflow).toContain(
-      "src = fs.realpathSync('node_modules/electrobun');",
+      "working-directory: apps/app/electrobun",
     );
     expect(workflow).toContain(
-      "const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');",
+      "bun install --frozen-lockfile --ignore-scripts",
     );
-    expect(workflow).toContain("fs.cpSync(src, dest, { recursive: true });");
     expect(workflow).toContain("name: Cache local electrobun core downloads");
     expect(workflow).toContain(
       "path: apps/app/electrobun/node_modules/electrobun/.cache",
     );
+    expect(workflow).not.toContain(
+      "name: Materialize local electrobun package for build",
+    );
+    expect(workflow).not.toContain('bun install -g "electrobun@$ELECTROBUN_VERSION"');
   });
 
   it("caches whisper models for release builds and avoids repeated renderer reinstalls", () => {
