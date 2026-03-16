@@ -4,10 +4,6 @@ on:
   workflow_call:
   workflow_dispatch:
 
-concurrency:
-  group: electrobun-matrix-qa-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
