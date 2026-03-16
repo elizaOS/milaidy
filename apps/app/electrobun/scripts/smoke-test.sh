@@ -387,43 +387,6 @@ verify_packaged_renderer_assets() {
   exit 1
 }
 
-assert_packaged_asset() {
-  local asset_path="$1"
-  local description="$2"
-  local min_size="${3:-1}"
-  local size_bytes=""
-
-  if [[ ! -f "$asset_path" ]]; then
-    echo "ERROR: Missing packaged ${description}: $asset_path"
-    dump_failure_diagnostics "missing packaged ${description}"
-    exit 1
-  fi
-
-  size_bytes="$(wc -c < "$asset_path" | tr -d ' ')"
-  if [[ -z "$size_bytes" || "$size_bytes" -lt "$min_size" ]]; then
-    echo "ERROR: Packaged ${description} looks truncated (${size_bytes:-0} bytes): $asset_path"
-    dump_failure_diagnostics "packaged ${description} failed size check"
-    exit 1
-  fi
-}
-
-verify_packaged_renderer_assets() {
-  local renderer_dir="$LAUNCH_APP_BUNDLE/Contents/Resources/app/renderer"
-
-  if [[ ! -d "$renderer_dir" ]]; then
-    echo "ERROR: Packaged renderer directory missing: $renderer_dir"
-    dump_failure_diagnostics "packaged renderer directory missing"
-    exit 1
-  fi
-
-  assert_packaged_asset "$renderer_dir/index.html" "renderer entrypoint" 256
-  assert_packaged_asset "$renderer_dir/vrms/milady-1.vrm.gz" "default avatar VRM" 1024
-  assert_packaged_asset "$renderer_dir/vrms/backgrounds/milady-1.png" "default avatar background" 1024
-  assert_packaged_asset "$renderer_dir/animations/idle.glb.gz" "default idle animation" 1024
-
-  echo "Packaged renderer asset check PASSED."
-}
-
 trap cleanup EXIT
 
 echo "============================================================"

@@ -121,8 +121,22 @@ jobs:
         shell: pwsh
         run: |
           $electrobunDir = Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"
-          $cacheDir = Join-Path $electrobunDir ".cache"
-          $binDir = Join-Path $electrobunDir "bin"
+          $resolvedElectrobunDir = node -e @'
+            const fs = require("node:fs");
+            const packageDir = process.argv[1];
+            try {
+              process.stdout.write(fs.realpathSync(packageDir));
+            } catch (error) {
+              process.stdout.write(packageDir);
+            }
+          '@ $electrobunDir
+          if ([string]::IsNullOrWhiteSpace("$resolvedElectrobunDir")) {
+            $resolvedElectrobunDir = $electrobunDir
+          }
+          Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"
+
+          $cacheDir = Join-Path $resolvedElectrobunDir ".cache"
+          $binDir = Join-Path $resolvedElectrobunDir "bin"
           $cliBinary = Join-Path $cacheDir "electrobun.exe"
           $binBinary = Join-Path $binDir "electrobun.exe"
 
@@ -131,7 +145,7 @@ jobs:
             exit 0
           }
 
-          $version = (Get-Content (Join-Path $electrobunDir "package.json") | ConvertFrom-Json).version
+          $version = (Get-Content (Join-Path $resolvedElectrobunDir "package.json") | ConvertFrom-Json).version
           $assetName = "electrobun-cli-win-x64.tar.gz"
           $releaseApiUrl = "https://api.github.com/repos/blackboardsh/electrobun/releases/tags/v$version"
           $headers = @{
