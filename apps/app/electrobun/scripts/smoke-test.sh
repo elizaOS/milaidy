@@ -36,6 +36,7 @@ BUILD_SKIP_CODESIGN="${ELECTROBUN_SKIP_CODESIGN:-}"
 BUILD_DEVELOPER_ID="${ELECTROBUN_DEVELOPER_ID:-}"
 ARTIFACTS_DIR_OVERRIDE="${ARTIFACTS_DIR:-}"
 SMOKE_DIAGNOSTICS_DIR="${SMOKE_DIAGNOSTICS_DIR:-}"
+EXPECTED_BUNDLE_IDENTIFIER="${EXPECTED_BUNDLE_IDENTIFIER:-com.miladyai.milady}"
 MOUNT_POINT=""
 LAUNCH_APP_BUNDLE=""
 STARTUP_LOG="$HOME/.config/Milady/milady-startup.log"
@@ -543,6 +544,25 @@ if [[ "$(uname)" == "Darwin" && "$SKIP_SIGNATURE_CHECK" != "1" ]]; then
 
   SIGN_INFO="$(codesign -dv --verbose=4 "$APP_BUNDLE" 2>&1 || true)"
   echo "$SIGN_INFO"
+  if ! echo "$SIGN_INFO" | grep -q "Identifier=$EXPECTED_BUNDLE_IDENTIFIER"; then
+    echo "ERROR: App bundle identifier mismatch. Expected $EXPECTED_BUNDLE_IDENTIFIER"
+    exit 1
+  fi
+
+  for EXECUTABLE_PATH in \
+    "$APP_BUNDLE/Contents/MacOS/launcher" \
+    "$APP_BUNDLE/Contents/MacOS/bun"
+  do
+    if [[ ! -f "$EXECUTABLE_PATH" ]]; then
+      continue
+    fi
+
+    EXECUTABLE_SIGN_INFO="$(codesign -dv --verbose=4 "$EXECUTABLE_PATH" 2>&1 || true)"
+    if ! echo "$EXECUTABLE_SIGN_INFO" | grep -q "Identifier=$EXPECTED_BUNDLE_IDENTIFIER"; then
+      echo "ERROR: Executable identifier mismatch for $EXECUTABLE_PATH. Expected $EXPECTED_BUNDLE_IDENTIFIER"
+      exit 1
+    fi
+  done
 
   if echo "$SIGN_INFO" | grep -q "adhoc"; then
     echo "WARNING: App was signed ad-hoc (no Developer ID). Notarization check skipped."

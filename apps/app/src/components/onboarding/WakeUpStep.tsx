@@ -140,14 +140,22 @@ export function WakeUpStep() {
 
   return (
     <>
-      <div className="onboarding-section-title">
+      <div
+        className="onboarding-section-title"
+        style={{ color: "rgba(240, 238, 250, 0.62)" }}
+      >
         {t("onboarding.welcomeTitle")}
       </div>
       <div className="onboarding-divider">
         <div className="onboarding-divider-diamond" />
       </div>
 
-      <p className="onboarding-desc">{t("onboarding.welcomeSubtitle")}</p>
+      <p
+        className="onboarding-desc"
+        style={{ color: "rgba(240, 238, 250, 0.5)" }}
+      >
+        {t("onboarding.welcomeSubtitle")}
+      </p>
 
       <div
         style={{

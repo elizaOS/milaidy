@@ -52,6 +52,30 @@ function trimToNull(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readString(
+  source: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  return trimToNull(
+    typeof source?.[key] === "string" ? (source[key] as string) : null,
+  );
+}
+
+function readEnvValue(
+  config: Partial<MiladyConfig>,
+  key: string,
+): string | null {
+  const env = asRecord(config.env);
+  const vars = asRecord(env?.vars);
+  return readString(vars, key) ?? readString(env, key);
+}
+
 function setEnvVar(
   config: Partial<MiladyConfig>,
   key: string,
@@ -143,6 +167,54 @@ function resolveSubscriptionSelectionId(
   provider: string,
 ): SubscriptionProviderSelectionId | null {
   return normalizeSubscriptionProviderSelectionId(provider);
+}
+
+function resolveConfiguredLocalProvider(
+  config: Partial<MiladyConfig>,
+): OnboardingLocalProviderId | null {
+  const defaults = ensureAgentDefaults(config);
+  const subscriptionProvider = normalizeOnboardingProviderId(
+    defaults.subscriptionProvider,
+  );
+  if (subscriptionProvider && subscriptionProvider !== "elizacloud") {
+    return subscriptionProvider;
+  }
+
+  const piAiFlag = readEnvValue(config, "MILADY_USE_PI_AI");
+  if (piAiFlag && piAiFlag !== "0" && piAiFlag.toLowerCase() !== "false") {
+    return "pi-ai";
+  }
+
+  for (const provider of ONBOARDING_PROVIDER_CATALOG) {
+    if (provider.id === "elizacloud" || !provider.envKey) {
+      continue;
+    }
+    if (readEnvValue(config, provider.envKey)) {
+      return provider.id;
+    }
+  }
+
+  return null;
+}
+
+function resolveProviderApiKey(
+  config: Partial<MiladyConfig>,
+  providerId: OnboardingLocalProviderId | undefined,
+): string | undefined {
+  if (!providerId || providerId === "pi-ai") {
+    return undefined;
+  }
+  const provider = getOnboardingProviderOption(providerId);
+  if (!provider?.envKey) {
+    return undefined;
+  }
+  return readEnvValue(config, provider.envKey) ?? undefined;
+}
+
+function resolveExistingPrimaryModel(
+  config: Partial<MiladyConfig>,
+): string | undefined {
+  return trimToNull(ensureAgentDefaults(config).model?.primary) ?? undefined;
 }
 
 /**
@@ -369,6 +441,147 @@ export async function applyOnboardingConnectionConfig(
       connection.primaryModel,
     );
   }
+}
+
+export function resolveExistingOnboardingConnection(
+  config: Partial<MiladyConfig>,
+): OnboardingConnection | null {
+  const cloud = ensureCloudConfig(config);
+  const cloudRecord = asRecord(cloud);
+  const models = asRecord(config.models);
+  const remoteApiBase = readString(cloudRecord, "remoteApiBase");
+  const remoteAccessToken = readString(cloudRecord, "remoteAccessToken");
+  const localProvider = resolveConfiguredLocalProvider(config);
+  const localApiKey = resolveProviderApiKey(config, localProvider ?? undefined);
+  const primaryModel = resolveExistingPrimaryModel(config);
+
+  if (remoteApiBase || remoteAccessToken) {
+    return {
+      kind: "remote-provider",
+      remoteApiBase: remoteApiBase ?? "",
+      remoteAccessToken: remoteAccessToken ?? undefined,
+      provider: localProvider ?? undefined,
+      apiKey: localApiKey,
+      primaryModel,
+    };
+  }
+
+  const cloudProvider = normalizeOnboardingProviderId(cloud.provider);
+  const cloudApiKey = trimToNull(cloud.apiKey) ?? undefined;
+  const smallModel = readString(models, "small") ?? undefined;
+  const largeModel = readString(models, "large") ?? undefined;
+
+  if (
+    cloud.enabled === true ||
+    cloudProvider === "elizacloud" ||
+    cloud.inferenceMode === "cloud" ||
+    cloudApiKey ||
+    smallModel ||
+    largeModel
+  ) {
+    return {
+      kind: "cloud-managed",
+      cloudProvider: "elizacloud",
+      apiKey: cloudApiKey,
+      smallModel,
+      largeModel,
+    };
+  }
+
+  if (!localProvider) {
+    return null;
+  }
+
+  return {
+    kind: "local-provider",
+    provider: localProvider,
+    apiKey: localApiKey,
+    primaryModel,
+  };
+}
+
+function normalizeSubmittedSecret(
+  value: string | null | undefined,
+): string | undefined {
+  const trimmed = trimToNull(value);
+  return trimmed && trimmed !== "[REDACTED]" ? trimmed : undefined;
+}
+
+function normalizeSubmittedString(
+  value: string | null | undefined,
+): string | undefined {
+  return trimToNull(value) ?? undefined;
+}
+
+export function mergeOnboardingConnectionWithExisting(
+  connection: OnboardingConnection | null | undefined,
+  existingConnection: OnboardingConnection | null | undefined,
+): OnboardingConnection | null {
+  if (!connection) {
+    return existingConnection ?? null;
+  }
+
+  if (isCloudManagedConnection(connection)) {
+    return {
+      kind: "cloud-managed",
+      cloudProvider: "elizacloud",
+      apiKey:
+        normalizeSubmittedSecret(connection.apiKey) ??
+        (isCloudManagedConnection(existingConnection)
+          ? existingConnection.apiKey
+          : undefined),
+      smallModel:
+        normalizeSubmittedString(connection.smallModel) ??
+        (isCloudManagedConnection(existingConnection)
+          ? existingConnection.smallModel
+          : undefined),
+      largeModel:
+        normalizeSubmittedString(connection.largeModel) ??
+        (isCloudManagedConnection(existingConnection)
+          ? existingConnection.largeModel
+          : undefined),
+    };
+  }
+
+  if (isLocalProviderConnection(connection)) {
+    const existingLocal =
+      isLocalProviderConnection(existingConnection) &&
+      existingConnection.provider === connection.provider
+        ? existingConnection
+        : isRemoteProviderConnection(existingConnection) &&
+            existingConnection.provider === connection.provider
+          ? existingConnection
+          : null;
+    return {
+      kind: "local-provider",
+      provider: connection.provider,
+      apiKey:
+        normalizeSubmittedSecret(connection.apiKey) ?? existingLocal?.apiKey,
+      primaryModel:
+        normalizeSubmittedString(connection.primaryModel) ??
+        existingLocal?.primaryModel,
+    };
+  }
+
+  const existingRemote = isRemoteProviderConnection(existingConnection)
+    ? existingConnection
+    : null;
+  return {
+    kind: "remote-provider",
+    remoteApiBase:
+      normalizeSubmittedString(connection.remoteApiBase) ??
+      existingRemote?.remoteApiBase ??
+      "",
+    remoteAccessToken:
+      normalizeSubmittedSecret(connection.remoteAccessToken) ??
+      existingRemote?.remoteAccessToken,
+    provider: connection.provider ?? existingRemote?.provider,
+    apiKey:
+      normalizeSubmittedSecret(connection.apiKey) ?? existingRemote?.apiKey,
+    primaryModel:
+      normalizeSubmittedString(connection.primaryModel) ??
+      existingRemote?.primaryModel,
+  };
 }
 
 export function createProviderSwitchConnection(args: {

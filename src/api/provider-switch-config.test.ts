@@ -17,6 +17,8 @@ import {
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
   createProviderSwitchConnection,
+  mergeOnboardingConnectionWithExisting,
+  resolveExistingOnboardingConnection,
 } from "./provider-switch-config";
 
 // ---------------------------------------------------------------------------
@@ -233,5 +235,79 @@ describe("applyOnboardingConnectionConfig", () => {
     expect((config.env as Record<string, string>)?.OPENROUTER_API_KEY).toBe(
       "sk-or-test",
     );
+  });
+});
+
+describe("resolveExistingOnboardingConnection", () => {
+  it("reconstructs a saved eliza cloud onboarding connection", () => {
+    expect(
+      resolveExistingOnboardingConnection({
+        cloud: {
+          enabled: true,
+          inferenceMode: "cloud",
+          apiKey: "sk-cloud-test",
+        },
+        models: {
+          small: "openai/gpt-5-mini",
+          large: "anthropic/claude-sonnet-4.5",
+        },
+      }),
+    ).toEqual({
+      kind: "cloud-managed",
+      cloudProvider: "elizacloud",
+      apiKey: "sk-cloud-test",
+      smallModel: "openai/gpt-5-mini",
+      largeModel: "anthropic/claude-sonnet-4.5",
+    });
+  });
+});
+
+describe("mergeOnboardingConnectionWithExisting", () => {
+  it("preserves a saved local provider secret when the resumed submit omits it", () => {
+    expect(
+      mergeOnboardingConnectionWithExisting(
+        {
+          kind: "local-provider",
+          provider: "openrouter",
+          primaryModel: "openai/gpt-5-mini",
+        },
+        {
+          kind: "local-provider",
+          provider: "openrouter",
+          apiKey: "sk-or-saved",
+          primaryModel: "openai/gpt-5-mini",
+        },
+      ),
+    ).toEqual({
+      kind: "local-provider",
+      provider: "openrouter",
+      apiKey: "sk-or-saved",
+      primaryModel: "openai/gpt-5-mini",
+    });
+  });
+
+  it("preserves a saved cloud api key when the resumed submit sends a redacted placeholder", () => {
+    expect(
+      mergeOnboardingConnectionWithExisting(
+        {
+          kind: "cloud-managed",
+          cloudProvider: "elizacloud",
+          apiKey: "[REDACTED]",
+        },
+        {
+          kind: "cloud-managed",
+          cloudProvider: "elizacloud",
+          apiKey: "sk-cloud-saved",
+          smallModel: "openai/gpt-5-mini",
+          largeModel: "anthropic/claude-sonnet-4.5",
+        },
+      ),
+    ).toEqual({
+      kind: "cloud-managed",
+      cloudProvider: "elizacloud",
+      apiKey: "sk-cloud-saved",
+      smallModel: "openai/gpt-5-mini",
+      largeModel: "anthropic/claude-sonnet-4.5",
+    });
   });
 });

@@ -223,6 +223,7 @@ describe("onboarding finish locking", () => {
       alert: vi.fn(),
     });
     Object.assign(document.documentElement, { setAttribute: vi.fn() });
+    localStorage.clear();
 
     for (const fn of Object.values(mockClient)) {
       if (typeof fn === "function" && "mockReset" in fn) {

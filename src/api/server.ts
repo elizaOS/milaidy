@@ -169,7 +169,9 @@ import {
 import {
   applyOnboardingConnectionConfig,
   createProviderSwitchConnection,
+  mergeOnboardingConnectionWithExisting,
   normalizeOnboardingConnection,
+  resolveExistingOnboardingConnection,
 } from "./provider-switch-config";
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
@@ -383,6 +385,50 @@ function hasPersistedOnboardingState(config: MiladyConfig): boolean {
     agents.defaults?.workspace?.trim() ||
       agents.defaults?.adminEntityId?.trim(),
   );
+}
+
+function trimConfigString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getConfiguredEnvVar(config: MiladyConfig, key: string): string | null {
+  const envConfig = config.env as Record<string, unknown> | undefined;
+  const nestedVars =
+    envConfig?.vars && typeof envConfig.vars === "object"
+      ? (envConfig.vars as Record<string, unknown>)
+      : null;
+
+  return (
+    trimConfigString(envConfig?.[key]) ??
+    trimConfigString(nestedVars?.[key]) ??
+    trimConfigString(process.env[key])
+  );
+}
+
+function hasConfiguredOnboardingConnection(config: MiladyConfig): boolean {
+  const cloud = config.cloud;
+  const cloudProvider = trimConfigString(cloud?.provider);
+  if (cloudProvider || cloud?.inferenceMode === "cloud") {
+    return true;
+  }
+
+  const subscriptionProvider = trimConfigString(
+    config.agents?.defaults?.subscriptionProvider,
+  );
+  if (subscriptionProvider) {
+    return true;
+  }
+
+  for (const provider of ONBOARDING_PROVIDER_CATALOG) {
+    if (!provider.envKey) continue;
+    if (getConfiguredEnvVar(config, provider.envKey)) {
+      return true;
+    }
+  }
+
+  return Boolean(getConfiguredEnvVar(config, "MILADY_USE_PI_AI"));
 }
 
 function resolveConversationGreetingText(
@@ -7585,8 +7631,8 @@ async function handleRequest(
   if (method === "GET" && pathname === "/api/onboarding/status") {
     let config = state.config;
     let complete =
-      Boolean(state.runtime) ||
-      (configFileExists() && hasPersistedOnboardingState(config));
+      hasPersistedOnboardingState(config) ||
+      hasConfiguredOnboardingConnection(config);
 
     // Hot restarts and transient config-load failures can leave state.config
     // stale even though the persisted config is valid. Re-read from disk once
@@ -7595,7 +7641,8 @@ async function handleRequest(
       try {
         config = loadMiladyConfig();
         complete =
-          Boolean(state.runtime) || hasPersistedOnboardingState(config);
+          hasPersistedOnboardingState(config) ||
+          hasConfiguredOnboardingConnection(config);
         if (complete) {
           state.config = config;
         }
@@ -7653,8 +7700,11 @@ async function handleRequest(
       error(res, "Missing or invalid agent name", 400);
       return;
     }
-    const connection = normalizeOnboardingConnection(
-      (body as Record<string, unknown>).connection,
+    const connection = mergeOnboardingConnectionWithExisting(
+      normalizeOnboardingConnection(
+        (body as Record<string, unknown>).connection,
+      ),
+      resolveExistingOnboardingConnection(state.config),
     );
     if (!connection) {
       error(res, "Missing or invalid onboarding connection", 400);

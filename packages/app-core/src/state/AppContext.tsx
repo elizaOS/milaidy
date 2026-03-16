@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { OnboardingConnection } from "../../../../src/contracts/onboarding";
 import { prepareDraftForSave } from "../actions/character";
 import {
   type AgentStartupDiagnostics,
@@ -117,9 +118,13 @@ import {
   applyUiTheme,
   asApiLikeError,
   type ChatTurnUsage,
+  clearPersistedOnboardingStep,
+  deriveOnboardingResumeConnection,
+  deriveOnboardingResumeFields,
   formatSearchBullet,
   formatStartupErrorDetail,
   type GamePostMessageAuthPayload,
+  inferOnboardingResumeStep,
   LIFECYCLE_MESSAGES,
   type LifecycleAction,
   type LoadConversationMessagesResult,
@@ -130,6 +135,7 @@ import {
   loadChatVoiceMuted,
   loadCompanionMessageCutoffTs,
   loadLastNativeTab,
+  loadPersistedOnboardingStep,
   loadUiLanguage,
   loadUiShellMode,
   loadUiTheme,
@@ -156,6 +162,7 @@ import {
   saveChatVoiceMuted,
   saveCompanionMessageCutoffTs,
   saveLastNativeTab,
+  saveOnboardingStep,
   saveUiLanguage,
   saveUiShellMode,
   saveUiTheme,
@@ -771,8 +778,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
 
   // --- Onboarding ---
-  const [onboardingStep, setOnboardingStep] =
-    useState<OnboardingStep>("wakeUp");
+  const [onboardingStep, setOnboardingStepRaw] = useState<OnboardingStep>(
+    () => loadPersistedOnboardingStep() ?? "wakeUp",
+  );
   const [onboardingOptions, setOnboardingOptions] =
     useState<OnboardingOptions | null>(null);
   const [onboardingName, setOnboardingName] = useState("Eliza");
@@ -836,6 +844,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   >({});
   const [onboardingAvatar, setOnboardingAvatar] = useState(1);
   const [onboardingRestarting, setOnboardingRestarting] = useState(false);
+
+  const setOnboardingStep = useCallback((step: OnboardingStep) => {
+    setOnboardingStepRaw(step);
+    saveOnboardingStep(step);
+  }, []);
 
   // --- Command palette ---
   const [commandPaletteOpen, _setCommandPaletteOpen] = useState(false);
@@ -932,6 +945,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const lifecycleActionRef = useRef<LifecycleAction | null>(null);
   /** Synchronous lock for onboarding finish to prevent duplicate same-tick submits. */
   const onboardingFinishBusyRef = useRef(false);
+  const onboardingResumeConnectionRef = useRef<OnboardingConnection | null>(
+    null,
+  );
   const pairingBusyRef = useRef(false);
   /** Guards against double-greeting when both init and state-transition paths fire. */
   const greetingFiredRef = useRef(false);
@@ -2104,6 +2120,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await client.resetAgent();
       setAgentStatus(null);
       setOnboardingComplete(false);
+      onboardingResumeConnectionRef.current = null;
       setOnboardingStep("wakeUp");
       setConversationMessages([]);
       setActiveConversationId(null);
@@ -2140,6 +2157,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     beginLifecycleAction,
     finishLifecycleAction,
     setActionNotice,
+    setOnboardingStep,
   ]);
 
   const handleNewConversation = useCallback(
@@ -3891,19 +3909,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingFinishSavingRef.current = true;
 
     try {
-      const connection = buildOnboardingConnectionConfig({
-        onboardingRunMode,
-        onboardingCloudProvider,
-        onboardingProvider,
-        onboardingApiKey,
-        onboardingPrimaryModel,
-        onboardingOpenRouterModel,
-        onboardingRemoteConnected,
-        onboardingRemoteApiBase,
-        onboardingRemoteToken,
-        onboardingSmallModel,
-        onboardingLargeModel,
-      });
+      const connection =
+        buildOnboardingConnectionConfig({
+          onboardingRunMode,
+          onboardingCloudProvider,
+          onboardingProvider,
+          onboardingApiKey,
+          onboardingPrimaryModel,
+          onboardingOpenRouterModel,
+          onboardingRemoteConnected,
+          onboardingRemoteApiBase,
+          onboardingRemoteToken,
+          onboardingSmallModel,
+          onboardingLargeModel,
+        }) ?? onboardingResumeConnectionRef.current;
       if (!connection) {
         throw new Error("Onboarding connection is incomplete");
       }
@@ -3938,6 +3957,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const greetConvId = await hydrateInitialConversationState();
       await requestGreetingWhenRunning(greetConvId, { showOverlay: true });
+      clearPersistedOnboardingStep();
+      onboardingResumeConnectionRef.current = null;
       setOnboardingComplete(true);
       setTab("chat");
     } catch (err) {
@@ -4067,7 +4088,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (currentIndex > 0) {
       setOnboardingStep(STEP_ORDER[currentIndex - 1]);
     }
-  }, [onboardingStep]);
+  }, [onboardingStep, setOnboardingStep]);
 
   const handleOnboardingUseLocalBackend = useCallback(() => {
     client.setBaseUrl(null);
@@ -4417,6 +4438,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         [S in keyof AppState]: (v: AppState[S]) => void;
       }> = {
         tab: setTabRaw,
+        onboardingStep: setOnboardingStep,
         chatInput: setChatInput,
         chatAvatarVisible: setChatAvatarVisible,
         chatAgentVoiceMuted: setChatAgentVoiceMuted,
@@ -4545,7 +4567,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const setter = setterMap[key];
       if (setter) setter(value);
     },
-    [setSelectedVrmIndex],
+    [setOnboardingStep, setSelectedVrmIndex],
   );
 
   // ── Initialization ─────────────────────────────────────────────────
@@ -4688,6 +4710,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             break;
           }
           const { complete } = await client.getOnboardingStatus();
+          if (complete) {
+            clearPersistedOnboardingStep();
+            onboardingResumeConnectionRef.current = null;
+          }
           setOnboardingComplete(complete);
           onboardingNeedsOptions = !complete;
           break;
@@ -4735,8 +4761,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return;
           }
           try {
-            const options = await client.getOnboardingOptions();
+            const [options, config] = await Promise.all([
+              client.getOnboardingOptions(),
+              client.getConfig().catch(() => null),
+            ]);
+            const resumeConnection = deriveOnboardingResumeConnection(config);
+            const resumeFields = deriveOnboardingResumeFields(resumeConnection);
+            onboardingResumeConnectionRef.current = resumeConnection;
             setOnboardingOptions(options);
+            if (resumeFields.onboardingRunMode !== undefined) {
+              setOnboardingRunMode(resumeFields.onboardingRunMode);
+            }
+            if (resumeFields.onboardingCloudProvider !== undefined) {
+              setOnboardingCloudProvider(resumeFields.onboardingCloudProvider);
+            }
+            if (resumeFields.onboardingProvider !== undefined) {
+              setOnboardingProvider(resumeFields.onboardingProvider);
+            }
+            if (resumeFields.onboardingApiKey !== undefined) {
+              setOnboardingApiKey(resumeFields.onboardingApiKey);
+            }
+            if (resumeFields.onboardingPrimaryModel !== undefined) {
+              setOnboardingPrimaryModel(resumeFields.onboardingPrimaryModel);
+            }
+            if (resumeFields.onboardingOpenRouterModel !== undefined) {
+              setOnboardingOpenRouterModel(
+                resumeFields.onboardingOpenRouterModel,
+              );
+            }
+            if (resumeFields.onboardingRemoteConnected !== undefined) {
+              setOnboardingRemoteConnected(
+                resumeFields.onboardingRemoteConnected,
+              );
+            }
+            if (resumeFields.onboardingRemoteApiBase !== undefined) {
+              setOnboardingRemoteApiBase(resumeFields.onboardingRemoteApiBase);
+            }
+            if (resumeFields.onboardingRemoteToken !== undefined) {
+              setOnboardingRemoteToken(resumeFields.onboardingRemoteToken);
+            }
+            if (resumeFields.onboardingSmallModel !== undefined) {
+              setOnboardingSmallModel(resumeFields.onboardingSmallModel);
+            }
+            if (resumeFields.onboardingLargeModel !== undefined) {
+              setOnboardingLargeModel(resumeFields.onboardingLargeModel);
+            }
+            setOnboardingStep(
+              inferOnboardingResumeStep({
+                persistedStep: loadPersistedOnboardingStep(),
+                config,
+              }),
+            );
             setOnboardingLoading(false);
             return;
           } catch (err) {
