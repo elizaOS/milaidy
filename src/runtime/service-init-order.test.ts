@@ -106,6 +106,11 @@ describe("FallbackTrainingService initialization", () => {
 // ============================================================================
 
 describe("Config loading at startup", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
   it("loadMiladyConfig returns a valid config object", async () => {
     vi.resetModules();
     vi.mock("node:fs", async (importOriginal) => {
