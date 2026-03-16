@@ -54,17 +54,16 @@ describe("plugin-agent-skills catalog fetch patch", () => {
 
     expect(first).toEqual([]);
     expect(second).toEqual([]);
-    // Concurrent forceRefresh calls may each trigger a fetch depending on
-    // the upstream plugin version's coalescing and logging behavior.
-    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+    // Concurrent forceRefresh calls are coalesced into a single fetch
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // @2.0.0-alpha.11 silently handles 429 without logger.info —
+    // the rate-limit logging was removed upstream
+    expect(logger.warn).not.toHaveBeenCalled();
 
-    // The 429 was handled gracefully — both calls returned [] without throwing.
-    // No assertion on logger calls: upstream plugin versions vary in whether
-    // they log rate limits via info, warn, or silently.
-
+    // Third call within cooldown should not trigger another fetch
     await expect(service.getCatalog({ forceRefresh: true })).resolves.toEqual(
       [],
     );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
