@@ -373,6 +373,10 @@ jobs:
           } > "$NOTES_FILE"
 
           if gh release view "$TAG" >/dev/null 2>&1; then
+            mapfile -t existing_assets < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+            for existing_asset in "${existing_assets[@]}"; do
+              gh release delete-asset "$TAG" "$existing_asset" --yes || true
+            done
             gh release edit "$TAG" \
               --title "$TITLE" \
               --notes-file "$NOTES_FILE" \
@@ -384,13 +388,24 @@ jobs:
               --prerelease
           fi
 
+          if [[ -f ./release-assets/Milady-Setup-canary.exe.zip ]]; then
+            unzip -o ./release-assets/Milady-Setup-canary.exe.zip -d ./release-assets >/dev/null
+          fi
+
+          if [[ -f ./release-assets/Milady-Setup-canary.exe && -f ./release-assets/canary-win-x64-Milady-canary.tar.zst ]]; then
+            zip -j -9 ./release-assets/eliza-home-win-x64-offline-bundle.zip \
+              ./release-assets/Milady-Setup-canary.exe \
+              ./release-assets/canary-win-x64-Milady-canary.tar.zst \
+              ./release-assets/canary-win-x64-update.json >/dev/null
+          fi
+
           mapfile -t assets < <(
             find ./release-assets -maxdepth 1 -type f \
               \( -name "*.dmg" \
               -o -name "*.app.tar.zst" \
               -o -name "*Milady-canary.tar.zst" \
               -o -name "*Setup*.tar.gz" \
-              -o -name "*Setup*.exe.zip" \) \
+              -o -name "eliza-home-win-x64-offline-bundle.zip" \) \
               | sort
           )
           if [[ ${#assets[@]} -eq 0 ]]; then
