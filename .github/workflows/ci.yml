@@ -17,7 +17,7 @@ env:
 jobs:
   lint:
     name: Lint & Format
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -65,7 +65,7 @@ jobs:
 
   typecheck:
     name: Type Check
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -110,7 +110,7 @@ jobs:
 
   test:
     name: Unit Tests
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -155,7 +155,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 

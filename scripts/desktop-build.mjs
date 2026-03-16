@@ -208,6 +208,10 @@ function writeDistPackageJson() {
 
 function stageDesktopBuild() {
   ensureAppDirs();
+  const installArgs = ["install", "--ignore-scripts"];
+  if (process.env.CI === "true") {
+    installArgs.push("--frozen-lockfile");
+  }
 
   runPackageBinary("tsdown", [], {
     cwd: ROOT,
@@ -243,12 +247,12 @@ function stageDesktopBuild() {
     },
   );
 
-  runBun(["install", "--frozen-lockfile", "--ignore-scripts"], {
-    cwd: APP_DIR,
-    label: "Ensuring app workspace dependencies are installed",
+  runBun(installArgs, {
+    cwd: ROOT,
+    label: "Ensuring workspace dependencies are installed",
   });
 
-  runBun(["install", "--frozen-lockfile", "--ignore-scripts"], {
+  runBun(installArgs, {
     cwd: ELECTROBUN_DIR,
     label: "Ensuring Electrobun workspace dependencies are installed",
   });

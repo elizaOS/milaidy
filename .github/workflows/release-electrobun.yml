@@ -48,7 +48,7 @@ env:
 jobs:
   prepare:
     name: Prepare Release
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -82,7 +82,7 @@ jobs:
   validate-release:
     name: Validate Release Inputs
     needs: prepare
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash -euo pipefail {0}
@@ -154,7 +154,7 @@ jobs:
             artifact-name: macos-x64
           - name: Windows
             os: windows
-            runner: blacksmith-4vcpu-windows-2025
+            runner: windows-latest
             artifact-name: windows-x64
           - name: Linux
             os: linux
@@ -888,7 +888,7 @@ jobs:
   release:
     name: Create Release
     needs: [prepare, build]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write

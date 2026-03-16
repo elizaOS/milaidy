@@ -19,7 +19,7 @@ env:
 jobs:
   unit-tests:
     name: Unit Tests
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -77,7 +77,7 @@ jobs:
 
   db-check:
     name: Database Security Check
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -127,7 +127,7 @@ jobs:
 
   e2e-tests:
     name: E2E Tests (Vitest)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -177,7 +177,7 @@ jobs:
 
   app-startup-e2e:
     name: App Startup E2E (Onboarding)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -235,7 +235,7 @@ jobs:
 
   cloud-live-e2e:
     name: Cloud Live E2E (Eliza Cloud)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Check cloud secrets
@@ -295,7 +295,7 @@ jobs:
 
   validation-e2e:
     name: End-to-End Validation (Issue #6)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -334,7 +334,7 @@ jobs:
     name: All Tests Passed
     if: always()
     needs: [unit-tests, db-check, e2e-tests, app-startup-e2e, cloud-live-e2e, validation-e2e]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Check test results
         run: |
