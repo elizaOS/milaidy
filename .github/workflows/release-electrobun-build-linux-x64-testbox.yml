@@ -1,0 +1,137 @@
+name: Blacksmith Testbox (Electrobun Linux Release)
+
+on:
+  workflow_dispatch:
+    inputs:
+      testbox_id:
+        type: string
+        description: "Testbox session ID"
+        required: true
+
+env:
+  CI: "true"
+  BUN_VERSION: "1.3.9"
+
+jobs:
+  build-linux-x64:
+    name: Build Linux (Testbox Warmup)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    steps:
+      - name: Begin Testbox
+        uses: useblacksmith/begin-testbox@d0e04585c26905fdd92c94a09c159544c7ee1b67 # v2
+        with:
+          testbox_id: ${{ inputs.testbox_id }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-electrobun-linux-x64-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-electrobun-linux-x64-
+
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Run repository postinstall patches
+        run: bun run postinstall
+
+      - name: Ensure avatar assets
+        run: node scripts/ensure-avatars.mjs
+
+      - name: Build core dist
+        run: |
+          bunx tsdown
+          echo '{"type":"module"}' > dist/package.json
+          node --import tsx scripts/write-build-info.ts
+
+      - name: Build renderer
+        working-directory: apps/app
+        run: bunx vite build
+
+      - name: Stage renderer
+        run: |
+          rm -rf apps/app/electrobun/renderer
+          cp -r apps/app/dist apps/app/electrobun/renderer
+
+      - name: Build webview bridge preload
+        working-directory: apps/app/electrobun
+        run: bun run build:preload
+
+      - name: Cache Whisper models and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/milady/whisper
+            node_modules/whisper-node/lib/whisper.cpp/main
+            node_modules/whisper-node/lib/whisper.cpp/build
+          key: whisper-linux-x64-${{ hashFiles('apps/app/electrobun/scripts/build-whisper.sh', 'apps/app/electrobun/scripts/build-whisper-universal.sh') }}
+          restore-keys: whisper-linux-x64-
+
+      - name: Build whisper.cpp (on-device STT)
+        working-directory: apps/app/electrobun
+        run: bun run build:whisper
+
+      - name: Bundle backend node_modules into dist/
+        run: node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
+
+      - name: Install electrobun CLI
+        run: |
+          ELECTROBUN_VERSION="$(node -p "require('./apps/app/electrobun/package.json').dependencies.electrobun.replace(/^[^0-9]*/, '')")"
+          echo "Installing electrobun@$ELECTROBUN_VERSION"
+          bun install -g "electrobun@$ELECTROBUN_VERSION"
+
+      - name: Materialize local electrobun package for build
+        run: |
+          node -e "
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const { execSync } = require('node:child_process');
+            let src;
+            try {
+              src = fs.realpathSync('node_modules/electrobun');
+            } catch {
+              const globalDir = execSync('bun pm -g bin', { encoding: 'utf8' }).trim();
+              const globalModules = path.resolve(globalDir, '..', 'install', 'global', 'node_modules', 'electrobun');
+              if (fs.existsSync(globalModules)) {
+                src = fs.realpathSync(globalModules);
+              } else {
+                const pkgPath = require.resolve('electrobun/package.json');
+                src = path.dirname(pkgPath);
+              }
+            }
+            const dest = path.resolve('apps/app/electrobun/node_modules/electrobun');
+            fs.rmSync(dest, { recursive: true, force: true });
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.cpSync(src, dest, { recursive: true });
+            console.log('Materialized local electrobun package:', dest, '<-', src);
+          "
+
+      - name: Cache local electrobun core downloads
+        uses: actions/cache@v4
+        with:
+          path: apps/app/electrobun/node_modules/electrobun/.cache
+          key: electrobun-core-linux-x64-${{ hashFiles('apps/app/electrobun/package.json') }}
+          restore-keys: electrobun-core-linux-x64-
+
+      - name: Run Testbox
+        uses: useblacksmith/run-testbox@5ca05834db1d3813554d1dd109e5f2087a8d7cbc # v2
+        if: always()
+        env:
+          ELECTROBUN_BUILD_ENV: stable
