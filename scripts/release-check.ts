@@ -66,6 +66,8 @@ const requiredWorkflowSnippets = [
   "node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}",
   "MILADY_ELECTROBUN_NOTARIZE: 0",
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
+  'if ($null -eq $resolvedRceditPackageJson)',
+  '$resolvedRceditPackageJson = "$resolvedRceditPackageJson".Trim()',
 ];
 const forbiddenWorkflowSnippets = [' -name "*.exe" -o \\'];
 const requiredElectrobunConfigSnippets = [

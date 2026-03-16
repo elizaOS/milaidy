@@ -332,7 +332,13 @@ jobs:
             }
           '@ $electrobunDir
 
-          $resolvedRceditPackageJson = $resolvedRceditPackageJson.Trim()
+          if ($null -eq $resolvedRceditPackageJson) {
+            $resolvedRceditPackageJson = ""
+          } elseif ($resolvedRceditPackageJson -is [array]) {
+            $resolvedRceditPackageJson = ($resolvedRceditPackageJson -join "")
+          }
+
+          $resolvedRceditPackageJson = "$resolvedRceditPackageJson".Trim()
           if ([string]::IsNullOrWhiteSpace($resolvedRceditPackageJson)) {
             Write-Warning "Electrobun could not resolve rcedit/package.json; seeding a local copy under the electrobun package."
             $resolvedRceditDir = Join-Path $electrobunDir "node_modules\rcedit"
