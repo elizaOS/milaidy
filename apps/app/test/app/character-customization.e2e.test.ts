@@ -330,6 +330,7 @@ type CharacterData = {
   bio: string | string[];
   system: string;
   adjectives: string[];
+  topics?: string[];
   style: { all: string[]; chat: string[]; post: string[] };
   messageExamples?: Array<{
     examples: Array<{ name: string; content: { text: string } }>;
@@ -478,7 +479,17 @@ function prepareCharacterDraftForSave(draft: CharacterData) {
     if (!style.all && !style.chat && !style.post) delete prepared.style;
   }
 
-  if (prepared.name) prepared.username = prepared.name;
+  if (
+    typeof prepared.username === "string" &&
+    prepared.username.trim().length > 0
+  ) {
+    prepared.username = prepared.username.trim();
+  } else if (
+    typeof prepared.name === "string" &&
+    prepared.name.trim().length > 0
+  ) {
+    prepared.username = prepared.name.trim();
+  }
   if (!prepared.name) delete prepared.name;
   if (!prepared.username) delete prepared.username;
   if (!prepared.system) delete prepared.system;

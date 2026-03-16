@@ -1447,6 +1447,7 @@ export interface CharacterData {
   bio?: string | string[];
   system?: string;
   adjectives?: string[];
+  topics?: string[];
   style?: {
     all?: string[];
     chat?: string[];

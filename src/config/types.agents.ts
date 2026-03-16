@@ -20,10 +20,26 @@ export type AgentModelConfig =
       fallbacks?: string[];
     };
 
+export type AgentMessageExampleContent = {
+  text: string;
+  actions?: string[];
+};
+
+export type AgentMessageExampleGroup = {
+  examples: Array<{ name: string; content: AgentMessageExampleContent }>;
+};
+
+export type AgentLegacyMessageExample = Array<{
+  user?: string;
+  name?: string;
+  content: AgentMessageExampleContent;
+}>;
+
 export type AgentConfig = {
   id: string;
   default?: boolean;
   name?: string;
+  username?: string;
   workspace?: string;
   agentDir?: string;
   model?: AgentModelConfig;
@@ -52,7 +68,7 @@ export type AgentConfig = {
   postExamples?: string[];
   /** Example social media posts in Chinese (zh-CN) demonstrating the agent's voice. */
   postExamples_zhCN?: string[];
-  messageExamples?: Array<Array<{ user: string; content: { text: string } }>>;
+  messageExamples?: Array<AgentLegacyMessageExample | AgentMessageExampleGroup>;
   subagents?: {
     /** Allow spawning sub-agents under other agent ids. Use "*" to allow any. */
     allowAgents?: string[];

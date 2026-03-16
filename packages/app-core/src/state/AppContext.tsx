@@ -1616,6 +1616,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           : (character.bio ?? ""),
         system: character.system ?? "",
         adjectives: character.adjectives ?? [],
+        topics: character.topics ?? [],
         style: {
           all: character.style?.all ?? [],
           chat: character.style?.chat ?? [],

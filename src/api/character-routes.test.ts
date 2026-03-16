@@ -165,7 +165,7 @@ describe("character routes", () => {
   test("persists the full character payload including username across save and reload", async () => {
     const fullCharacter = {
       name: "Sakuya",
-      username: "Sakuya",
+      username: "sakuya-clockwork",
       bio: ["new bio", "second line"],
       system: "new system",
       adjectives: ["precise", "calm"],
@@ -203,6 +203,8 @@ describe("character routes", () => {
       (state.runtime as unknown as { character: Record<string, unknown> })
         .character,
     ).toMatchObject(fullCharacter);
+    expect(saveConfig).toHaveBeenCalledTimes(1);
+    expect(state.config?.agents?.list?.[0]).toMatchObject(fullCharacter);
 
     const getResult = await invoke({
       method: "GET",
@@ -275,6 +277,24 @@ describe("character routes", () => {
           ],
         },
       ],
+    });
+  });
+
+  test("syncs username and topics into config so they survive restart", async () => {
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/character",
+      body: {
+        username: "marisa-labs",
+        topics: ["magic", "experiments"],
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(saveConfig).toHaveBeenCalledTimes(1);
+    expect(state.config?.agents?.list?.[0]).toMatchObject({
+      username: "marisa-labs",
+      topics: ["magic", "experiments"],
     });
   });
 

@@ -2866,6 +2866,7 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
   // Resolve name: agents list → ui assistant → "Milady"
   const agentEntry = config.agents?.list?.[0];
   const name = agentEntry?.name ?? config.ui?.assistant?.name ?? "Milady";
+  const username = agentEntry?.username ?? name;
   const bundledPreset = (() => {
     const presetByName: Record<string, string> = {
       Reimu: "uwu~",
@@ -2899,6 +2900,7 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
     "You are {{name}}, an autonomous AI agent powered by elizaOS.";
   const style = agentEntry?.style ?? bundledPreset?.style;
   const adjectives = agentEntry?.adjectives ?? bundledPreset?.adjectives;
+  const topics = agentEntry?.topics;
   const postExamples = agentEntry?.postExamples ?? bundledPreset?.postExamples;
   const messageExamples =
     agentEntry?.messageExamples ?? bundledPreset?.messageExamples;
@@ -2998,10 +3000,12 @@ export function buildCharacterFromConfig(config: MiladyConfig): Character {
 
   return mergeCharacterDefaults({
     name,
+    username,
     bio,
     system: systemPrompt,
     ...(style ? { style } : {}),
     ...(adjectives ? { adjectives } : {}),
+    ...(topics ? { topics } : {}),
     ...(postExamples ? { postExamples } : {}),
     ...(mappedExamples ? { messageExamples: mappedExamples } : {}),
     secrets,

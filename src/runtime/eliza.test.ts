@@ -1563,6 +1563,27 @@ describe("buildCharacterFromConfig", () => {
     expect(char.postExamples.length).toBeGreaterThan(0);
     expect(char.messageExamples.length).toBeGreaterThan(0);
   });
+
+  it("hydrates username and topics from agent config", () => {
+    const config = {
+      agents: {
+        list: [
+          {
+            id: "main",
+            name: "Marisa",
+            username: "marisa-labs",
+            topics: ["magic", "research"],
+          },
+        ],
+      },
+    } as MiladyConfig;
+
+    const char = buildCharacterFromConfig(config);
+
+    expect(char.name).toBe("Marisa");
+    expect(char.username).toBe("marisa-labs");
+    expect(char.topics).toEqual(["magic", "research"]);
+  });
 });
 
 // ---------------------------------------------------------------------------

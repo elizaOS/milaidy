@@ -51,12 +51,18 @@ function syncRuntimeCharacterToConfig(
   const nextAgent: AgentConfig = {
     ...primaryAgent,
     ...(character.name ? { name: character.name } : {}),
+    ...(typeof character.username === "string"
+      ? { username: character.username }
+      : {}),
     ...(Array.isArray(character.bio) ? { bio: [...character.bio] } : {}),
     ...(typeof character.system === "string"
       ? { system: character.system }
       : {}),
     ...(Array.isArray(character.adjectives)
       ? { adjectives: [...character.adjectives] }
+      : {}),
+    ...(Array.isArray(character.topics)
+      ? { topics: [...character.topics] }
       : {}),
     ...(character.style
       ? {
@@ -167,6 +173,12 @@ const CHARACTER_SCHEMA_FIELDS = [
     type: "string[]",
     label: "Adjectives",
     description: "Personality adjectives (e.g. curious, witty)",
+  },
+  {
+    key: "topics",
+    type: "string[]",
+    label: "Topics",
+    description: "Conversation topics the agent is knowledgeable about",
   },
   {
     key: "style",

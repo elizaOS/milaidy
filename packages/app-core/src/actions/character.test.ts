@@ -7,10 +7,11 @@ describe("prepareDraftForSave", () => {
   it("builds a strict payload and preserves message actions", () => {
     const draft = {
       name: "Sakuya",
-      username: "ignored",
+      username: "sakuya-clockwork",
       system: "Act composed.",
       bio: " first line \n\n second line ",
       adjectives: ["precise", "", "calm"],
+      topics: ["time", "", "duty"],
       postExamples: ["Mission report", ""],
       style: {
         all: ["Be exact"],
@@ -52,10 +53,11 @@ describe("prepareDraftForSave", () => {
 
     expect(prepareDraftForSave(draft)).toEqual({
       name: "Sakuya",
-      username: "Sakuya",
+      username: "sakuya-clockwork",
       system: "Act composed.",
       bio: ["first line", "second line"],
       adjectives: ["precise", "calm"],
+      topics: ["time", "duty"],
       postExamples: ["Mission report"],
       style: {
         all: ["Be exact"],
@@ -120,6 +122,18 @@ describe("prepareDraftForSave", () => {
       style: {
         chat: ["Stay direct"],
       },
+    });
+  });
+
+  it("falls back username to name when no username is provided", () => {
+    const draft: CharacterData = {
+      name: "Marisa",
+      username: "   ",
+    };
+
+    expect(prepareDraftForSave(draft)).toEqual({
+      name: "Marisa",
+      username: "Marisa",
     });
   });
 });
