@@ -109,9 +109,7 @@ describe("Electrobun release workflow drift", () => {
     expect(validateSection).toContain(
       "key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}",
     );
-    expect(validateSection).toContain(
-      "restore-keys: bun-electrobun-validate-",
-    );
+    expect(validateSection).toContain("restore-keys: bun-electrobun-validate-");
     expect(validateSection).not.toContain("matrix.platform.artifact-name");
   });
 
@@ -129,7 +127,9 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(workflow).toContain("electrobun CLI checksum mismatch");
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
-    expect(workflow).toContain('process.stdout.write(fs.realpathSync(packageDir));');
+    expect(workflow).toContain(
+      "process.stdout.write(fs.realpathSync(packageDir));",
+    );
     expect(workflow).toContain(
       'Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"',
     );
@@ -157,7 +157,9 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).not.toContain(
       "name: Materialize local electrobun package for build",
     );
-    expect(workflow).not.toContain('bun install -g "electrobun@$ELECTROBUN_VERSION"');
+    expect(workflow).not.toContain(
+      'bun install -g "electrobun@$ELECTROBUN_VERSION"',
+    );
   });
 
   it("caches whisper models for release builds and avoids workflow-local staging drift", () => {
@@ -168,10 +170,10 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "restore-keys: whisper-$" + "{{ matrix.platform.artifact-name }}-",
     );
+    expect(workflow).toContain("name: Stage desktop bundle inputs");
     expect(workflow).toContain(
-      "name: Stage desktop bundle inputs",
+      "apps/app/electrobun/scripts/hdiutil-wrapper.sh",
     );
-    expect(workflow).toContain("apps/app/electrobun/scripts/hdiutil-wrapper.sh");
     expect(workflow).toContain("ELECTROBUN_REAL_HDIUTIL: /usr/bin/hdiutil");
   });
 

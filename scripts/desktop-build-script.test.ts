@@ -13,8 +13,12 @@ describe("desktop-build.mjs", () => {
     expect(script).toContain("scripts/write-build-info.ts");
     expect(script).toContain("scripts/copy-runtime-node-modules.ts");
     expect(script).toContain("--exclude-optional-pack");
-    expect(script).toContain('runBun(["install", "--frozen-lockfile", "--ignore-scripts"], {');
-    expect(script).toContain("Ensuring Electrobun workspace dependencies are installed");
+    expect(script).toContain(
+      'runBun(["install", "--frozen-lockfile", "--ignore-scripts"], {',
+    );
+    expect(script).toContain(
+      "Ensuring Electrobun workspace dependencies are installed",
+    );
     expect(script).toContain('runPackageBinary("vite", ["build"],');
     expect(script).toContain('runBun(["run", "build:preload"]');
     expect(script).toContain('runBun(["run", "build:native-effects"]');
@@ -44,7 +48,7 @@ describe("desktop-build.mjs", () => {
 
     expect(script).toContain('const packageArgs = ["run", "build"]');
     expect(script).toContain('packageArgs.push("--", `--env=${buildEnv}`);');
-    expect(script).toContain('runBun(packageArgs, {');
+    expect(script).toContain("runBun(packageArgs, {");
   });
 
   it("can stage a direct macOS release app from the Electrobun build output", () => {
