@@ -127,21 +127,8 @@ jobs:
           echo '{"type":"module"}' > dist/package.json
           node --import tsx scripts/write-build-info.ts
 
-      - name: Build renderer (vite)
-        run: bunx vite build
-        working-directory: apps/app
-
       - name: Release readiness checks
         run: bun run release:check
-
-      - name: Upload arch-neutral build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: electrobun-shared-build
-          path: |
-            dist/
-            apps/app/dist/
-          retention-days: 1
 
   build:
     name: Build ${{ matrix.platform.name }}
@@ -212,11 +199,6 @@ jobs:
       - name: Run repository postinstall patches
         run: bun run postinstall
 
-      - name: Download arch-neutral build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: electrobun-shared-build
-
       - name: Cache Whisper models and binaries
         if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
         uses: actions/cache@v4
@@ -233,49 +215,13 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
 
-      # dist/ and apps/app/dist/ are downloaded from the shared build artifact
-      # (built once in validate-release, arch-neutral JS/CSS/HTML).
-
-      # Copy the vite-built frontend into the Electrobun renderer directory.
-      # The bun entry point (src/index.ts) resolves the renderer at
-      # ../renderer/index.html relative to itself, which maps to
-      # apps/app/electrobun/renderer/ at build time and
-      # Resources/app/renderer/ in the packaged bundle.
-      # Without this step the renderer directory is absent from the package
-      # and the window opens to a file-not-found error.
-      - name: Stage renderer for Electrobun bundle
-        run: |
-          rm -rf apps/app/electrobun/renderer
-          cp -r apps/app/dist apps/app/electrobun/renderer
-
-      # macOS: compile Objective-C++ native effects dylib
-      - name: Build native macOS effects dylib
-        if: matrix.platform.os == 'macos'
-        run: |
-          if [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun run build:native-effects
-          else
-            bun run build:native-effects
-          fi
-        working-directory: apps/app/electrobun
-
-      # Build the webview bridge preload (direct Electrobun RPC bridge injected into the webview)
-      - name: Build webview bridge preload
-        run: bun run build:preload
-        working-directory: apps/app/electrobun
-
-      # Build whisper.cpp binary for on-device speech recognition (macOS/Linux only)
-      # Skipped on Windows (no make) — STT falls back to swabbleAudioChunkPush mode.
-      # macOS Intel: keep the whisper build on an explicit x64 path.
-      - name: Build whisper.cpp (on-device STT)
-        if: matrix.platform.os == 'macos' || matrix.platform.os == 'linux'
+      - name: Stage desktop bundle inputs
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun run build:whisper
+            MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs stage --variant=base --build-whisper
           else
-            bun run build:whisper
+            node scripts/desktop-build.mjs stage --variant=base --build-whisper
           fi
-        working-directory: apps/app/electrobun
 
       # Import the Developer ID certificate into a temporary keychain.
       # Requires CSC_LINK (base64-encoded .p12) + CSC_KEY_PASSWORD.
@@ -352,29 +298,6 @@ jobs:
           chmod +x "$wrapper_dir/xcrun"
           chmod +x "$wrapper_dir/zip"
           echo "$wrapper_dir" >> "$GITHUB_PATH"
-
-      # Copy the runtime package closure that the built server bundle still imports
-      # by bare specifier, plus the installed @elizaos/* and @milady/plugin-* set.
-      # agent.ts sets NODE_PATH to milady-dist/node_modules, which resolves to these copies.
-      # macOS Intel: keep the x64 node_modules copy on an explicit x64 path.
-      - name: Bundle backend node_modules into dist/
-        run: |
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
-          else
-            node --import tsx scripts/copy-runtime-node-modules.ts --scan-dir dist --target-dist dist
-          fi
-
-      - name: Install Electrobun workspace dependencies
-        # Match the documented package-local CLI path so the build uses the
-        # same installed electrobun package that source imports resolve from.
-        run: |
-          if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun install --frozen-lockfile --ignore-scripts
-          else
-            bun install --frozen-lockfile --ignore-scripts
-          fi
-        working-directory: apps/app/electrobun
 
       - name: Cache local electrobun core downloads
         uses: actions/cache@v4
@@ -510,14 +433,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Electrobun app
-        # macOS Intel: keep the packaged app build on an explicit x64 path.
         run: |
           if [ "${{ matrix.platform.os }}" = "macos" ] && [ "${{ matrix.platform.artifact-name }}" = "macos-x64" ]; then
-            arch -x86_64 bun run build -- --env=${{ needs.prepare.outputs.env }}
+            MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
           else
-            bun run build -- --env=${{ needs.prepare.outputs.env }}
+            node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}
           fi
-        working-directory: apps/app/electrobun
         env:
           # Electrobun reads these env vars directly. The workflow derives the
           # signing identity from CSC_LINK/CSC_KEY_PASSWORD during keychain setup
@@ -527,6 +448,7 @@ jobs:
           ELECTROBUN_APPLEIDPASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           ELECTROBUN_TEAMID: ${{ secrets.APPLE_TEAM_ID }}
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
+          MILADY_ELECTROBUN_NOTARIZE: 0
           ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun
           ELECTROBUN_REAL_ZIP: /usr/bin/zip
 

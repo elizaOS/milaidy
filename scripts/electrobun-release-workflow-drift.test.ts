@@ -33,13 +33,12 @@ const WINDOWS_PACKAGED_TEST_PATH = path.join(
 );
 
 describe("Electrobun release workflow drift", () => {
-  it("stages the built renderer before packaging", () => {
+  it("uses the shared desktop-build script to stage bundle inputs before packaging", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
-    expect(workflow).toContain("name: Build renderer (vite)");
-    expect(workflow).toContain("name: Stage renderer for Electrobun bundle");
+    expect(workflow).toContain("name: Stage desktop bundle inputs");
     expect(workflow).toContain(
-      "cp -r apps/app/dist apps/app/electrobun/renderer",
+      "node scripts/desktop-build.mjs stage --variant=base --build-whisper",
     );
   });
 
@@ -69,10 +68,11 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "arch -x86_64 bun install --frozen-lockfile --ignore-scripts",
     );
-    // tsdown and vite are now built once in validate-release and shared as artifacts
-    expect(workflow).toContain("arch -x86_64 bun run build:whisper");
     expect(workflow).toContain(
-      `arch -x86_64 bun run build -- --env=\${{ needs.prepare.outputs.env }}`,
+      'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs stage --variant=base --build-whisper',
+    );
+    expect(workflow).toContain(
+      'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}',
     );
     expect(workflow).not.toContain("arch -x86_64 bun install --ignore-scripts");
     expect(workflow).not.toContain(
@@ -131,18 +131,15 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("Verified electrobun CLI SHA256:");
   });
 
-  it("installs the electrobun workspace package before packaging", () => {
+  it("stages the desktop bundle before restoring local electrobun caches", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const stageIndex = workflow.indexOf("name: Stage desktop bundle inputs");
+    const cacheIndex = workflow.indexOf(
+      "name: Cache local electrobun core downloads",
+    );
 
-    expect(workflow).toContain(
-      "name: Install Electrobun workspace dependencies",
-    );
-    expect(workflow).toContain(
-      "working-directory: apps/app/electrobun",
-    );
-    expect(workflow).toContain(
-      "bun install --frozen-lockfile --ignore-scripts",
-    );
+    expect(stageIndex).toBeGreaterThan(-1);
+    expect(cacheIndex).toBeGreaterThan(stageIndex);
     expect(workflow).toContain("name: Cache local electrobun core downloads");
     expect(workflow).toContain(
       "path: apps/app/electrobun/node_modules/electrobun/.cache",
@@ -153,7 +150,7 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).not.toContain('bun install -g "electrobun@$ELECTROBUN_VERSION"');
   });
 
-  it("caches whisper models for release builds and avoids repeated renderer reinstalls", () => {
+  it("caches whisper models for release builds and avoids workflow-local staging drift", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
     expect(workflow).toContain("name: Cache Whisper models and binaries");
@@ -161,9 +158,8 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "restore-keys: whisper-$" + "{{ matrix.platform.artifact-name }}-",
     );
-    // Vite build is now shared via artifact from validate-release
     expect(workflow).toContain(
-      "# dist/ and apps/app/dist/ are downloaded from the shared build artifact",
+      "name: Stage desktop bundle inputs",
     );
   });
 

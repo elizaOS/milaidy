@@ -35,8 +35,8 @@ const requiredWorkflowSnippets = [
   "apps/app/electrobun/scripts/zip-wrapper.sh",
   "ELECTROBUN_REAL_XCRUN: /usr/bin/xcrun",
   "ELECTROBUN_REAL_ZIP: /usr/bin/zip",
-  "Stage renderer for Electrobun bundle",
-  "cp -r apps/app/dist apps/app/electrobun/renderer",
+  "Stage desktop bundle inputs",
+  "node scripts/desktop-build.mjs stage --variant=base --build-whisper",
   "Inject version.json into bundle (Windows)",
   "Inject version.json into bundle (macOS / Linux)",
   '"identifier":"com.miladyai.milady"',
@@ -63,15 +63,15 @@ const requiredWorkflowSnippets = [
   "$expectedHash = $asset.digest.Substring(7).ToLowerInvariant()",
   "$actualHash = (Get-FileHash -Path $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()",
   "electrobun CLI checksum mismatch",
-  "name: Install Electrobun workspace dependencies",
-  "working-directory: apps/app/electrobun",
-  "bun run build -- --env=${{ needs.prepare.outputs.env }}",
+  "node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}",
+  "MILADY_ELECTROBUN_NOTARIZE: 0",
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
 ];
 const forbiddenWorkflowSnippets = [' -name "*.exe" -o \\'];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
   'postWrap: "scripts/postwrap-diagnostics.ts"',
+  'process.env.MILADY_ELECTROBUN_NOTARIZE !== "0"',
 ];
 const localPackHotspotPaths = [
   "dist/node_modules",

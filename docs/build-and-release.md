@@ -10,10 +10,10 @@ We ship **separate** `Milady-arm64.dmg` and `Milady-x64.dmg` because:
 
 - **Native Node addons** (e.g. `onnxruntime-node`, `whisper-node`) ship prebuilt `.node` binaries per OS and arch. There is no single "universal" npm artifact that contains both arm64 and x64; the addon is built for the arch of the machine that ran `npm install` / `bun install`.
 - **CI builds both macOS architectures separately.** The Apple Silicon artifact runs on `macos-14`, and the Intel artifact runs on the dedicated `macos-15-intel` runner.
-- **The Intel artifact still uses explicit x64 invocations** (`arch -x86_64 bun install`, `arch -x86_64 bun run build`, etc.) so native modules and helper binaries are resolved consistently as x64 throughout the packaging path.
+- **The Intel artifact still uses explicit x64 invocations** through the shared desktop builder (`MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64"`) so native modules and helper binaries are resolved consistently as x64 throughout the packaging path.
 - **Why this still matters on the Intel runner:** our workflow shares the same commands and staging logic across all jobs, and the explicit x64 path avoids accidental host/translation drift in the install and packaging steps.
 
-See `.github/workflows/release-electrobun.yml`: the platform jobs run `arch -x86_64` for the macOS Intel leg during "Install root dependencies", "Build native macOS effects dylib", "Build whisper", "Bundle backend node_modules", "Install Electrobun workspace dependencies", and "Build Electrobun app". The arch-neutral JS build (`tsdown` + Vite) now runs once in `validate-release` and is reused via artifacts.
+See `.github/workflows/release-electrobun.yml`: the platform jobs run `arch -x86_64` for the macOS Intel leg during "Install root dependencies", `scripts/desktop-build.mjs stage`, and `scripts/desktop-build.mjs package`.
 
 ## Desktop bundle: why we copy plugins and deps
 
@@ -79,11 +79,11 @@ Why the workflow mirrors that shape directly to `https://milady.ai/releases/`:
 
 ## CLI usage in this repo
 
-The official Electrobun docs expect the CLI to come from the project dependency and be invoked through npm scripts or `bunx`. Milady now follows that path:
+The official Electrobun docs expect the CLI to come from the project dependency and be invoked through npm scripts or `bunx`. Milady now uses the shared desktop builder to reach that package-local path:
 
 - `apps/app/electrobun/package.json` declares `electrobun` as a dependency.
-- The release workflow runs `bun install` in `apps/app/electrobun/` before packaging.
-- Packaging uses `bun run build -- --env=...` from `apps/app/electrobun`, and that script now invokes `bunx electrobun build` against the package-local dependency.
+- `scripts/desktop-build.mjs stage` installs the Electrobun workspace package before packaging.
+- `scripts/desktop-build.mjs package` drives `bun run build -- --env=...` inside `apps/app/electrobun`, and that script invokes `bunx electrobun build` against the package-local dependency.
 
 We still keep two Windows-specific guards around that documented flow:
 
