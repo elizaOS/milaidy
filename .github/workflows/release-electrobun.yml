@@ -580,6 +580,10 @@ jobs:
         if: matrix.platform.os == 'windows'
         shell: pwsh
         env:
+          # GitHub's Windows runner crashes Bun inside node-llama-cpp during
+          # packaged smoke startup; disable local embeddings for this smoke path
+          # so we only validate launcher/bootstrap behavior here.
+          MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
           MILADY_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\milady-windows-ui-launcher
           MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\milady-windows-ui-launcher.txt
         run: |
@@ -604,6 +608,8 @@ jobs:
 
       - name: Run Windows packaged renderer bootstrap check
         if: matrix.platform.os == 'windows'
+        env:
+          MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
         run: |
           cd apps/app
           bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts
