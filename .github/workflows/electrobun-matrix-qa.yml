@@ -384,11 +384,35 @@ jobs:
               --prerelease
           fi
 
-          mapfile -t assets < <(find ./release-assets -maxdepth 1 -type f | sort)
+          mapfile -t assets < <(
+            find ./release-assets -maxdepth 1 -type f \
+              \( -name "*.dmg" \
+              -o -name "*.app.tar.zst" \
+              -o -name "*Milady-canary.tar.zst" \
+              -o -name "*Setup*.tar.gz" \
+              -o -name "*Setup*.exe.zip" \) \
+              | sort
+          )
           if [[ ${#assets[@]} -eq 0 ]]; then
             echo "No release assets found under ./release-assets"
             exit 1
           fi
+
+          for asset in "${assets[@]}"; do
+            size_bytes="$(stat -c%s "$asset")"
+            name="$(basename "$asset")"
+            if [[ "$name" == *.exe.zip ]]; then
+              if [[ "$size_bytes" -lt 50000 ]]; then
+                echo "Refusing to publish unexpectedly tiny Windows setup archive: $name ($size_bytes bytes)"
+                exit 1
+              fi
+              continue
+            fi
+            if [[ "$size_bytes" -lt 50000000 ]]; then
+              echo "Refusing to publish unexpectedly tiny package: $name ($size_bytes bytes)"
+              exit 1
+            fi
+          done
 
           gh release upload "$TAG" "${assets[@]}" --clobber
 
