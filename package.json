@@ -124,7 +124,7 @@
     "@clack/prompts": "^1.0.0",
     "@electric-sql/pglite": "^0.3.3",
     "@elizaos/core": "next",
-    "@elizaos/plugin-agent-orchestrator": "0.3.14",
+    "@elizaos/plugin-agent-orchestrator": "0.3.15",
     "@elizaos/plugin-agent-skills": "next",
     "@elizaos/plugin-anthropic": "next",
     "@elizaos/plugin-bnb-identity": "2.0.0-alpha.1",
