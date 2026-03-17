@@ -19,6 +19,12 @@ export default defineConfig({
       "apps/app/test/app/chat-stream-api-client.test.ts",
       "apps/app/test/avatar/voice-chat-streaming-text.test.ts",
     ],
-    exclude: baseTest.exclude ?? [],
+    exclude: [
+      ...(baseTest.exclude ?? []),
+      // Interactive/manual checklist suites (intentionally contain many
+      // describe.skip + it.todo items and should not pollute unit CI signal).
+      "apps/app/electrobun/src/__tests__/kitchen-sink.test.ts",
+      "apps/home/electrobun/src/__tests__/kitchen-sink.test.ts",
+    ],
   },
 });
