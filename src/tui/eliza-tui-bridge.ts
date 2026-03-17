@@ -272,7 +272,7 @@ export class ElizaTUIBridge {
       "action",
     ]);
 
-    this.runtime.registerEvent(EventType.ACTION_STARTED, async (payload) => {
+    this.runtime.registerEvent(EventType.ACTION_STARTED, async (payload: unknown) => {
       const p = payload as ActionEventPayload;
       const actionName = p.content.actions?.[0] ?? "action";
 
@@ -314,7 +314,7 @@ export class ElizaTUIBridge {
       this.tui.requestRender();
     });
 
-    this.runtime.registerEvent(EventType.ACTION_COMPLETED, async (payload) => {
+    this.runtime.registerEvent(EventType.ACTION_COMPLETED, async (payload: unknown) => {
       const p = payload as ActionEventPayload;
       const actionName = p.content.actions?.[0] ?? "action";
 

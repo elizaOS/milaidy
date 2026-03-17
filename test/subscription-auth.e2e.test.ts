@@ -23,7 +23,7 @@ const authMocks = vi.hoisted(() => ({
   deleteCredentials: vi.fn(),
 }));
 
-vi.mock("../packages/autonomous/src/auth/index.ts", () => ({
+vi.mock("@elizaos/autonomous/auth/index", () => ({
   getSubscriptionStatus: authMocks.getSubscriptionStatus,
   startAnthropicLogin: authMocks.startAnthropicLogin,
   startCodexLogin: authMocks.startCodexLogin,

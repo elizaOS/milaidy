@@ -91,7 +91,7 @@ describe("Electrobun release workflow drift", () => {
     );
     const releaseCheckIndex = workflow.indexOf("run: bun run release:check");
 
-    expect(workflow).toContain('BUN_VERSION: "1.3.10"');
+    expect(workflow).toContain('BUN_VERSION: "1.3.9"');
     expect(workflow).toContain("bun-version: $" + "{{ env.BUN_VERSION }}");
     expect(workflow).not.toContain("bun-version: latest");
     expect(validateJobIndex).toBeGreaterThan(-1);

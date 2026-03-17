@@ -18,30 +18,6 @@
     "paths": {
       "@elizaos/app-hyperscape/routes": [
         "../plugins/app-hyperscape/src/routes.ts"
-      ],
-      "@elizaos/core": [
-        "../eliza/packages/typescript/src/index.ts"
-      ],
-      "@elizaos/core/*": [
-        "../eliza/packages/typescript/src/*"
-      ],
-      "@elizaos/autonomous": [
-        "../eliza/packages/autonomous/src/index.ts"
-      ],
-      "@elizaos/autonomous/*": [
-        "../eliza/packages/autonomous/src/*"
-      ],
-      "@elizaos/app-core": [
-        "../eliza/packages/app-core/src/index.ts"
-      ],
-      "@elizaos/app-core/*": [
-        "../eliza/packages/app-core/src/*"
-      ],
-      "@elizaos/ui": [
-        "../eliza/packages/ui/src/index.ts"
-      ],
-      "@elizaos/ui/*": [
-        "../eliza/packages/ui/src/*"
       ]
     }
   },
@@ -55,6 +31,12 @@
     "src/**/*.test.tsx",
     "src/**/test-helpers.ts",
     "src/services/training-service.ts",
-    "src/plugins/retake/**"
+    "src/plugins/retake/**",
+    "src/plugins/opinion/**",
+    "src/plugins/whatsapp/**",
+    "src/plugins/signal/**",
+    "src/plugins/telegram-enhanced/**",
+    "src/benchmark/**",
+    "src/tui/**"
   ]
 }

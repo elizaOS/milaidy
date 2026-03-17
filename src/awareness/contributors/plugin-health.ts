@@ -15,7 +15,7 @@ export const pluginHealthContributor: AwarenessContributor = {
   async summary(runtime: IAgentRuntime): Promise<string> {
     const plugins = runtime.plugins ?? [];
     const count = plugins.filter(
-      (p) => p && typeof p === "object" && p.name,
+      (p: unknown) => p && typeof p === "object" && (p as Record<string, unknown>).name,
     ).length;
 
     return count > 0 ? `Plugins: ${count} loaded` : "Plugins: none loaded";

@@ -24,8 +24,8 @@ import {
   pluginRegistry,
 } from "@elizaos/plugin-plugin-manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppManager } from "../../packages/autonomous/src/services/app-manager.ts";
-import * as registryClient from "../../packages/autonomous/src/services/registry-client.ts";
+import { AppManager } from "@elizaos/autonomous/services/app-manager";
+import * as registryClient from "@elizaos/autonomous/services/registry-client";
 import type {
   PluginManagerLike,
   RegistryPluginInfo,
