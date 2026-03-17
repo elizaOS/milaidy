@@ -12424,11 +12424,18 @@ async function handleRequest(
     const pending = state.conversationRestorePromise;
     if (!pending) return;
     try {
-      await pending;
+      const timeout = new Promise<void>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(new Error("Conversation restore timed out after 5000ms")),
+          5000,
+        ),
+      );
+      await Promise.race([pending, timeout]);
     } catch {
-      // Restore failures are logged at the source. Routes should continue with
-      // the best available in-memory state instead of surfacing the restore
-      // implementation detail as an API error.
+      // Restore failures (including timeout) are logged at the source.
+      // Routes should continue with the best available in-memory state
+      // instead of surfacing the restore implementation detail as an API error.
     }
   };
 

@@ -22,11 +22,22 @@ export class TelegramEnhancedService extends (TelegramService as any) {
     (TelegramService as any).serviceType;
 
   static async start(runtime: unknown) {
-    // biome-ignore lint/suspicious/noExplicitAny: untyped external module returns unknown shape
-    const service = (await (TelegramService as any).start(runtime)) as Record<
-      string,
-      unknown
-    >;
+    let service: Record<string, unknown>;
+    try {
+      // biome-ignore lint/suspicious/noExplicitAny: untyped external module returns unknown shape
+      service = (await (TelegramService as any).start(runtime)) as Record<
+        string,
+        unknown
+      >;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[telegram-enhanced] Failed to initialize Telegram plugin: ${msg}. ` +
+          "Check bot token and Telegram config.",
+      );
+      // Return null — plugin loader treats this as "service unavailable"
+      return null;
+    }
     if (service?.bot) {
       // biome-ignore lint/suspicious/noExplicitAny: EnhancedTelegramMessageManager extends untyped base class
       service.messageManager = new (EnhancedTelegramMessageManager as any)(
