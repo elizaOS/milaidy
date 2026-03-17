@@ -14,21 +14,40 @@ import {
 import { startApiServer } from "@miladyai/autonomous/api/server";
 import type { OAuthCredentials } from "@miladyai/autonomous/auth/types";
 
-const getSubscriptionStatus = vi.fn(() => [{ id: "openai-codex" }]);
-const startAnthropicLogin = vi.fn();
-const startCodexLogin = vi.fn();
-const saveCredentials = vi.fn();
-const applySubscriptionCredentials = vi.fn(async () => undefined);
-const deleteCredentials = vi.fn();
+const authMocks = vi.hoisted(() => ({
+  getSubscriptionStatus: vi.fn(() => [{ id: "openai-codex" }]),
+  startAnthropicLogin: vi.fn(),
+  startCodexLogin: vi.fn(),
+  saveCredentials: vi.fn(),
+  applySubscriptionCredentials: vi.fn(async () => undefined),
+  deleteCredentials: vi.fn(),
+}));
 
 vi.mock("../packages/autonomous/src/auth/index.ts", () => ({
+  getSubscriptionStatus: authMocks.getSubscriptionStatus,
+  startAnthropicLogin: authMocks.startAnthropicLogin,
+  startCodexLogin: authMocks.startCodexLogin,
+  saveCredentials: authMocks.saveCredentials,
+  applySubscriptionCredentials: authMocks.applySubscriptionCredentials,
+  deleteCredentials: authMocks.deleteCredentials,
+}));
+vi.mock("@miladyai/autonomous/auth", () => ({
+  getSubscriptionStatus: authMocks.getSubscriptionStatus,
+  startAnthropicLogin: authMocks.startAnthropicLogin,
+  startCodexLogin: authMocks.startCodexLogin,
+  saveCredentials: authMocks.saveCredentials,
+  applySubscriptionCredentials: authMocks.applySubscriptionCredentials,
+  deleteCredentials: authMocks.deleteCredentials,
+}));
+
+const {
   getSubscriptionStatus,
   startAnthropicLogin,
   startCodexLogin,
   saveCredentials,
   applySubscriptionCredentials,
   deleteCredentials,
-}));
+} = authMocks;
 
 interface ReqResponse {
   status: number;
@@ -256,7 +275,7 @@ describe("subscription auth routes (e2e contract)", () => {
       );
 
       expect(exchangeRes.status).toBe(500);
-      expect(exchangeRes.data.error).toBe("Claude exchange failed");
+      expect(exchangeRes.data.error).toBe("Anthropic exchange failed");
       expect(submitCode).toHaveBeenCalledWith("valid-looking-code");
       expect(saveCredentials).not.toHaveBeenCalled();
     });
@@ -301,7 +320,7 @@ describe("subscription auth routes (e2e contract)", () => {
 
       const res = await req(port, "POST", "/api/subscription/anthropic/start");
       expect(res.status).toBe(500);
-      expect(res.data.error).toContain("Failed to start Claude login");
+      expect(res.data.error).toContain("Failed to start Anthropic login");
     });
   });
 

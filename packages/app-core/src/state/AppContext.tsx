@@ -4003,24 +4003,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (options?: OnboardingNextOptions) => {
       const STEP_ORDER: OnboardingStep[] = [
         "wakeUp",
+        "identity",
         "connection",
         "rpc",
         "senses",
         "activate",
       ];
 
-      // Hardcode agent name to Eliza
-      if (onboardingStep === "wakeUp" && !onboardingName) {
-        setState("onboardingName", "Eliza");
-      }
-
-      // Auto-select first style if none chosen
+      // Auto-select first style if none chosen (identity step will let user change)
       if (
         onboardingStep === "wakeUp" &&
         !onboardingStyle &&
         onboardingOptions?.styles?.length
       ) {
         setState("onboardingStyle", onboardingOptions.styles[0].catchphrase);
+      }
+
+      // Default agent name to Rin if none set after identity step
+      if (onboardingStep === "identity" && !onboardingName) {
+        setState("onboardingName", "Rin");
       }
 
       // At activate step, finish onboarding
@@ -4078,6 +4079,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const handleOnboardingBack = useCallback(() => {
     const STEP_ORDER: OnboardingStep[] = [
       "wakeUp",
+      "identity",
       "connection",
       "rpc",
       "senses",

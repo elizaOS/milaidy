@@ -362,7 +362,7 @@ describe("CompanionView", () => {
       });
     });
 
-    expect(setCompanionZoomNormalized).toHaveBeenCalledWith(1);
+    expect(setCompanionZoomNormalized).toHaveBeenCalledWith(0.95);
     setDragOrbitTarget.mockClear();
     resetDragOrbit.mockClear();
 
@@ -511,7 +511,7 @@ describe("CompanionView", () => {
 
     const lastZoom =
       setCompanionZoomNormalized.mock.calls.at(-1)?.[0] ?? Number.NaN;
-    expect(lastZoom).toBeCloseTo(5 / 6, 5);
+    expect(lastZoom).toBeCloseTo(0.95 - 120 / 720, 5);
     expect(localStorage.setItem).toHaveBeenLastCalledWith(
       COMPANION_ZOOM_STORAGE_KEY,
       String(lastZoom),

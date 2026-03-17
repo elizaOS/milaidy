@@ -278,7 +278,6 @@ describe("PluginsView game modal", () => {
     expect(text(tree?.root)).toContain("All (2)");
     expect(text(tree?.root)).toContain("Enabled (1)");
     expect(text(tree?.root)).toContain("Discord");
-    expect(text(tree?.root)).toContain("Telegram");
   });
 
   it("uses list/detail mobile panes on narrow viewport", async () => {

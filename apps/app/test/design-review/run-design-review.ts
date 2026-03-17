@@ -3,15 +3,16 @@ import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  chromium,
   type Browser,
   type BrowserContext,
+  chromium,
   type Page,
+  type Request,
 } from "@playwright/test";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 import {
-  startMockApiServer,
   type MockApiServer,
+  startMockApiServer,
 } from "../electrobun-packaged/mock-api";
 
 type ShellMode = "companion" | "native";
@@ -59,6 +60,7 @@ interface ViewSpec {
   shellMode: ShellMode;
   lastNativeTab: string;
   readyChecks: ReadyCheck[];
+  readyCheckMode?: "all" | "any";
 }
 
 interface CaptureSpec {
@@ -102,7 +104,22 @@ interface CliFilters {
   state?: string;
 }
 
+interface NetworkTracker {
+  pendingRequests: Set<Request>;
+  lastActivityAt: number;
+}
+
 const MOBILE_NAV_BREAKPOINT_PX = 640;
+const READY_TIMEOUT_MS = 30_000;
+const TRANSIENT_UI_TIMEOUT_MS = 10_000;
+const NETWORK_QUIET_TIMEOUT_MS = 10_000;
+const NETWORK_QUIET_WINDOW_MS = 750;
+const DOM_QUIET_TIMEOUT_MS = 10_000;
+const DOM_QUIET_WINDOW_MS = 500;
+const DEFAULT_SETTLE_MS = Number.parseInt(
+  process.env.MILADY_DESIGN_REVIEW_SETTLE_MS ?? "1200",
+  10,
+);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "../..");
@@ -177,6 +194,7 @@ const views: ViewSpec[] = [
     shellMode: "native",
     lastNativeTab: "stream",
     readyChecks: [{ text: "Go Live" }, { text: "Stop Stream" }],
+    readyCheckMode: "any",
   },
   {
     id: "character",
@@ -187,7 +205,6 @@ const views: ViewSpec[] = [
     readyChecks: [
       { selector: '[data-testid="character-roster-grid"]' },
       { selector: '[data-testid="character-customize-toggle"]' },
-      { selector: '[data-testid="character-core-editor"]' },
     ],
   },
   {
@@ -236,7 +253,11 @@ const views: ViewSpec[] = [
     path: "/advanced",
     shellMode: "native",
     lastNativeTab: "advanced",
-    readyChecks: [{ text: "Ollama" }, { text: "Streaming" }, { text: "Plugins" }],
+    readyChecks: [
+      { text: "Ollama" },
+      { text: "Streaming" },
+      { text: "Plugins" },
+    ],
   },
 ];
 
@@ -260,7 +281,12 @@ function buildCaptureSpecs(filters: CliFilters): CaptureSpec[] {
     if (filters.view && filters.view !== view.id) continue;
     for (const viewport of viewports) {
       if (filters.viewport && filters.viewport !== viewport.id) continue;
-      captures.push({ view, viewport, stateId: "default", stateLabel: "Default" });
+      captures.push({
+        view,
+        viewport,
+        stateId: "default",
+        stateLabel: "Default",
+      });
       if (
         view.shellMode === "native" &&
         view.id !== "character" &&
@@ -330,29 +356,42 @@ async function startAppServer(apiBaseUrl: string): Promise<{
 }
 
 async function waitForReady(page: Page, view: ViewSpec): Promise<void> {
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    for (const check of view.readyChecks) {
-      if (check.selector) {
-        const visible = await page
-          .locator(check.selector)
-          .first()
-          .isVisible()
-          .catch(() => false);
-        if (visible) return;
-      }
-      if (check.text) {
-        const visible = await page
-          .getByText(check.text, { exact: false })
-          .first()
-          .isVisible()
-          .catch(() => false);
-        if (visible) return;
-      }
+    const visibility = await Promise.all(
+      view.readyChecks.map((check) => isReadyCheckVisible(page, check)),
+    );
+    const isReady =
+      view.readyCheckMode === "any"
+        ? visibility.some(Boolean)
+        : visibility.every(Boolean);
+    if (isReady) {
+      return;
     }
     await page.waitForTimeout(200);
   }
   throw new Error(`Timed out waiting for ${view.id}`);
+}
+
+async function isReadyCheckVisible(
+  page: Page,
+  check: ReadyCheck,
+): Promise<boolean> {
+  if (check.selector) {
+    return await page
+      .locator(check.selector)
+      .first()
+      .isVisible()
+      .catch(() => false);
+  }
+  if (check.text) {
+    return await page
+      .getByText(check.text, { exact: false })
+      .first()
+      .isVisible()
+      .catch(() => false);
+  }
+  return false;
 }
 
 async function waitForAnySelector(
@@ -363,7 +402,11 @@ async function waitForAnySelector(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const selector of selectors) {
-      const visible = await page.locator(selector).first().isVisible().catch(() => false);
+      const visible = await page
+        .locator(selector)
+        .first()
+        .isVisible()
+        .catch(() => false);
       if (visible) return;
     }
     await page.waitForTimeout(150);
@@ -392,11 +435,19 @@ async function createPage(
   browser: Browser,
   apiBaseUrl: string,
   capture: CaptureSpec,
-): Promise<{ context: BrowserContext; page: Page; consoleLines: string[] }> {
+): Promise<{
+  context: BrowserContext;
+  page: Page;
+  consoleLines: string[];
+  network: NetworkTracker;
+}> {
   const context = await browser.newContext({
     colorScheme: "dark",
     reducedMotion: "reduce",
-    viewport: { width: capture.viewport.width, height: capture.viewport.height },
+    viewport: {
+      width: capture.viewport.width,
+      height: capture.viewport.height,
+    },
     isMobile: capture.viewport.isMobile,
     hasTouch: capture.viewport.hasTouch,
     deviceScaleFactor: 1,
@@ -409,8 +460,14 @@ async function createPage(
         window.localStorage.setItem("milady:ui-language", "en");
         window.localStorage.setItem("milady:ui-theme", "dark");
         window.localStorage.setItem("milady:ui-shell-mode", init.shellMode);
-        window.localStorage.setItem("milady:last-native-tab", init.lastNativeTab);
-        window.localStorage.setItem("milady:chat:activeConversationId", "conv-1");
+        window.localStorage.setItem(
+          "milady:last-native-tab",
+          init.lastNativeTab,
+        );
+        window.localStorage.setItem(
+          "milady:chat:activeConversationId",
+          "conv-1",
+        );
         window.sessionStorage.setItem("milady_api_base", init.apiBaseUrl);
         window.__MILADY_API_BASE__ = init.apiBaseUrl;
       } catch {
@@ -425,13 +482,171 @@ async function createPage(
   );
   const page = await context.newPage();
   const consoleLines: string[] = [];
+  const network: NetworkTracker = {
+    pendingRequests: new Set(),
+    lastActivityAt: Date.now(),
+  };
+
+  const markNetworkActivity = () => {
+    network.lastActivityAt = Date.now();
+  };
+  const shouldTrackRequest = (request: Request): boolean => {
+    const resourceType = request.resourceType();
+    const url = request.url();
+    return (
+      resourceType !== "websocket" &&
+      !url.startsWith("data:") &&
+      !url.startsWith("blob:")
+    );
+  };
+
+  page.on("request", (request) => {
+    if (!shouldTrackRequest(request)) return;
+    network.pendingRequests.add(request);
+    markNetworkActivity();
+  });
+  page.on("requestfinished", (request) => {
+    if (!shouldTrackRequest(request)) return;
+    network.pendingRequests.delete(request);
+    markNetworkActivity();
+  });
+  page.on("requestfailed", (request) => {
+    if (!shouldTrackRequest(request)) return;
+    network.pendingRequests.delete(request);
+    markNetworkActivity();
+  });
   page.on("console", (message) => {
     consoleLines.push(`[${message.type()}] ${message.text()}`);
   });
   page.on("pageerror", (error) => {
     consoleLines.push(`[pageerror] ${error.message}`);
   });
-  return { context, page, consoleLines };
+  return { context, page, consoleLines, network };
+}
+
+async function waitForTransientUi(page: Page): Promise<void> {
+  const deadline = Date.now() + TRANSIENT_UI_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const loadingScreenVisible = await page
+      .locator(".loading-screen")
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const reconnectingVisible = await page
+      .locator('[aria-label="Reconnecting"]')
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (!loadingScreenVisible && !reconnectingVisible) {
+      return;
+    }
+    await page.waitForTimeout(150);
+  }
+  throw new Error("Timed out waiting for transient UI to disappear");
+}
+
+async function waitForVisibleAssets(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    if ("fonts" in document) {
+      await document.fonts.ready;
+    }
+
+    for (const image of Array.from(document.images)) {
+      const rect = image.getBoundingClientRect();
+      const isVisible =
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.top < window.innerHeight &&
+        rect.left < window.innerWidth;
+      if (!isVisible || image.complete) {
+        continue;
+      }
+      await new Promise<void>((resolve) => {
+        image.addEventListener("load", () => resolve(), { once: true });
+        image.addEventListener("error", () => resolve(), { once: true });
+      });
+    }
+  });
+}
+
+async function waitForNetworkQuiet(network: NetworkTracker): Promise<boolean> {
+  const deadline = Date.now() + NETWORK_QUIET_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const isQuiet =
+      network.pendingRequests.size === 0 &&
+      Date.now() - network.lastActivityAt >= NETWORK_QUIET_WINDOW_MS;
+    if (isQuiet) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
+async function waitForDomQuiet(page: Page): Promise<boolean> {
+  try {
+    await page.waitForFunction(
+      (quietWindowMs) => {
+        const win = window as Window & {
+          __miladyLastMutationAt?: number;
+          __miladyMutationObserver?: MutationObserver;
+        };
+        if (!win.__miladyMutationObserver) {
+          win.__miladyLastMutationAt = performance.now();
+          win.__miladyMutationObserver = new MutationObserver(() => {
+            win.__miladyLastMutationAt = performance.now();
+          });
+          win.__miladyMutationObserver.observe(document.documentElement, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            characterData: true,
+          });
+        }
+        const lastMutationAt = win.__miladyLastMutationAt ?? performance.now();
+        return performance.now() - lastMutationAt >= quietWindowMs;
+      },
+      DOM_QUIET_WINDOW_MS,
+      { timeout: DOM_QUIET_TIMEOUT_MS },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForPageSettled(
+  page: Page,
+  network: NetworkTracker,
+  view: ViewSpec,
+): Promise<void> {
+  await page.waitForLoadState("domcontentloaded", {
+    timeout: READY_TIMEOUT_MS,
+  });
+  await page.waitForFunction(
+    () => document.readyState === "complete",
+    undefined,
+    {
+      timeout: READY_TIMEOUT_MS,
+    },
+  );
+  await waitForReady(page, view);
+  await waitForTransientUi(page);
+  await waitForVisibleAssets(page);
+
+  const networkQuiet = await waitForNetworkQuiet(network);
+  if (!networkQuiet) {
+    console.warn(`Proceeding without full network quiet on ${view.id}`);
+  }
+
+  const domQuiet = await waitForDomQuiet(page);
+  if (!domQuiet) {
+    console.warn(`Proceeding without full DOM quiet on ${view.id}`);
+  }
+
+  await page.waitForTimeout(DEFAULT_SETTLE_MS);
 }
 
 async function applyState(page: Page, capture: CaptureSpec): Promise<void> {
@@ -467,7 +682,7 @@ async function captureOneAttempt(
   api: MockApiServer,
   capture: CaptureSpec,
 ): Promise<{ record?: CaptureRecord; failure?: FailureRecord }> {
-  const { context, page, consoleLines } = await createPage(
+  const { context, page, consoleLines, network } = await createPage(
     browser,
     api.baseUrl,
     capture,
@@ -475,11 +690,20 @@ async function captureOneAttempt(
   try {
     await page.goto(`${appBaseUrl}${capture.view.path}`, {
       waitUntil: "commit",
-      timeout: 30_000,
+      timeout: READY_TIMEOUT_MS,
     });
-    await waitForReady(page, capture.view);
+    await waitForPageSettled(page, network, capture.view);
     await applyState(page, capture);
-    await page.waitForTimeout(250);
+    await waitForTransientUi(page);
+    await waitForVisibleAssets(page);
+    const postStateNetworkQuiet = await waitForNetworkQuiet(network);
+    if (!postStateNetworkQuiet) {
+      console.warn(
+        `Proceeding without full post-state network quiet on ${capture.view.id} · ${capture.stateId}`,
+      );
+    }
+    await waitForDomQuiet(page);
+    await page.waitForTimeout(DEFAULT_SETTLE_MS);
 
     const relativePath = screenshotRelativePath(capture);
     const absolutePath = path.join(outputRoot, relativePath);
@@ -504,7 +728,9 @@ async function captureOneAttempt(
     const screenshotPath = path.join(diagnosticsRoot, `${stem}.png`);
     const htmlPath = path.join(diagnosticsRoot, `${stem}.html`);
     const consolePath = path.join(diagnosticsRoot, `${stem}.log`);
-    await page.screenshot({ path: screenshotPath, fullPage: false }).catch(() => {});
+    await page
+      .screenshot({ path: screenshotPath, fullPage: false })
+      .catch(() => {});
     await writeFile(htmlPath, await page.content().catch(() => ""), "utf8");
     await writeFile(consolePath, `${consoleLines.join("\n")}\n`, "utf8");
     const message = error instanceof Error ? error.message : String(error);
@@ -651,7 +877,11 @@ async function main(): Promise<void> {
   const { server, baseUrl: appBaseUrl } = await startAppServer(api.baseUrl);
   const browser = await chromium.launch({
     headless: process.env.MILADY_DESIGN_REVIEW_HEADLESS === "1",
-    args: ["--enable-webgl", "--ignore-gpu-blocklist", "--enable-unsafe-webgpu"],
+    args: [
+      "--enable-webgl",
+      "--ignore-gpu-blocklist",
+      "--enable-unsafe-webgpu",
+    ],
     timeout: 300_000,
   });
 

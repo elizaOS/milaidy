@@ -373,17 +373,17 @@ type CharacterState = {
 
 function createCharacterUIState(): CharacterState {
   const charData: CharacterData = {
-    name: "Reimu",
-    username: "Reimu",
-    bio: ["Reimu is soft and friendly"],
-    system: "You are Reimu",
+    name: "Ai",
+    username: "Ai",
+    bio: ["Ai is soft and friendly"],
+    system: "You are Ai",
     adjectives: ["friendly", "helpful"],
     style: { all: ["Rule 1"], chat: ["Chat rule"], post: ["Post rule"] },
     messageExamples: [
       {
         examples: [
           { name: "{{user1}}", content: { text: "hi" } },
-          { name: "Reimu", content: { text: "hey" } },
+          { name: "Ai", content: { text: "hey" } },
         ],
       },
     ],
@@ -399,12 +399,12 @@ function createCharacterUIState(): CharacterState {
     characterDirty: false,
     characterSaveSuccess: null,
     characterSaveError: null,
-    selectedVrmIndex: 1,
+    selectedVrmIndex: 2,
     onboardingOptions: {
       styles: [
         {
           catchphrase: "uwu~",
-          hint: "soft & sweet",
+          hint: "warm & caring",
           bio: ["{{name}} is soft and friendly"],
           system: "You are {{name}}",
           adjectives: ["friendly", "helpful"],
@@ -419,7 +419,7 @@ function createCharacterUIState(): CharacterState {
         },
         {
           catchphrase: "Noted.",
-          hint: "composed & precise",
+          hint: "dignified & commanding",
           bio: ["{{name}} is precise"],
           system: "You are {{name}}, exact and calm.",
           adjectives: ["precise", "calm"],
@@ -610,13 +610,13 @@ describe("CharacterView UI", () => {
         (node) => node.props["data-testid"] === "character-notebook",
       ) ?? [],
     ).toHaveLength(0);
-    expect(state.characterDraft?.name).toBe("Reimu");
-    expect(state.characterDraft?.bio).toEqual(["Reimu is soft and friendly"]);
+    expect(state.characterDraft?.name).toBe("Ai");
+    expect(state.characterDraft?.bio).toEqual(["Ai is soft and friendly"]);
     expect(state.characterDraft?.system).toBe("Custom system override");
-    expect(state.selectedVrmIndex).toBe(1);
+    expect(state.selectedVrmIndex).toBe(2);
   });
 
-  it("opens the detailed editor when explicitly routed to the character tab", async () => {
+  it("opens the detailed customize grid when explicitly routed to the character tab", async () => {
     state.tab = "character";
 
     let tree: TestRenderer.ReactTestRenderer | null = null;
@@ -627,7 +627,7 @@ describe("CharacterView UI", () => {
 
     expect(
       tree?.root.findAll(
-        (node) => node.props["data-testid"] === "character-notebook",
+        (node) => node.props["data-testid"] === "character-customize-grid",
       ) ?? [],
     ).toHaveLength(1);
     expect(
@@ -655,7 +655,7 @@ describe("CharacterView UI", () => {
     expect(adjectiveLabels).toHaveLength(0);
   });
 
-  it("keeps the voice picker in roster mode and hides it while customizing", async () => {
+  it("shows the voice picker in roster mode and hides it while customizing", async () => {
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
     await act(async () => {
@@ -685,10 +685,10 @@ describe("CharacterView UI", () => {
       tree?.root.findAll(
         (node) => node.props["data-testid"] === "character-voice-picker",
       ) ?? [],
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       tree?.root.findAll(
-        (node) => node.props["data-testid"] === "character-notebook",
+        (node) => node.props["data-testid"] === "character-customize-grid",
       ) ?? [],
     ).toHaveLength(1);
   });
@@ -702,9 +702,12 @@ describe("CharacterView UI", () => {
       tree = TestRenderer.create(React.createElement(CharacterView));
     });
 
-    // Click the Style Rules sidebar tab
+    // Switch to the Style step in the customize flow
     const styleTab = tree?.root.find(
-      (node) => node.props["data-testid"] === "notebook-tab-styleRules",
+      (node) =>
+        Array.isArray(node.children) &&
+        node.children.includes("characterview.style") &&
+        typeof node.props.onClick === "function",
     );
 
     await act(async () => {
@@ -744,13 +747,13 @@ describe("CharacterView UI", () => {
       backButton?.props.onClick();
     });
 
-    expect(state.characterDraft?.name).toBe("Reimu");
-    expect(state.characterDraft?.bio).toBe("Reimu is soft and friendly");
-    expect(state.characterDraft?.system).toBe("You are Reimu");
-    expect(state.selectedVrmIndex).toBe(1);
+    expect(state.characterDraft?.name).toBe("Ai");
+    expect(state.characterDraft?.bio).toBe("Ai is soft and friendly");
+    expect(state.characterDraft?.system).toBe("You are Ai");
+    expect(state.selectedVrmIndex).toBe(2);
     expect(
       tree?.root.findAll(
-        (node) => node.props["data-testid"] === "character-notebook",
+        (node) => node.props["data-testid"] === "character-customize-grid",
       ) ?? [],
     ).toHaveLength(0);
     expect(
@@ -838,9 +841,9 @@ describe("CharacterView UI", () => {
       sakuyaCard?.props.onClick();
     });
 
-    expect(state.characterDraft?.name).toBe("Reimu");
+    expect(state.characterDraft?.name).toBe("Ai");
     expect(state.characterDraft?.system).toBe("Custom preserved system");
-    expect(state.selectedVrmIndex).toBe(4);
+    expect(state.selectedVrmIndex).toBe(1);
   });
 
   it("hides character select while customizing and restores it when going back", async () => {
@@ -898,12 +901,10 @@ describe("CharacterView UI", () => {
       sakuyaCard?.props.onClick();
     });
 
-    expect(state.characterDraft?.name).toBe("Sakuya");
-    expect(state.characterDraft?.bio).toBe("Sakuya is precise");
-    expect(state.characterDraft?.system).toBe(
-      "You are Sakuya, exact and calm.",
-    );
-    expect(state.selectedVrmIndex).toBe(4);
+    expect(state.characterDraft?.name).toBe("Rin");
+    expect(state.characterDraft?.bio).toBe("Rin is precise");
+    expect(state.characterDraft?.system).toBe("You are Rin, exact and calm.");
+    expect(state.selectedVrmIndex).toBe(1);
   });
 
   it("preserves deep custom character settings on load while staying in roster mode", async () => {

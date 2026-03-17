@@ -11,6 +11,10 @@ vi.mock("../auth/index", () => ({
   applySubscriptionCredentials,
   deleteCredentials,
 }));
+vi.mock("@miladyai/autonomous/auth", () => ({
+  applySubscriptionCredentials,
+  deleteCredentials,
+}));
 
 import {
   applyOnboardingConnectionConfig,

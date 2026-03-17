@@ -72,7 +72,8 @@ describe("Electrobun release workflow drift", () => {
       'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs stage --variant=base --build-whisper',
     );
     expect(workflow).toContain(
-      'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}',
+      'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=$' +
+        "{{ needs.prepare.outputs.env }}",
     );
     expect(workflow).not.toContain("arch -x86_64 bun install --ignore-scripts");
     expect(workflow).not.toContain(
@@ -107,7 +108,7 @@ describe("Electrobun release workflow drift", () => {
     );
 
     expect(validateSection).toContain(
-      "key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}",
+      "key: bun-electrobun-validate-$" + "{{ hashFiles('bun.lock') }}",
     );
     expect(validateSection).toContain("restore-keys: bun-electrobun-validate-");
     expect(validateSection).not.toContain("matrix.platform.artifact-name");
