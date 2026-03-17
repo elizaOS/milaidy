@@ -354,12 +354,7 @@ describe("companion greeting wave", () => {
     await waitFor(() => {
       expect(api).not.toBeNull();
       if (options?.bootstrapConversation) {
-        expect(mockClient.createConversation).toHaveBeenCalledWith(
-          "New Chat",
-          expect.objectContaining({
-            bootstrapGreeting: true,
-          }),
-        );
+        expect(mockClient.createConversation).not.toHaveBeenCalled();
         expect(snapshot).toMatchObject({
           tab: "character-select",
           uiShellMode: "native",
@@ -394,7 +389,7 @@ describe("companion greeting wave", () => {
     };
   }
 
-  it("does not wave for a bootstrap greeting while launch resumes on character select", async () => {
+  it("does not wave when launch resumes on character select without conversations", async () => {
     mockClient.listConversations.mockResolvedValue({
       conversations: [],
     });
