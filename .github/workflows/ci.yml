@@ -220,4 +220,5 @@ jobs:
           gh workflow run release-electrobun.yml \
             --repo "${{ github.repository }}" \
             --ref "${{ github.ref_name }}" \
+            -f source_sha="${{ github.sha }}" \
             -f draft=true
