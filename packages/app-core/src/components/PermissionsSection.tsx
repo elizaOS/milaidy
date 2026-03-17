@@ -356,13 +356,13 @@ function MobilePermissionsView() {
     <StreamingPermissionsSettingsView
       mode="mobile"
       testId="mobile-permissions"
-      title={
-        t("permissionssection.StreamingPermissions") || "Streaming Permissions"
-      }
-      description={
-        t("permissionssection.MobileStreamingDesc") ||
-        "Your device streams camera, microphone, and screen to your Eliza Cloud agent for processing."
-      }
+      title={t("permissionssection.StreamingPermissions", {
+        defaultValue: "Streaming Permissions",
+      })}
+      description={t("permissionssection.MobileStreamingDesc", {
+        defaultValue:
+          "Your device streams camera, microphone, and screen to your Eliza Cloud agent for processing.",
+      })}
     />
   );
 }
@@ -374,13 +374,13 @@ function WebPermissionsView() {
     <StreamingPermissionsSettingsView
       mode="web"
       testId="web-permissions-info"
-      title={
-        t("permissionssection.BrowserPermissions") || "Browser Permissions"
-      }
-      description={
-        t("permissionssection.WebStreamingDesc") ||
-        "Grant browser access to your camera, microphone, and screen to stream to your agent."
-      }
+      title={t("permissionssection.BrowserPermissions", {
+        defaultValue: "Browser Permissions",
+      })}
+      description={t("permissionssection.WebStreamingDesc", {
+        defaultValue:
+          "Grant browser access to your camera, microphone, and screen to stream to your agent.",
+      })}
     />
   );
 }
@@ -510,7 +510,9 @@ export function PermissionsSection() {
   if (!permissions) {
     return (
       <div className="text-center py-6 text-[var(--muted)] text-xs">
-        {t("permissionssection.UnableToLoadPermi")}
+        {t("permissionssection.UnableToLoadPermi", {
+          defaultValue: "Unable to load permissions.",
+        })}
       </div>
     );
   }
@@ -541,7 +543,9 @@ export function PermissionsSection() {
                 }
               }}
             >
-              {t("permissionssection.AllowAll")}
+              {t("permissionssection.AllowAll", {
+                defaultValue: "Allow All",
+              })}
             </Button>
             <Button
               variant="default"
@@ -614,7 +618,10 @@ export function PermissionsSection() {
           })}
         </div>
         <div className="text-[11px] text-[var(--muted)] mt-2">
-          {t("permissionssection.CapabilitiesRequire")}
+          {t("permissionssection.CapabilitiesRequire", {
+            defaultValue:
+              "Capabilities require the matching system permissions before they can be enabled.",
+          })}
         </div>
       </div>
     </div>
@@ -638,13 +645,13 @@ function MobileOnboardingPermissions({
       mode="mobile"
       onContinue={onContinue}
       testId="mobile-onboarding-permissions"
-      title={
-        t("permissionssection.StreamingPermissions") || "Streaming Permissions"
-      }
-      description={
-        t("permissionssection.MobileOnboardingDesc") ||
-        "Allow access so your device can stream to your cloud agent."
-      }
+      title={t("permissionssection.StreamingPermissions", {
+        defaultValue: "Streaming Permissions",
+      })}
+      description={t("permissionssection.MobileOnboardingDesc", {
+        defaultValue:
+          "Allow access so your device can stream to your cloud agent.",
+      })}
     />
   );
 }
@@ -661,13 +668,13 @@ function WebOnboardingPermissions({
       mode="web"
       onContinue={onContinue}
       testId="web-onboarding-permissions"
-      title={
-        t("permissionssection.BrowserPermissions") || "Browser Permissions"
-      }
-      description={
-        t("permissionssection.WebOnboardingDesc") ||
-        "Allow browser access so your camera, mic, and screen can stream to your agent."
-      }
+      title={t("permissionssection.BrowserPermissions", {
+        defaultValue: "Browser Permissions",
+      })}
+      description={t("permissionssection.WebOnboardingDesc", {
+        defaultValue:
+          "Allow browser access so your camera, mic, and screen can stream to your agent.",
+      })}
     />
   );
 }
@@ -726,7 +733,9 @@ function DesktopOnboardingPermissions({
     return (
       <div className="text-center py-8">
         <div className="text-[var(--muted)] text-sm">
-          {t("permissionssection.CheckingPermissions")}
+          {t("permissionssection.CheckingPermissions", {
+            defaultValue: "Checking permissions...",
+          })}
         </div>
       </div>
     );
@@ -736,7 +745,9 @@ function DesktopOnboardingPermissions({
     return (
       <div className="text-center py-8">
         <div className="text-[var(--muted)] text-sm mb-4">
-          {t("permissionssection.UnableToCheckPerm")}
+          {t("permissionssection.UnableToCheckPerm", {
+            defaultValue: "Unable to check permissions.",
+          })}
         </div>
         <Button
           variant="default"
@@ -761,7 +772,10 @@ function DesktopOnboardingPermissions({
           {t("permissionssection.SystemPermissions")}
         </div>
         <div className="text-[var(--muted)] text-sm">
-          {t("permissionssection.GrantPermissionsTo")}
+          {t("permissionssection.GrantPermissionsTo", {
+            defaultValue:
+              "Grant permissions to unlock voice, screen access, and computer control.",
+          })}
         </div>
       </div>
 
@@ -808,7 +822,9 @@ function DesktopOnboardingPermissions({
                     className="h-auto text-xs py-1.5 px-3"
                     onClick={() => handleOpenSettings(def.id)}
                   >
-                    {t("permissionssection.OpenSettings")}
+                    {t("permissionssection.OpenSettings", {
+                      defaultValue: "Open Settings",
+                    })}
                   </Button>
                 </div>
               )}
@@ -836,7 +852,9 @@ function DesktopOnboardingPermissions({
               }
             }}
           >
-            {t("permissionssection.AllowAllPermission")}
+            {t("permissionssection.AllowAllPermission", {
+              defaultValue: "Grant All Permissions",
+            })}
           </Button>
         </div>
       )}

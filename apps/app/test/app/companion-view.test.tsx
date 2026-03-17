@@ -62,6 +62,7 @@ function createContext(overrides: Record<string, unknown> = {}) {
     chatMode: "simple",
     chatAgentVoiceMuted: false,
     setState: vi.fn(),
+    handleStartDraftConversation: vi.fn(async () => {}),
     handleNewConversation: vi.fn(async () => {}),
     selectedVrmIndex: 1,
     customVrmUrl: "",
@@ -256,10 +257,12 @@ describe("CompanionView", () => {
 
   it("renders centered companion header chat controls", async () => {
     const setState = vi.fn();
+    const handleStartDraftConversation = vi.fn(async () => {});
     const handleNewConversation = vi.fn(async () => {});
     mockUseApp.mockReturnValue(
       createContext({
         setState,
+        handleStartDraftConversation,
         handleNewConversation,
       }),
     );
@@ -296,7 +299,8 @@ describe("CompanionView", () => {
     await act(async () => {
       newChatButton?.props.onClick();
     });
-    expect(handleNewConversation).toHaveBeenCalledTimes(1);
+    expect(handleStartDraftConversation).toHaveBeenCalledTimes(1);
+    expect(handleNewConversation).not.toHaveBeenCalled();
   });
 
   it("keeps the shared companion scene wrapper height-bounded", async () => {
