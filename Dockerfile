@@ -152,6 +152,9 @@ RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
 # Copy production node_modules (no devDependencies)
 COPY --from=builder /app/node_modules ./node_modules
 
+# Copy workspace packages (node_modules symlinks point here)
+COPY --from=builder /app/packages ./packages
+
 # Copy build outputs
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/apps/app/dist ./apps/app/dist
