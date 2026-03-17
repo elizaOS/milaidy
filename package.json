@@ -1,6 +1,6 @@
 {
   "name": "miladyai",
-  "version": "2.0.0-alpha.87",
+  "version": "2.0.0-alpha.89",
   "description": "Cute agents for the acceleration",
   "homepage": "https://github.com/milady-ai/milady",
   "author": {
@@ -131,8 +131,8 @@
     "@clack/prompts": "^1.1.0",
     "@electric-sql/pglite": "^0.3.16",
     "@elizaos/app-hyperscape": "^1.0.1-alpha.1",
-    "@elizaos/autonomous": "^2.0.0-alpha.43",
-    "@elizaos/core": "^2.0.0-alpha.22",
+    "@elizaos/autonomous": "alpha",
+    "@elizaos/core": "alpha",
     "@elizaos/plugin-agent-orchestrator": "alpha",
     "@elizaos/plugin-agent-skills": "alpha",
     "@elizaos/plugin-anthropic": "alpha",
