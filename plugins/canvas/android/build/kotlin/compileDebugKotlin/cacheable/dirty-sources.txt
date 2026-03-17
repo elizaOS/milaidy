@@ -1,1 +1,0 @@
-/Users/shawwalters/eliza-ok/packages/milady/apps/app/plugins/canvas/android/src/main/java/ai/milady/plugins/canvas/CanvasPlugin.kt

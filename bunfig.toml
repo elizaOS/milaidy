@@ -1,5 +1,0 @@
-# Override module resolution so @elizaos/autonomous's tsconfig paths don't
-# resolve @elizaos/app-hyperscape/routes to a .d.ts shim (which has no JS
-# exports).  This alias points to the real source in our workspace.
-[resolve]
-alias = { "@elizaos/app-hyperscape/routes" = "../plugins/app-hyperscape/src/routes.ts" }

@@ -19,6 +19,18 @@
       "@elizaos/app-hyperscape/routes": [
         "../plugins/app-hyperscape/src/routes.ts"
       ],
+      "@elizaos/autonomous/config/types.milady": [
+        "node_modules/@elizaos/autonomous/src/config/types.milady.ts"
+      ],
+      "@elizaos/autonomous/runtime/milady-plugin": [
+        "node_modules/@elizaos/autonomous/src/runtime/milady-plugin.ts"
+      ],
+      "@elizaos/autonomous/runtime/cloud-onboarding": [
+        "node_modules/@elizaos/autonomous/src/runtime/cloud-onboarding.ts"
+      ],
+      "@elizaos/plugin-streaming-base": [
+        "../plugins/plugin-streaming-base/src/index.ts"
+      ]
     }
   },
   "include": ["src/**/*"],
