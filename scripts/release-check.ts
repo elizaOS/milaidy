@@ -26,7 +26,7 @@ const requiredWorkflowSnippets = [
   "bun-version: $" + "{{ env.BUN_VERSION }}",
   "name: Release readiness checks",
   "run: bun run release:check",
-  "key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}",
+  "key: bun-electrobun-validate-$" + "{{ hashFiles('bun.lock') }}",
   "restore-keys: bun-electrobun-validate-",
   "name: Ensure avatar assets",
   "node scripts/ensure-avatars.mjs",
@@ -69,7 +69,8 @@ const requiredWorkflowSnippets = [
   'Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"',
   '$cacheDir     = Join-Path $resolvedElectrobunDir ".cache"',
   '$resolvedRceditDir = Join-Path $resolvedElectrobunDir "node_modules\\rcedit"',
-  "node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}",
+  "node scripts/desktop-build.mjs package --env=$" +
+    "{{ needs.prepare.outputs.env }}",
   "MILADY_ELECTROBUN_NOTARIZE: 0",
   'MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"',
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',

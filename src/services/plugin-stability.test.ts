@@ -148,7 +148,7 @@ describe("Plugin Enumeration", () => {
     expect(Object.keys(CONNECTOR_PLUGINS).length).toBeGreaterThanOrEqual(17);
     for (const [connector, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
       expect(typeof connector).toBe("string");
-      expect(pluginName).toMatch(/^@(elizaos|milady)\/plugin-/);
+      expect(pluginName).toMatch(/^@(elizaos|miladyai)\/plugin-/);
     }
   });
 

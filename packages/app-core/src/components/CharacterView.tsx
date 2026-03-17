@@ -8,6 +8,7 @@ import {
   type StylePreset,
   type VoiceConfig,
 } from "@miladyai/app-core/api";
+import { AvatarSelector } from "./AvatarSelector";
 import {
   dispatchWindowEvent,
   VOICE_CONFIG_UPDATED_EVENT,
@@ -74,13 +75,10 @@ const CHARACTER_PRESET_META: Record<
     voicePresetId?: string;
   }
 > = {
-  "uwu~": { name: "Reimu", avatarIndex: 1, voicePresetId: "sarah" },
-  "hell yeah": { name: "Marisa", avatarIndex: 2, voicePresetId: "adam" },
-  "lol k": { name: "Yukari", avatarIndex: 3, voicePresetId: "liam" },
-  "Noted.": { name: "Sakuya", avatarIndex: 4, voicePresetId: "alice" },
-  "hehe~": { name: "Koishi", avatarIndex: 2, voicePresetId: "gigi" },
-  "...": { name: "Remilia", avatarIndex: 4, voicePresetId: "lily" },
-  "locked in": { name: "Reisen", avatarIndex: 3, voicePresetId: "josh" },
+  "Noted.": { name: "Rin", avatarIndex: 1, voicePresetId: "alice" },
+  "uwu~": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" },
+  "lol k": { name: "Anzu", avatarIndex: 3, voicePresetId: "lily" },
+  "hehe~": { name: "Aya", avatarIndex: 4, voicePresetId: "gigi" },
 };
 
 type CharacterRosterEntry = {
@@ -896,11 +894,44 @@ export function CharacterView({
       : `${inModal || sceneOverlay ? "pb-8" : ""} ${
           sceneOverlay ? "relative z-10" : ""
         }`;
+  const handleCustomVrmUpload = useCallback(
+    (file: File) => {
+      const url = URL.createObjectURL(file);
+      setState("customVrmUrl", url);
+      setState("selectedVrmIndex", 0);
+    },
+    [setState],
+  );
+
   const coreFieldsPanel = (
     <div
       className={`${editorCardCls} min-h-[24rem]`}
       data-testid="character-core-editor"
     >
+      {/* Name */}
+      <div className="flex min-h-0 flex-col gap-2 mb-3">
+        <span className={labelCls}>Name</span>
+        <Input
+          type="text"
+          value={d.name ?? ""}
+          placeholder="Agent name"
+          onChange={(e) => handleFieldEdit("name", e.target.value)}
+          className="h-9 rounded-lg border-border/50 bg-bg text-sm focus-visible:border-accent focus-visible:ring-accent/50"
+        />
+      </div>
+
+      {/* Avatar */}
+      <div className="flex min-h-0 flex-col gap-2 mb-3">
+        <span className={labelCls}>Avatar</span>
+        <AvatarSelector
+          selected={selectedVrmIndex}
+          onSelect={(index: number) => setState("selectedVrmIndex", index)}
+          onUpload={handleCustomVrmUpload}
+          showUpload={true}
+          fullWidth={true}
+        />
+      </div>
+
       <div className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className={labelCls}>{t("characterview.aboutMe")}</span>

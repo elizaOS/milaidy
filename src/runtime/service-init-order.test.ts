@@ -24,7 +24,7 @@ describe("AppManager initialization", () => {
   beforeEach(async () => {
     vi.resetModules();
     // Mock all FS operations to avoid touching disk
-    vi.mock("node:fs", () => ({
+    vi.doMock("node:fs", () => ({
       existsSync: vi.fn(() => false),
       mkdirSync: vi.fn(),
       readFileSync: vi.fn(() => "{}"),
@@ -32,7 +32,7 @@ describe("AppManager initialization", () => {
       readdirSync: vi.fn(() => []),
       rmSync: vi.fn(),
     }));
-    vi.mock("node:fs/promises", () => ({
+    vi.doMock("node:fs/promises", () => ({
       readdir: vi.fn(async () => []),
       readFile: vi.fn(async () => "{}"),
       stat: vi.fn(async () => ({
@@ -159,7 +159,7 @@ describe("Config loading at startup", () => {
 describe("Plugin discovery", () => {
   it("discoverPluginsFromManifest returns an array", async () => {
     vi.resetModules();
-    vi.mock("node:fs", async (importOriginal) => {
+    vi.doMock("node:fs", async (importOriginal) => {
       const actual = await importOriginal<typeof import("node:fs")>();
       return {
         ...actual,
@@ -170,7 +170,7 @@ describe("Plugin discovery", () => {
         },
       };
     });
-    vi.mock("node:fs/promises", () => ({
+    vi.doMock("node:fs/promises", () => ({
       readFile: vi.fn(async () => "[]"),
       stat: vi.fn(async () => ({ isFile: () => false })),
     }));

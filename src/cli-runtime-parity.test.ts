@@ -51,7 +51,7 @@ function envSnapshot(keys: string[]): {
 describe("onboarding presets parity (CLI ↔ GUI)", () => {
   it("STYLE_PRESETS is a non-empty array", () => {
     expect(Array.isArray(STYLE_PRESETS)).toBe(true);
-    expect(STYLE_PRESETS.length).toBeGreaterThanOrEqual(6);
+    expect(STYLE_PRESETS.length).toBeGreaterThanOrEqual(4);
   });
 
   it("every preset has all required fields", () => {

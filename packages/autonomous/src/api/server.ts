@@ -188,14 +188,12 @@ import {
 import {
   applySubscriptionProviderConfig,
   clearSubscriptionProviderConfig,
+  resolveExistingOnboardingConnection,
 } from "./provider-switch-config";
 import { handleRegistryRoutes } from "./registry-routes";
 import { RegistryService } from "./registry-service";
 import { handleSandboxRoute } from "./sandbox-routes";
-import {
-  applySignalQrOverride,
-  handleSignalRoute,
-} from "./signal-routes";
+import { applySignalQrOverride, handleSignalRoute } from "./signal-routes";
 import { resolveStreamingUpdate } from "./streaming-text";
 import { handleSubscriptionRoutes } from "./subscription-routes";
 import { resolveTerminalRunLimits } from "./terminal-run-limits";
@@ -399,6 +397,23 @@ export interface ConversationMeta {
 function hasPersistedOnboardingState(config: MiladyConfig): boolean {
   if (config.meta?.onboardingComplete === true) {
     return true;
+  }
+
+  const existingConnection = resolveExistingOnboardingConnection(
+    config as Record<string, unknown>,
+  );
+  if (existingConnection?.kind === "local-provider") {
+    return true;
+  }
+  if (existingConnection?.kind === "remote-provider") {
+    return Boolean(existingConnection.remoteApiBase.trim());
+  }
+  if (existingConnection?.kind === "cloud-managed") {
+    return Boolean(
+      existingConnection.apiKey?.trim() &&
+        existingConnection.smallModel?.trim() &&
+        existingConnection.largeModel?.trim(),
+    );
   }
 
   const agents = config.agents;
@@ -3555,6 +3570,9 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/webp",
 ]);
 
+export const IMAGE_ONLY_CHAT_FALLBACK_PROMPT =
+  "Please describe the attached image.";
+
 /** Returns an error message string, or null if valid. Exported for unit tests. */
 export function validateChatImages(images: unknown): string | null {
   if (!Array.isArray(images) || images.length === 0) return null;
@@ -3633,6 +3651,19 @@ export function buildChatAttachments(
     ({ _data: _d, _mimeType: _m, ...rest }) => rest,
   );
   return { attachments, compactAttachments };
+}
+
+export function normalizeIncomingChatPrompt(
+  text: string | null | undefined,
+  images: ChatImageAttachment[] | null | undefined,
+): string | null {
+  const normalizedText = typeof text === "string" ? text.trim() : "";
+  if (normalizedText.length > 0) {
+    return normalizedText;
+  }
+  return Array.isArray(images) && images.length > 0
+    ? IMAGE_ONLY_CHAT_FALLBACK_PROMPT
+    : null;
 }
 
 type MessageMemory = ReturnType<typeof createMessageMemory>;
@@ -3722,7 +3753,8 @@ async function readChatRequestPayload(
     conversationMode?: string;
   }>(req, res, { maxBytes });
   if (!body) return null;
-  if (!body.text?.trim()) {
+  const normalizedPrompt = normalizeIncomingChatPrompt(body.text, body.images);
+  if (!normalizedPrompt) {
     helpers.error(res, "text is required");
     return null;
   }
@@ -3751,7 +3783,7 @@ async function readChatRequestPayload(
       }))
     : undefined;
   return {
-    prompt: body.text.trim(),
+    prompt: normalizedPrompt,
     channelType,
     images,
     ...(conversationMode ? { conversationMode } : {}),
@@ -4986,7 +5018,7 @@ function getInventoryProviderOptions(): Array<{
       description: "Ethereum, Base, Arbitrum, Optimism, Polygon.",
       rpcProviders: [
         {
-          id: "elizacloud",
+          id: "eliza-cloud",
           name: "Eliza Cloud",
           description: "Managed RPC. No setup needed.",
           envKey: null,
@@ -5016,21 +5048,63 @@ function getInventoryProviderOptions(): Array<{
       ],
     },
     {
-      id: "solana",
-      name: "Solana",
-      description: "Solana mainnet tokens and NFTs.",
+      id: "bsc",
+      name: "BSC",
+      description: "BNB Smart Chain tokens, NFTs, and trades.",
       rpcProviders: [
         {
-          id: "elizacloud",
+          id: "eliza-cloud",
           name: "Eliza Cloud",
           description: "Managed RPC. No setup needed.",
           envKey: null,
           requiresKey: false,
         },
         {
-          id: "helius",
-          name: "Helius",
-          description: "Solana-native data platform.",
+          id: "alchemy",
+          name: "Alchemy",
+          description: "Managed BSC RPC via Alchemy.",
+          envKey: "ALCHEMY_API_KEY",
+          requiresKey: true,
+        },
+        {
+          id: "ankr",
+          name: "Ankr",
+          description: "Decentralized BSC RPC provider.",
+          envKey: "ANKR_API_KEY",
+          requiresKey: true,
+        },
+        {
+          id: "nodereal",
+          name: "NodeReal",
+          description: "Dedicated BSC RPC endpoint.",
+          envKey: "NODEREAL_BSC_RPC_URL",
+          requiresKey: true,
+        },
+        {
+          id: "quicknode",
+          name: "QuickNode",
+          description: "Managed BSC RPC endpoint.",
+          envKey: "QUICKNODE_BSC_RPC_URL",
+          requiresKey: true,
+        },
+      ],
+    },
+    {
+      id: "solana",
+      name: "Solana",
+      description: "Solana mainnet tokens and NFTs.",
+      rpcProviders: [
+        {
+          id: "eliza-cloud",
+          name: "Eliza Cloud",
+          description: "Managed RPC. No setup needed.",
+          envKey: null,
+          requiresKey: false,
+        },
+        {
+          id: "helius-birdeye",
+          name: "Helius + Birdeye",
+          description: "Solana balances and NFT metadata.",
           envKey: "HELIUS_API_KEY",
           requiresKey: true,
         },
@@ -7522,7 +7596,7 @@ async function handleRequest(
       openai: "OPENAI_API_KEY",
       anthropic: "ANTHROPIC_API_KEY",
       deepseek: "DEEPSEEK_API_KEY",
-      google: "GOOGLE_API_KEY",
+      google: "GOOGLE_GENERATIVE_AI_API_KEY",
       groq: "GROQ_API_KEY",
       xai: "XAI_API_KEY",
       openrouter: "OPENROUTER_API_KEY",
@@ -7541,6 +7615,20 @@ async function handleRequest(
             unknown
           >;
           delete secrets[envKey];
+        }
+      }
+
+      // Clear the legacy Gemini alias too so provider switches don't leave
+      // multiple Google keys behind.
+      if (keepKey !== "GOOGLE_API_KEY") {
+        delete process.env.GOOGLE_API_KEY;
+        delete envCfg.GOOGLE_API_KEY;
+        if (state.runtime?.character?.secrets) {
+          const secrets = state.runtime.character.secrets as Record<
+            string,
+            unknown
+          >;
+          delete secrets.GOOGLE_API_KEY;
         }
       }
     };
@@ -7732,7 +7820,8 @@ async function handleRequest(
       json,
       error,
       saveConfig: saveMiladyConfig,
-      loadSubscriptionAuth: async () => (await import("../auth/index")) as never,
+      loadSubscriptionAuth: async () =>
+        (await import("../auth/index")) as never,
     } as never)
   ) {
     return;
@@ -7954,9 +8043,7 @@ async function handleRequest(
   // ── GET /api/onboarding/status ──────────────────────────────────────────
   if (method === "GET" && pathname === "/api/onboarding/status") {
     let config = state.config;
-    let complete =
-      Boolean(state.runtime) ||
-      (configFileExists() && hasPersistedOnboardingState(config));
+    let complete = configFileExists() && hasPersistedOnboardingState(config);
 
     // Hot restarts and transient config-load failures can leave state.config
     // stale even though the persisted config is valid. Re-read from disk once
@@ -7964,8 +8051,7 @@ async function handleRequest(
     if (!complete && configFileExists()) {
       try {
         config = loadMiladyConfig();
-        complete =
-          Boolean(state.runtime) || hasPersistedOnboardingState(config);
+        complete = hasPersistedOnboardingState(config);
         if (complete) {
           state.config = config;
         }
@@ -16233,10 +16319,7 @@ async function handleRequest(
 // the entire server dependency graph into lightweight consumers (e.g. the
 // headless `startEliza()` path).
 // ---------------------------------------------------------------------------
-import {
-  type captureEarlyLogs,
-  flushEarlyLogs,
-} from "./early-logs";
+import { type captureEarlyLogs, flushEarlyLogs } from "./early-logs";
 export type { captureEarlyLogs };
 
 // ---------------------------------------------------------------------------
@@ -16996,13 +17079,13 @@ export async function startApiServer(opts?: {
             const cfg = state.config as Record<string, unknown> | undefined;
             const msgs = cfg?.messages as Record<string, unknown> | undefined;
             return msgs
-                ? {
-                    messages: {
-                      tts: msgs.tts as
+              ? {
+                  messages: {
+                    tts: msgs.tts as
                       | import("../config/types.messages").TtsConfig
                       | undefined,
-                    },
-                  }
+                  },
+                }
               : undefined;
           },
         };

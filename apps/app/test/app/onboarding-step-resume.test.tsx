@@ -298,10 +298,8 @@ describe("AppProvider onboarding step resume", () => {
       await api?.next();
     });
 
-    expect(localStorage.getItem(ONBOARDING_STEP_STORAGE_KEY)).toBe(
-      "connection",
-    );
-    expect(api?.getSnapshot().onboardingStep).toBe("connection");
+    expect(localStorage.getItem(ONBOARDING_STEP_STORAGE_KEY)).toBe("identity");
+    expect(api?.getSnapshot().onboardingStep).toBe("identity");
 
     await act(async () => {
       tree?.unmount();
@@ -327,7 +325,7 @@ describe("AppProvider onboarding step resume", () => {
 
     expect(api?.getSnapshot()).toEqual({
       onboardingLoading: false,
-      onboardingStep: "connection",
+      onboardingStep: "identity",
       onboardingRunMode: "",
       onboardingCloudProvider: "",
     });
