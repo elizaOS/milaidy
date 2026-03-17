@@ -10,7 +10,7 @@ on:
 
 env:
   CI: "true"
-  BUN_VERSION: "1.3.10"
+  BUN_VERSION: "1.3.9"  # pinned: 1.3.10 clean-lockfile breaks Windows frozen installs
 
 jobs:
   build-windows-x64:
