@@ -9,6 +9,9 @@ import { defineConfig } from "vite";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const miladyRoot = path.resolve(here, "../..");
 const elizaRoot = path.resolve(miladyRoot, "../eliza");
+const hasElizaWorkspace = fs.existsSync(
+  path.join(elizaRoot, "packages/autonomous/src/index.ts"),
+);
 // The dev script sets MILADY_API_PORT; default to 31337 for standalone vite dev.
 const apiPort = Number(process.env.MILADY_API_PORT) || 31337;
 const enableAppSourceMaps = process.env.MILADY_APP_SOURCEMAP === "1";
@@ -167,34 +170,50 @@ export default defineConfig({
         find: /^@(?:miladyai|elizaos)\/capacitor-(.*)/,
         replacement: path.resolve(here, "plugins/$1/src/index.ts"),
       },
-      // @elizaos/* → eliza submodule packages
-      {
-        find: /^@elizaos\/autonomous$/,
-        replacement: path.resolve(
-          elizaRoot,
-          "packages/autonomous/src/index.ts",
-        ),
-      },
-      {
-        find: /^@elizaos\/autonomous\/(.*)$/,
-        replacement: path.resolve(elizaRoot, "packages/autonomous/src/$1"),
-      },
-      {
-        find: /^@elizaos\/app-core$/,
-        replacement: path.resolve(elizaRoot, "packages/app-core/src/index.ts"),
-      },
-      {
-        find: /^@elizaos\/app-core\/(.*)$/,
-        replacement: path.resolve(elizaRoot, "packages/app-core/src/$1"),
-      },
-      {
-        find: /^@elizaos\/ui$/,
-        replacement: path.resolve(elizaRoot, "packages/ui/src/index.ts"),
-      },
-      {
-        find: /^@elizaos\/ui\/(.*)$/,
-        replacement: path.resolve(elizaRoot, "packages/ui/src/$1"),
-      },
+      // @elizaos/* → eliza submodule packages (only when workspace is present)
+      ...(hasElizaWorkspace
+        ? [
+            {
+              find: /^@elizaos\/autonomous$/,
+              replacement: path.resolve(
+                elizaRoot,
+                "packages/autonomous/src/index.ts",
+              ),
+            },
+            {
+              find: /^@elizaos\/autonomous\/(.*)$/,
+              replacement: path.resolve(
+                elizaRoot,
+                "packages/autonomous/src/$1",
+              ),
+            },
+            {
+              find: /^@elizaos\/app-core$/,
+              replacement: path.resolve(
+                elizaRoot,
+                "packages/app-core/src/index.ts",
+              ),
+            },
+            {
+              find: /^@elizaos\/app-core\/(.*)$/,
+              replacement: path.resolve(
+                elizaRoot,
+                "packages/app-core/src/$1",
+              ),
+            },
+            {
+              find: /^@elizaos\/ui$/,
+              replacement: path.resolve(
+                elizaRoot,
+                "packages/ui/src/index.ts",
+              ),
+            },
+            {
+              find: /^@elizaos\/ui\/(.*)$/,
+              replacement: path.resolve(elizaRoot, "packages/ui/src/$1"),
+            },
+          ]
+        : []),
       // @miladyai/* → milady local packages
       {
         find: /^@miladyai\/autonomous$/,
