@@ -23,6 +23,11 @@ const nativeExternals = [
 const pluginExternal = /^@elizaos\/plugin-/;
 const allExternals = [...nativeExternals, pluginExternal];
 
+// @elizaos/autonomous moved from src/ to an npm package. The src/ files are now
+// thin re-exports, but tsdown won't inline node_modules packages. Point entries
+// directly at the autonomous source so the bundled dist/ is self-contained.
+const autonomousRoot = "node_modules/@elizaos/autonomous/src";
+
 export default [
   {
     entry: "src/index.ts",
@@ -38,10 +43,14 @@ export default [
     platform: "node",
     unbundle: true,
     inlineOnly: false,
-    external: allExternals,
+    // Also externalize @elizaos/autonomous so the unbundle walk doesn't emit
+    // thin re-export stubs for runtime/eliza.js and api/server.js — those are
+    // built as fully-inlined bundles by the dedicated entries below.
+    external: [...allExternals, /^@elizaos\/autonomous/],
   },
   {
-    entry: "src/runtime/eliza.ts",
+    entry: `${autonomousRoot}/runtime/eliza.ts`,
+    outDir: "dist/runtime",
     env,
     fixedExtension: false,
     platform: "node",
@@ -50,7 +59,8 @@ export default [
     outputOptions: { codeSplitting: false },
   },
   {
-    entry: "src/api/server.ts",
+    entry: `${autonomousRoot}/api/server.ts`,
+    outDir: "dist/api",
     env,
     fixedExtension: false,
     platform: "node",

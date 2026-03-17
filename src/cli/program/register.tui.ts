@@ -243,7 +243,7 @@ async function tuiAction(options: {
     const { launchTUI } = await import("../../tui/index");
 
     if (options.localRuntime) {
-      const { bootElizaRuntime } = await import("../../runtime/eliza");
+      const { bootElizaRuntime } = await import("@elizaos/autonomous/runtime/eliza");
       const runtime = await bootElizaRuntime({ requireConfig: true });
       await launchTUI(runtime, {
         modelOverride: options.model,

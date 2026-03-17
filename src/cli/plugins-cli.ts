@@ -455,7 +455,7 @@ export function registerPluginsCli(program: Command): void {
       );
       const { loadMiladyConfig } = await import("../config/config");
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins, resolvePackageEntry } =
-        await import("../runtime/eliza");
+        await import("@elizaos/autonomous/runtime/eliza");
 
       const customDir = nodePath.join(
         resolveStateDir(),
@@ -648,7 +648,7 @@ export function registerPluginsCli(program: Command): void {
       );
       const { loadMiladyConfig } = await import("../config/config");
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins } = await import(
-        "../runtime/eliza"
+        "@elizaos/autonomous/runtime/eliza"
       );
 
       let config: ReturnType<typeof loadMiladyConfig> | null = null;
@@ -901,7 +901,7 @@ export function registerPluginsCli(program: Command): void {
         "../config/paths"
       );
       const { CUSTOM_PLUGINS_DIRNAME, scanDropInPlugins } = await import(
-        "../runtime/eliza"
+        "@elizaos/autonomous/runtime/eliza"
       );
 
       const customDir = nodePath.join(
