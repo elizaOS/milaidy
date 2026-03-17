@@ -2346,6 +2346,20 @@ const MAX_BODY_BYTES = 1_048_576;
 const CHAT_MAX_BODY_BYTES = 20 * 1_048_576;
 const ELEVENLABS_FETCH_TIMEOUT_MS = 20_000;
 const ELEVENLABS_AUDIO_MAX_BYTES = 20 * 1_048_576;
+const PARALLAX_PROMPT_OPT_MODE = (
+  process.env.PARALLAX_PROMPT_OPT_MODE ?? "baseline"
+).toLowerCase();
+const PARALLAX_PROMPT_TRACE =
+  process.env.PARALLAX_PROMPT_TRACE === "1" ||
+  process.env.PARALLAX_PROMPT_TRACE?.toLowerCase() === "true";
+const PARALLAX_COORDINATOR_EVENT_MAX_CHARS = parseClampedInteger(
+  process.env.PARALLAX_COORDINATOR_EVENT_MAX_CHARS ?? null,
+  { min: 500, max: 20_000, fallback: 6_000 },
+);
+const PARALLAX_SWARM_SYNTHESIS_MAX_TASKS = parseClampedInteger(
+  process.env.PARALLAX_SWARM_SYNTHESIS_MAX_TASKS ?? null,
+  { min: 1, max: 50, fallback: 8 },
+);
 
 type StreamableServerResponse = Pick<
   http.ServerResponse,
@@ -2382,6 +2396,47 @@ function isAbortError(error: unknown): boolean {
     ? error.name === "AbortError" || error.name === "TimeoutError"
     : error instanceof Error &&
         (error.name === "AbortError" || error.name === "TimeoutError");
+}
+
+function compactPromptText(text: string, maxChars: number): string {
+  if (!text) return text;
+  const lines = text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter(
+      (line) =>
+        !/^\s*Update available!\s*Run:/i.test(line) &&
+        !/^\s*Tip:\s/i.test(line) &&
+        !/^\s*❯\s*esc to interrupt/i.test(line),
+    );
+  const compacted = lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (
+    !Number.isFinite(maxChars) ||
+    maxChars <= 0 ||
+    compacted.length <= maxChars
+  ) {
+    return compacted;
+  }
+  return `${compacted.slice(0, maxChars)}\n\n[truncated for prompt budget]`;
+}
+
+function maybeCompactCoordinatorEventDescription(
+  eventDescription: string,
+): string {
+  if (PARALLAX_PROMPT_OPT_MODE !== "compact") return eventDescription;
+  return compactPromptText(
+    eventDescription,
+    PARALLAX_COORDINATOR_EVENT_MAX_CHARS,
+  );
+}
+
+function maybeCompactSwarmCompletionSummary(summary: string): string {
+  if (PARALLAX_PROMPT_OPT_MODE !== "compact") return summary;
+  return compactPromptText(summary, 500);
 }
 
 function createTimeoutError(message: string): Error {
@@ -3107,6 +3162,7 @@ async function generateChatResponse(
   agentName: string,
   opts?: ChatGenerateOptions,
 ): Promise<ChatGenerationResult> {
+  const startedAtMs = Date.now();
   type StreamSource = "unset" | "callback" | "onStreamChunk";
   let responseText = "";
   let activeStreamSource: StreamSource = "unset";
@@ -3306,6 +3362,23 @@ async function generateChatResponse(
   const promptText = extractCompatTextContent(message.content) ?? "";
   const estPromptTokens = Math.ceil(promptText.length / 4);
   const estCompletionTokens = Math.ceil(finalText.length / 4);
+  const durationMs = Date.now() - startedAtMs;
+  if (PARALLAX_PROMPT_TRACE) {
+    runtime.logger?.info(
+      {
+        src: "milady-api",
+        mode: PARALLAX_PROMPT_OPT_MODE,
+        streamSource: activeStreamSource,
+        messageSource,
+        promptChars: promptText.length,
+        completionChars: finalText.length,
+        promptTokens: estPromptTokens,
+        completionTokens: estCompletionTokens,
+        durationMs,
+      },
+      "[chat] Prompt metrics",
+    );
+  }
 
   return {
     text: finalText,
@@ -6632,10 +6705,16 @@ export async function handleSwarmSynthesis(
     `[swarm-synthesis] Generating synthesis for ${payload.total} tasks (${payload.completed} completed, ${payload.stopped} stopped, ${payload.errored} errored)`,
   );
 
-  const taskLines = payload.tasks
+  const synthesisTasks =
+    PARALLAX_PROMPT_OPT_MODE === "compact"
+      ? payload.tasks.slice(0, PARALLAX_SWARM_SYNTHESIS_MAX_TASKS)
+      : payload.tasks;
+  const omittedTaskCount = payload.tasks.length - synthesisTasks.length;
+
+  const taskLines = synthesisTasks
     .map(
       (t) =>
-        `- [${t.status.toUpperCase()}] "${t.label}" (${t.agentType})\n  Task: ${t.originalTask}\n  Result: ${t.completionSummary || "No summary available"}`,
+        `- [${t.status.toUpperCase()}] "${t.label}" (${t.agentType})\n  Task: ${t.originalTask}\n  Result: ${maybeCompactSwarmCompletionSummary(t.completionSummary || "No summary available")}`,
     )
     .join("\n\n");
 
@@ -6647,7 +6726,23 @@ export async function handleSwarmSynthesis(
     `Write a concise, conversational summary of what was accomplished. ` +
     `Highlight key outcomes (PRs created, issues found, research results). ` +
     `If any tasks failed or stopped, mention what went wrong. ` +
-    `Keep your personality — be warm and helpful but brief.`;
+    `Keep your personality — be warm and helpful but brief.` +
+    (omittedTaskCount > 0
+      ? `\n\nNote: ${omittedTaskCount} additional task summaries were omitted for prompt budget.`
+      : "");
+
+  if (PARALLAX_PROMPT_TRACE) {
+    logger.info(
+      {
+        src: "milady-api",
+        mode: PARALLAX_PROMPT_OPT_MODE,
+        tasksIncluded: synthesisTasks.length,
+        tasksTotal: payload.tasks.length,
+        promptChars: prompt.length,
+      },
+      "[swarm-synthesis] Prompt metrics",
+    );
+  }
 
   try {
     const synthesis = await runtime.useModel(ModelType.TEXT_SMALL, {
@@ -6711,7 +6806,7 @@ function wireCoordinatorEventRouting(st: ServerState): boolean {
   coordinator.setAgentDecisionCallback(
     async (
       eventDescription: string,
-      _sessionId: string,
+      sessionId: string,
       _taskCtx: TaskContext,
     ): Promise<CoordinationLLMResponse | null> => {
       let resolveOuter!: (v: CoordinationLLMResponse | null) => void;
@@ -6761,6 +6856,21 @@ function wireCoordinatorEventRouting(st: ServerState): boolean {
             return;
           }
 
+          const compactedEventDescription =
+            maybeCompactCoordinatorEventDescription(eventDescription);
+          if (PARALLAX_PROMPT_TRACE) {
+            logger.info(
+              {
+                src: "milady-api",
+                mode: PARALLAX_PROMPT_OPT_MODE,
+                sessionId,
+                originalChars: eventDescription.length,
+                compactedChars: compactedEventDescription.length,
+              },
+              "[coordinator-routing] Event prompt metrics",
+            );
+          }
+
           // Create a message memory so the event enters Milady's conversation history.
           const message = createMessageMemory({
             id: crypto.randomUUID() as UUID,
@@ -6768,7 +6878,7 @@ function wireCoordinatorEventRouting(st: ServerState): boolean {
             agentId: runtime.agentId,
             roomId: st.chatRoomId,
             content: {
-              text: eventDescription,
+              text: compactedEventDescription,
               source: "coordinator",
               channelType: "DM",
             },

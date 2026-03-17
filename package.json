@@ -113,7 +113,17 @@
     "doctor": "scripts/rt.sh scripts/run-node.mjs doctor",
     "repair": "node scripts/run-repo-setup.mjs",
     "build:win": "node scripts/build-win.mjs",
-    "dev:win": "node scripts/dev-win.mjs"
+    "build:win:base": "node scripts/build-win.mjs --variant base",
+    "build:win:companion": "node scripts/build-win.mjs --variant companion",
+    "build:win:full": "node scripts/build-win.mjs --variant full",
+    "dev:win": "node scripts/dev-win.mjs",
+    "dev:win:base": "node scripts/dev-win.mjs --variant base",
+    "dev:win:companion": "node scripts/dev-win.mjs --variant companion",
+    "dev:win:full": "node scripts/dev-win.mjs --variant full",
+    "benchmark:chat:extract": "node scripts/extract-chat-benchmark-metrics.mjs",
+    "benchmark:chat:run": "node scripts/run-chat-benchmark-suite.mjs",
+    "benchmark:chat:quick": "node scripts/run-chat-benchmark-suite.mjs --prompt-ids P01,P02,P03,P04 --runs 3 --warmup 1",
+    "benchmark:chat:smoke": "node scripts/run-chat-benchmark-suite.mjs --prompt-ids P01,P03,P06,P10 --runs 2 --warmup 0"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.13",

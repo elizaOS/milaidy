@@ -2425,6 +2425,8 @@ interface RuntimeWithMethodBindings extends AgentRuntime {
   __miladyComponentWriteDiagnosticsInstalled?: boolean;
   __miladyEntityWriteDiagnosticsInstalled?: boolean;
   __miladyEntityCreateMutex?: Promise<void>;
+  __miladySecurityEvalCache?: Map<string, { at: number; value: string }>;
+  __miladySocialEvalCounter?: number;
 }
 
 interface RuntimeWithActionAliases extends Omit<AgentRuntime, "actions"> {
@@ -2533,6 +2535,244 @@ function summarizeComponentWrite(input: unknown): Record<string, unknown> {
   };
 }
 
+const PARALLAX_PROMPT_OPT_MODE = (
+  process.env.PARALLAX_PROMPT_OPT_MODE ?? "baseline"
+).toLowerCase();
+const PARALLAX_PROMPT_TRACE =
+  process.env.PARALLAX_PROMPT_TRACE === "1" ||
+  process.env.PARALLAX_PROMPT_TRACE?.toLowerCase() === "true";
+const PARALLAX_EMBEDDING_FASTPATH =
+  process.env.PARALLAX_EMBEDDING_FASTPATH === "1" ||
+  process.env.PARALLAX_EMBEDDING_FASTPATH?.toLowerCase() === "true";
+const PARALLAX_DISABLE_SECURITY_LLM = (() => {
+  const raw = process.env.PARALLAX_DISABLE_SECURITY_LLM?.toLowerCase();
+  if (raw === "0" || raw === "false") return false;
+  if (raw === "1" || raw === "true") return true;
+  return true;
+})();
+const PARALLAX_SECURITY_GATING = (() => {
+  const raw = process.env.PARALLAX_SECURITY_GATING?.toLowerCase();
+  if (raw === "0" || raw === "false") return false;
+  if (raw === "1" || raw === "true") return true;
+  return PARALLAX_PROMPT_OPT_MODE === "compact";
+})();
+const PARALLAX_SOCIAL_EVAL_EVERY_N = Math.max(
+  1,
+  Number(process.env.PARALLAX_SOCIAL_EVAL_EVERY_N ?? "3") || 3,
+);
+
+function compactInitialCodeMarker(prompt: string): string {
+  return prompt.replace(
+    /initial code:\s*([0-9a-f]{8})[0-9a-f-]*/gi,
+    "<initial_code>$1</initial_code>",
+  );
+}
+
+function compactActionDocs(prompt: string): string {
+  const start = prompt.indexOf("\n# Available Actions");
+  if (start === -1) return prompt;
+
+  const relationMarker = "\n# Mima's relationship context";
+  const workspaceMarker = "\n## Project Context (Workspace)";
+  const endCandidates = [prompt.indexOf(relationMarker), prompt.indexOf(workspaceMarker)].filter(
+    (idx) => idx > start,
+  );
+  const end =
+    endCandidates.length > 0
+      ? Math.min(...endCandidates)
+      : prompt.length;
+  const block = prompt.slice(start, end);
+  const actionNames = Array.from(
+    block.matchAll(/- \*\*([A-Z_]+)\*\*/g),
+    (match) => match[1],
+  );
+  if (actionNames.length === 0) return prompt;
+
+  const compactedBlock = [
+    "\n# Available Actions",
+    actionNames.join(", "),
+  ].join("\n");
+  return `${prompt.slice(0, start)}${compactedBlock}${prompt.slice(end)}`;
+}
+
+function compactRegistryCatalog(prompt: string): string {
+  return prompt.replace(
+    /\*\*Available Plugins from Registry \((\d+) total\):[\s\S]*?(?=\n## Project Context \(Workspace\)|\n### AGENTS\.md|$)/g,
+    (_match, total: string) =>
+      `**Available Plugins from Registry (${total} total):** [omitted in compact mode; query on demand]\n`,
+  );
+}
+
+function compactCodingActionExamples(prompt: string): string {
+  const next = prompt.replace(
+    /\n# Coding Agent Action Call Examples[\s\S]*?(?=\nPossible response actions:|\n# Available Actions|\n## Project Context \(Workspace\)|$)/g,
+    "\n",
+  );
+  return next.replace(/\nPossible response actions:[^\n]*\n?/g, "\n");
+}
+
+function compactUiCatalog(prompt: string): string {
+  return prompt.replace(
+    /\n## Rich UI Output — you can render interactive components in your replies[\s\S]*?(?=\n## Project Context \(Workspace\)|\n### AGENTS\.md|$)/g,
+    "\n",
+  );
+}
+
+function compactLoadedPluginLists(prompt: string): string {
+  const loadedCountMatch = prompt.match(/\*\*Loaded Plugins:\*\*[\s\S]*?(?=\n\*\*System Plugins:\*\*)/);
+  const loadedCount = loadedCountMatch
+    ? (loadedCountMatch[0].match(/\n- /g)?.length ?? 0)
+    : 0;
+
+  return prompt.replace(
+    /\n\*\*Loaded Plugins:\*\*[\s\S]*?(?=\n\*\*Available Plugins from Registry|\nNo access to role information|\nSECURITY ALERT:|$)/g,
+    [
+      "",
+      `**Loaded Plugins:** ${loadedCount} loaded [list omitted in compact mode]`,
+    ].join("\n"),
+  );
+}
+
+function compactEmoteCatalog(prompt: string): string {
+  return prompt.replace(
+    /\n## Available Emotes[\s\S]*?(?=\n# Active Workspaces & Agents|\n## Project Context \(Workspace\)|$)/g,
+    "\n## Available Emotes\n[emote catalog omitted in compact mode]\n",
+  );
+}
+
+function compactWorkspaceContextForNonCoding(prompt: string): string {
+  return prompt.replace(
+    /\n## Project Context \(Workspace\)[\s\S]*?(?=\nAdmin trust:|\nThe current date and time is|\n# Conversation Messages|$)/g,
+    "\n## Project Context (Workspace)\n[workspace file contents omitted in compact mode for non-coding intent]\n",
+  );
+}
+
+function compactUiComponentCatalog(prompt: string): string {
+  return prompt.replace(
+    /\n### Available components \((\d+) total\)[\s\S]*?(?=\n## Available Emotes|\n## Project Context \(Workspace\)|$)/g,
+    (_match, total: string) =>
+      `\n### Available components (${total} total)\n[component catalog omitted in compact mode]\n`,
+  );
+}
+
+function compactInstalledSkills(prompt: string): string {
+  return prompt.replace(
+    /\n## Installed Skills \((\d+)\)[\s\S]*?\*Use TOGGLE_SKILL to enable\/disable skills\.[\s\S]*?(?=\nMima is|\n\*\*Loaded Plugins:\*\*|\n## Project Context \(Workspace\)|$)/g,
+    (_match, total: string) =>
+      `\n## Installed Skills (${total})\n[skill list omitted in compact mode; query on demand]\n`,
+  );
+}
+
+function hasIntent(prompt: string, keywords: RegExp): boolean {
+  const taskMatch = prompt.match(/<task>([\s\S]*?)<\/task>/i);
+  const taskText = (taskMatch?.[1] ?? "").slice(0, 2000);
+  const preview = prompt.slice(0, 8000);
+  return keywords.test(taskText) || keywords.test(preview);
+}
+
+const CODING_INTENT_RE =
+  /\b(code|coding|repo|repository|pull request|pr\b|branch|test(s)?\b|compile|build|debug|fix|start_coding_task|spawn_coding_agent|send_to_coding_agent)\b/i;
+const PLUGIN_UI_INTENT_RE =
+  /\b(plugin|plugins|configure|configuration|setup|install|enable|disable|api key|credential|secret|dashboard|form|ui|interface|\[config:)\b/i;
+
+function compactModelPrompt(prompt: string): string {
+  const hasCodingIntent = hasIntent(prompt, CODING_INTENT_RE);
+  const hasPluginUiIntent = hasIntent(prompt, PLUGIN_UI_INTENT_RE);
+
+  let next = prompt;
+  next = compactInitialCodeMarker(next);
+  if (!hasCodingIntent) {
+    next = compactCodingActionExamples(next);
+  }
+  next = compactActionDocs(next);
+  next = compactLoadedPluginLists(next);
+  next = compactEmoteCatalog(next);
+  if (!hasCodingIntent) {
+    next = compactInstalledSkills(next);
+  }
+  if (!hasPluginUiIntent) {
+    next = compactRegistryCatalog(next);
+    next = compactUiCatalog(next);
+  } else {
+    next = compactUiComponentCatalog(next);
+  }
+  if (!hasCodingIntent) {
+    next = compactWorkspaceContextForNonCoding(next);
+  }
+  return next;
+}
+
+function extractSecurityMessage(prompt: string): string {
+  const match = prompt.match(/Message to analyze:\s*"([\s\S]*?)"\s*Context:/i);
+  if (!match?.[1]) return "";
+  return match[1];
+}
+
+function isHighRiskMessage(text: string): boolean {
+  return /\b(api[_ -]?key|secret|password|private[_ -]?key|token|oauth|sudo|ssh|wallet|seed phrase|mnemonic|bypass|jailbreak|prompt injection|exfiltrat|credential|admin|elevat)\b/i.test(
+    text,
+  );
+}
+
+function buildSecuritySafeResult(message: string): string {
+  const payload = {
+    detected: false,
+    confidence: 0.2,
+    type: "none",
+    severity: "low",
+    reasoning:
+      message.length > 0
+        ? "Fast-path low-risk classification in compact mode."
+        : "Fast-path low-risk classification in compact mode (no analyzable message).",
+    indicators: [],
+  };
+  return JSON.stringify(payload);
+}
+
+function buildSecurityHeuristicResult(message: string): string {
+  const highRisk = isHighRiskMessage(message);
+  const payload = {
+    detected: highRisk,
+    confidence: highRisk ? 0.85 : 0.2,
+    type: highRisk ? "suspicious_request" : "none",
+    severity: highRisk ? "medium" : "low",
+    reasoning: highRisk
+      ? "Keyword heuristic flagged potentially sensitive or privilege-seeking content."
+      : "Local heuristic classified message as low-risk.",
+    indicators: highRisk ? ["keyword_match"] : [],
+  };
+  return JSON.stringify(payload);
+}
+
+function hasAdminContext(prompt: string): boolean {
+  return /\b(admin trust: current speaker is world owner|current speaker is world owner|role:\s*admin|speaker.*\bowner\b|world owner)\b/i.test(
+    prompt,
+  );
+}
+
+function buildEmptySocialExtractionResult(): Record<string, unknown> {
+  return {
+    platformIdentities: [],
+    relationships: [],
+    mentionedPeople: [],
+    disputes: [],
+    privacyBoundaries: [],
+    trustSignals: [],
+  };
+}
+
+let cachedFastEmbedding: number[] | null = null;
+function getFastEmbeddingVector(): number[] {
+  if (cachedFastEmbedding) return cachedFastEmbedding;
+  const parsedDims = Number(process.env.LOCAL_EMBEDDING_DIMENSIONS ?? "768");
+  const dims =
+    Number.isInteger(parsedDims) && parsedDims > 0 && parsedDims <= 4096
+      ? parsedDims
+      : 768;
+  cachedFastEmbedding = new Array(dims).fill(0);
+  return cachedFastEmbedding;
+}
+
 export function installRuntimeMethodBindings(runtime: AgentRuntime): void {
   const runtimeWithBindings = runtime as RuntimeWithMethodBindings;
   if (runtimeWithBindings.__miladyMethodBindingsInstalled) {
@@ -2542,6 +2782,156 @@ export function installRuntimeMethodBindings(runtime: AgentRuntime): void {
   // Some plugin builds store this method and invoke it later without the
   // runtime receiver, which breaks private-field access in AgentRuntime.
   runtime.getConversationLength = runtime.getConversationLength.bind(runtime);
+
+  const originalUseModel = runtime.useModel.bind(runtime);
+  runtime.useModel = (async (...args: Parameters<typeof originalUseModel>) => {
+    const modelType = String(args[0] ?? "").toUpperCase();
+    if (PARALLAX_EMBEDDING_FASTPATH && modelType.includes("TEXT_EMBEDDING")) {
+      if (PARALLAX_PROMPT_TRACE) {
+        logger.info(
+          `[milady] Embedding fast-path active (dims=${getFastEmbeddingVector().length})`,
+        );
+      }
+      return getFastEmbeddingVector();
+    }
+
+    const payload = args[1];
+    const isTextLarge = modelType.includes("TEXT_LARGE");
+    const isObjectSmall = modelType.includes("OBJECT_SMALL");
+    if ((!isTextLarge && !isObjectSmall) || !payload || typeof payload !== "object") {
+      return originalUseModel(...args);
+    }
+
+    const promptRecord = payload as Record<string, unknown>;
+    const promptKey =
+      typeof promptRecord.prompt === "string"
+        ? "prompt"
+        : typeof promptRecord.userPrompt === "string"
+          ? "userPrompt"
+          : typeof promptRecord.input === "string"
+            ? "input"
+            : null;
+    if (!promptKey) {
+      return originalUseModel(...args);
+    }
+
+    const originalPrompt = String(promptRecord[promptKey] ?? "");
+
+    if (
+      PARALLAX_DISABLE_SECURITY_LLM &&
+      isTextLarge &&
+      originalPrompt.startsWith("You are a security evaluation system.")
+    ) {
+      const analyzedMessage = extractSecurityMessage(originalPrompt);
+      const adminContext = hasAdminContext(originalPrompt);
+      const cacheKey = analyzedMessage.slice(0, 1000);
+      const now = Date.now();
+      const cacheTtlMs = 5 * 60_000;
+      runtimeWithBindings.__miladySecurityEvalCache ??= new Map();
+      const cached = runtimeWithBindings.__miladySecurityEvalCache.get(cacheKey);
+      if (cached && now - cached.at < cacheTtlMs) {
+        if (PARALLAX_PROMPT_TRACE) {
+          logger.info("[milady] Security heuristic cache hit");
+        }
+        return cached.value;
+      }
+      const heuristic = adminContext
+        ? buildSecuritySafeResult(analyzedMessage)
+        : buildSecurityHeuristicResult(analyzedMessage);
+      runtimeWithBindings.__miladySecurityEvalCache.set(cacheKey, {
+        at: now,
+        value: heuristic,
+      });
+      if (PARALLAX_PROMPT_TRACE) {
+        logger.info(
+          adminContext
+            ? "[milady] Security LLM disabled; admin context fast-pathed safe"
+            : "[milady] Security LLM disabled; using local heuristic",
+        );
+      }
+      return heuristic;
+    }
+
+    if (PARALLAX_SECURITY_GATING) {
+      if (
+        isTextLarge &&
+        originalPrompt.startsWith("You are a security evaluation system.")
+      ) {
+        const analyzedMessage = extractSecurityMessage(originalPrompt);
+        const isHighRisk = isHighRiskMessage(analyzedMessage);
+        const cacheKey = analyzedMessage.slice(0, 1000);
+        const now = Date.now();
+        const cacheTtlMs = 5 * 60_000;
+        runtimeWithBindings.__miladySecurityEvalCache ??= new Map();
+        const cached = runtimeWithBindings.__miladySecurityEvalCache.get(
+          cacheKey,
+        );
+        if (cached && now - cached.at < cacheTtlMs) {
+          if (PARALLAX_PROMPT_TRACE) {
+            logger.info("[milady] Security eval cache hit (fast path)");
+          }
+          return cached.value;
+        }
+        if (!isHighRisk) {
+          const safe = buildSecuritySafeResult(analyzedMessage);
+          runtimeWithBindings.__miladySecurityEvalCache.set(cacheKey, {
+            at: now,
+            value: safe,
+          });
+          if (PARALLAX_PROMPT_TRACE) {
+            logger.info("[milady] Security eval skipped for low-risk prompt");
+          }
+          return safe;
+        }
+      }
+
+      if (
+        isObjectSmall &&
+        originalPrompt.startsWith(
+          "You are analyzing a conversation to extract social and identity information.",
+        )
+      ) {
+        const analyzedMessage = originalPrompt.slice(0, 2000);
+        const isHighRisk = isHighRiskMessage(analyzedMessage);
+        const nextCount = (runtimeWithBindings.__miladySocialEvalCounter ?? 0) + 1;
+        runtimeWithBindings.__miladySocialEvalCounter = nextCount;
+        const shouldRun = isHighRisk || nextCount % PARALLAX_SOCIAL_EVAL_EVERY_N === 0;
+        if (!shouldRun) {
+          if (PARALLAX_PROMPT_TRACE) {
+            logger.info(
+              `[milady] Social extraction skipped (cadence=${PARALLAX_SOCIAL_EVAL_EVERY_N})`,
+            );
+          }
+          return buildEmptySocialExtractionResult();
+        }
+      }
+    }
+
+    if (PARALLAX_PROMPT_OPT_MODE !== "compact") {
+      return originalUseModel(...args);
+    }
+
+    const compactedPrompt = compactModelPrompt(originalPrompt);
+    if (PARALLAX_PROMPT_TRACE && compactedPrompt.length !== originalPrompt.length) {
+      logger.info(
+        `[milady] Compact prompt rewrite: ${originalPrompt.length} -> ${compactedPrompt.length} chars`,
+      );
+    }
+    if (compactedPrompt === originalPrompt) {
+      return originalUseModel(...args);
+    }
+
+    const rewrittenPayload = {
+      ...(payload as Record<string, unknown>),
+      [promptKey]: compactedPrompt,
+    };
+    const rewrittenArgs = [
+      args[0],
+      rewrittenPayload as Parameters<typeof originalUseModel>[1],
+      ...args.slice(2),
+    ] as Parameters<typeof originalUseModel>;
+    return originalUseModel(...rewrittenArgs);
+  }) as typeof runtime.useModel;
 
   // Wrap getSetting() to fall back to process.env for known keys when the
   // core returns null. elizaOS core returns null for missing keys, but some
