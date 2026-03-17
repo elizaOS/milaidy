@@ -3,7 +3,7 @@
 import {
   APP_EMOTE_EVENT,
   type AppEmoteEventDetail,
-} from "@milady/app-core/events";
+} from "@miladyai/app-core/events";
 import React, { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

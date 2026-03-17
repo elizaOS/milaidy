@@ -858,9 +858,9 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
           data-no-camera-drag={isGameModal || undefined}
           style={{ zIndex: 1 }}
         >
-          {chatPendingImages.map((img, i) => (
+          {chatPendingImages.map((img) => (
             <div
-              key={`${img.name}-${i}`}
+              key={`${img.name}-${img.data}`}
               className="relative group w-16 h-16 shrink-0"
             >
               <img

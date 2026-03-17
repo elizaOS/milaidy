@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Tab } from "../../../../packages/app-core/src/navigation";
+import type { Tab } from "../../src/navigation";
 import {
   deriveUiShellModeForTab,
   getTabForShellView,
   shouldStartAtCharacterSelectOnLaunch,
-} from "../../../../packages/app-core/src/state/shell-routing";
+} from "../../src/state/shell-routing";
 
 describe("shell routing helpers", () => {
   it("derives companion mode only for the companion tab", () => {

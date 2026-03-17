@@ -56,9 +56,9 @@ vi.mock("@miladyai/app-core/platform", () => ({
 }));
 
 vi.mock("@miladyai/app-core/hooks", async () => {
-  const actual = await vi.importActual<typeof import("@miladyai/app-core/hooks")>(
-    "@miladyai/app-core/hooks",
-  );
+  const actual = await vi.importActual<
+    typeof import("@miladyai/app-core/hooks")
+  >("@miladyai/app-core/hooks");
   return {
     ...actual,
     useVoiceChat: (...args: unknown[]) => mockUseVoiceChat(...args),

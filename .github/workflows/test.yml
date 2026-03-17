@@ -13,7 +13,7 @@ concurrency:
 
 env:
   CI: "true"
-  BUN_VERSION: "1.3.9"
+  BUN_VERSION: "1.3.10"
   NODE_OPTIONS: "--max-old-space-size=4096"
 
 jobs:
