@@ -10,6 +10,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -175,6 +176,95 @@
       margin-top: 0.6em;
     }
 
+    /* Download icons */
+    .download-icons {
+      display: flex;
+      justify-content: center;
+      gap: 0.6em;
+      list-style: none;
+      padding: 0 !important;
+      margin: 1.2em 0 0 !important;
+    }
+    .download-icons li {
+      margin: 0 !important;
+    }
+    .download-icons .download {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border: 1px solid #2f4d0c;
+      background: #fff;
+      color: #2f4d0c;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .download-icons .download i {
+      font-size: 22px;
+      transition: transform 0.2s;
+    }
+    .download-icons .download .df,
+    .download-icons .download .dfn {
+      font-size: 0;
+      line-height: 0;
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+      transition: all 0.25s ease;
+      display: block;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .download-icons .download:hover {
+      width: auto;
+      min-width: 56px;
+      padding: 0 12px;
+    }
+    .download-icons .download:hover i {
+      transform: scale(0.85);
+    }
+    .download-icons .download:hover .df {
+      font-size: 8px;
+      line-height: 1.2;
+      opacity: 0.7;
+      height: auto;
+      margin-top: 2px;
+    }
+    .download-icons .download:hover .dfn {
+      font-size: 9px;
+      line-height: 1.2;
+      opacity: 1;
+      height: auto;
+      font-weight: 700;
+    }
+
+    /* Platform hover colors */
+    .download-icons .download.apple:hover {
+      background: #333;
+      color: #fff;
+    }
+    .download-icons .download.windows:hover {
+      background: #0078d4;
+      color: #fff;
+    }
+    .download-icons .download.linux:hover {
+      background: #333;
+      color: #fcc624;
+    }
+    .download-icons .download.ubuntu:hover {
+      background: #e95420;
+      color: #fff;
+    }
+    .download-icons .download.android:hover {
+      background: #3ddc84;
+      color: #fff;
+    }
+
     /* Footer */
     .footer {
       background: #2f4d0c;
@@ -256,12 +346,43 @@
       <p class="hero-tagline">
         The cutest autonomous agent.
       </p>
-      <a class="hero-cta" href="https://github.com/milady-ai/milady/releases/latest">Download macOS DMG</a>
-      <div class="hero-secondary">
-        <a href="https://github.com/milady-ai/milady/releases/latest">Windows</a> &middot;
-        <a href="https://github.com/milady-ai/milady/releases/latest">Linux</a> &middot;
-        <code>milady setup</code>
-      </div>
+      <ul class="download-icons">
+        <li>
+          <a href="https://github.com/milady-ai/milady/releases/latest" class="download apple" title="App Store">
+            <i class="fa-brands fa-apple"></i>
+            <span class="df">Download from</span>
+            <span class="dfn">App Store</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/milady-ai/milady/releases/latest" class="download windows" title="Windows">
+            <i class="fa-brands fa-windows"></i>
+            <span class="df">Download from</span>
+            <span class="dfn">Windows</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/milady-ai/milady/releases/latest" class="download linux" title="Linux">
+            <i class="fa-brands fa-linux"></i>
+            <span class="df">Download for</span>
+            <span class="dfn">Linux</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/milady-ai/milady/releases/latest" class="download ubuntu" title="Ubuntu">
+            <i class="fa-brands fa-ubuntu"></i>
+            <span class="df">Download for</span>
+            <span class="dfn">Ubuntu</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/milady-ai/milady/releases/latest" class="download android" title="Google Play">
+            <i class="fa-brands fa-android"></i>
+            <span class="df">Download from</span>
+            <span class="dfn">Google Play</span>
+          </a>
+        </li>
+      </ul>
     </div>
   </div>
 
@@ -295,30 +416,6 @@ milady</code></pre>
         <li><strong>Connect a model</strong> provider (or skip to configure later)</li>
       </ol>
       <p>The agent starts immediately after onboarding. The web dashboard opens at <code>http://localhost:18789</code>.</p>
-    </div>
-  </div>
-
-  <!-- Download -->
-  <div class="box">
-    <div class="box-header-dark">Download</div>
-    <div class="box-body">
-      <table>
-        <thead>
-          <tr><th>Platform</th><th>Download</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>macOS (Apple Silicon)</td><td><a href="https://github.com/milady-ai/milady/releases/latest">Milady-arm64.dmg</a></td></tr>
-          <tr><td>macOS (Intel)</td><td><a href="https://github.com/milady-ai/milady/releases/latest">Milady-x64.dmg</a></td></tr>
-          <tr><td>Windows</td><td><a href="https://github.com/milady-ai/milady/releases/latest">Milady-Setup.exe</a></td></tr>
-          <tr><td>Linux</td><td><a href="https://github.com/milady-ai/milady/releases/latest">Milady.AppImage</a> / <a href="https://github.com/milady-ai/milady/releases/latest">.deb</a></td></tr>
-        </tbody>
-      </table>
-      <p class="note">Signed and notarized &mdash; no Gatekeeper warnings on a fresh install.</p>
-
-      <p style="margin-top: 1em; font-weight: 700; font-size: 13px;">Verify checksums</p>
-      <pre><code>cd ~/Downloads
-curl -fsSLO https://github.com/milady-ai/milady/releases/latest/download/SHA256SUMS.txt
-shasum -a 256 --check --ignore-missing SHA256SUMS.txt</code></pre>
     </div>
   </div>
 

@@ -78,7 +78,8 @@ function pickRelease(releases) {
     const bTime = Date.parse(b.published_at ?? b.created_at ?? 0);
     return bTime - aTime;
   });
-  return published[0] ?? null;
+  // Pick the most recent release that has downloadable assets
+  return published.find((r) => Array.isArray(r.assets) && r.assets.length > 0) ?? published[0] ?? null;
 }
 
 function pickAsset(assets, matchers) {
@@ -135,12 +136,13 @@ function buildRelease(release) {
       id: "windows-x64",
       label: "Windows",
       asset: pickAsset(assets, [
+        (asset) => /setup/i.test(asset.name) && /\.exe$/i.test(asset.name),
+        (asset) => /win/i.test(asset.name) && /\.exe$/i.test(asset.name),
         (asset) => /win/i.test(asset.name) && /\.msix$/i.test(asset.name),
         (asset) =>
           /win/i.test(asset.name) &&
           /setup/i.test(asset.name) &&
           /\.zip$/i.test(asset.name),
-        (asset) => /win/i.test(asset.name) && /\.exe$/i.test(asset.name),
       ]),
     },
     {
@@ -148,8 +150,14 @@ function buildRelease(release) {
       label: "Linux",
       asset: pickAsset(assets, [
         (asset) => /linux/i.test(asset.name) && /\.appimage$/i.test(asset.name),
-        (asset) => /linux/i.test(asset.name) && /\.deb$/i.test(asset.name),
         (asset) => /linux/i.test(asset.name) && /\.tar\.gz$/i.test(asset.name),
+      ]),
+    },
+    {
+      id: "linux-deb",
+      label: "Ubuntu / Debian",
+      asset: pickAsset(assets, [
+        (asset) => /linux/i.test(asset.name) && /\.deb$/i.test(asset.name),
       ]),
     },
   ]
