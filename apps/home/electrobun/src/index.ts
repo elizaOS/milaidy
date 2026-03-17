@@ -24,13 +24,13 @@ import {
 } from "../../app/electrobun/src/api-base";
 import { getAgentManager } from "../../app/electrobun/src/native/agent";
 import { getDesktopManager } from "../../app/electrobun/src/native/desktop";
-import { getPermissionManager } from "../../app/electrobun/src/native/permissions";
 import {
   enableVibrancy,
   ensureShadow,
   setNativeDragRegion,
   setTrafficLightsPosition,
 } from "../../app/electrobun/src/native/mac-window-effects";
+import { getPermissionManager } from "../../app/electrobun/src/native/permissions";
 import { readBuiltPreloadScript } from "../../app/electrobun/src/preload-validation";
 import { registerRpcHandlers } from "../../app/electrobun/src/rpc-handlers";
 import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "../../app/electrobun/src/rpc-schema";
@@ -320,7 +320,9 @@ async function startRendererServer(): Promise<string> {
 
 async function resolveRendererUrl(): Promise<string> {
   let rendererUrl =
-    process.env.ELIZA_HOME_RENDERER_URL ?? process.env.VITE_DEV_SERVER_URL ?? "";
+    process.env.ELIZA_HOME_RENDERER_URL ??
+    process.env.VITE_DEV_SERVER_URL ??
+    "";
 
   if (!rendererUrl) {
     rendererUrlPromise ??= startRendererServer();
@@ -678,7 +680,10 @@ async function main(): Promise<void> {
     try {
       mainWin.minimize();
     } catch (err) {
-      console.warn("[Main] Failed to minimize window on --hidden startup:", err);
+      console.warn(
+        "[Main] Failed to minimize window on --hidden startup:",
+        err,
+      );
     }
   }
 

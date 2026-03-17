@@ -22,7 +22,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  rmSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -90,7 +89,9 @@ function main() {
   const { dryRun, placeholdersOnly } = parseArgs();
 
   if (!placeholdersOnly && !existsSync(CHARACTERS_VRM)) {
-    console.error(`${TAG} ERROR: characters/vrm not found at ${CHARACTERS_VRM}`);
+    console.error(
+      `${TAG} ERROR: characters/vrm not found at ${CHARACTERS_VRM}`,
+    );
     process.exit(1);
   }
 

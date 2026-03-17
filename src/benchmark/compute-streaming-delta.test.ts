@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { computeStreamingDelta } from "@elizaos/app-core/state";
+import { describe, expect, it } from "vitest";
 
 function computeStreamingDeltaLegacy(
   existing: string,

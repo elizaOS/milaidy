@@ -135,9 +135,7 @@ function req(
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-const { startApiServer } = await import(
-  "@elizaos/autonomous/api/server.ts"
-);
+const { startApiServer } = await import("@elizaos/autonomous/api/server.ts");
 
 describe("on-chain route error propagation (MW-02)", () => {
   let port: number;

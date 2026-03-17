@@ -1013,7 +1013,11 @@ function startVite() {
   const viteCmd = hasBun ? "bunx" : "npx";
   viteProcess = spawn(viteCmd, ["vite", "--port", String(UI_PORT)], {
     cwd: path.join(cwd, appDir),
-    env: { ...process.env, MILADY_API_PORT: String(API_PORT), ELIZA_HOME_API_PORT: String(API_PORT) },
+    env: {
+      ...process.env,
+      MILADY_API_PORT: String(API_PORT),
+      ELIZA_HOME_API_PORT: String(API_PORT),
+    },
     stdio: ["inherit", "pipe", "pipe"],
   });
 

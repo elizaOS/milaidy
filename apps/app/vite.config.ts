@@ -57,7 +57,14 @@ function publicSrcPlugin(): Plugin {
   const publicSrc = path.resolve(here, "public_src");
   const charactersVrm = path.resolve(here, "characters", "vrm");
   const charToIndex: Record<string, number> = {
-    Chen: 1, Jin: 2, Kei: 3, Momo: 4, Rin: 5, Ryu: 6, Satoshi: 7, Yuki: 8,
+    Chen: 1,
+    Jin: 2,
+    Kei: 3,
+    Momo: 4,
+    Rin: 5,
+    Ryu: 6,
+    Satoshi: 7,
+    Yuki: 8,
   };
   const indexToChar = Object.fromEntries(
     Object.entries(charToIndex).map(([k, v]) => [v, k]),
@@ -73,10 +80,13 @@ function publicSrcPlugin(): Plugin {
           const charName = indexToChar[index];
           const charFile =
             charName && path.join(charactersVrm, `${charName}.vrm`);
-          const publicSrcFile = path.join(publicSrc, "vrms", `milady-${index}.vrm`);
-          const file = charFile && fs.existsSync(charFile)
-            ? charFile
-            : publicSrcFile;
+          const publicSrcFile = path.join(
+            publicSrc,
+            "vrms",
+            `milady-${index}.vrm`,
+          );
+          const file =
+            charFile && fs.existsSync(charFile) ? charFile : publicSrcFile;
           if (fs.existsSync(file)) {
             res.setHeader("Content-Type", "model/gltf-binary");
             fs.createReadStream(file).pipe(res);

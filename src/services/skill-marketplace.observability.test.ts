@@ -6,12 +6,9 @@ const { createSpanMock, spanSuccessMock, spanFailureMock } = vi.hoisted(() => ({
   spanFailureMock: vi.fn(),
 }));
 
-vi.mock(
-  "@elizaos/autonomous/diagnostics/integration-observability.ts",
-  () => ({
-    createIntegrationTelemetrySpan: createSpanMock,
-  }),
-);
+vi.mock("@elizaos/autonomous/diagnostics/integration-observability.ts", () => ({
+  createIntegrationTelemetrySpan: createSpanMock,
+}));
 
 vi.mock("@elizaos/core", () => ({
   logger: {

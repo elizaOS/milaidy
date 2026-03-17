@@ -29,7 +29,10 @@ export default {
       // ElizaOS backend server bundle
       "../../../dist": "eliza-dist",
       ...(process.platform === "darwin"
-        ? { "../../app/electrobun/src/libMacWindowEffects.dylib": "libMacWindowEffects.dylib" }
+        ? {
+            "../../app/electrobun/src/libMacWindowEffects.dylib":
+              "libMacWindowEffects.dylib",
+          }
         : {}),
     },
     mac: {

@@ -51,11 +51,7 @@ export default defineConfig({
   root: here,
   base: "./",
   publicDir: path.resolve(here, "public"),
-  plugins: [
-    tailwindcss(),
-    react(),
-    electronCorsPlugin(),
-  ],
+  plugins: [tailwindcss(), react(), electronCorsPlugin()],
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: [

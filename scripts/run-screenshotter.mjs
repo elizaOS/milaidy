@@ -15,8 +15,22 @@ import { chromium } from "playwright";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const PREVIEWS_DIR = path.join(ROOT, "apps", "app", "public", "vrms", "previews");
-const BACKGROUNDS_DIR = path.join(ROOT, "apps", "app", "public", "vrms", "backgrounds");
+const PREVIEWS_DIR = path.join(
+  ROOT,
+  "apps",
+  "app",
+  "public",
+  "vrms",
+  "previews",
+);
+const BACKGROUNDS_DIR = path.join(
+  ROOT,
+  "apps",
+  "app",
+  "public",
+  "vrms",
+  "backgrounds",
+);
 const VRM_COUNT = 8;
 
 function parseArgs() {
@@ -111,7 +125,9 @@ async function main() {
       fs.writeFileSync(bgPath, buf);
     }
 
-    console.log(`[run-screenshotter] Done. Saved ${saved}/${VRM_COUNT} previews and backgrounds.`);
+    console.log(
+      `[run-screenshotter] Done. Saved ${saved}/${VRM_COUNT} previews and backgrounds.`,
+    );
   } finally {
     await browser.close();
   }

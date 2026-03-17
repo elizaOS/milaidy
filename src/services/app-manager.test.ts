@@ -2,6 +2,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { AppManager } from "@elizaos/autonomous/services/app-manager.ts";
+import * as registryClient from "@elizaos/autonomous/services/registry-client.ts";
 import {
   type Action,
   type Character,
@@ -24,8 +26,6 @@ import {
   pluginRegistry,
 } from "@elizaos/plugin-plugin-manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppManager } from "@elizaos/autonomous/services/app-manager.ts";
-import * as registryClient from "@elizaos/autonomous/services/registry-client.ts";
 import type {
   PluginManagerLike,
   RegistryPluginInfo,

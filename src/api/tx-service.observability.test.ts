@@ -16,12 +16,9 @@ const {
   mockWaitForTransaction: vi.fn(),
 }));
 
-vi.mock(
-  "@elizaos/autonomous/diagnostics/integration-observability.ts",
-  () => ({
-    createIntegrationTelemetrySpan: createSpanMock,
-  }),
-);
+vi.mock("@elizaos/autonomous/diagnostics/integration-observability.ts", () => ({
+  createIntegrationTelemetrySpan: createSpanMock,
+}));
 
 vi.mock("ethers", () => {
   class MockJsonRpcProvider {
