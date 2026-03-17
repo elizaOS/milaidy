@@ -17,6 +17,21 @@ export default defineConfig({
         replacement: path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       },
       {
+        // Vite import analysis intermittently fails to resolve the published
+        // package metadata for @elizaos/core in test mode even though Bun/Node
+        // resolve it correctly. Pin tests to the published node bundle.
+        find: "@elizaos/core",
+        replacement: path.join(
+          repoRoot,
+          "node_modules",
+          "@elizaos",
+          "core",
+          "dist",
+          "node",
+          "index.node.js",
+        ),
+      },
+      {
         find: "@miladyai/capacitor-gateway",
         replacement: path.join(
           repoRoot,
@@ -161,6 +176,12 @@ export default defineConfig({
         // plugin-pdf currently pulls in a browser-oriented pdfjs bundle that
         // is not required for the unit/e2e coverage we run in CI.
         find: "@elizaos/plugin-pdf",
+        replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
+      },
+      {
+        // @elizaos/plugin-form currently publishes a broken entry that points
+        // at a missing nested @elizaos/core bundle. Stub it in tests.
+        find: "@elizaos/plugin-form",
         replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
       },
       {
