@@ -26,10 +26,7 @@ export function Footer() {
 
         {/* Social links */}
         <div className="flex gap-6">
-          <SocialLink
-            href="https://github.com/milady-ai/milady"
-            label="GitHub"
-          >
+          <SocialLink href="https://github.com/milady-ai/milady" label="GitHub">
             <svg
               aria-hidden="true"
               className="w-6 h-6"

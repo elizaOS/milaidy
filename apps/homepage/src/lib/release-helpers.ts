@@ -45,9 +45,7 @@ export function pickRelease(releases: GithubRelease[]): GithubRelease | null {
     return bTime - aTime;
   });
   return (
-    published.find(
-      (r) => Array.isArray(r.assets) && r.assets.length > 0,
-    ) ??
+    published.find((r) => Array.isArray(r.assets) && r.assets.length > 0) ??
     published[0] ??
     null
   );

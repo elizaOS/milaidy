@@ -8,7 +8,13 @@ import {
   isLifoPopoutValue,
   isNative,
 } from "@miladyai/app-core/platform";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   AdvancedPageView,
   AppsPageView,
@@ -348,20 +354,8 @@ export function App() {
     }
   }, [startupPhase, startupError, retryStartup]);
 
-  // Pop-out mode — render only StreamView, skip startup gates.
-  // Platform init is skipped in main.tsx; AppProvider hydrates WS in background.
-  if (isPopout) {
-    return (
-      <div className="flex flex-col h-screen w-screen font-body text-txt bg-bg overflow-hidden">
-        <StreamView />
-      </div>
-    );
-  }
-
-  if (startupError) {
-    return <StartupFailureView error={startupError} onRetry={retryStartup} />;
-  }
-
+  // Loader fade-out hooks — must be declared before any early returns
+  // to keep React hook order stable across renders.
   const shouldLoad = onboardingLoading || agentStarting;
   const [loaderFadingOut, setLoaderFadingOut] = useState(false);
   const showLoaderRef = useRef(true);
@@ -382,6 +376,20 @@ export function App() {
       return () => clearTimeout(timer);
     }
   }, [shouldLoad]);
+
+  // Pop-out mode — render only StreamView, skip startup gates.
+  // Platform init is skipped in main.tsx; AppProvider hydrates WS in background.
+  if (isPopout) {
+    return (
+      <div className="flex flex-col h-screen w-screen font-body text-txt bg-bg overflow-hidden">
+        <StreamView />
+      </div>
+    );
+  }
+
+  if (startupError) {
+    return <StartupFailureView error={startupError} onRetry={retryStartup} />;
+  }
 
   if (authRequired && !shouldLoad) return <PairingView />;
   if (!onboardingComplete && !shouldLoad) return <OnboardingWizard />;
