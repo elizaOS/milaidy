@@ -5,9 +5,7 @@ import {
   pickRelease,
 } from "../lib/release-helpers";
 
-function makeRelease(
-  overrides: Partial<GithubRelease> = {},
-): GithubRelease {
+function makeRelease(overrides: Partial<GithubRelease> = {}): GithubRelease {
   return {
     draft: false,
     prerelease: false,
