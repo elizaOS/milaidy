@@ -515,7 +515,7 @@ vi.mock("three/examples/jsm/controls/OrbitControls.js", () => ({
   },
 }));
 
-vi.mock("@milady/app-core/utils", () => ({
+vi.mock("@miladyai/app-core/utils", () => ({
   resolveAppAssetUrl: vi.fn((p: string) => `/mock/${p}`),
 }));
 

@@ -49,7 +49,7 @@ describe("runtime-package-manifest", () => {
 
   it("recognizes scoped and unscoped runtime plugin packages", () => {
     expect(isRuntimePluginPackage("@elizaos/plugin-openai")).toBe(true);
-    expect(isRuntimePluginPackage("@milady/plugin-custom-rtmp")).toBe(true);
+    expect(isRuntimePluginPackage("@miladyai/plugin-custom-rtmp")).toBe(true);
     expect(isRuntimePluginPackage("@homunculuslabs/plugin-zai")).toBe(true);
     expect(isRuntimePluginPackage("plugin-local-only")).toBe(true);
     expect(isRuntimePluginPackage("@elizaos/core")).toBe(false);

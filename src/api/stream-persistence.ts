@@ -11,7 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { logger } from "@elizaos/core";
-import type { StreamingDestination } from "@milady/plugin-streaming-base";
+import type { StreamingDestination } from "@miladyai/plugin-streaming-base";
 
 // ---------------------------------------------------------------------------
 // Interfaces

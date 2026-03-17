@@ -1,5 +1,5 @@
 {
-  "name": "@milady/capacitor-gateway",
+  "name": "@miladyai/capacitor-gateway",
   "version": "1.0.0",
   "description": "Connects the app to a Milady Gateway with discovery, RPC, and realtime events.",
   "keywords": [
@@ -9,8 +9,16 @@
     "networking"
   ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./src/index.ts",
-  "types": "./dist/plugin.d.ts",
+  "module": "./dist/plugin.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/plugin.js",
+      "require": "./dist/plugin.cjs.js"
+    },
+    "./package.json": "./package.json"
+  },
   "unpkg": "dist/plugin.js",
   "files": [
     "android/src/main/",
@@ -60,6 +68,9 @@
   },
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "capacitor": {
     "ios": {

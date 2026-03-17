@@ -4,7 +4,7 @@
  * Renders a unified plugin list with searchable/filterable cards and per-plugin settings.
  */
 
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import type { LucideIcon } from "lucide-react";
 import {
   Binary,
@@ -1950,9 +1950,8 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       let shouldScroll = false;
       setConnectorExpandedIds((prev) => {
         if (desktopConnectorLayout) {
-          if (prev.has(pluginId)) {
-            return new Set();
-          }
+          // Accordion: toggle off if already open, otherwise open this one only
+          if (prev.has(pluginId)) return new Set();
           shouldScroll = true;
           return new Set([pluginId]);
         }
@@ -1983,7 +1982,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             className="flex w-[22rem] shrink-0 border-r border-border/50 bg-bg/35 backdrop-blur-xl"
           >
             <div className="flex min-h-full flex-1 flex-col sticky top-0 max-h-screen">
-              <div className="border-b border-border/40 px-5 py-5">
+              <div className="border-b border-border/40 px-5 py-5 text-center">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted/80">
                   Connectors
                 </div>
@@ -1992,7 +1991,12 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 </div>
               </div>
               <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-                {visiblePlugins.map((plugin) => {
+                {(desktopConnectorLayout
+                  ? visiblePlugins.filter((plugin) => {
+                      return plugin.id === connectorSelectedId;
+                    })
+                  : visiblePlugins
+                ).map((plugin) => {
                   const isSelected = connectorSelectedId === plugin.id;
                   const isExpanded = connectorExpandedIds.has(plugin.id);
                   const isToggleBusy = togglingPlugins.has(plugin.id);
@@ -2120,7 +2124,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 data-testid="connectors-settings-content"
                 className="space-y-4"
               >
-                {visiblePlugins.map((plugin) => {
+                {(desktopConnectorLayout
+                  ? visiblePlugins.filter((p) => p.id === connectorSelectedId)
+                  : visiblePlugins
+                ).map((plugin) => {
                   const hasParams =
                     (plugin.parameters?.length ?? 0) > 0 &&
                     plugin.id !== "__ui-showcase__";
@@ -2722,6 +2729,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             <div className="relative flex-1 min-w-[220px]">
               <Input
                 type="text"
+                name="plugin-search"
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
                 className="w-full bg-card/60 backdrop-blur-md shadow-inner pr-8 h-9 rounded-xl focus-visible:ring-accent border-border/40"
                 placeholder={searchPlaceholder}
                 value={pluginSearch}

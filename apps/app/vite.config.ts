@@ -80,17 +80,44 @@ export default defineConfig({
     dedupe: ["react", "react-dom", "three", "@sparkjsdev/spark"],
     alias: [
       /**
-       * Map @milady/capacitor-* packages directly to their TS source.
+       * Map @miladyai/capacitor-* packages directly to their TS source.
        * This bypasses resolution issues with local workspace symlinks and
        * outdated bundle exports in the plugins' dist folders.
        */
       {
-        find: /^@milady\/capacitor-(.*)/,
+        find: /^@miladyai\/capacitor-(.*)/,
         replacement: path.resolve(here, "plugins/$1/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/autonomous$/,
+        replacement: path.resolve(
+          miladyRoot,
+          "packages/autonomous/src/index.ts",
+        ),
+      },
+      {
+        find: /^@miladyai\/autonomous\/(.*)$/,
+        replacement: path.resolve(miladyRoot, "packages/autonomous/src/$1"),
+      },
+      {
+        find: /^@miladyai\/app-core$/,
+        replacement: path.resolve(miladyRoot, "packages/app-core/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/app-core\/(.*)$/,
+        replacement: path.resolve(miladyRoot, "packages/app-core/src/$1"),
+      },
+      {
+        find: /^@miladyai\/ui$/,
+        replacement: path.resolve(miladyRoot, "packages/ui/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/ui\/(.*)$/,
+        replacement: path.resolve(miladyRoot, "packages/ui/src/$1"),
       },
       // Allow importing from the milady src (but NOT workspace packages)
       {
-        find: /^@milady(?!\/(capacitor-|app-core|ui))/,
+        find: /^@miladyai(?!\/(?:autonomous|capacitor-|app-core|ui))/,
         replacement: path.resolve(miladyRoot, "src"),
       },
     ],

@@ -1,4 +1,4 @@
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   client,

@@ -4,7 +4,7 @@
  * Uses QR-authenticated Baileys sessions (created via the pairing service)
  * to send and receive WhatsApp messages through the elizaOS runtime.
  *
- * Loaded as `@milady/plugin-whatsapp` via CHANNEL_PLUGIN_MAP when
+ * Loaded as `@miladyai/plugin-whatsapp` via CHANNEL_PLUGIN_MAP when
  * `config.connectors.whatsapp` is present.
  *
  * ## Security & Terms of Service Notice

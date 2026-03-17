@@ -1,4 +1,4 @@
-import { Button } from "@milady/ui";
+import { Button } from "@miladyai/ui";
 import type { RegistryAppInfo } from "../../api";
 import { useApp } from "../../state";
 import { getAppDetailExtension } from "./extensions/registry";

@@ -5,7 +5,7 @@
  * the `mouthOpen` prop. Sized to fill its parent container.
  */
 
-import { resolveAppAssetUrl } from "@milady/app-core/utils";
+import { resolveAppAssetUrl } from "@miladyai/app-core/utils";
 import { useEffect, useEffectEvent, useRef } from "react";
 import {
   type CameraProfile,
@@ -319,7 +319,8 @@ export function VrmViewer(props: VrmViewerProps) {
     currentWorldPathRef.current = worldUrl;
     const abortController = new AbortController();
 
-    const worldLoadPromise = (async () => {
+    let worldLoadPromise: Promise<void> | null = null;
+    worldLoadPromise = (async () => {
       try {
         await engine.whenReady();
         if (!mountedRef.current || abortController.signal.aborted) return;

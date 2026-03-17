@@ -1,5 +1,5 @@
 {
-  "name": "@milady/plugin-streaming-base",
+  "name": "@miladyai/plugin-streaming-base",
   "description": "Shared factory for RTMP streaming destination plugins",
   "version": "0.1.0",
   "type": "module",

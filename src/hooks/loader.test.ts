@@ -40,14 +40,14 @@ vi.mock("@elizaos/core", () => ({
 
 // Mock discoverHooks to return controlled entries
 const mockDiscoverHooks = vi.fn<() => Promise<HookEntry[]>>();
-vi.mock("./discovery", () => ({
+vi.mock("@miladyai/autonomous/hooks/discovery", () => ({
   discoverHooks: (...args: unknown[]) => mockDiscoverHooks(...(args as [])),
 }));
 
 // Mock eligibility — default to eligible
 const mockCheckEligibility = vi.fn();
 const mockResolveHookConfig = vi.fn();
-vi.mock("./eligibility", () => ({
+vi.mock("@miladyai/autonomous/hooks/eligibility", () => ({
   checkEligibility: (...args: unknown[]) =>
     mockCheckEligibility(...(args as [])),
   resolveHookConfig: (...args: unknown[]) =>
@@ -57,7 +57,7 @@ vi.mock("./eligibility", () => ({
 // Track calls to registerHook and clearHooks
 const mockRegisterHook = vi.fn();
 const mockClearHooks = vi.fn();
-vi.mock("./registry", () => ({
+vi.mock("@miladyai/autonomous/hooks/registry", () => ({
   registerHook: (...args: unknown[]) => mockRegisterHook(...(args as [])),
   clearHooks: () => mockClearHooks(),
 }));
@@ -148,7 +148,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 async function getLoadHooks() {
-  const mod = await import("./loader");
+  const mod = await import("@miladyai/autonomous/hooks/loader");
   return mod.loadHooks;
 }
 

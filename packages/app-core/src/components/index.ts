@@ -1,39 +1,63 @@
 export * from "./ApiKeyConfig";
+export * from "./AdvancedPageView";
+export * from "./AgentActivityBox";
 export * from "./AppsPageView";
 export * from "./AppsView";
 export * from "./AvatarLoader";
-// VrmEngine and VrmViewer are intentionally excluded from this barrel.
-// They pull in three / @pixiv/three-vrm / @sparkjsdev/spark and are only
-// consumed internally by VrmStage and CompanionSceneHost.  Keeping them
-// out of the barrel lets consumers lazy-load the 3D scene.
+export * from "./AvatarSelector";
+export * from "./avatar/VrmEngine";
+export * from "./avatar/VrmViewer";
+export * from "./BscTradePanel";
 export * from "./BugReportModal";
-// ChatAvatar is intentionally excluded from this barrel — it imports
-// VrmViewer which pulls in three.  Import directly from "./ChatAvatar".
+export * from "./CharacterView";
+export * from "./ChatAvatar";
+export * from "./ChatComposer";
+export * from "./ChatMessage";
+export * from "./ChatModalView";
+export * from "./ChatView";
 export * from "./CloudSourceControls";
 export * from "./CodingAgentSettingsSection";
 export * from "./CommandPalette";
+export * from "./CompanionSceneHost";
+export * from "./CompanionShell";
+export * from "./CompanionView";
 export * from "./ConfigPageView";
 export * from "./ConfigSaveFooter";
 export * from "./ConfirmModal";
 export * from "./ConnectionFailedBanner";
+export * from "./ConversationsSidebar";
 export * from "./ConnectorsPageView";
 export * from "./confirm-delete-control";
+export * from "./CustomActionEditor";
+export * from "./CustomActionsPanel";
+export * from "./CustomActionsView";
 export * from "./DatabasePageView";
 export * from "./DatabaseView";
 export * from "./ElizaCloudDashboard";
 export * from "./EmotePicker";
 export * from "./ErrorBoundary";
+export * from "./FineTuningView";
 export * from "./format";
 export * from "./GameView";
 export * from "./GameViewOverlay";
+export * from "./GlobalEmoteOverlay";
 export * from "./HeartbeatsView";
+export * from "./Header";
+export * from "./InventoryView";
+export * from "./KnowledgeView";
+export * from "./knowledge-upload-image";
 export * from "./LanguageDropdown";
+export * from "./LifoMonitorPanel";
+export * from "./LifoSandboxView";
 export * from "./LoadingScreen";
 export * from "./LogsPageView";
 export * from "./LogsView";
 export * from "./labels";
 export * from "./MediaGalleryView";
 export * from "./MediaSettingsSection";
+export * from "./MessageContent";
+export * from "./ElizaCloudDashboard";
+export * from "./OnboardingWizard";
 export * from "./PairingView";
 export * from "./PermissionsSection";
 export * from "./PluginsPageView";
@@ -44,22 +68,27 @@ export * from "./RuntimeView";
 export * from "./SaveCommandModal";
 export * from "./SecretsView";
 export * from "./SettingsView";
+export * from "./ShellOverlays";
 export * from "./ShortcutsOverlay";
 export * from "./SkillsView";
 export * from "./StartupFailureView";
+export * from "./StreamView";
 export * from "./SubscriptionStatus";
 export * from "./SystemWarningBanner";
-// CompanionSceneHost is intentionally excluded from this barrel — it imports
-// VrmStage which pulls in the heavy 3D stack.  Import directly from
-// "./CompanionSceneHost" or use the hook from "./shared-companion-scene-context".
 export { useSharedCompanionScene } from "./shared-companion-scene-context";
 export * from "./skeletons";
 export * from "./ThemeToggle";
+export * from "./TriggersView";
+export * from "./TrajectoriesView";
+export * from "./TrajectoryDetailView";
+export * from "./trajectory-format";
 export * from "./ui-badges";
 export * from "./ui-switch";
 export * from "./VectorBrowserView";
 export * from "./VoiceConfigView";
-// VrmStage is intentionally excluded from this barrel for the same reason
-// as VrmEngine/VrmViewer — it statically imports the heavy 3D stack.
-// Import directly from "./VrmStage" when needed.
+export * from "./VrmStage";
 export * from "./WhatsAppQrOverlay";
+export * from "./chainConfig";
+export * from "./companion-shell-styles";
+export * from "./conversations/ConversationListItem";
+export * from "./conversations/conversation-utils";

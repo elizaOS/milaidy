@@ -1,5 +1,5 @@
 /**
- * Shared utility functions for @milady/plugin-bnb-identity.
+ * Shared utility functions for @miladyai/plugin-bnb-identity.
  *
  * Extracted from actions.ts to keep individual modules under 500 LOC.
  */

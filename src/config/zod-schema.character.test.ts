@@ -33,6 +33,7 @@ describe("CharacterSchema", () => {
       bio: "A test agent.",
       system: "You are a test agent.",
       adjectives: ["curious", "witty"],
+      topics: ["ai", "music"],
       style: {
         all: ["Be concise."],
         chat: ["Be casual."],
@@ -106,6 +107,13 @@ describe("CharacterSchema", () => {
   it("rejects adjective longer than 100 characters", () => {
     const result = CharacterSchema.safeParse({
       adjectives: ["A".repeat(101)],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects topic longer than 100 characters", () => {
+    const result = CharacterSchema.safeParse({
+      topics: ["A".repeat(101)],
     });
     expect(result.success).toBe(false);
   });

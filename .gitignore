@@ -124,3 +124,17 @@ data/
 # Debug PTY captures from plugin-agent-orchestrator (PARALLAX_DEBUG_CAPTURE=1)
 .parallax/
 .worktrees/
+
+# Generated raw avatar/animation assets from local setup hooks (non-source)
+apps/app/public/animations/**/*.fbx
+apps/app/public/animations/**/*.glb
+apps/app/public/animations/*.fbx
+apps/app/public/animations/*.glb
+apps/app/public/vrms/**/*.vrm
+apps/app/public/vrms/*.vrm
+apps/app/public/vrms/imported-avatars.json
+apps/app/public/vrms/backgrounds/*.png
+apps/app/public/vrms/previews/*.png
+apps/app/public/vrms/backgrounds/*.jpg
+apps/app/public/vrms/previews/*.jpg
+apps/app/public/vrms/*.jpg

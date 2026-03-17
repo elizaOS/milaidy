@@ -8,7 +8,7 @@
  * - Connection status indicator
  */
 
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { client, type LogEntry } from "../api";
 import { invokeDesktopBridgeRequest, isElectrobunRuntime } from "../bridge";

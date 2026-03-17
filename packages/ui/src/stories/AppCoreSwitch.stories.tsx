@@ -1,4 +1,4 @@
-import { Switch } from "@milady/app-core/components";
+import { Switch } from "@miladyai/app-core/components";
 import type { Meta, StoryObj } from "@storybook/react";
 import React, { useState } from "react";
 

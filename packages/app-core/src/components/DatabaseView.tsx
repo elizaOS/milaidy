@@ -6,7 +6,7 @@
  *  - SQL editor: code textarea with run button and results grid
  */
 
-import { Badge, Button, Input, Textarea } from "@milady/ui";
+import { Badge, Button, Input, Textarea } from "@miladyai/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {

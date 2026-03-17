@@ -6,7 +6,7 @@
  * throughout the app (--bg, --card, --border, --accent, --muted, --txt, etc.).
  */
 
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type {

@@ -194,12 +194,14 @@ export class TalkModeWeb extends WebPlugin {
       const utterance = new SpeechSynthesisUtterance(text);
       this.currentUtterance = utterance;
 
+      // Always set language — fallback to en-US if directive doesn't specify.
+      // Without this, the browser uses the system locale, which may read
+      // numbers in the wrong language (e.g., Chinese on a Chinese-locale system).
+      utterance.lang = options.directive?.language || "en-US";
+
       // Apply directive settings if available
       if (options.directive?.speed) {
         utterance.rate = options.directive.speed;
-      }
-      if (options.directive?.language) {
-        utterance.lang = options.directive.language;
       }
 
       utterance.onend = () => {

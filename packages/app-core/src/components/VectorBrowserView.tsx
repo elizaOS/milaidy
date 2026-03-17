@@ -7,7 +7,7 @@
  * Toggle to a 2D scatter-plot graph view of embeddings.
  */
 
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { client, type QueryResult, type TableInfo } from "../api";
 import { useApp } from "../state";

@@ -1,9 +1,29 @@
 {
-  "name": "@milady/app-core",
+  "name": "@miladyai/app-core",
   "version": "1.0.0",
-  "private": true,
+  "description": "Shared application core for Milady shells and white-label apps.",
   "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/milady-ai/milady",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milady-ai/milady.git",
+    "directory": "packages/app-core"
+  },
+  "keywords": [
+    "milady",
+    "app-core",
+    "react",
+    "elizaos"
+  ],
   "main": "src/index.ts",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "bun run build:dist",
+    "typecheck": "test -f ../ui/dist/index.d.ts || (cd ../ui && bun run build) && tsc --noEmit -p tsconfig.json",
+    "build:dist": "test -f ../ui/dist/index.d.ts || (cd ../ui && bun run build) && rimraf dist && tsc -p tsconfig.build.json && node ../../scripts/copy-package-assets.mjs packages/app-core src/styles src/i18n/locales && node ../../scripts/prepare-package-dist.mjs packages/app-core",
+    "pack:dry-run": "cd dist && npm pack --dry-run"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api/index.ts",
@@ -28,9 +48,11 @@
     "./chat": "./src/chat/index.ts",
     "./platform": "./src/platform/index.ts",
     "./coding": "./src/coding/index.ts",
+    "./onboarding-config": "./src/onboarding-config.ts",
     "./providers": "./src/providers/index.ts",
     "./actions": "./src/actions/index.ts",
     "./styles/base.css": "./src/styles/base.css",
+    "./styles/xterm.css": "./src/styles/xterm.css",
     "./styles/anime.css": "./src/styles/anime.css",
     "./styles/onboarding-game.css": "./src/styles/onboarding-game.css",
     "./styles/styles.css": "./src/styles/styles.css"
@@ -42,27 +64,29 @@
     "three": "^0.182.0"
   },
   "dependencies": {
+    "@miladyai/autonomous": "workspace:*",
     "@capacitor/core": "8.0.2",
     "@capacitor/haptics": "8.0.0",
+    "@capacitor/keyboard": "8.0.0",
     "@capacitor/preferences": "^8.0.1",
     "@sparkjsdev/spark": "^0.1.10",
-    "@milady/capacitor-camera": "workspace:*",
-    "@milady/capacitor-canvas": "workspace:*",
-    "@milady/capacitor-desktop": "workspace:*",
-    "@milady/capacitor-gateway": "workspace:*",
-    "@milady/capacitor-location": "workspace:*",
-    "@milady/capacitor-screencapture": "workspace:*",
-    "@milady/capacitor-swabble": "workspace:*",
-    "@milady/capacitor-talkmode": "workspace:*",
-    "@milady/ui": "workspace:*",
+    "@miladyai/ui": "workspace:*",
+    "three": "^0.182.0",
     "lucide-react": "^0.575.0",
     "zod": "^4.3.6"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
+    "@storybook/react": "8.6.14",
+    "@storybook/test": "8.6.14",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.182.0",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3"
+    "react-test-renderer": "^19.2.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

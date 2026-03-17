@@ -9,25 +9,20 @@
  */
 
 import { Capacitor } from "@capacitor/core";
-import type { CameraPlugin as ICameraPlugin } from "@milady/capacitor-camera";
-import { Camera as CameraPlugin } from "@milady/capacitor-camera";
-import type { CanvasPlugin as ICanvasPlugin } from "@milady/capacitor-canvas";
-import { Canvas as CanvasPlugin } from "@milady/capacitor-canvas";
-import type { DesktopPlugin as IDesktopPlugin } from "@milady/capacitor-desktop";
-import { Desktop as DesktopPlugin } from "@milady/capacitor-desktop";
-// Import types
-import type { GatewayPlugin as IGatewayPlugin } from "@milady/capacitor-gateway";
-// Import all Milady plugins
-import { Gateway as GatewayPlugin } from "@milady/capacitor-gateway";
-import type { LocationPlugin as ILocationPlugin } from "@milady/capacitor-location";
-import { Location as LocationPlugin } from "@milady/capacitor-location";
-import type { ScreenCapturePlugin as IScreenCapturePlugin } from "@milady/capacitor-screencapture";
-import { ScreenCapture as ScreenCapturePlugin } from "@milady/capacitor-screencapture";
-import type { SwabblePlugin as ISwabblePlugin } from "@milady/capacitor-swabble";
-import { Swabble as SwabblePlugin } from "@milady/capacitor-swabble";
-import type { TalkModePlugin as ITalkModePlugin } from "@milady/capacitor-talkmode";
-import { TalkMode as TalkModePlugin } from "@milady/capacitor-talkmode";
 import { isElectrobunRuntime } from "./electrobun-runtime";
+import {
+  getCameraPlugin,
+  getCanvasPlugin,
+  getDesktopPlugin,
+  getGatewayPlugin,
+  getLocationPlugin,
+  getScreenCapturePlugin,
+  getSwabblePlugin,
+  getTalkModePlugin,
+  type GenericNativePlugin,
+  type SwabblePluginLike,
+  type TalkModePluginLike,
+} from "./native-plugins";
 
 // Platform detection
 const platform = Capacitor.getPlatform();
@@ -222,21 +217,21 @@ function wrapPlugin<T extends Record<string, unknown>>(
  */
 export interface MiladyPlugins {
   /** Gateway connection plugin */
-  gateway: WrappedPlugin<IGatewayPlugin>;
+  gateway: WrappedPlugin<GenericNativePlugin>;
   /** Voice wake word plugin */
-  swabble: WrappedPlugin<ISwabblePlugin>;
+  swabble: WrappedPlugin<SwabblePluginLike>;
   /** Talk mode plugin */
-  talkMode: WrappedPlugin<ITalkModePlugin>;
+  talkMode: WrappedPlugin<TalkModePluginLike>;
   /** Camera plugin */
-  camera: WrappedPlugin<ICameraPlugin>;
+  camera: WrappedPlugin<GenericNativePlugin>;
   /** Location plugin */
-  location: WrappedPlugin<ILocationPlugin>;
+  location: WrappedPlugin<GenericNativePlugin>;
   /** Screen capture plugin */
-  screenCapture: WrappedPlugin<IScreenCapturePlugin>;
+  screenCapture: WrappedPlugin<GenericNativePlugin>;
   /** Canvas plugin */
-  canvas: WrappedPlugin<ICanvasPlugin>;
+  canvas: WrappedPlugin<GenericNativePlugin>;
   /** Desktop plugin (macOS/Electron) */
-  desktop: WrappedPlugin<IDesktopPlugin>;
+  desktop: WrappedPlugin<GenericNativePlugin>;
   /** Plugin capabilities */
   capabilities: PluginCapabilities;
 }
@@ -259,45 +254,42 @@ export function getPlugins(): MiladyPlugins {
 
   pluginsInstance = {
     gateway: {
-      plugin: wrapPlugin(GatewayPlugin as IGatewayPlugin, "Gateway"),
+      plugin: wrapPlugin(getGatewayPlugin(), "Gateway"),
       isNative: isNative,
       hasFallback: true,
     },
     swabble: {
-      plugin: wrapPlugin(SwabblePlugin as ISwabblePlugin, "Swabble"),
+      plugin: wrapPlugin(getSwabblePlugin(), "Swabble"),
       isNative: isNative,
       hasFallback: capabilities.voiceWake.available,
     },
     talkMode: {
-      plugin: wrapPlugin(TalkModePlugin as ITalkModePlugin, "TalkMode"),
+      plugin: wrapPlugin(getTalkModePlugin(), "TalkMode"),
       isNative: isNative,
       hasFallback: capabilities.talkMode.available,
     },
     camera: {
-      plugin: wrapPlugin(CameraPlugin as ICameraPlugin, "Camera"),
+      plugin: wrapPlugin(getCameraPlugin(), "Camera"),
       isNative: isNative,
       hasFallback: capabilities.camera.available,
     },
     location: {
-      plugin: wrapPlugin(LocationPlugin as ILocationPlugin, "Location"),
+      plugin: wrapPlugin(getLocationPlugin(), "Location"),
       isNative: isNative,
       hasFallback: capabilities.location.available,
     },
     screenCapture: {
-      plugin: wrapPlugin(
-        ScreenCapturePlugin as IScreenCapturePlugin,
-        "ScreenCapture",
-      ),
+      plugin: wrapPlugin(getScreenCapturePlugin(), "ScreenCapture"),
       isNative: isNative,
       hasFallback: capabilities.screenCapture.available,
     },
     canvas: {
-      plugin: wrapPlugin(CanvasPlugin as ICanvasPlugin, "Canvas"),
+      plugin: wrapPlugin(getCanvasPlugin(), "Canvas"),
       isNative: isNative,
       hasFallback: true,
     },
     desktop: {
-      plugin: wrapPlugin(DesktopPlugin as IDesktopPlugin, "Desktop"),
+      plugin: wrapPlugin(getDesktopPlugin(), "Desktop"),
       isNative: isElectron,
       hasFallback: false,
     },

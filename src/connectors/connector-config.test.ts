@@ -120,7 +120,7 @@ describe("plugin auto-enable mapping", () => {
   const CONNECTOR_PLUGINS: Record<string, string> = {
     discord: "@elizaos/plugin-discord",
     telegram: "@elizaos/plugin-telegram",
-    twitch: "@milady/plugin-twitch",
+    twitch: "@miladyai/plugin-twitch",
     whatsapp: "@elizaos/plugin-whatsapp",
     slack: "@elizaos/plugin-slack",
     twitter: "@elizaos/plugin-twitter",
@@ -129,7 +129,7 @@ describe("plugin auto-enable mapping", () => {
   it("maps each connector to its correct plugin", () => {
     expect(CONNECTOR_PLUGINS.discord).toBe("@elizaos/plugin-discord");
     expect(CONNECTOR_PLUGINS.telegram).toBe("@elizaos/plugin-telegram");
-    expect(CONNECTOR_PLUGINS.twitch).toBe("@milady/plugin-twitch");
+    expect(CONNECTOR_PLUGINS.twitch).toBe("@miladyai/plugin-twitch");
     expect(CONNECTOR_PLUGINS.whatsapp).toBe("@elizaos/plugin-whatsapp");
   });
 
@@ -152,6 +152,6 @@ describe("plugin auto-enable mapping", () => {
     expect(allowList.has("@elizaos/plugin-discord")).toBe(true);
     expect(allowList.has("@elizaos/plugin-telegram")).toBe(true);
     // Twitch disabled — not added
-    expect(allowList.has("@milady/plugin-twitch")).toBe(false);
+    expect(allowList.has("@miladyai/plugin-twitch")).toBe(false);
   });
 });

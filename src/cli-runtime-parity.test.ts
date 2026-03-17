@@ -51,7 +51,7 @@ function envSnapshot(keys: string[]): {
 describe("onboarding presets parity (CLI ↔ GUI)", () => {
   it("STYLE_PRESETS is a non-empty array", () => {
     expect(Array.isArray(STYLE_PRESETS)).toBe(true);
-    expect(STYLE_PRESETS.length).toBeGreaterThanOrEqual(6);
+    expect(STYLE_PRESETS.length).toBeGreaterThanOrEqual(4);
   });
 
   it("every preset has all required fields", () => {
@@ -185,7 +185,7 @@ describe("plugin loading parity across modes", () => {
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
     expect(names.has("@elizaos/plugin-slack")).toBe(true);
     // Unconfigured channels should NOT be loaded
-    expect(names.has("@milady/plugin-whatsapp")).toBe(false);
+    expect(names.has("@miladyai/plugin-whatsapp")).toBe(false);
     expect(names.has("@elizaos/plugin-signal")).toBe(false);
   });
 

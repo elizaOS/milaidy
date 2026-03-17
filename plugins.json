@@ -5610,7 +5610,7 @@
       "id": "streaming-base",
       "dirName": "plugin-streaming-base",
       "name": "Streaming",
-      "npmName": "@milady/plugin-streaming-base",
+      "npmName": "@miladyai/plugin-streaming-base",
       "description": "Enable live streaming controls — adds the Stream tab for managing RTMP destinations",
       "category": "streaming",
       "envKey": null,

@@ -5,6 +5,7 @@ import {
   type UiLanguage,
 } from "../i18n";
 import type { Tab } from "../navigation";
+import type { OnboardingStep } from "./types";
 import type { UiShellMode, UiTheme } from "./ui-preferences";
 import { normalizeAvatarIndex } from "./vrm";
 
@@ -63,6 +64,47 @@ export function applyUiTheme(theme: UiTheme): void {
 const UI_LANGUAGE_STORAGE_KEY = "milady:ui-language";
 const UI_SHELL_MODE_STORAGE_KEY = "milady:ui-shell-mode";
 const LAST_NATIVE_TAB_STORAGE_KEY = "milady:last-native-tab";
+const ONBOARDING_STEP_STORAGE_KEY = "milady:onboarding:step";
+
+function normalizeOnboardingStep(value: unknown): OnboardingStep | null {
+  switch (value) {
+    case "wakeUp":
+    case "identity":
+    case "connection":
+    case "rpc":
+    case "senses":
+    case "activate":
+      return value;
+    default:
+      return null;
+  }
+}
+
+export function loadPersistedOnboardingStep(): OnboardingStep | null {
+  try {
+    return normalizeOnboardingStep(
+      localStorage.getItem(ONBOARDING_STEP_STORAGE_KEY),
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function saveOnboardingStep(step: OnboardingStep): void {
+  try {
+    localStorage.setItem(ONBOARDING_STEP_STORAGE_KEY, step);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearPersistedOnboardingStep(): void {
+  try {
+    localStorage.removeItem(ONBOARDING_STEP_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function loadUiLanguage(): UiLanguage {
   try {

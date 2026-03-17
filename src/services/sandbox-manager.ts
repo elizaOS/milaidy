@@ -10,8 +10,6 @@ import {
   type SandboxEngineType,
 } from "./sandbox-engine";
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
 export type SandboxMode = "off" | "light" | "standard" | "max";
 
 export type SandboxState =
@@ -24,39 +22,22 @@ export type SandboxState =
   | "recovering";
 
 export interface SandboxManagerConfig {
-  /** Sandbox mode. */
   mode: SandboxMode;
-  /** Docker image for sandbox containers. */
   image?: string;
-  /** Container name prefix. */
   containerPrefix?: string;
-  /** Container workdir mount path. */
   workdir?: string;
-  /** Run rootfs read-only. */
   readOnlyRoot?: boolean;
-  /** Container network mode. */
   network?: string;
-  /** Container user (uid:gid). */
   user?: string;
-  /** Drop Linux capabilities. */
   capDrop?: string[];
-  /** Environment variables for sandbox. */
   env?: Record<string, string>;
-  /** Container memory limit. */
   memory?: string;
-  /** Container CPU limit. */
   cpus?: number;
-  /** PIDs limit. */
   pidsLimit?: number;
-  /** Root directory for sandbox workspaces. */
   workspaceRoot?: string;
-  /** Additional bind mounts. */
   binds?: string[];
-  /** DNS servers. */
   dns?: string[];
-  /** Container engine type: "docker", "apple-container", or "auto" (default). */
   engineType?: SandboxEngineType;
-  /** Browser sandbox settings. */
   browser?: {
     enabled?: boolean;
     image?: string;
@@ -99,8 +80,6 @@ export interface SandboxEvent {
   detail: string;
   metadata?: Record<string, string | number | boolean>;
 }
-
-// ── Implementation ───────────────────────────────────────────────────────────
 
 export class SandboxManager {
   private state: SandboxState = "uninitialized";
@@ -208,12 +187,10 @@ export class SandboxManager {
     }
 
     if (this.config.mode === "light") {
-      // Light mode: no container, just tokenization + fetch proxy
       this.setState("ready");
       return;
     }
 
-    // Standard / Max: create container
     this.setState("initializing");
 
     try {
@@ -235,7 +212,6 @@ export class SandboxManager {
         }
       }
 
-      // Cleanup orphans from previous runs
       const orphans = this.engine.listContainers(config.containerPrefix);
       for (const id of orphans) {
         await this.engine.stopContainer(id);
@@ -250,7 +226,6 @@ export class SandboxManager {
         detail: `Container started: ${this.containerId}`,
       });
 
-      // Start browser container if configured
       if (this.config.browser?.enabled && this.config.browser?.autoStart) {
         try {
           this.browserContainerId = await this.createBrowserContainer();
@@ -258,13 +233,13 @@ export class SandboxManager {
           this.emitEvent({
             timestamp: Date.now(),
             type: "error",
-            detail: `Browser container start failed: ${err instanceof Error ? err.message : String(err)}`,
+            detail: `Browser container start failed: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
           });
-          // Non-fatal: sandbox can work without browser
         }
       }
 
-      // Health check
       const healthy = await this.healthCheck();
       if (healthy) {
         this.setState("ready");
@@ -275,7 +250,9 @@ export class SandboxManager {
       this.emitEvent({
         timestamp: Date.now(),
         type: "error",
-        detail: `Sandbox start failed: ${err instanceof Error ? err.message : String(err)}`,
+        detail: `Sandbox start failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       });
       this.setState("degraded");
       throw err;
@@ -284,7 +261,7 @@ export class SandboxManager {
 
   async recover(): Promise<void> {
     if (this.state !== "degraded") {
-      return; // Only recover from degraded
+      return;
     }
 
     this.setState("recovering");
@@ -319,7 +296,9 @@ export class SandboxManager {
       this.emitEvent({
         timestamp: Date.now(),
         type: "error",
-        detail: `Recovery failed: ${err instanceof Error ? err.message : String(err)}`,
+        detail: `Recovery failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       });
       this.setState("degraded");
     }
@@ -337,7 +316,9 @@ export class SandboxManager {
       this.emitEvent({
         timestamp: Date.now(),
         type: "error",
-        detail: `Sandbox stop error: ${err instanceof Error ? err.message : String(err)}`,
+        detail: `Sandbox stop error: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       });
     }
 
@@ -348,7 +329,6 @@ export class SandboxManager {
     const start = Date.now();
 
     if (this.config.mode === "off" || this.config.mode === "light") {
-      // In off/light mode, refuse sandbox exec — caller must use local
       return {
         exitCode: 1,
         stdout: "",
@@ -399,7 +379,9 @@ export class SandboxManager {
       return {
         exitCode: 1,
         stdout: "",
-        stderr: `Exec error: ${err instanceof Error ? err.message : String(err)}`,
+        stderr: `Exec error: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
         durationMs: Date.now() - start,
         executedInSandbox: false,
       };
@@ -477,7 +459,6 @@ export class SandboxManager {
 
   private emitEvent(event: SandboxEvent): void {
     this.eventLog.push(event);
-    // Keep bounded
     if (this.eventLog.length > 1000) {
       this.eventLog = this.eventLog.slice(-500);
     }

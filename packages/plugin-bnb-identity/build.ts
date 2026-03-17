@@ -23,4 +23,4 @@ execSync(
   },
 );
 
-console.log("@milady/plugin-bnb-identity built successfully.");
+console.log("@miladyai/plugin-bnb-identity built successfully.");

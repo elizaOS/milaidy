@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const MOCK_STATE_DIR = path.join(__dirname, "__test_og_state__");
 
-vi.mock("../config/paths", () => ({
+vi.mock("../../packages/autonomous/src/config/paths.ts", () => ({
   resolveStateDir: () => MOCK_STATE_DIR,
 }));
 
@@ -31,7 +31,7 @@ import {
   initializeOGCode,
   isValidOGCode,
   readOGCode,
-} from "./og-tracker";
+} from "../../packages/autonomous/src/api/og-tracker.ts";
 
 // ── Setup / Teardown ─────────────────────────────────────────────────────
 

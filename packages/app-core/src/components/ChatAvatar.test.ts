@@ -7,12 +7,12 @@ const testState = vi.hoisted(() => ({
   viewerProps: null as Record<string, unknown> | null,
 }));
 
-vi.mock("@milady/app-core/events", () => ({
+vi.mock("@miladyai/app-core/events", () => ({
   APP_EMOTE_EVENT: "milady:app-emote",
   STOP_EMOTE_EVENT: "stop-emote",
 }));
 
-vi.mock("@milady/app-core/state", () => ({
+vi.mock("@miladyai/app-core/state", () => ({
   getVrmPreviewUrl: vi.fn(() => "/vrms/previews/milady-1.png"),
   getVrmUrl: vi.fn(() => "/vrms/milady-1.vrm.gz"),
   useApp: () => ({
@@ -21,7 +21,7 @@ vi.mock("@milady/app-core/state", () => ({
   }),
 }));
 
-vi.mock("@milady/app-core/utils", () => ({
+vi.mock("@miladyai/app-core/utils", () => ({
   resolveAppAssetUrl: (path: string) => path,
 }));
 

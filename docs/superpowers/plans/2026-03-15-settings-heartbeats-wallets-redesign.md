@@ -6,7 +6,7 @@
 
 **Architecture:** Shared CSS foundation (`.two-panel-layout`, `.two-panel-left`, `.two-panel-right`, `.two-panel-item`) added to `anime.css`. Each page rewrites its root layout to use CSS grid `220px 1fr`. Settings renders one section at a time. Heartbeats splits trigger list (left) from form (right). Wallets moves portfolio/chain info to left panel, keeps token table in right.
 
-**Tech Stack:** React 19, Tailwind CSS 4, CSS custom properties, Lucide React icons, Radix UI primitives via `@milady/ui`.
+**Tech Stack:** React 19, Tailwind CSS 4, CSS custom properties, Lucide React icons, Radix UI primitives via `@miladyai/ui`.
 
 **Spec:** `docs/superpowers/specs/2026-03-15-settings-heartbeats-wallets-redesign-design.md`
 
@@ -404,7 +404,7 @@ const activeSectionDef = SETTINGS_SECTIONS.find((s) => s.id === activeSection);
 - [ ] **Step 4: Clean up removed imports and unused variables**
 
 Remove imports/variables no longer needed:
-- Remove `SectionCard` from the `@milady/ui` import
+- Remove `SectionCard` from the `@miladyai/ui` import
 - Remove `useRef` if no longer used (check `shellRef`, `scrollContainerRef`)
 - Remove the large destructuring of Milady Cloud props from `useApp()` in `SettingsView` (they were only used for prop-drilling to `ProviderSwitcher`)
 - Keep `useApp()` destructuring for: `t`, `loadPlugins`, `setTab`, `setState` (only what SettingsView itself needs)

@@ -18,7 +18,7 @@ include ':capacitor-status-bar'
 project(':capacitor-status-bar').projectDir = new File('../../../node_modules/.bun/@capacitor+status-bar@8.0.1+15945e198350fa93/node_modules/@capacitor/status-bar/android')
 
 include ':milady-capacitor-agent'
-project(':milady-capacitor-agent').projectDir = new File('../node_modules/@milady/capacitor-agent/android')
+project(':milady-capacitor-agent').projectDir = new File('../node_modules/@miladyai/capacitor-agent/android')
 
 include ':milady-capacitor-camera'
 project(':milady-capacitor-camera').projectDir = new File('../plugins/camera/android')

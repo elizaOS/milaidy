@@ -3576,6 +3576,10 @@ describe("API Server E2E (no runtime)", () => {
     it("POST /api/onboarding stores adminEntityId in defaults", async () => {
       const res = await req(port, "POST", "/api/onboarding", {
         name: "AdminAgent",
+        connection: {
+          kind: "local-provider",
+          provider: "anthropic",
+        },
         runMode: "local",
       });
       expect(res.status).toBe(200);

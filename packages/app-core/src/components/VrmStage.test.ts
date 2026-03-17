@@ -10,12 +10,12 @@ const testState = vi.hoisted(() => ({
   viewerPropsByPath: new Map<string, Record<string, unknown>>(),
 }));
 
-vi.mock("@milady/app-core/hooks", () => ({
+vi.mock("@miladyai/app-core/hooks", () => ({
   useChatAvatarVoiceState: () => ({ mouthOpen: 0, isSpeaking: false }),
   useRenderGuard: () => {},
 }));
 
-vi.mock("@milady/app-core/utils", () => ({
+vi.mock("@miladyai/app-core/utils", () => ({
   resolveAppAssetUrl: (path: string) => path,
 }));
 

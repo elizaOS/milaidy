@@ -1,4 +1,4 @@
-declare module "@milady/signal-native" {
+declare module "@miladyai/signal-native" {
   export interface SignalProfile {
     uuid: string;
     phoneNumber?: string;

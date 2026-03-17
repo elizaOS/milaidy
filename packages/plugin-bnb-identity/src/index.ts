@@ -1,5 +1,5 @@
 /**
- * @milady/plugin-bnb-identity
+ * @miladyai/plugin-bnb-identity
  *
  * BNB Chain on-chain identity plugin for Milady — two complementary facets:
  *
@@ -84,7 +84,7 @@ export {
 } from "./utils.js";
 
 export const bnbIdentityPlugin: Plugin = {
-  name: "@milady/plugin-bnb-identity",
+  name: "@miladyai/plugin-bnb-identity",
   description:
     "BNB Chain on-chain identity for Milady — ERC-8004 agent registry and BAP-578 NFA learning provenance.",
   actions: [

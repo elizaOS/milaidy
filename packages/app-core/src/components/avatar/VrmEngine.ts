@@ -1,4 +1,4 @@
-import { resolveAppAssetUrl } from "@milady/app-core/utils";
+import { resolveAppAssetUrl } from "@miladyai/app-core/utils";
 import {
   MToonMaterialLoaderPlugin,
   type VRM,
@@ -2009,6 +2009,12 @@ export class VrmEngine {
     }
     activeEmote?.fadeOut(fadeDuration);
   }
+
+  /** Play a one-shot wave greeting after the VRM becomes visible. */
+  playWaveGreeting(): void {
+    this.playEmote("animations/emotes/waving-both-hands.glb.gz", 3, false);
+  }
+
   async loadVrmFromUrl(url: string, name?: string): Promise<void> {
     await this.whenReady();
     if (!this.scene) throw new Error("VrmEngine not initialized");
@@ -2119,9 +2125,13 @@ export class VrmEngine {
       await this.loadAndPlayIdle(vrm);
       if (!this.loadingAborted && this.vrm === vrm) {
         this.vrmReady = true;
+        // Let the idle animation settle into a natural pose before revealing
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        if (this.loadingAborted || this.vrm !== vrm) return;
         await this.playTeleportReveal(vrm);
         vrm.scene.visible = true;
         this.startPendingWorldReveal(true);
+        this.playWaveGreeting();
       }
     } catch {
       if (!this.loadingAborted && this.vrm === vrm) {

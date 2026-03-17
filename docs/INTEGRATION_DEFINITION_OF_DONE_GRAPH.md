@@ -115,7 +115,7 @@ node --import tsx -e 'import { applyPluginAutoEnable } from "./src/config/plugin
 
 ### Gap C: WhatsApp package naming drift across source of truth
 
-Runtime map uses `@milady/plugin-whatsapp`, while multiple docs and CLI normalization still point to `@elizaos/plugin-whatsapp`.
+Runtime map uses `@miladyai/plugin-whatsapp`, while multiple docs and CLI normalization still point to `@elizaos/plugin-whatsapp`.
 
 ## 7) Missing for "Defined Done" (Prioritized)
 

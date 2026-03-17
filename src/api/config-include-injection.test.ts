@@ -13,14 +13,14 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { saveMiladyConfig } from "@miladyai/autonomous/config/config";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { saveMiladyConfig } from "../config/config";
 import type { MiladyConfig } from "../config/types";
 
 // Mock resolveConfigPath so we can write to a temp file
 let tmpConfigPath: string;
 
-vi.mock("../config/paths", () => ({
+vi.mock("@miladyai/autonomous/config/paths", () => ({
   resolveConfigPath: () => tmpConfigPath,
   resolveUserPath: (p: string) => p,
 }));
