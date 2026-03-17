@@ -1933,55 +1933,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { conversation, greeting } = await client.createConversation(
-        translateText(uiLanguage, "conversations.newChatTitle"),
-        {
-          bootstrapGreeting: true,
-          lang: uiLanguage,
-        },
-      );
       if (!isCurrentHydration()) {
         return null;
       }
-      const nextCutoffTs = Date.now();
-      setConversations([conversation]);
-      setActiveConversationId(conversation.id);
-      activeConversationIdRef.current = conversation.id;
-      setCompanionMessageCutoffTs(nextCutoffTs);
-      client.sendWsMessage({
-        type: "active-conversation",
-        conversationId: conversation.id,
-      });
-
-      const greetingText = greeting?.text?.trim() ?? "";
-      if (greetingText) {
-        greetingFiredRef.current = true;
-        if (greeting?.persisted === true) {
-          scheduleGreetingWaveForCompanion(true);
-        }
-        const nextMessages = [
-          {
-            id: `greeting-${Date.now()}`,
-            role: "assistant" as const,
-            text: greetingText,
-            timestamp: Date.now(),
-            source: "agent_greeting" as const,
-          },
-        ];
-        conversationMessagesRef.current = nextMessages;
-        setConversationMessages(nextMessages);
-        return null;
-      }
-
       greetingFiredRef.current = false;
       conversationMessagesRef.current = [];
       setConversationMessages([]);
-      return conversation.id;
+      setActiveConversationId(null);
+      activeConversationIdRef.current = null;
+      return null;
     } catch (err) {
       console.warn("[milady][chat:init] failed to hydrate conversations", err);
       return null;
     }
-  }, [scheduleGreetingWaveForCompanion, uiLanguage]);
+  }, []);
+
+  const resetConversationDraftState = useCallback(() => {
+    conversationHydrationEpochRef.current += 1;
+    greetingFiredRef.current = false;
+    greetingInFlightConversationRef.current = null;
+    setChatInput("");
+    setChatPendingImages([]);
+    setChatSending(false);
+    setChatFirstTokenReceived(false);
+    conversationMessagesRef.current = [];
+    setConversationMessages([]);
+    setActiveConversationId(null);
+    activeConversationIdRef.current = null;
+    setCompanionMessageCutoffTs(Date.now());
+  }, []);
+
+  const handleStartDraftConversation = useCallback(async () => {
+    resetConversationDraftState();
+  }, [resetConversationDraftState]);
 
   const handleStart = useCallback(async () => {
     if (!beginLifecycleAction("start")) return;
@@ -2195,21 +2179,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleNewConversation = useCallback(
     async (title?: string) => {
-      conversationHydrationEpochRef.current += 1;
       const previousConversationId = activeConversationIdRef.current;
       const previousMessages = conversationMessagesRef.current;
       const previousCutoffTs = companionMessageCutoffTs;
 
-      greetingFiredRef.current = false;
-      greetingInFlightConversationRef.current = null;
-      setChatInput("");
-      setChatPendingImages([]);
-      setChatSending(false);
-      setChatFirstTokenReceived(false);
-      setConversationMessages([]);
-      setActiveConversationId(null);
-      activeConversationIdRef.current = null;
-      setCompanionMessageCutoffTs(Date.now());
+      resetConversationDraftState();
 
       try {
         const { conversation, greeting } = await client.createConversation(
@@ -2265,6 +2239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       companionMessageCutoffTs,
       requestGreetingWhenRunning,
+      resetConversationDraftState,
       scheduleGreetingWaveForCompanion,
       uiLanguage,
     ],
@@ -5787,6 +5762,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleChatRetry,
     handleChatEdit,
     handleChatClear,
+    handleStartDraftConversation,
     handleNewConversation,
     setChatPendingImages,
     handleSelectConversation,

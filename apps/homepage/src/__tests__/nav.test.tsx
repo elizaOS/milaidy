@@ -36,7 +36,11 @@ describe("Nav", () => {
 
   it("version clock is positioned after the Releases button in DOM order", () => {
     const { container } = render(<Nav />);
-    const nav = container.querySelector("nav")!;
+    const nav = container.querySelector("nav");
+    expect(nav).toBeTruthy();
+    if (!nav) {
+      throw new Error("Expected nav element to render");
+    }
     const html = nav.innerHTML;
 
     const releasesIdx = html.indexOf("Releases");

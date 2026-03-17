@@ -8,6 +8,15 @@ export default defineConfig({
   resolve: {
     alias: {
       "milady/plugin-sdk": path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
+      "@elizaos/core": path.join(
+        repoRoot,
+        "node_modules",
+        "@elizaos",
+        "core",
+        "dist",
+        "node",
+        "index.node.js",
+      ),
       "@elizaos/skills": path.join(
         repoRoot,
         "test",
@@ -27,6 +36,12 @@ export default defineConfig({
         "coding-agent-module.ts",
       ),
       "@elizaos/plugin-pdf": path.join(
+        repoRoot,
+        "test",
+        "stubs",
+        "empty-module.mjs",
+      ),
+      "@elizaos/plugin-form": path.join(
         repoRoot,
         "test",
         "stubs",

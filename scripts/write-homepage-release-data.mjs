@@ -79,7 +79,11 @@ function pickRelease(releases) {
     return bTime - aTime;
   });
   // Pick the most recent release that has downloadable assets
-  return published.find((r) => Array.isArray(r.assets) && r.assets.length > 0) ?? published[0] ?? null;
+  return (
+    published.find((r) => Array.isArray(r.assets) && r.assets.length > 0) ??
+    published[0] ??
+    null
+  );
 }
 
 function pickAsset(assets, matchers) {
