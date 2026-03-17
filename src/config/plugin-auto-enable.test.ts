@@ -894,7 +894,7 @@ describe("STREAMING_PLUGINS mapping", () => {
     expect(STREAMING_PLUGINS.retake).toBe("@elizaos/plugin-retake");
     expect(STREAMING_PLUGINS.twitch).toBe("@elizaos/plugin-twitch-streaming");
     expect(STREAMING_PLUGINS.youtube).toBe("@elizaos/plugin-youtube-streaming");
-    expect(STREAMING_PLUGINS.customRtmp).toBe("@milady/plugin-custom-rtmp");
+    expect(STREAMING_PLUGINS.customRtmp).toBe("@miladyai/plugin-custom-rtmp");
   });
 });
 

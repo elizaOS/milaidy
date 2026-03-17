@@ -11,24 +11,43 @@ import {
   it,
   vi,
 } from "vitest";
-import { startApiServer } from "../src/api/server";
-import type { OAuthCredentials } from "../src/auth/types";
+import { startApiServer } from "@miladyai/autonomous/api/server";
+import type { OAuthCredentials } from "@miladyai/autonomous/auth/types";
 
-const getSubscriptionStatus = vi.fn(() => [{ id: "openai-codex" }]);
-const startAnthropicLogin = vi.fn();
-const startCodexLogin = vi.fn();
-const saveCredentials = vi.fn();
-const applySubscriptionCredentials = vi.fn(async () => undefined);
-const deleteCredentials = vi.fn();
+const authMocks = vi.hoisted(() => ({
+  getSubscriptionStatus: vi.fn(() => [{ id: "openai-codex" }]),
+  startAnthropicLogin: vi.fn(),
+  startCodexLogin: vi.fn(),
+  saveCredentials: vi.fn(),
+  applySubscriptionCredentials: vi.fn(async () => undefined),
+  deleteCredentials: vi.fn(),
+}));
 
-vi.mock("../src/auth/index", () => ({
+vi.mock("../packages/autonomous/src/auth/index.ts", () => ({
+  getSubscriptionStatus: authMocks.getSubscriptionStatus,
+  startAnthropicLogin: authMocks.startAnthropicLogin,
+  startCodexLogin: authMocks.startCodexLogin,
+  saveCredentials: authMocks.saveCredentials,
+  applySubscriptionCredentials: authMocks.applySubscriptionCredentials,
+  deleteCredentials: authMocks.deleteCredentials,
+}));
+vi.mock("@miladyai/autonomous/auth", () => ({
+  getSubscriptionStatus: authMocks.getSubscriptionStatus,
+  startAnthropicLogin: authMocks.startAnthropicLogin,
+  startCodexLogin: authMocks.startCodexLogin,
+  saveCredentials: authMocks.saveCredentials,
+  applySubscriptionCredentials: authMocks.applySubscriptionCredentials,
+  deleteCredentials: authMocks.deleteCredentials,
+}));
+
+const {
   getSubscriptionStatus,
   startAnthropicLogin,
   startCodexLogin,
   saveCredentials,
   applySubscriptionCredentials,
   deleteCredentials,
-}));
+} = authMocks;
 
 interface ReqResponse {
   status: number;

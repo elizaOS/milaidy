@@ -1,4 +1,4 @@
-import { Input } from "@milady/ui";
+import { Input } from "@miladyai/ui";
 import { ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { client } from "../api";

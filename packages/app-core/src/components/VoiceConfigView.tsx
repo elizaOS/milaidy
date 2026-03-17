@@ -8,9 +8,7 @@
  *   - Test functionality
  */
 
-import type { SwabbleConfig } from "@milady/capacitor-swabble";
-import { Swabble } from "@milady/capacitor-swabble";
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   client,
@@ -18,6 +16,10 @@ import {
   type VoiceMode,
   type VoiceProvider,
 } from "../api";
+import {
+  getSwabblePlugin,
+  type SwabbleConfig,
+} from "../bridge/native-plugins";
 import { dispatchWindowEvent, VOICE_CONFIG_UPDATED_EVENT } from "../events";
 import { useTimeout } from "../hooks";
 import { useApp } from "../state";
@@ -59,9 +61,10 @@ function WakeWordSection({
   useEffect(() => {
     void (async () => {
       try {
+        const swabble = getSwabblePlugin();
         const [{ config }, { listening }] = await Promise.all([
-          Swabble.getConfig(),
-          Swabble.isListening(),
+          swabble.getConfig(),
+          swabble.isListening(),
         ]);
         // Use plugin config if available, fall back to server-persisted config
         const resolved = config ?? serverConfig ?? null;
@@ -83,7 +86,7 @@ function WakeWordSection({
     let handle: { remove: () => Promise<void> } | null = null;
     void (async () => {
       try {
-        handle = await Swabble.addListener(
+        handle = await getSwabblePlugin().addListener(
           "audioLevel",
           (evt: { level: number }) => {
             setAudioLevel(evt.level);
@@ -110,7 +113,7 @@ function WakeWordSection({
   const handleTriggersChange = useCallback(async (next: string[]) => {
     setTriggers(next);
     try {
-      await Swabble.updateConfig({ config: { triggers: next } });
+      await getSwabblePlugin().updateConfig({ config: { triggers: next } });
     } catch {
       // Ignore
     }
@@ -136,7 +139,9 @@ function WakeWordSection({
   const handleSensitivityChange = useCallback(async (val: number) => {
     setSensitivity(val);
     try {
-      await Swabble.updateConfig({ config: { minPostTriggerGap: val } });
+      await getSwabblePlugin().updateConfig({
+        config: { minPostTriggerGap: val },
+      });
     } catch {
       // Ignore
     }
@@ -146,7 +151,7 @@ function WakeWordSection({
     async (size: NonNullable<SwabbleConfig["modelSize"]>) => {
       setModelSize(size);
       try {
-        await Swabble.updateConfig({ config: { modelSize: size } });
+        await getSwabblePlugin().updateConfig({ config: { modelSize: size } });
       } catch {
         // Ignore
       }
@@ -157,10 +162,10 @@ function WakeWordSection({
   const handleToggle = useCallback(async () => {
     try {
       if (enabled) {
-        await Swabble.stop();
+        await getSwabblePlugin().stop();
         setEnabled(false);
       } else {
-        const result = await Swabble.start({ config: buildConfig() });
+        const result = await getSwabblePlugin().start({ config: buildConfig() });
         if (result.started) setEnabled(true);
       }
     } catch {
@@ -437,7 +442,7 @@ export function VoiceConfigView() {
       // if the plugin isn't available on this platform (e.g. Electrobun).
       let swabbleCfg: Partial<SwabbleConfig> | undefined;
       try {
-        const { config: sc } = await Swabble.getConfig();
+        const { config: sc } = await getSwabblePlugin().getConfig();
         if (sc) swabbleCfg = sc;
       } catch {
         // Not available on this platform

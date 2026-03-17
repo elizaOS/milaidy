@@ -20,10 +20,27 @@ import type {
   VideoProvider,
   VisionConfig,
   VisionProvider,
-} from "../../../../src/config/types.milady";
-import type { DropStatus, MintResult } from "../../../../src/contracts/drop";
-import type { StylePreset } from "../../../../src/contracts/onboarding";
-import type { VerificationResult } from "../../../../src/contracts/verification";
+} from "@miladyai/autonomous/contracts/config";
+import type { DropStatus, MintResult } from "@miladyai/autonomous/contracts/drop";
+import type { VerificationResult } from "@miladyai/autonomous/contracts/verification";
+import type {
+  CloudProviderOption,
+  ConnectorConfig,
+  InventoryProviderOption,
+  MessageExample,
+  MessageExampleContent,
+  ModelOption,
+  OnboardingConnection,
+  OnboardingData,
+  OnboardingOptions,
+  OpenRouterModelOption,
+  PiAiModelOption,
+  ProviderOption,
+  RpcProviderOption,
+  StylePreset,
+  SubscriptionProviderStatus,
+  SubscriptionStatusResponse,
+} from "@miladyai/autonomous/contracts/onboarding";
 import type {
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
@@ -50,20 +67,20 @@ import type {
   WalletTradingProfileResponse,
   WalletTradingProfileSourceFilter,
   WalletTradingProfileWindow,
-} from "../../../../src/contracts/wallet";
+} from "@miladyai/autonomous/contracts/wallet";
 import {
-  type DEFAULT_WALLET_RPC_SELECTIONS,
+  DEFAULT_WALLET_RPC_SELECTIONS,
   normalizeWalletRpcProviderId,
   normalizeWalletRpcSelections,
-  type WALLET_RPC_PROVIDER_OPTIONS,
-} from "../../../../src/contracts/wallet";
+  WALLET_RPC_PROVIDER_OPTIONS,
+} from "@miladyai/autonomous/contracts/wallet";
 import type {
   AllPermissionsState,
   PermissionState,
   PermissionStatus,
   SystemPermissionDefinition,
   SystemPermissionId,
-} from "../../../../src/permissions/types";
+} from "@miladyai/autonomous/contracts/permissions";
 import type { ConfigUiHint } from "../types";
 import { stripAssistantStageDirections } from "../utils/assistant-text";
 import { mergeStreamingText } from "../utils/streaming-text";
@@ -80,25 +97,39 @@ export type {
   BscTradeTxStatusResponse,
   BscTransferExecuteRequest,
   BscTransferExecuteResponse,
+  CloudProviderOption,
+  ConnectorConfig,
   CustomActionDef,
   CustomActionHandler,
   DatabaseProviderType,
-  DEFAULT_WALLET_RPC_SELECTIONS,
   DropStatus,
   EvmChainBalance,
   EvmNft,
   EvmTokenBalance,
   ImageConfig,
   ImageProvider,
+  InventoryProviderOption,
   MediaConfig,
   MediaMode,
+  MessageExample,
+  MessageExampleContent,
   MintResult,
+  ModelOption,
+  OnboardingConnection,
+  OnboardingData,
+  OnboardingOptions,
+  OpenRouterModelOption,
   PermissionState,
   PermissionStatus,
+  PiAiModelOption,
+  ProviderOption,
+  RpcProviderOption,
   ReleaseChannel,
   SolanaNft,
   SolanaTokenBalance,
   StylePreset,
+  SubscriptionProviderStatus,
+  SubscriptionStatusResponse,
   SystemPermissionDefinition as PermissionDefinition,
   SystemPermissionId,
   VerificationResult,
@@ -106,7 +137,6 @@ export type {
   VideoProvider,
   VisionConfig,
   VisionProvider,
-  WALLET_RPC_PROVIDER_OPTIONS,
   WalletAddresses,
   WalletBalancesResponse,
   WalletConfigStatus,
@@ -120,7 +150,12 @@ export type {
   WalletTradingProfileWindow,
 };
 
-export { normalizeWalletRpcProviderId, normalizeWalletRpcSelections };
+export {
+  DEFAULT_WALLET_RPC_SELECTIONS,
+  normalizeWalletRpcProviderId,
+  normalizeWalletRpcSelections,
+  WALLET_RPC_PROVIDER_OPTIONS,
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -454,158 +489,6 @@ export interface UpdateTriggerRequest {
   cronExpression?: string;
   maxRuns?: number;
 }
-
-export interface MessageExampleContent {
-  text: string;
-  actions?: string[];
-}
-
-export interface MessageExample {
-  user: string;
-  content: MessageExampleContent;
-}
-
-export interface ProviderOption {
-  id: string;
-  name: string;
-  envKey: string | null;
-  pluginName: string;
-  keyPrefix: string | null;
-  description: string;
-}
-
-export interface CloudProviderOption {
-  id: string;
-  name: string;
-  description: string;
-}
-
-export interface ModelOption {
-  id: string;
-  name: string;
-  provider: string;
-  description: string;
-}
-
-export interface RpcProviderOption {
-  id: string;
-  name: string;
-  description: string;
-  envKey: string | null;
-  requiresKey: boolean;
-}
-
-export interface InventoryProviderOption {
-  id: string;
-  name: string;
-  description: string;
-  rpcProviders: RpcProviderOption[];
-}
-
-export interface OpenRouterModelOption {
-  id: string;
-  name: string;
-  description: string;
-}
-
-export interface PiAiModelOption {
-  id: string;
-  name: string;
-  provider: string;
-  isDefault: boolean;
-}
-
-export interface OnboardingOptions {
-  names: string[];
-  styles: StylePreset[];
-  providers: ProviderOption[];
-  cloudProviders: CloudProviderOption[];
-  models: {
-    small: ModelOption[];
-    large: ModelOption[];
-  };
-  openrouterModels?: OpenRouterModelOption[];
-  piAiModels?: PiAiModelOption[];
-  piAiDefaultModel?: string | null;
-  inventoryProviders: InventoryProviderOption[];
-  sharedStyleRules: string;
-  githubOAuthAvailable?: boolean;
-}
-
-/** Configuration for a single messaging connector. */
-export interface ConnectorConfig {
-  enabled?: boolean;
-  botToken?: string;
-  token?: string;
-  apiKey?: string;
-  [key: string]:
-    | string
-    | boolean
-    | number
-    | string[]
-    | Record<string, unknown>
-    | undefined;
-}
-
-export interface OnboardingData {
-  name: string;
-  runMode: "local" | "cloud";
-  /** Sandbox execution mode: "off" (rawdog), "light" (cloud), "standard" (local sandbox), "max". */
-  sandboxMode?: "off" | "light" | "standard" | "max";
-  bio: string[];
-  systemPrompt: string;
-  style?: {
-    all: string[];
-    chat: string[];
-    post: string[];
-  };
-  adjectives?: string[];
-  postExamples?: string[];
-  messageExamples?: MessageExample[][];
-  // Cloud-specific
-  cloudProvider?: string;
-  smallModel?: string;
-  largeModel?: string;
-  // Local-specific
-  provider?: string;
-  providerApiKey?: string;
-  /** Optional primary model override (provider/model), used by pi-ai mode. */
-  primaryModel?: string;
-  openrouterModel?: string;
-  subscriptionProvider?: string;
-  // Messaging channel setup
-  channels?: Record<string, unknown>;
-  // Inventory / wallet setup
-  walletConfig?: WalletConfigUpdateRequest;
-  inventoryProviders?: Array<{
-    chain: string;
-    rpcProvider: string;
-    rpcApiKey?: string;
-  }>;
-  // Connector setup (Telegram, Discord, etc.)
-  connectors?: Record<string, ConnectorConfig>;
-  telegramToken?: string;
-  discordToken?: string;
-  whatsappSessionPath?: string;
-  twilioAccountSid?: string;
-  twilioAuthToken?: string;
-  twilioPhoneNumber?: string;
-  blooioApiKey?: string;
-  blooioPhoneNumber?: string;
-  githubToken?: string;
-}
-
-export interface SubscriptionProviderStatus {
-  provider: string;
-  configured: boolean;
-  valid: boolean;
-  expiresAt: number | null;
-}
-
-export interface SubscriptionStatusResponse {
-  providers: SubscriptionProviderStatus[];
-}
-
 export interface SandboxPlatformStatus {
   platform: string;
   arch?: string;
@@ -1571,6 +1454,7 @@ export interface CharacterData {
   bio?: string | string[];
   system?: string;
   adjectives?: string[];
+  topics?: string[];
   style?: {
     all?: string[];
     chat?: string[];
@@ -3344,6 +3228,7 @@ export class MiladyClient {
       name?: string;
       system?: string;
       bio?: string;
+      topics?: string[];
       style?: { all?: string[]; chat?: string[]; post?: string[] };
       postExamples?: string[];
     },

@@ -1,5 +1,5 @@
 /**
- * Tests for @milady/capacitor-camera — settings, state, direction inference, errors, events.
+ * Tests for @miladyai/capacitor-camera — settings, state, direction inference, errors, events.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { CameraWeb } from "../../plugins/camera/src/web";
@@ -9,7 +9,7 @@ type Internals = CameraWeb & {
   notifyListeners: (name: string, data: unknown) => void;
 };
 
-describe("@milady/capacitor-camera", () => {
+describe("@miladyai/capacitor-camera", () => {
   let cam: CameraWeb;
   let priv: Internals;
 

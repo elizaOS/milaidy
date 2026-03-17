@@ -206,6 +206,38 @@ function writeDistPackageJson() {
   fs.writeFileSync(DIST_PACKAGE_JSON, '{"type":"module"}\n');
 }
 
+function findLatestMacAppBundle() {
+  const buildRoot = path.join(ELECTROBUN_DIR, "build");
+  if (!fs.existsSync(buildRoot)) {
+    fail(`Electrobun build output not found: ${buildRoot}`);
+  }
+
+  const candidates = [];
+  for (const entry of fs.readdirSync(buildRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const platformDir = path.join(buildRoot, entry.name);
+    for (const child of fs.readdirSync(platformDir, { withFileTypes: true })) {
+      if (!child.isDirectory() || !child.name.endsWith(".app")) {
+        continue;
+      }
+
+      const appBundlePath = path.join(platformDir, child.name);
+      const stat = fs.statSync(appBundlePath);
+      candidates.push({ appBundlePath, mtimeMs: stat.mtimeMs });
+    }
+  }
+
+  if (candidates.length === 0) {
+    fail(`No macOS .app bundle found under ${buildRoot}`);
+  }
+
+  candidates.sort((left, right) => right.mtimeMs - left.mtimeMs);
+  return candidates[0].appBundlePath;
+}
+
 function stageDesktopBuild() {
   ensureAppDirs();
 
@@ -303,6 +335,18 @@ function packageDesktopBuild() {
       ? `Packaging Electrobun app (env=${buildEnv})`
       : "Packaging Electrobun app",
   });
+
+  if (
+    process.platform === "darwin" &&
+    packageEnv.ELECTROBUN_SKIP_CODESIGN === "1"
+  ) {
+    const appBundlePath = findLatestMacAppBundle();
+    runBun(["scripts/local-adhoc-sign-macos.ts", appBundlePath], {
+      cwd: ELECTROBUN_DIR,
+      env: packageEnv,
+      label: `Applying local ad-hoc Milady signing (${path.basename(appBundlePath)})`,
+    });
+  }
 
   if (stageMacosReleaseApp && process.platform === "darwin") {
     run(

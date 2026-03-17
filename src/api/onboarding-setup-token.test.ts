@@ -1,45 +1,35 @@
 /**
  * Tests for Anthropic setup token handling during onboarding.
  *
- * Bug: When a user selects "anthropic-subscription" during onboarding and
- * provides a setup token (sk-ant-oat01-...), the token was silently discarded
- * because getProviderOptions() returns envKey: null for subscription providers,
- * and the API-key gate `if (providerOpt?.envKey)` would skip them.
- *
- * Fix: The subscription-provider block in server.ts (inside the onboarding
- * handler, guarded by `runMode === "local"`) now explicitly checks for a
- * setup token and saves it to process.env + config.env. This mirrors the
- * POST /api/subscription/anthropic/setup-token endpoint in
- * subscription-routes.ts.
- *
- * These tests validate the conditional logic inline in the onboarding handler
- * (server.ts ~line 4858). The function below reproduces the exact branching
- * so unit tests can cover edge cases without spinning up an HTTP server.
+ * The onboarding flow now routes through applyOnboardingConnectionConfig(),
+ * so these tests validate the normalized helper rather than a copied inline
+ * branch from server.ts.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-/**
- * Reproduces the inline setup-token logic from the onboarding handler in
- * server.ts. Kept in sync manually — any change to the server.ts block
- * must be reflected here.
- */
-function applySetupToken(
+import { applyOnboardingConnectionConfig } from "./provider-switch-config";
+
+async function applySetupToken(
   body: { provider?: string; providerApiKey?: unknown },
   config: { env?: Record<string, string> },
-): boolean {
-  if (
-    body.provider === "anthropic-subscription" &&
-    typeof body.providerApiKey === "string" &&
-    body.providerApiKey.trim().startsWith("sk-ant-")
-  ) {
-    const token = body.providerApiKey.trim();
-    if (!config.env) config.env = {};
-    config.env.ANTHROPIC_API_KEY = token;
-    process.env.ANTHROPIC_API_KEY = token;
-    return true;
+): Promise<boolean> {
+  if (body.provider !== "anthropic-subscription") {
+    return false;
   }
-  return false;
+  try {
+    await applyOnboardingConnectionConfig(config, {
+      kind: "local-provider",
+      provider: "anthropic-subscription",
+      apiKey:
+        typeof body.providerApiKey === "string"
+          ? body.providerApiKey
+          : undefined,
+    });
+    return typeof config.env?.ANTHROPIC_API_KEY === "string";
+  } catch {
+    return false;
+  }
 }
 
 describe("Anthropic setup token during onboarding", () => {
@@ -58,9 +48,9 @@ describe("Anthropic setup token during onboarding", () => {
     }
   });
 
-  it("saves a valid setup token to env and config", () => {
+  it("saves a valid setup token to env and config", async () => {
     const config: { env?: Record<string, string> } = {};
-    const saved = applySetupToken(
+    const saved = await applySetupToken(
       {
         provider: "anthropic-subscription",
         providerApiKey: "sk-ant-oat01-test-token-12345",
@@ -73,9 +63,9 @@ describe("Anthropic setup token during onboarding", () => {
     expect(config.env?.ANTHROPIC_API_KEY).toBe("sk-ant-oat01-test-token-12345");
   });
 
-  it("trims whitespace from token", () => {
+  it("trims whitespace from token", async () => {
     const config: { env?: Record<string, string> } = {};
-    const saved = applySetupToken(
+    const saved = await applySetupToken(
       {
         provider: "anthropic-subscription",
         providerApiKey: "  sk-ant-oat01-whitespace  ",
@@ -87,9 +77,9 @@ describe("Anthropic setup token during onboarding", () => {
     expect(process.env.ANTHROPIC_API_KEY).toBe("sk-ant-oat01-whitespace");
   });
 
-  it("does nothing for non-subscription providers", () => {
+  it("does nothing for non-subscription providers", async () => {
     const config: { env?: Record<string, string> } = {};
-    const saved = applySetupToken(
+    const saved = await applySetupToken(
       { provider: "anthropic", providerApiKey: "sk-ant-api-key-regular" },
       config,
     );
@@ -99,9 +89,9 @@ describe("Anthropic setup token during onboarding", () => {
     expect(config.env).toBeUndefined();
   });
 
-  it("does nothing for openai-subscription", () => {
+  it("does nothing for openai-subscription", async () => {
     const config: { env?: Record<string, string> } = {};
-    const saved = applySetupToken(
+    const saved = await applySetupToken(
       { provider: "openai-subscription", providerApiKey: "sk-something" },
       config,
     );
@@ -109,9 +99,9 @@ describe("Anthropic setup token during onboarding", () => {
     expect(saved).toBe(false);
   });
 
-  it("does nothing when providerApiKey is not a string", () => {
+  it("does nothing when providerApiKey is not a string", async () => {
     const config: { env?: Record<string, string> } = {};
-    const saved = applySetupToken(
+    const saved = await applySetupToken(
       { provider: "anthropic-subscription", providerApiKey: 12345 },
       config,
     );
@@ -119,9 +109,9 @@ describe("Anthropic setup token during onboarding", () => {
     expect(saved).toBe(false);
   });
 
-  it("does nothing when token does not start with sk-ant-", () => {
+  it("does nothing when token does not start with sk-ant-", async () => {
     const config: { env?: Record<string, string> } = {};
-    const saved = applySetupToken(
+    const saved = await applySetupToken(
       {
         provider: "anthropic-subscription",
         providerApiKey: "not-a-valid-token",
@@ -133,9 +123,9 @@ describe("Anthropic setup token during onboarding", () => {
     expect(process.env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
-  it("does nothing when providerApiKey is missing", () => {
+  it("does nothing when providerApiKey is missing", async () => {
     const config: { env?: Record<string, string> } = {};
-    const saved = applySetupToken(
+    const saved = await applySetupToken(
       { provider: "anthropic-subscription" },
       config,
     );
@@ -143,11 +133,11 @@ describe("Anthropic setup token during onboarding", () => {
     expect(saved).toBe(false);
   });
 
-  it("initializes config.env if it does not exist", () => {
+  it("initializes config.env if it does not exist", async () => {
     const config: { env?: Record<string, string> } = {};
     expect(config.env).toBeUndefined();
 
-    applySetupToken(
+    await applySetupToken(
       {
         provider: "anthropic-subscription",
         providerApiKey: "sk-ant-oat01-init-env",
@@ -159,12 +149,12 @@ describe("Anthropic setup token during onboarding", () => {
     expect(config.env?.ANTHROPIC_API_KEY).toBe("sk-ant-oat01-init-env");
   });
 
-  it("preserves existing config.env entries", () => {
+  it("preserves existing config.env entries", async () => {
     const config: { env?: Record<string, string> } = {
       env: { EXISTING_KEY: "existing-value" },
     };
 
-    applySetupToken(
+    await applySetupToken(
       {
         provider: "anthropic-subscription",
         providerApiKey: "sk-ant-oat01-preserve-test",

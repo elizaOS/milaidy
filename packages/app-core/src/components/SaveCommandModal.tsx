@@ -2,7 +2,7 @@
  * Modal for naming and saving a custom /command from selected text.
  */
 
-import { Input } from "@milady/ui";
+import { Input } from "@miladyai/ui";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useApp } from "../state";
 

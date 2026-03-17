@@ -1,4 +1,4 @@
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { ChevronDown, Clock3, PencilLine, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type {

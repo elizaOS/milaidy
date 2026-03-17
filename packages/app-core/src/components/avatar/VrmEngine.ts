@@ -1,4 +1,4 @@
-import { resolveAppAssetUrl } from "@milady/app-core/utils";
+import { resolveAppAssetUrl } from "@miladyai/app-core/utils";
 import {
   MToonMaterialLoaderPlugin,
   type VRM,

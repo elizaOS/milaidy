@@ -95,7 +95,7 @@ const onboardingOptions = {
       style: { all: ["be concise"], chat: ["friendly"], post: ["playful"] },
       adjectives: ["curious", "playful"],
       postExamples: ["hello world"],
-      messageExamples: [[{ name: "User", content: { text: "hello" } }]],
+      messageExamples: [[{ user: "User", content: { text: "hello" } }]],
     },
     {
       catchphrase: "serious",
@@ -105,7 +105,7 @@ const onboardingOptions = {
       style: { all: ["clear"], chat: ["direct"], post: ["brief"] },
       adjectives: ["focused"],
       postExamples: [],
-      messageExamples: [[{ name: "User", content: { text: "status?" } }]],
+      messageExamples: [[{ user: "User", content: { text: "status?" } }]],
     },
   ],
   providers: [
@@ -151,78 +151,25 @@ const onboardingOptions = {
       },
     ],
   },
-  inventoryProviders: [
-    {
-      id: "evm",
-      name: "EVM",
-      description: "Ethereum-compatible chains",
-      rpcProviders: [
-        {
-          id: "eliza-cloud",
-          name: "Eliza Cloud",
-          description: "Managed RPC",
-          envKey: null,
-          requiresKey: false,
-        },
-        {
-          id: "alchemy",
-          name: "Alchemy",
-          description: "Shared multi-chain RPC",
-          envKey: "ALCHEMY_API_KEY",
-          requiresKey: true,
-        },
-      ],
-    },
-    {
-      id: "bsc",
-      name: "BSC",
-      description: "BNB Smart Chain",
-      rpcProviders: [
-        {
-          id: "eliza-cloud",
-          name: "Eliza Cloud",
-          description: "Managed RPC",
-          envKey: null,
-          requiresKey: false,
-        },
-        {
-          id: "nodereal",
-          name: "NodeReal",
-          description: "Dedicated BSC RPC",
-          envKey: "NODEREAL_BSC_RPC_URL",
-          requiresKey: true,
-        },
-      ],
-    },
-    {
-      id: "solana",
-      name: "Solana",
-      description: "Solana chain",
-      rpcProviders: [
-        {
-          id: "eliza-cloud",
-          name: "Eliza Cloud",
-          description: "Managed RPC",
-          envKey: null,
-          requiresKey: false,
-        },
-        {
-          id: "helius-birdeye",
-          name: "Helius + Birdeye",
-          description: "Solana RPC plus metadata",
-          envKey: "HELIUS_API_KEY",
-          requiresKey: true,
-        },
-      ],
-    },
-  ],
   sharedStyleRules: "",
 };
 
 function applyCors(res: http.ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    [
+      "Content-Type",
+      "Authorization",
+      "X-Milady-Token",
+      "X-Api-Key",
+      "X-Milady-Export-Token",
+      "X-Milady-Client-Id",
+      "X-Milady-Terminal-Token",
+      "X-Milady-UI-Language",
+    ].join(", "),
+  );
 }
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
@@ -413,6 +360,19 @@ export async function startMockApiServer(
       validationErrors: [],
       validationWarnings: [],
     },
+    {
+      id: "streaming-base",
+      name: "Streaming",
+      description: "Streaming controls",
+      enabled: true,
+      configured: true,
+      envKey: null,
+      category: "feature",
+      source: "bundled",
+      parameters: [],
+      validationErrors: [],
+      validationWarnings: [],
+    },
   ];
 
   const skills = [
@@ -426,6 +386,18 @@ export async function startMockApiServer(
   ];
 
   const customActions: CustomActionRecord[] = [];
+  const streamDestinations = [
+    { id: "twitch", name: "Twitch" },
+    { id: "youtube", name: "YouTube" },
+  ];
+  let activeStreamDestination = streamDestinations[0];
+  let streamLive = false;
+  let streamMuted = false;
+  let streamVolume = 82;
+  let streamSource: { type: string; url?: string } = {
+    type: "stream-tab",
+  };
+  let overlayLayout: unknown = null;
 
   let config: JsonObject = {
     settings: { avatarIndex: 1 },
@@ -783,6 +755,168 @@ export async function startMockApiServer(
         low: false,
         critical: false,
         topUpUrl: "https://elizacloud.ai",
+      });
+      return;
+    }
+
+    if (method === "POST" && pathname === "/api/stream/live") {
+      streamLive = true;
+      json(res, 200, {
+        ok: true,
+        live: true,
+        destination: activeStreamDestination.name,
+        inputMode: "voice",
+        audioSource: "microphone",
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/offline") {
+      streamLive = false;
+      json(res, 200, { ok: true, live: false });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/stream/status") {
+      json(res, 200, {
+        ok: true,
+        running: streamLive,
+        ffmpegAlive: streamLive,
+        uptime: streamLive ? 1_800_000 : 0,
+        frameCount: streamLive ? 48_000 : 0,
+        volume: streamVolume,
+        muted: streamMuted,
+        audioSource: streamMuted ? "muted" : "microphone",
+        inputMode: "voice",
+        destination: activeStreamDestination,
+      });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/streaming/destinations") {
+      json(res, 200, {
+        ok: true,
+        destinations: streamDestinations,
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/streaming/destination") {
+      const body = await readJson(req);
+      const destinationId =
+        typeof body.destinationId === "string" ? body.destinationId : "";
+      activeStreamDestination =
+        streamDestinations.find((item) => item.id === destinationId) ??
+        activeStreamDestination;
+      json(res, 200, {
+        ok: true,
+        destination: activeStreamDestination,
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/volume") {
+      const body = await readJson(req);
+      const nextVolume = Number(body.volume);
+      if (Number.isFinite(nextVolume)) {
+        streamVolume = Math.max(0, Math.min(100, nextVolume));
+      }
+      json(res, 200, {
+        ok: true,
+        volume: streamVolume,
+        muted: streamMuted,
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/mute") {
+      streamMuted = true;
+      json(res, 200, {
+        ok: true,
+        muted: true,
+        volume: streamVolume,
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/unmute") {
+      streamMuted = false;
+      json(res, 200, {
+        ok: true,
+        muted: false,
+        volume: streamVolume,
+      });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/stream/voice") {
+      json(res, 200, {
+        ok: true,
+        enabled: true,
+        autoSpeak: true,
+        provider: "simple-voice",
+        configuredProvider: "simple-voice",
+        hasApiKey: false,
+        isSpeaking: false,
+        isAttached: true,
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/voice") {
+      json(res, 200, {
+        ok: true,
+        voice: { enabled: true, autoSpeak: true },
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/voice/speak") {
+      json(res, 200, { ok: true, speaking: false });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/stream/overlay-layout") {
+      json(res, 200, {
+        ok: true,
+        layout: overlayLayout,
+        destinationId: activeStreamDestination.id,
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/overlay-layout") {
+      const body = await readJson(req);
+      overlayLayout = body.layout ?? null;
+      json(res, 200, {
+        ok: true,
+        layout: overlayLayout,
+        destinationId: activeStreamDestination.id,
+      });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/stream/source") {
+      json(res, 200, { source: streamSource });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/source") {
+      const body = await readJson(req);
+      const sourceType =
+        typeof body.sourceType === "string" ? body.sourceType : "stream-tab";
+      const customUrl =
+        typeof body.customUrl === "string" && body.customUrl.trim().length > 0
+          ? body.customUrl.trim()
+          : undefined;
+      streamSource = {
+        type: sourceType,
+        ...(customUrl ? { url: customUrl } : {}),
+      };
+      json(res, 200, { ok: true, source: streamSource });
+      return;
+    }
+    if (method === "GET" && pathname === "/api/stream/settings") {
+      json(res, 200, {
+        ok: true,
+        settings: { theme: "dark", avatarIndex: 1 },
+      });
+      return;
+    }
+    if (method === "POST" && pathname === "/api/stream/settings") {
+      const body = await readJson(req);
+      json(res, 200, {
+        ok: true,
+        settings:
+          typeof body.settings === "object" && body.settings
+            ? body.settings
+            : { theme: "dark", avatarIndex: 1 },
       });
       return;
     }

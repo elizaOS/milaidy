@@ -6,7 +6,7 @@
  * APIs (getDatabaseTables, executeDatabaseQuery).
  */
 
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { client, type QueryResult } from "../api";
 import { useApp } from "../state";

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * Tests for @milady/capacitor-screencapture — feature detection, state, errors, events.
+ * Tests for @miladyai/capacitor-screencapture — feature detection, state, errors, events.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ScreenCaptureWeb } from "../../plugins/screencapture/src/web";
 
-describe("@milady/capacitor-screencapture", () => {
+describe("@miladyai/capacitor-screencapture", () => {
   let sc: ScreenCaptureWeb;
 
   beforeEach(() => {

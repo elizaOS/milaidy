@@ -10,7 +10,7 @@ import {
   DialogTitle,
   Input,
   SectionCard,
-} from "@milady/ui";
+} from "@miladyai/ui";
 import {
   AlertTriangle,
   Bot,

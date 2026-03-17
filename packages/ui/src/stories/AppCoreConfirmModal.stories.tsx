@@ -1,4 +1,4 @@
-import { ConfirmModal, PromptModal } from "@milady/app-core/components";
+import { ConfirmModal, PromptModal } from "@miladyai/app-core/components";
 import type { Meta, StoryObj } from "@storybook/react";
 import React, { useState } from "react";
 

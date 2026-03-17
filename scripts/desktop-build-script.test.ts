@@ -47,7 +47,9 @@ describe("desktop-build.mjs", () => {
     const script = fs.readFileSync(SCRIPT_PATH, "utf8");
 
     expect(script).toContain('const packageArgs = ["run", "build"]');
-    expect(script).toContain('packageArgs.push("--", `--env=${buildEnv}`);');
+    expect(script).toContain(
+      'packageArgs.push("--", `--env=$' + "{buildEnv}`);",
+    );
     expect(script).toContain("runBun(packageArgs, {");
   });
 

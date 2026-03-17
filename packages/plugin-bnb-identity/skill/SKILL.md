@@ -1,6 +1,6 @@
 ---
 name: plugin-bnb-identity
-description: Maintain and evolve Milady's ERC-8004 identity plugin (`@milady/plugin-bnb-identity`) for registering, updating, and resolving on-chain agent identities, including metadata/profile generation and persistence helpers.
+description: Maintain and evolve Milady's ERC-8004 identity plugin (`@miladyai/plugin-bnb-identity`) for registering, updating, and resolving on-chain agent identities, including metadata/profile generation and persistence helpers.
 ---
 
 # Plugin BNB Identity

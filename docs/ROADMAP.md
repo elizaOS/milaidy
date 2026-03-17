@@ -15,7 +15,7 @@ High-level direction and rationale. Not exhaustive; see [CHANGELOG](../CHANGELOG
 - **Bun exports patch** — Postinstall in `patch-deps.mjs` rewrites `@elizaos/plugin-coding-agent` (and any similar package) so `exports["."]` no longer has `"bun": "./src/index.ts"` when that file doesn't exist. **Why:** The published tarball only ships `dist/`; Bun picks the `"bun"` condition first and fails. Removing the dead condition lets Bun use `"import"` → `./dist/index.js`. See "Bun and published package exports" in `docs/plugin-resolution-and-node-path.md`.
 - **Windows release: plugin-bnb-identity tsc** — Build script uses `npx -p typescript tsc` instead of `npx tsc`. **Why:** On Windows CI, `npx tsc` resolved to the joke package `tsc`; the prepare step failed. Explicit package fixes it.
 - **Release size-report: SIGPIPE 141** — `du | sort | head` pipelines in the "Report packaged app size" step run in a subshell with `|| r=$?` and allow exit 141; `sort` stderr silenced. **Why:** Under `-euo pipefail`, 141 would exit the step before we could allow it; subshell captures it. See `docs/build-and-release.md`.
-- **NFA routes: optional plugin** — `/api/nfa/status` and `/api/nfa/learnings` lazy-load `@milady/plugin-bnb-identity` and fall back when missing. **Why:** Core and tests work without the plugin; ambient type declaration keeps typecheck happy.
+- **NFA routes: optional plugin** — `/api/nfa/status` and `/api/nfa/learnings` lazy-load `@miladyai/plugin-bnb-identity` and fall back when missing. **Why:** Core and tests work without the plugin; ambient type declaration keeps typecheck happy.
 
 ## Short-term / follow-ups
 

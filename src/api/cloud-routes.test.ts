@@ -16,7 +16,7 @@ const { saveMiladyConfigMock, validateCloudBaseUrlMock } = vi.hoisted(() => ({
   validateCloudBaseUrlMock: vi.fn<(rawUrl: string) => Promise<string | null>>(),
 }));
 
-vi.mock("../cloud/validate-url", () => ({
+vi.mock("@miladyai/autonomous/cloud/validate-url", () => ({
   validateCloudBaseUrl: validateCloudBaseUrlMock,
 }));
 

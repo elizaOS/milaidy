@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Self-contained build script for @milady/plugin-streaming-base
+ * Self-contained build script for @miladyai/plugin-streaming-base
  */
 
 import { existsSync } from "node:fs";

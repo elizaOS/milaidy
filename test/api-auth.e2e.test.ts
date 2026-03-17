@@ -882,6 +882,10 @@ describe("Auth + agent lifecycle", () => {
         name: "AuthTestAgent",
         bio: ["An auth test agent"],
         systemPrompt: "You are a test agent.",
+        connection: {
+          kind: "local-provider",
+          provider: "anthropic",
+        },
       },
       auth,
     );

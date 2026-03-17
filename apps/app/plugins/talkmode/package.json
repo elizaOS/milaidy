@@ -1,7 +1,6 @@
 {
-  "name": "@milady/capacitor-talkmode",
+  "name": "@miladyai/capacitor-talkmode",
   "version": "1.0.0",
-  "private": true,
   "description": "Runs voice conversations with live transcription, chat orchestration, and spoken replies.",
   "keywords": [
     "voice",
@@ -10,8 +9,16 @@
     "conversation"
   ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./src/index.ts",
-  "types": "./dist/plugin.d.ts",
+  "module": "./dist/plugin.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/plugin.js",
+      "require": "./dist/plugin.cjs.js"
+    },
+    "./package.json": "./package.json"
+  },
   "unpkg": "dist/plugin.js",
   "files": [
     "android/src/main/",
@@ -25,6 +32,13 @@
     "build:docs": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.mjs",
     "clean": "rimraf ./dist",
     "docgen": "docgen --api TalkModePlugin --output-readme README.md --output-json dist/docs.json"
+  },
+  "author": "Milady",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milady-ai/milady.git",
+    "directory": "apps/app/plugins/talkmode"
   },
   "capacitor": {
     "ios": {
@@ -44,6 +58,9 @@
   },
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "milady": {
     "platforms": [

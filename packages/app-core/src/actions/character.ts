@@ -57,9 +57,14 @@ export function prepareDraftForSave(
   // Only pick fields the API schema accepts (.strict() rejects unknown keys)
   const result: Record<string, unknown> = {};
 
-  if (draft.name) {
-    result.name = draft.name;
-    result.username = draft.name;
+  if (draft.name?.trim()) {
+    result.name = draft.name.trim();
+  }
+
+  if (draft.username?.trim()) {
+    result.username = draft.username.trim();
+  } else if (typeof result.name === "string") {
+    result.username = result.name;
   }
   if (draft.system) result.system = draft.system;
 

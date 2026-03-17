@@ -10,7 +10,6 @@
 
 import type { PluginListenerHandle } from "@capacitor/core";
 import { Capacitor } from "@capacitor/core";
-import { TalkMode } from "@milady/capacitor-talkmode";
 import {
   useCallback,
   useEffect,
@@ -21,6 +20,12 @@ import {
 } from "react";
 import type { VoiceConfig } from "../api/client";
 import { getElectrobunRendererRpc } from "../bridge/electrobun-rpc";
+import {
+  getTalkModePlugin,
+  type TalkModeErrorEvent,
+  type TalkModeStateEvent,
+  type TalkModeTranscriptEvent,
+} from "../bridge/native-plugins";
 import { resolveApiUrl } from "../utils";
 import { sanitizeSpeechText } from "../utils/spoken-text";
 import { mergeStreamingText } from "../utils/streaming-text";
@@ -43,20 +48,6 @@ interface SpeechRecognitionInstance extends EventTarget {
 interface SpeechRecognitionResultEvent {
   results: SpeechRecognitionResultList;
   resultIndex: number;
-}
-
-interface TalkModeTranscriptEvent {
-  transcript?: string;
-  isFinal?: boolean;
-}
-
-interface TalkModeErrorEvent {
-  code?: string;
-  message?: string;
-}
-
-interface TalkModeStateEvent {
-  state?: string;
 }
 
 interface SpeechRecognitionResultList {
@@ -663,13 +654,15 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
   const ensureTalkModeListeners = useCallback(async () => {
     if (talkModeHandlesRef.current.length > 0) return;
 
-    const transcriptHandle = await TalkMode.addListener(
+    const talkMode = getTalkModePlugin();
+
+    const transcriptHandle = await talkMode.addListener(
       "transcript",
       (event: TalkModeTranscriptEvent) => {
         applyTranscriptUpdate(event.transcript ?? "", event.isFinal === true);
       },
     );
-    const errorHandle = await TalkMode.addListener(
+    const errorHandle = await talkMode.addListener(
       "error",
       (event: TalkModeErrorEvent) => {
         if (
@@ -684,7 +677,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
         }
       },
     );
-    const stateHandle = await TalkMode.addListener(
+    const stateHandle = await talkMode.addListener(
       "stateChange",
       (event: TalkModeStateEvent) => {
         if (event.state === "error" || event.state === "idle") {
@@ -772,15 +765,16 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
       await ensureTalkModeListeners();
 
       try {
-        const permissions = await TalkMode.checkPermissions().catch(() => null);
+        const talkMode = getTalkModePlugin();
+        const permissions = await talkMode.checkPermissions().catch(() => null);
         if (permissions?.microphone === "prompt") {
-          await TalkMode.requestPermissions().catch(() => {
+          await talkMode.requestPermissions().catch(() => {
             /* ignore */
           });
         }
 
         const directRpc = getElectrobunRendererRpc();
-        const result = await TalkMode.start({
+        const result = await talkMode.start({
           config: {
             stt: {
               ...(directRpc ? { engine: "whisper" as const } : {}),
@@ -856,7 +850,7 @@ export function useVoiceChat(options: VoiceChatOptions): VoiceChatState {
       enabledRef.current = false;
 
       if (sttBackendRef.current === "talkmode") {
-        await TalkMode.stop().catch(() => {
+        await getTalkModePlugin().stop().catch(() => {
           /* ignore */
         });
         await new Promise((resolve) =>

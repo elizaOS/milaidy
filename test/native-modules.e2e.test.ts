@@ -396,14 +396,26 @@ describe("Core Plugins with Vision Integration", () => {
   });
 
   it("plugin-vision has static import in eliza.ts", async () => {
-    // Read eliza.ts and check for plugin-vision import
     const elizaPath = path.join(packageRoot, "src", "runtime", "eliza.ts");
     const elizaContent = fs.readFileSync(elizaPath, "utf-8");
+    const canonicalElizaContent = elizaContent.includes(
+      '@elizaos/plugin-vision"',
+    )
+      ? elizaContent
+      : fs.readFileSync(
+          path.join(
+            packageRoot,
+            "packages",
+            "autonomous",
+            "src",
+            "runtime",
+            "eliza.ts",
+          ),
+          "utf-8",
+        );
 
-    // Check for static import at top of file
-    expect(elizaContent).toContain('@elizaos/plugin-vision"');
-    // Check it's referenced in NATIVE_ADDON_PLUGINS or similar
-    expect(elizaContent).toContain("plugin-vision");
+    expect(canonicalElizaContent).toContain('@elizaos/plugin-vision"');
+    expect(canonicalElizaContent).toContain("plugin-vision");
   });
 });
 

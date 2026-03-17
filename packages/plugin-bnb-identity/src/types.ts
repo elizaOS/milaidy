@@ -1,5 +1,5 @@
 /**
- * Shared types for @milady/plugin-bnb-identity.
+ * Shared types for @miladyai/plugin-bnb-identity.
  */
 
 /** Agent Metadata Profile — the JSON that agentURI must point to. */

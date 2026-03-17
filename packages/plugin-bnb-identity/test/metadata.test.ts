@@ -49,7 +49,7 @@ describe("buildAgentMetadata", () => {
 
   it("adds bnb-chain capability when bnb-identity plugin is listed", () => {
     const meta = buildAgentMetadata(baseConfig, "mila", [
-      "@milady/plugin-bnb-identity",
+      "@miladyai/plugin-bnb-identity",
     ]);
     expect(meta.capabilities).toContain("bnb-chain");
     expect(meta.capabilities).toContain("erc8004-identity");
@@ -73,8 +73,8 @@ describe("buildAgentMetadata", () => {
 
   it("deduplicates capabilities", () => {
     const meta = buildAgentMetadata(baseConfig, "mila", [
-      "@milady/plugin-bnb-identity",
-      "@milady/plugin-bnb-identity", // duplicate
+      "@miladyai/plugin-bnb-identity",
+      "@miladyai/plugin-bnb-identity", // duplicate
     ]);
     const count = meta.capabilities.filter((c) => c === "bnb-chain").length;
     expect(count).toBe(1);

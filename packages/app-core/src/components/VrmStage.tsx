@@ -2,12 +2,12 @@ import {
   APP_EMOTE_EVENT,
   type AppEmoteEventDetail,
   STOP_EMOTE_EVENT,
-} from "@milady/app-core/events";
+} from "@miladyai/app-core/events";
 import {
   useChatAvatarVoiceState,
   useRenderGuard,
-} from "@milady/app-core/hooks";
-import { resolveAppAssetUrl } from "@milady/app-core/utils";
+} from "@miladyai/app-core/hooks";
+import { resolveAppAssetUrl } from "@miladyai/app-core/utils";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AvatarLoader } from "./AvatarLoader";
 import type {

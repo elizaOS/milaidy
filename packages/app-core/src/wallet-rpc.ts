@@ -4,11 +4,11 @@ import type {
   WalletRpcChain,
   WalletRpcCredentialKey,
   WalletRpcSelections,
-} from "../../../src/contracts/wallet";
+} from "@miladyai/autonomous/contracts/wallet";
 import {
   DEFAULT_WALLET_RPC_SELECTIONS,
   normalizeWalletRpcSelections,
-} from "../../../src/contracts/wallet";
+} from "@miladyai/autonomous/contracts/wallet";
 
 const PROVIDER_CREDENTIAL_KEYS: Record<
   WalletRpcChain,
