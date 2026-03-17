@@ -930,10 +930,31 @@ jobs:
             -name "*Setup*.zip" -o \
             -name "*Setup*.tar.gz" -o \
             -name "*.msix" \
-          \) -exec cp {} release-files/ \; 2>/dev/null || true
+          \) ! -name "*.exe.zip" -exec cp {} release-files/ \; 2>/dev/null || true
 
           echo "=== Public release files ==="
           ls -lh release-files/ 2>/dev/null || echo "None"
+
+      - name: Validate Windows public installer bundle
+        shell: bash
+        run: |
+          shopt -s nullglob
+          windows_setup_zips=(release-files/*win*x64*Setup*.zip)
+          if [ ${#windows_setup_zips[@]} -eq 0 ]; then
+            echo "::error::Missing Windows setup zip in release-files."
+            exit 1
+          fi
+          for f in "${windows_setup_zips[@]}"; do
+            echo "Validating windows setup bundle: $f"
+            if ! unzip -l "$f" | grep -Eiq 'setup.*\.tar\.zst'; then
+              echo "::error::Windows setup zip missing embedded .tar.zst payload: $f"
+              exit 1
+            fi
+            if ! unzip -l "$f" | grep -Eiq 'setup.*\.exe'; then
+              echo "::error::Windows setup zip missing setup .exe wrapper: $f"
+              exit 1
+            fi
+          done
 
       - name: Collect update channel files
         run: |
