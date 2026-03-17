@@ -1,5 +1,5 @@
 /**
- * ElizaOS Actions for @milady/plugin-bnb-identity.
+ * ElizaOS Actions for @miladyai/plugin-bnb-identity.
  *
  * Four actions surface in Milady's chat interface:
  *

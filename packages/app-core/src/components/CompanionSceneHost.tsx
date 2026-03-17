@@ -1,11 +1,11 @@
-import { useRenderGuard } from "@milady/app-core/hooks";
+import { useRenderGuard } from "@miladyai/app-core/hooks";
 import {
   getVrmPreviewUrl,
   getVrmUrl,
   useApp,
   VRM_COUNT,
-} from "@milady/app-core/state";
-import { resolveAppAssetUrl } from "@milady/app-core/utils";
+} from "@miladyai/app-core/state";
+import { resolveAppAssetUrl } from "@miladyai/app-core/utils";
 import {
   memo,
   type ReactNode,
@@ -23,7 +23,7 @@ import { VrmStage } from "./VrmStage";
 const COMPANION_ZOOM_WHEEL_SENSITIVITY = 1 / 720;
 const COMPANION_ZOOM_PINCH_SENSITIVITY = 2.35;
 const COMPANION_ZOOM_STORAGE_KEY = "milady.companion.zoom.v1";
-const DEFAULT_COMPANION_ZOOM = 1;
+const DEFAULT_COMPANION_ZOOM = 0.95;
 const CAMERA_DRAG_IGNORE_SELECTOR =
   'button, input, textarea, select, option, [contenteditable="true"], [data-no-camera-drag="true"]';
 const NON_TEXT_INPUT_TYPES = new Set([

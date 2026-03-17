@@ -44,7 +44,7 @@ Current plugin loading priority in `resolvePlugins()`:
 1. Ejected plugins (`~/.milady/plugins/ejected/`)
 2. Official npm (with repair logic)
 3. User-installed (`~/.milady/plugins/installed/`)
-4. `@milady/plugin-*` local
+4. `@miladyai/plugin-*` local
 5. npm fallback
 
 For core, we need a **separate mechanism** — core isn't a "plugin", it's a dependency imported everywhere via `import { ... } from "@elizaos/core"`. Options:

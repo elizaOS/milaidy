@@ -6,7 +6,7 @@
  * available secrets from plugins and pick which ones to manage here.
  */
 
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SecretInfo } from "../api";

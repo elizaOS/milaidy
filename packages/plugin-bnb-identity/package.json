@@ -1,5 +1,5 @@
 {
-  "name": "@milady/plugin-bnb-identity",
+  "name": "@miladyai/plugin-bnb-identity",
   "description": "ERC-8004 on-chain agent identity plugin for Milady \u2014 registers Milady on BNB Chain and keeps her agentURI in sync",
   "version": "0.1.0",
   "type": "module",

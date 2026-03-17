@@ -8,7 +8,7 @@
  *   - Status badges (Configured / Needs Setup)
  */
 
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import { useCallback, useEffect, useState } from "react";
 import {
   type AudioGenProvider,

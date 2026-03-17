@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ElectrobunRendererRpc } from "@milady/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@miladyai/app-core/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SwabbleWeb } from "../../plugins/swabble/src/web.ts";
 

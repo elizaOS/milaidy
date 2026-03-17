@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * Tests for @milady/capacitor-swabble — wake word, speech, audio devices, permissions.
+ * Tests for @miladyai/capacitor-swabble — wake word, speech, audio devices, permissions.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SwabbleWeb } from "../../plugins/swabble/src/web";
 
-describe("@milady/capacitor-swabble", () => {
+describe("@miladyai/capacitor-swabble", () => {
   let sw: SwabbleWeb;
 
   beforeEach(() => {

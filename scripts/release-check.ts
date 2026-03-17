@@ -21,12 +21,12 @@ const forbiddenPrefixes = ["dist/Milady.app/"];
 const orchestratorPackageName = "@elizaos/plugin-agent-orchestrator";
 const orchestratorBrokenLifecycleTarget = "./scripts/ensure-node-pty.mjs";
 const requiredWorkflowSnippets = [
-  'BUN_VERSION: "1.3.9"',
+  'BUN_VERSION: "1.3.10"',
   "name: Validate Release Inputs",
   "bun-version: $" + "{{ env.BUN_VERSION }}",
   "name: Release readiness checks",
   "run: bun run release:check",
-  "key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}",
+  "key: bun-electrobun-validate-$" + "{{ hashFiles('bun.lock') }}",
   "restore-keys: bun-electrobun-validate-",
   "name: Ensure avatar assets",
   "node scripts/ensure-avatars.mjs",
@@ -69,7 +69,8 @@ const requiredWorkflowSnippets = [
   'Write-Host "Resolved electrobun package dir: $resolvedElectrobunDir"',
   '$cacheDir     = Join-Path $resolvedElectrobunDir ".cache"',
   '$resolvedRceditDir = Join-Path $resolvedElectrobunDir "node_modules\\rcedit"',
-  "node scripts/desktop-build.mjs package --env=${{ needs.prepare.outputs.env }}",
+  "node scripts/desktop-build.mjs package --env=$" +
+    "{{ needs.prepare.outputs.env }}",
   "MILADY_ELECTROBUN_NOTARIZE: 0",
   'MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"',
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
@@ -177,6 +178,18 @@ export function bundlesDependency(
   return bundled.includes(dependencyName);
 }
 
+export function isExactVersionSpecifier(
+  versionSpecifier: string | undefined,
+): boolean {
+  if (typeof versionSpecifier !== "string") {
+    return false;
+  }
+
+  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
+    versionSpecifier,
+  );
+}
+
 export function hasLifecycleScriptReferencingMissingFile(
   pkg: DependencyPackageJson,
   packageDir: string,
@@ -251,6 +264,15 @@ function assertBundledAgentOrchestratorInstallFix() {
   if (!bundlesDependency(rootPackage, orchestratorPackageName)) {
     console.error(
       "release-check: package.json must bundle @elizaos/plugin-agent-orchestrator until the upstream tarball stops shipping a broken postinstall hook.",
+    );
+    process.exit(1);
+  }
+
+  const orchestratorVersion =
+    rootPackage.dependencies?.[orchestratorPackageName];
+  if (!isExactVersionSpecifier(orchestratorVersion)) {
+    console.error(
+      "release-check: package.json must pin @elizaos/plugin-agent-orchestrator to an exact version until the upstream tarball stops shipping a broken postinstall hook.",
     );
     process.exit(1);
   }

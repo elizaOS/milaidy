@@ -5,6 +5,7 @@ import {
   findLocalPackHotspots,
   hasLifecycleScriptReferencingMissingFile,
   isExactVersion,
+  isExactVersionSpecifier,
   isPackPathCoveredByFilesList,
   shouldSkipExactPackDryRun,
 } from "./release-check";
@@ -92,6 +93,18 @@ describe("release-check package guards", () => {
     expect(isExactVersion("2.0.0-alpha.87")).toBe(true);
     expect(isExactVersion("0.0.1-beta.1")).toBe(true);
     expect(isExactVersion("3.2.1-rc.0")).toBe(true);
+  });
+
+  it("accepts only strict semver specifiers for orchestrator release pins", () => {
+    expect(isExactVersionSpecifier("0.3.14")).toBe(true);
+    expect(isExactVersionSpecifier("2.0.0-alpha.1")).toBe(true);
+    expect(isExactVersionSpecifier("1.2.3+build.4")).toBe(true);
+    expect(isExactVersionSpecifier(undefined)).toBe(false);
+    expect(isExactVersionSpecifier("next")).toBe(false);
+    expect(isExactVersionSpecifier("latest")).toBe(false);
+    expect(isExactVersionSpecifier("^0.3.14")).toBe(false);
+    expect(isExactVersionSpecifier("~0.3.14")).toBe(false);
+    expect(isExactVersionSpecifier("workspace:*")).toBe(false);
   });
 
   it("rejects floating tags and range specifiers", () => {

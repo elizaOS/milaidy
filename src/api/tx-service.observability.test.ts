@@ -16,9 +16,12 @@ const {
   mockWaitForTransaction: vi.fn(),
 }));
 
-vi.mock("../diagnostics/integration-observability", () => ({
-  createIntegrationTelemetrySpan: createSpanMock,
-}));
+vi.mock(
+  "../../packages/autonomous/src/diagnostics/integration-observability.ts",
+  () => ({
+    createIntegrationTelemetrySpan: createSpanMock,
+  }),
+);
 
 vi.mock("ethers", () => {
   class MockJsonRpcProvider {
@@ -45,7 +48,7 @@ vi.mock("ethers", () => {
   };
 });
 
-import { TxService } from "./tx-service";
+import { TxService } from "../../packages/autonomous/src/api/tx-service.ts";
 
 const VALID_KEY =
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";

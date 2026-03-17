@@ -1,10 +1,26 @@
 {
-  "name": "@milady/ui",
+  "name": "@miladyai/ui",
   "version": "1.0.0",
-  "private": true,
+  "description": "Reusable UI primitives and components for Milady applications.",
   "type": "module",
   "main": "src/index.ts",
+  "license": "MIT",
+  "homepage": "https://github.com/milady-ai/milady",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milady-ai/milady.git",
+    "directory": "packages/ui"
+  },
+  "keywords": [
+    "milady",
+    "ui",
+    "react",
+    "components"
+  ],
   "scripts": {
+    "clean": "rimraf dist",
+    "build:dist": "rimraf dist && tsc -p tsconfig.build.json && node ../../scripts/copy-package-assets.mjs packages/ui src/styles && node ../../scripts/prepare-package-dist.mjs packages/ui",
+    "pack:dry-run": "cd dist && npm pack --dry-run",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
@@ -35,6 +51,9 @@
     "next-themes": "^0.4.6",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@storybook/addon-essentials": "8.6.14",

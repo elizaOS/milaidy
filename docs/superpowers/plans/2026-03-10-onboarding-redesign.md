@@ -245,7 +245,7 @@ git commit -m "feat: add game-style onboarding CSS with animations"
 - [ ] **Step 1: Write the component**
 
 ```tsx
-import { ONBOARDING_STEPS, type OnboardingStep } from "@milady/app-core/state/types";
+import { ONBOARDING_STEPS, type OnboardingStep } from "@miladyai/app-core/state/types";
 import { useApp } from "../../AppContext";
 
 export function OnboardingStepNav() {
@@ -295,7 +295,7 @@ git commit -m "feat: add OnboardingStepNav component"
 
 ```tsx
 import { type ReactNode, useRef, useEffect } from "react";
-import { type OnboardingStep } from "@milady/app-core/state/types";
+import { type OnboardingStep } from "@miladyai/app-core/state/types";
 
 interface OnboardingPanelProps {
   step: OnboardingStep;
@@ -355,7 +355,7 @@ Replace the entire file. The new wizard renders the 3-column layout with VRM in 
 
 ```tsx
 import { useApp } from "../AppContext";
-import { getVrmUrl, getVrmPreviewUrl, getVrmBackgroundUrl } from "@milady/app-core/state/vrm";
+import { getVrmUrl, getVrmPreviewUrl, getVrmBackgroundUrl } from "@miladyai/app-core/state/vrm";
 import { VrmStage } from "./companion/VrmStage";
 import { OnboardingStepNav } from "./onboarding/OnboardingStepNav";
 import { OnboardingPanel } from "./onboarding/OnboardingPanel";
@@ -588,7 +588,7 @@ Replace the file content. Use pill-style horizontal buttons instead of the old g
 
 ```tsx
 import { useApp } from "../../AppContext";
-import { normalizedLanguage } from "@milady/app-core";
+import { normalizedLanguage } from "@miladyai/app-core";
 
 const LANGUAGES = [
   { id: "en", label: "English" },

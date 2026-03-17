@@ -64,4 +64,18 @@ describe("smoke-test.sh", () => {
       '"$' + "{LAUNCH_COMMAND[@]}" + '" >"$LAUNCHER_STDOUT"',
     );
   });
+
+  it("asserts the packaged bundle and executables keep the Milady identifier", () => {
+    const script = fs.readFileSync(SMOKE_TEST_PATH, "utf8");
+
+    expect(script).toContain(
+      'EXPECTED_BUNDLE_IDENTIFIER="$' +
+        '{EXPECTED_BUNDLE_IDENTIFIER:-com.miladyai.milady}"',
+    );
+    expect(script).toContain(
+      'grep -q "Identifier=$EXPECTED_BUNDLE_IDENTIFIER"',
+    );
+    expect(script).toContain('"$APP_BUNDLE/Contents/MacOS/launcher"');
+    expect(script).toContain('"$APP_BUNDLE/Contents/MacOS/bun"');
+  });
 });

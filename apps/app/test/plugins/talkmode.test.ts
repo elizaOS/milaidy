@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * Tests for @milady/capacitor-talkmode — state machine, speak, config, permissions.
+ * Tests for @miladyai/capacitor-talkmode — state machine, speak, config, permissions.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TalkModeWeb } from "../../plugins/talkmode/src/web";
 
-describe("@milady/capacitor-talkmode", () => {
+describe("@miladyai/capacitor-talkmode", () => {
   let tm: TalkModeWeb;
 
   beforeEach(() => {

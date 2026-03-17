@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   WALLET_RPC_PROVIDER_OPTIONS,
   type WalletRpcSelections,
-} from "../../../../src/contracts/wallet";
+} from "@miladyai/autonomous/contracts/wallet";
 import { client } from "../api";
 import {
   ConfigRenderer,

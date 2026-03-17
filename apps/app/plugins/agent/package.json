@@ -1,5 +1,5 @@
 {
-  "name": "@milady/capacitor-agent",
+  "name": "@miladyai/capacitor-agent",
   "version": "1.0.0",
   "description": "Starts, stops, and monitors the embedded Milady agent runtime.",
   "keywords": [
@@ -9,14 +9,15 @@
     "runtime-control"
   ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./src/index.ts",
-  "types": "./dist/plugin.d.ts",
+  "module": "./dist/plugin.js",
+  "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/plugin.d.ts",
+      "types": "./dist/esm/index.d.ts",
       "import": "./dist/plugin.js",
       "require": "./dist/plugin.cjs.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "unpkg": "dist/plugin.js",
   "files": [
@@ -24,6 +25,11 @@
   ],
   "author": "Milady",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milady-ai/milady.git",
+    "directory": "apps/app/plugins/agent"
+  },
   "scripts": {
     "build": "npm run clean && tsc && rollup -c rollup.config.mjs",
     "clean": "rimraf ./dist",
@@ -37,6 +43,9 @@
   },
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "capacitor": {
     "ios": {

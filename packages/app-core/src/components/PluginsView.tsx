@@ -4,7 +4,7 @@
  * Renders a unified plugin list with searchable/filterable cards and per-plugin settings.
  */
 
-import { Button, Input } from "@milady/ui";
+import { Button, Input } from "@miladyai/ui";
 import type { LucideIcon } from "lucide-react";
 import {
   Binary,
@@ -1978,7 +1978,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             className="flex w-[22rem] shrink-0 border-r border-border/50 bg-bg/35 backdrop-blur-xl"
           >
             <div className="flex min-h-full flex-1 flex-col sticky top-0 max-h-screen">
-              <div className="border-b border-border/40 px-5 py-5">
+              <div className="border-b border-border/40 px-5 py-5 text-center">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted/80">
                   Connectors
                 </div>
@@ -1987,7 +1987,12 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 </div>
               </div>
               <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-                {visiblePlugins.map((plugin) => {
+                {(desktopConnectorLayout
+                  ? visiblePlugins.filter((plugin) => {
+                      return plugin.id === connectorSelectedId;
+                    })
+                  : visiblePlugins
+                ).map((plugin) => {
                   const isSelected = connectorSelectedId === plugin.id;
                   const isExpanded = connectorExpandedIds.has(plugin.id);
                   const isToggleBusy = togglingPlugins.has(plugin.id);
@@ -2115,7 +2120,10 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 data-testid="connectors-settings-content"
                 className="space-y-4"
               >
-                {visiblePlugins.map((plugin) => {
+                {(desktopConnectorLayout
+                  ? visiblePlugins.filter((p) => p.id === connectorSelectedId)
+                  : visiblePlugins
+                ).map((plugin) => {
                   const hasParams =
                     (plugin.parameters?.length ?? 0) > 0 &&
                     plugin.id !== "__ui-showcase__";

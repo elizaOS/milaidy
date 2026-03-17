@@ -1,5 +1,5 @@
 /**
- * ElizaOS Actions for BAP-578 NFA (merged into @milady/plugin-bnb-identity).
+ * ElizaOS Actions for BAP-578 NFA (merged into @miladyai/plugin-bnb-identity).
 
  *
  * Actions:

@@ -30,6 +30,12 @@ type BaileysSocket = ReturnType<
   typeof import("@whiskeysockets/baileys").default
 >;
 
+type WhatsAppDisconnectError = {
+  output?: {
+    statusCode?: number;
+  };
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -140,7 +146,6 @@ export class WhatsAppBaileysService extends Service {
       fetchLatestBaileysVersion,
       DisconnectReason,
     } = baileys;
-    const { Boom } = await import("@hapi/boom");
     const pino = (await import("pino")).default;
     const logger = pino({ level: "silent" });
 
@@ -173,9 +178,8 @@ export class WhatsAppBaileysService extends Service {
 
         if (connection === "close") {
           this.connected = false;
-          const statusCode = (
-            lastDisconnect?.error as InstanceType<typeof Boom>
-          )?.output?.statusCode;
+          const statusCode = (lastDisconnect?.error as WhatsAppDisconnectError)
+            ?.output?.statusCode;
 
           this.runtime.logger.info(
             `[whatsapp] Connection closed (code=${statusCode})`,

@@ -4,6 +4,7 @@
  * Children access state and actions through the useApp() hook.
  */
 
+import type { OnboardingConnection } from "@miladyai/autonomous/contracts/onboarding";
 import {
   type ReactNode,
   useCallback,
@@ -98,6 +99,7 @@ import {
   type UiLanguage,
 } from "../i18n";
 import { pathForTab, type Tab, tabFromPath } from "../navigation";
+import { buildOnboardingConnectionConfig } from "../onboarding-config";
 import { getMissingOnboardingPermissions } from "../platform";
 import {
   alertDesktopMessage,
@@ -116,9 +118,13 @@ import {
   applyUiTheme,
   asApiLikeError,
   type ChatTurnUsage,
+  clearPersistedOnboardingStep,
+  deriveOnboardingResumeConnection,
+  deriveOnboardingResumeFields,
   formatSearchBullet,
   formatStartupErrorDetail,
   type GamePostMessageAuthPayload,
+  inferOnboardingResumeStep,
   LIFECYCLE_MESSAGES,
   type LifecycleAction,
   type LoadConversationMessagesResult,
@@ -129,8 +135,8 @@ import {
   loadChatVoiceMuted,
   loadCompanionMessageCutoffTs,
   loadLastNativeTab,
+  loadPersistedOnboardingStep,
   loadUiLanguage,
-  loadUiShellMode,
   loadUiTheme,
   mergeStreamingText,
   normalizeAvatarIndex,
@@ -155,6 +161,7 @@ import {
   saveChatVoiceMuted,
   saveCompanionMessageCutoffTs,
   saveLastNativeTab,
+  saveOnboardingStep,
   saveUiLanguage,
   saveUiShellMode,
   saveUiTheme,
@@ -162,6 +169,14 @@ import {
   type UiShellMode,
   type UiTheme,
 } from "./internal";
+import {
+  deriveUiShellModeForTab,
+  getTabForShellView,
+  shouldStartAtCharacterSelectOnLaunch,
+} from "./shell-routing";
+
+const AGENT_STATUS_POLL_INTERVAL_MS = 500;
+const ONBOARDING_GREETING_READY_TIMEOUT_MS = 15_000;
 
 export {
   type ActionNotice,
@@ -395,8 +410,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useState<Tab>(loadLastNativeTab);
   // --- Core state ---
   const [tab, setTabRaw] = useState<Tab>("chat");
-  const [uiShellMode, setUiShellModeState] =
-    useState<UiShellMode>(loadUiShellMode);
   const [uiLanguage, setUiLanguageState] = useState<UiLanguage>(loadUiLanguage);
   const [uiTheme, setUiThemeState] = useState<UiTheme>(loadUiTheme);
   const [connected, setConnected] = useState(false);
@@ -441,6 +454,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBackendDisconnectedBannerDismissed,
   ] = useState(false);
   const [systemWarnings, setSystemWarnings] = useState<string[]>([]);
+  const uiShellMode = deriveUiShellModeForTab(tab);
 
   // --- Pairing ---
   const [pairingEnabled, setPairingEnabled] = useState(false);
@@ -770,8 +784,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
 
   // --- Onboarding ---
-  const [onboardingStep, setOnboardingStep] =
-    useState<OnboardingStep>("wakeUp");
+  const [onboardingStep, setOnboardingStepRaw] = useState<OnboardingStep>(
+    () => loadPersistedOnboardingStep() ?? "wakeUp",
+  );
   const [onboardingOptions, setOnboardingOptions] =
     useState<OnboardingOptions | null>(null);
   const [onboardingName, setOnboardingName] = useState("Eliza");
@@ -835,6 +850,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   >({});
   const [onboardingAvatar, setOnboardingAvatar] = useState(1);
   const [onboardingRestarting, setOnboardingRestarting] = useState(false);
+
+  const setOnboardingStep = useCallback((step: OnboardingStep) => {
+    setOnboardingStepRaw(step);
+    saveOnboardingStep(step);
+  }, []);
 
   // --- Command palette ---
   const [commandPaletteOpen, _setCommandPaletteOpen] = useState(false);
@@ -931,12 +951,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const lifecycleActionRef = useRef<LifecycleAction | null>(null);
   /** Synchronous lock for onboarding finish to prevent duplicate same-tick submits. */
   const onboardingFinishBusyRef = useRef(false);
+  const onboardingResumeConnectionRef = useRef<OnboardingConnection | null>(
+    null,
+  );
   const pairingBusyRef = useRef(false);
   /** Guards against double-greeting when both init and state-transition paths fire. */
   const greetingFiredRef = useRef(false);
   const greetingInFlightConversationRef = useRef<string | null>(null);
   const greetingEmoteTimerRef = useRef<number | null>(null);
   const companionStaleConversationRefreshRef = useRef<string | null>(null);
+  const onboardingCompletionCommittedRef = useRef(false);
   const chatAbortRef = useRef<AbortController | null>(null);
   /** Synchronous lock so same-tick chat submits cannot double-send. */
   const chatSendBusyRef = useRef(false);
@@ -1046,10 +1070,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [uiLanguage]);
 
-  const setUiShellMode = useCallback((mode: UiShellMode) => {
-    setUiShellModeState(normalizeUiShellMode(mode));
-  }, []);
-
   useEffect(() => {
     saveUiShellMode(uiShellMode);
   }, [uiShellMode]);
@@ -1084,28 +1104,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAppsSubTab(activeGameViewerUrl.trim() ? "games" : "browse");
       }
       const path = pathForTab(newTab);
-      // In Electron packaged builds (file:// URLs), use hash routing to avoid
-      // "Not allowed to load local resource: file:///..." errors.
-      if (window.location.protocol === "file:") {
-        window.location.hash = path;
-      } else {
-        window.history.pushState(null, "", path);
+      try {
+        // In Electron packaged builds (file:// URLs), use hash routing to avoid
+        // "Not allowed to load local resource: file:///..." errors.
+        if (window.location.protocol === "file:") {
+          window.location.hash = path;
+        } else {
+          window.history.pushState(null, "", path);
+        }
+      } catch (err) {
+        console.warn("[milady][nav] failed to update browser location", err);
       }
     },
     [activeGameViewerUrl],
   );
 
+  const setUiShellMode = useCallback(
+    (mode: UiShellMode) => {
+      const nextMode = normalizeUiShellMode(mode);
+      if (nextMode === "companion") {
+        setTab("companion");
+        return;
+      }
+      setTab(lastNativeTab);
+    },
+    [lastNativeTab, setTab],
+  );
+
   useEffect(() => {
     const shouldRememberTab =
-      uiShellMode === "native" &&
-      tab !== "companion" &&
-      tab !== "character" &&
-      tab !== "character-select";
+      tab !== "companion" && tab !== "character" && tab !== "character-select";
     if (!shouldRememberTab) {
       return;
     }
     setLastNativeTabState((prev) => (prev === tab ? prev : tab));
-  }, [tab, uiShellMode]);
+  }, [tab]);
 
   const switchUiShellMode = useCallback(
     (mode: UiShellMode) => {
@@ -1115,12 +1148,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       if (nextMode === "native") {
-        setUiShellModeState("native");
         setTab(lastNativeTab);
         return;
       }
 
-      setUiShellModeState("companion");
       setTab("companion");
     },
     [lastNativeTab, setTab, uiShellMode],
@@ -1128,19 +1159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const switchShellView = useCallback(
     (view: ShellView) => {
-      if (view === "companion") {
-        setUiShellModeState("companion");
-        setTab("companion");
-        return;
-      }
-
-      setUiShellModeState("native");
-      if (view === "character") {
-        setTab("character-select");
-        return;
-      }
-
-      setTab(lastNativeTab);
+      setTab(getTabForShellView(view, lastNativeTab));
     },
     [lastNativeTab, setTab],
   );
@@ -1615,6 +1634,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           : (character.bio ?? ""),
         system: character.system ?? "",
         adjectives: character.adjectives ?? [],
+        topics: character.topics ?? [],
         style: {
           all: character.style?.all ?? [],
           chat: character.style?.chat ?? [],
@@ -1755,7 +1775,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return false;
       }
       greetingInFlightConversationRef.current = convId;
-      setChatSending(true);
       try {
         const data = await client.requestGreeting(convId, uiLanguage);
         if (data.text) {
@@ -1797,7 +1816,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (greetingInFlightConversationRef.current === convId) {
           greetingInFlightConversationRef.current = null;
         }
-        setChatSending(false);
       }
       return false;
     },
@@ -1828,6 +1846,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [fetchGreeting],
   );
+
+  const waitForOnboardingGreetingBootstrap = useCallback(async () => {
+    const deadlineAt = Date.now() + ONBOARDING_GREETING_READY_TIMEOUT_MS;
+
+    while (Date.now() < deadlineAt) {
+      try {
+        const status = await client.getStatus();
+        setAgentStatus(status);
+        setConnected(true);
+
+        if (status.pendingRestart) {
+          setPendingRestart(true);
+          setPendingRestartReasons(status.pendingRestartReasons ?? []);
+        }
+
+        if (status.state === "running" || status.state === "error") {
+          return;
+        }
+      } catch {
+        setConnected(false);
+      }
+
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, AGENT_STATUS_POLL_INTERVAL_MS);
+      });
+    }
+  }, []);
 
   const hydrateInitialConversationState = useCallback(async (): Promise<
     string | null
@@ -2101,7 +2146,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await client.resetAgent();
       setAgentStatus(null);
+      onboardingCompletionCommittedRef.current = false;
       setOnboardingComplete(false);
+      onboardingResumeConnectionRef.current = null;
       setOnboardingStep("wakeUp");
       setConversationMessages([]);
       setActiveConversationId(null);
@@ -2138,6 +2185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     beginLifecycleAction,
     finishLifecycleAction,
     setActionNotice,
+    setOnboardingStep,
   ]);
 
   const handleNewConversation = useCallback(
@@ -3884,17 +3932,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const systemPrompt = style?.system
       ? style.system.replace(/\{\{name\}\}/g, onboardingName)
       : `You are ${onboardingName}, an autonomous AI agent powered by elizaOS. ${onboardingOptions.sharedStyleRules}`;
-    const elizaCloudProvisioned =
-      onboardingRunMode === "cloud" &&
-      onboardingCloudProvider === "elizacloud" &&
-      !onboardingRemoteConnected;
-    const apiRunMode = elizaCloudProvisioned ? "cloud" : "local";
-
     onboardingFinishBusyRef.current = true;
     setOnboardingRestarting(true);
     onboardingFinishSavingRef.current = true;
 
     try {
+      const connection =
+        buildOnboardingConnectionConfig({
+          onboardingRunMode,
+          onboardingCloudProvider,
+          onboardingProvider,
+          onboardingApiKey,
+          onboardingPrimaryModel,
+          onboardingOpenRouterModel,
+          onboardingRemoteConnected,
+          onboardingRemoteApiBase,
+          onboardingRemoteToken,
+          onboardingSmallModel,
+          onboardingLargeModel,
+        }) ?? onboardingResumeConnectionRef.current;
+      if (!connection) {
+        throw new Error("Onboarding connection is incomplete");
+      }
       const rpcSel = onboardingRpcSelections as Record<string, string>;
       const rpcK = onboardingRpcKeys as Record<string, string>;
       const nextWalletConfig = buildWalletRpcUpdateRequest({
@@ -3909,7 +3968,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       await client.submitOnboarding({
         name: onboardingName,
-        runMode: apiRunMode,
         sandboxMode: "off" as const,
         bio: style?.bio ?? ["An autonomous AI agent."],
         systemPrompt,
@@ -3917,22 +3975,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         adjectives: style?.adjectives,
         postExamples: style?.postExamples,
         messageExamples: style?.messageExamples,
-        cloudProvider: elizaCloudProvisioned
-          ? onboardingCloudProvider
-          : undefined,
-        smallModel: elizaCloudProvisioned
-          ? onboardingSmallModel.trim() || undefined
-          : undefined,
-        largeModel: elizaCloudProvisioned
-          ? onboardingLargeModel.trim() || undefined
-          : undefined,
-        provider:
-          apiRunMode === "local" ? onboardingProvider || undefined : undefined,
-        providerApiKey: onboardingApiKey || undefined,
-        primaryModel:
-          apiRunMode === "local"
-            ? onboardingPrimaryModel.trim() || undefined
-            : undefined,
+        connection,
         walletConfig: nextWalletConfig,
       });
       try {
@@ -3940,10 +3983,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
+      await waitForOnboardingGreetingBootstrap();
       const greetConvId = await hydrateInitialConversationState();
-      await requestGreetingWhenRunning(greetConvId, { showOverlay: true });
+      if (greetConvId) {
+        void requestGreetingWhenRunning(greetConvId, { showOverlay: true });
+      }
+      clearPersistedOnboardingStep();
+      onboardingResumeConnectionRef.current = null;
+      onboardingCompletionCommittedRef.current = true;
       setOnboardingComplete(true);
-      setTab("chat");
+      setTab("character-select");
     } catch (err) {
       await alertDesktopMessage({
         title: "Setup Failed",
@@ -3968,7 +4017,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
+    onboardingRemoteApiBase,
     onboardingRemoteConnected,
+    onboardingRemoteToken,
+    onboardingOpenRouterModel,
     onboardingPrimaryModel,
     onboardingRpcSelections,
     onboardingRpcKeys,
@@ -3976,6 +4028,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     hydrateInitialConversationState,
     setTab,
     requestGreetingWhenRunning,
+    waitForOnboardingGreetingBootstrap,
   ]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: t is stable but defined later
@@ -3983,24 +4036,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (options?: OnboardingNextOptions) => {
       const STEP_ORDER: OnboardingStep[] = [
         "wakeUp",
+        "identity",
         "connection",
         "rpc",
         "senses",
         "activate",
       ];
 
-      // Hardcode agent name to Eliza
-      if (onboardingStep === "wakeUp" && !onboardingName) {
-        setState("onboardingName", "Eliza");
-      }
-
-      // Auto-select first style if none chosen
+      // Auto-select first style if none chosen (identity step will let user change)
       if (
         onboardingStep === "wakeUp" &&
         !onboardingStyle &&
         onboardingOptions?.styles?.length
       ) {
         setState("onboardingStyle", onboardingOptions.styles[0].catchphrase);
+      }
+
+      // Default agent name to Rin if none set after identity step
+      if (onboardingStep === "identity" && !onboardingName) {
+        setState("onboardingName", "Rin");
       }
 
       // At activate step, finish onboarding
@@ -4058,6 +4112,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const handleOnboardingBack = useCallback(() => {
     const STEP_ORDER: OnboardingStep[] = [
       "wakeUp",
+      "identity",
       "connection",
       "rpc",
       "senses",
@@ -4068,7 +4123,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (currentIndex > 0) {
       setOnboardingStep(STEP_ORDER[currentIndex - 1]);
     }
-  }, [onboardingStep]);
+  }, [onboardingStep, setOnboardingStep]);
 
   const handleOnboardingUseLocalBackend = useCallback(() => {
     client.setBaseUrl(null);
@@ -4418,6 +4473,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         [S in keyof AppState]: (v: AppState[S]) => void;
       }> = {
         tab: setTabRaw,
+        onboardingStep: setOnboardingStep,
         chatInput: setChatInput,
         chatAvatarVisible: setChatAvatarVisible,
         chatAgentVoiceMuted: setChatAgentVoiceMuted,
@@ -4425,7 +4481,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         chatMode: setChatMode,
         chatAvatarSpeaking: setChatAvatarSpeaking,
         companionMessageCutoffTs: setCompanionMessageCutoffTs,
-        uiShellMode: setUiShellModeState,
+        uiShellMode: setUiShellMode,
         uiLanguage: setUiLanguageState,
         autonomousRunHealthByRunId: setAutonomousRunHealthByRunId,
         startupError: setStartupError,
@@ -4546,7 +4602,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const setter = setterMap[key];
       if (setter) setter(value);
     },
-    [setSelectedVrmIndex],
+    [setOnboardingStep, setSelectedVrmIndex, setUiShellMode],
   );
 
   // ── Initialization ─────────────────────────────────────────────────
@@ -4689,8 +4745,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
             break;
           }
           const { complete } = await client.getOnboardingStatus();
-          setOnboardingComplete(complete);
-          onboardingNeedsOptions = !complete;
+          const sessionOnboardingComplete =
+            complete || onboardingCompletionCommittedRef.current;
+          if (complete) {
+            clearPersistedOnboardingStep();
+            onboardingResumeConnectionRef.current = null;
+          }
+          setOnboardingComplete(sessionOnboardingComplete);
+          onboardingNeedsOptions = !sessionOnboardingComplete;
           break;
         } catch (err) {
           const apiErr = asApiLikeError(err);
@@ -4736,8 +4798,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return;
           }
           try {
-            const options = await client.getOnboardingOptions();
+            const [options, config] = await Promise.all([
+              client.getOnboardingOptions(),
+              client.getConfig().catch(() => null),
+            ]);
+            if (onboardingCompletionCommittedRef.current) {
+              setOnboardingLoading(false);
+              return;
+            }
+            const resumeConnection = deriveOnboardingResumeConnection(config);
+            const resumeFields = deriveOnboardingResumeFields(resumeConnection);
+            onboardingResumeConnectionRef.current = resumeConnection;
             setOnboardingOptions(options);
+            if (resumeFields.onboardingRunMode !== undefined) {
+              setOnboardingRunMode(resumeFields.onboardingRunMode);
+            }
+            if (resumeFields.onboardingCloudProvider !== undefined) {
+              setOnboardingCloudProvider(resumeFields.onboardingCloudProvider);
+            }
+            if (resumeFields.onboardingProvider !== undefined) {
+              setOnboardingProvider(resumeFields.onboardingProvider);
+            }
+            if (resumeFields.onboardingApiKey !== undefined) {
+              setOnboardingApiKey(resumeFields.onboardingApiKey);
+            }
+            if (resumeFields.onboardingPrimaryModel !== undefined) {
+              setOnboardingPrimaryModel(resumeFields.onboardingPrimaryModel);
+            }
+            if (resumeFields.onboardingOpenRouterModel !== undefined) {
+              setOnboardingOpenRouterModel(
+                resumeFields.onboardingOpenRouterModel,
+              );
+            }
+            if (resumeFields.onboardingRemoteConnected !== undefined) {
+              setOnboardingRemoteConnected(
+                resumeFields.onboardingRemoteConnected,
+              );
+            }
+            if (resumeFields.onboardingRemoteApiBase !== undefined) {
+              setOnboardingRemoteApiBase(resumeFields.onboardingRemoteApiBase);
+            }
+            if (resumeFields.onboardingRemoteToken !== undefined) {
+              setOnboardingRemoteToken(resumeFields.onboardingRemoteToken);
+            }
+            if (resumeFields.onboardingSmallModel !== undefined) {
+              setOnboardingSmallModel(resumeFields.onboardingSmallModel);
+            }
+            if (resumeFields.onboardingLargeModel !== undefined) {
+              setOnboardingLargeModel(resumeFields.onboardingLargeModel);
+            }
+            setOnboardingStep(
+              inferOnboardingResumeStep({
+                persistedStep: loadPersistedOnboardingStep(),
+                config,
+              }),
+            );
             setOnboardingLoading(false);
             return;
           } catch (err) {
@@ -5263,7 +5378,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ? window.location.hash.replace(/^#/, "") || "/"
           : window.location.pathname;
       const urlTab = tabFromPath(navPath);
-      if (urlTab) {
+      const shouldStartAtCharacterSelect = shouldStartAtCharacterSelectOnLaunch(
+        {
+          onboardingNeedsOptions,
+          navPath,
+          urlTab,
+        },
+      );
+      if (shouldStartAtCharacterSelect) {
+        setTab("character-select");
+        void loadCharacter();
+      } else if (urlTab) {
         setTabRaw(urlTab);
         if (urlTab === "plugins" || urlTab === "connectors") {
           void loadPlugins();

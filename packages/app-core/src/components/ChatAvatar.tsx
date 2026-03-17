@@ -8,9 +8,9 @@ import {
   APP_EMOTE_EVENT,
   type AppEmoteEventDetail,
   STOP_EMOTE_EVENT,
-} from "@milady/app-core/events";
-import { getVrmPreviewUrl, getVrmUrl, useApp } from "@milady/app-core/state";
-import { resolveAppAssetUrl } from "@milady/app-core/utils";
+} from "@miladyai/app-core/events";
+import { getVrmPreviewUrl, getVrmUrl, useApp } from "@miladyai/app-core/state";
+import { resolveAppAssetUrl } from "@miladyai/app-core/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarLoader } from "./AvatarLoader";
 import type { VrmEngine, VrmEngineState } from "./avatar/VrmEngine";

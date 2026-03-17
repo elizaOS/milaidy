@@ -1,0 +1,44 @@
+# Docker context exclusions for cloud-slim build
+.git
+.github
+.vscode
+.idea
+*.md
+LICENSE
+CHANGELOG*
+
+# Desktop/mobile apps (not needed for headless agent)
+apps/app/electrobun
+apps/app/android
+apps/app/ios
+apps/app/dist
+apps/homepage
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/test/
+**/tests/
+**/vitest*
+**/__tests__/
+
+# Dev tooling
+.storybook
+**/*.stories.*
+coverage/
+
+# Large assets not needed for headless
+**/*.vrm
+**/*.glb
+**/*.gltf
+**/*.fbx
+**/*.mp4
+**/*.wav
+**/*.mp3
+
+# Build artifacts from previous builds
+dist/
+
+# Documentation
+docs/

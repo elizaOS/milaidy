@@ -306,7 +306,7 @@ function fireEvent(action: UiAction | undefined, ctx: UiRenderContext) {
     if (action.confirm) {
       const ok = await confirmDesktopAction({
         title: action.confirm.title,
-        message: action.confirm.message,
+        message: action.confirm.message ?? "",
         confirmLabel: "Confirm",
         cancelLabel: "Cancel",
         type: "question",

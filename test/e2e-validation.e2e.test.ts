@@ -188,6 +188,24 @@ function http$(
   });
 }
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  });
+}
+
 interface AutonomyServiceLike {
   setLoopInterval(ms: number): void;
 }
@@ -347,6 +365,10 @@ describe("Fresh Install Simulation", () => {
           name: "FreshInstallAgent",
           bio: ["A freshly installed test agent"],
           systemPrompt: "You are a test agent for E2E validation.",
+          connection: {
+            kind: "local-provider",
+            provider: "anthropic",
+          },
         },
       );
       expect(status).toBe(200);
@@ -475,7 +497,7 @@ describe("Plugin Stress Test", () => {
     "@elizaos/plugin-discord",
     "@elizaos/plugin-telegram",
     "@elizaos/plugin-slack",
-    "@milady/plugin-whatsapp",
+    "@miladyai/plugin-whatsapp",
     "@elizaos/plugin-signal",
     "@elizaos/plugin-imessage",
     "@elizaos/plugin-bluebubbles",
@@ -1268,17 +1290,21 @@ describe("Runtime Integration (with model provider)", () => {
   afterAll(async () => {
     if (server) {
       try {
-        await server.close();
-      } catch {
-        /* ignore */
+        await withTimeout(server.close(), 30_000, "server.close()");
+      } catch (err) {
+        logger.warn(
+          `[e2e-validation] server.close cleanup failed: ${errorMessage(err)}`,
+        );
       }
     }
     if (runtime) {
       try {
         runtime.enableAutonomy = false;
-        await runtime.stop();
-      } catch {
-        /* ignore */
+        await withTimeout(runtime.stop(), 90_000, "runtime.stop()");
+      } catch (err) {
+        logger.warn(
+          `[e2e-validation] runtime.stop cleanup failed: ${errorMessage(err)}`,
+        );
       }
     }
     try {
@@ -1286,7 +1312,7 @@ describe("Runtime Integration (with model provider)", () => {
     } catch {
       /* ignore */
     }
-  }, 30_000);
+  }, 150_000);
 
   it.skipIf(!hasModelProvider)("runtime initializes with all plugins", () => {
     expect(initialized).toBe(true);

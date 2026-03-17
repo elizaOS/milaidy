@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * Tests for @milady/capacitor-location — geolocation, watches, error codes, permissions.
+ * Tests for @miladyai/capacitor-location — geolocation, watches, error codes, permissions.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LocationWeb } from "../../plugins/location/src/web";
 
-describe("@milady/capacitor-location", () => {
+describe("@miladyai/capacitor-location", () => {
   let loc: LocationWeb;
 
   beforeEach(() => {

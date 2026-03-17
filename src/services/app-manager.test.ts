@@ -24,12 +24,12 @@ import {
   pluginRegistry,
 } from "@elizaos/plugin-plugin-manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppManager } from "./app-manager";
+import { AppManager } from "../../packages/autonomous/src/services/app-manager.ts";
+import * as registryClient from "../../packages/autonomous/src/services/registry-client.ts";
 import type {
   PluginManagerLike,
   RegistryPluginInfo,
 } from "./plugin-manager-types";
-import * as registryClient from "./registry-client";
 
 // Fake Runtime implementation
 class FakeAgentRuntime implements IAgentRuntime {

@@ -17,14 +17,23 @@ import { describe, expect, it } from "vitest";
 
 const localRequire = createRequire(import.meta.url);
 
-function resolveEsmIndexPath(pluginDir: string): string | null {
-  const standard = path.join(pluginDir, "dist", "esm", "index");
-  if (fs.existsSync(standard)) return standard;
-
-  const nested = path.join(pluginDir, "dist", "esm", "src", "index");
-  if (fs.existsSync(nested)) return nested;
+function resolveExistingPath(candidates: string[]): string | null {
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
 
   return null;
+}
+
+function resolveEsmIndexPath(pluginDir: string): string | null {
+  return resolveExistingPath([
+    path.join(pluginDir, "dist", "esm", "index.js"),
+    path.join(pluginDir, "dist", "esm", "src", "index.js"),
+    path.join(pluginDir, "dist", "esm", "index"),
+    path.join(pluginDir, "dist", "esm", "src", "index"),
+  ]);
 }
 
 function resolvePackageDir(packageName: string): string {
@@ -32,21 +41,21 @@ function resolvePackageDir(packageName: string): string {
 }
 
 const PLUGINS = [
-  { name: "@milady/capacitor-gateway", exportName: "Gateway" },
-  { name: "@milady/capacitor-camera", exportName: "Camera" },
-  { name: "@milady/capacitor-canvas", exportName: "Canvas" },
-  { name: "@milady/capacitor-desktop", exportName: "Desktop" },
+  { name: "@miladyai/capacitor-gateway", exportName: "Gateway" },
+  { name: "@miladyai/capacitor-camera", exportName: "Camera" },
+  { name: "@miladyai/capacitor-canvas", exportName: "Canvas" },
+  { name: "@miladyai/capacitor-desktop", exportName: "Desktop" },
   {
-    name: "@milady/capacitor-location",
+    name: "@miladyai/capacitor-location",
     exportName: "Location",
   },
   {
-    name: "@milady/capacitor-screencapture",
+    name: "@miladyai/capacitor-screencapture",
     exportName: "ScreenCapture",
   },
-  { name: "@milady/capacitor-swabble", exportName: "Swabble" },
+  { name: "@miladyai/capacitor-swabble", exportName: "Swabble" },
   {
-    name: "@milady/capacitor-talkmode",
+    name: "@miladyai/capacitor-talkmode",
     exportName: "TalkMode",
   },
 ];
@@ -89,16 +98,20 @@ describe("Capacitor Plugin Build Verification", () => {
           return;
         }
 
-        const cjsPath = path.join(distDir, "plugin.cjs");
+        const cjsPath = resolveExistingPath([
+          path.join(distDir, "plugin.cjs.js"),
+          path.join(distDir, "plugin.cjs"),
+        ]);
         const esmPath = resolveEsmIndexPath(dir);
 
         // Check type declarations
-        const standardTypes = path.join(distDir, "esm", "index.d.ts");
-        const nestedTypes = path.join(distDir, "esm", "src", "index.d.ts");
         const hasTypes =
-          fs.existsSync(standardTypes) || fs.existsSync(nestedTypes);
+          resolveExistingPath([
+            path.join(distDir, "esm", "index.d.ts"),
+            path.join(distDir, "esm", "src", "index.d.ts"),
+          ]) !== null;
 
-        if (!fs.existsSync(cjsPath) || !esmPath || !hasTypes) {
+        if (!cjsPath || !esmPath || !hasTypes) {
           console.warn(
             `[SKIP] ${plugin.name}: partial dist output (run bun run plugin:build)`,
           );

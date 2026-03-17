@@ -1,4 +1,4 @@
-import { Button } from "@milady/ui";
+import { Button } from "@miladyai/ui";
 import { useApp } from "../state";
 
 export type CloudSourceMode = "cloud" | "own-key";
