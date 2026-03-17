@@ -32,6 +32,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { ChatView } from "./components/ChatView";
@@ -347,6 +348,27 @@ export function App() {
   const bugReport = useBugReportState();
   const agentStarting = agentStatus?.state === "starting";
 
+  const shouldLoad = onboardingLoading || agentStarting;
+  const [loaderFadingOut, setLoaderFadingOut] = useState(false);
+  const showLoaderRef = useRef(true);
+  const [showLoader, setShowLoader] = useState(true);
+
+  useEffect(() => {
+    if (shouldLoad) {
+      showLoaderRef.current = true;
+      setShowLoader(true);
+      setLoaderFadingOut(false);
+    } else if (showLoaderRef.current) {
+      showLoaderRef.current = false;
+      setLoaderFadingOut(true);
+      const timer = setTimeout(() => {
+        setShowLoader(false);
+        setLoaderFadingOut(false);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldLoad]);
+
   useEffect(() => {
     const STARTUP_TIMEOUT_MS = 300_000;
     if ((startupPhase as string) !== "ready" && !startupError) {
@@ -373,15 +395,8 @@ export function App() {
     return <StartupFailureView error={startupError} onRetry={retryStartup} />;
   }
 
-  if (onboardingLoading || agentStarting) {
-    const loadingLabel = agentStarting
-      ? "Initializing agent"
-      : "Starting systems";
-    return <AvatarLoader label={loadingLabel} fullScreen />;
-  }
-
-  if (authRequired) return <PairingView />;
-  if (!onboardingComplete) return <OnboardingWizard />;
+  if (authRequired && !shouldLoad) return <PairingView />;
+  if (!onboardingComplete && !shouldLoad) return <OnboardingWizard />;
 
   const shellContent = companionShellVisible ? (
     <CompanionShell />
@@ -484,6 +499,13 @@ export function App() {
       />
       <ConnectionFailedBanner />
       <SystemWarningBanner />
+      {showLoader && (
+        <AvatarLoader
+          label={agentStarting ? "Initializing agent" : "Starting systems"}
+          fullScreen
+          fadingOut={loaderFadingOut}
+        />
+      )}
     </BugReportProvider>
   );
 }
