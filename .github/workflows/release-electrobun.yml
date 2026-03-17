@@ -694,7 +694,7 @@ jobs:
             -Version "${{ needs.prepare.outputs.version }}"
 
       - name: Verify macOS signature and notarization
-        if: matrix.platform.os == 'macos'
+        if: matrix.platform.os == 'macos' && steps.macos-keychain.outputs.skip_codesign != '1'
         run: |
           retry_stapler_validate() {
             local target="$1"
