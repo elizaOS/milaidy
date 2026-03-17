@@ -181,9 +181,28 @@ const DEFAULT_WINDOW_STATE: WindowState = {
 function loadWindowState(statePath: string): WindowState {
   try {
     if (fs.existsSync(statePath)) {
-      const data = JSON.parse(fs.readFileSync(statePath, "utf8"));
-      if (typeof data.width === "number" && typeof data.height === "number") {
-        return { ...DEFAULT_WINDOW_STATE, ...data };
+      const data = JSON.parse(fs.readFileSync(statePath, "utf8")) as Partial<
+        WindowState
+      >;
+      const width =
+        typeof data.width === "number" && Number.isFinite(data.width)
+          ? data.width
+          : DEFAULT_WINDOW_STATE.width;
+      const height =
+        typeof data.height === "number" && Number.isFinite(data.height)
+          ? data.height
+          : DEFAULT_WINDOW_STATE.height;
+      const x =
+        typeof data.x === "number" && Number.isFinite(data.x)
+          ? data.x
+          : DEFAULT_WINDOW_STATE.x;
+      const y =
+        typeof data.y === "number" && Number.isFinite(data.y)
+          ? data.y
+          : DEFAULT_WINDOW_STATE.y;
+      // Corrupted persisted bounds (e.g. 0-height) can break native container creation.
+      if (width >= 640 && height >= 480) {
+        return { x, y, width, height };
       }
     }
   } catch {
