@@ -189,20 +189,36 @@ describe("app startup routing (e2e)", () => {
   });
 
   it("renders chat screen when startup state is ready", async () => {
+    vi.useFakeTimers();
     let tree = undefined as unknown as TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      tree = TestRenderer.create(React.createElement(App));
-    });
+    try {
+      await act(async () => {
+        tree = TestRenderer.create(React.createElement(App));
+      });
 
-    const renderedText = tree?.root
-      .findAllByType("div")
-      .map((node) => node.children.join(""))
-      .join("\n");
+      let renderedText = tree?.root
+        .findAllByType("div")
+        .map((node) => node.children.join(""))
+        .join("\n");
 
-    expect(renderedText).toContain("ChatView");
-    expect(renderedText).not.toContain("AvatarLoader");
-    expect(renderedText).not.toContain("OnboardingWizard");
-    expect(renderedText).not.toContain("PairingView");
+      expect(renderedText).toContain("ChatView");
+      expect(renderedText).toContain("AvatarLoader");
+      expect(renderedText).not.toContain("OnboardingWizard");
+      expect(renderedText).not.toContain("PairingView");
+
+      await act(async () => {
+        vi.advanceTimersByTime(801);
+      });
+
+      renderedText = tree?.root
+        .findAllByType("div")
+        .map((node) => node.children.join(""))
+        .join("\n");
+
+      expect(renderedText).not.toContain("AvatarLoader");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("renders wallets screen when wallets tab is active", async () => {

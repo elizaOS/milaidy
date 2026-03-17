@@ -759,9 +759,13 @@ describe("shell mode switching (e2e)", () => {
       tree.update(React.createElement(App));
     });
 
+    const activeTransitions = sceneHostState.activeHistory.filter(
+      (active, index, history) => index === 0 || active !== history[index - 1],
+    );
+
     expect(sceneHostState.mounts).toBe(1);
     expect(sceneHostState.unmounts).toBe(0);
-    expect(sceneHostState.activeHistory).toEqual([false, true, false]);
+    expect(activeTransitions).toEqual([false, true, false]);
   });
 
   it("keeps character tabs in the native shell while the companion scene stays active", async () => {

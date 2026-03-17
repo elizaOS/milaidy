@@ -926,6 +926,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // --- Refs for timers ---
   const actionNoticeTimer = useRef<number | null>(null);
+  /** Session-scoped set of notice texts that have been shown with once=true. */
+  const shownOnceNotices = useRef<Set<string>>(new Set());
   const elizaCloudPollInterval = useRef<number | null>(null);
   const elizaCloudLoginPollTimer = useRef<number | null>(null);
   const prevAgentStateRef = useRef<string | null>(null);
@@ -989,7 +991,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       text: string,
       tone: "info" | "success" | "error" = "info",
       ttlMs = 2800,
+      once = false,
     ) => {
+      if (once && shownOnceNotices.current.has(text)) return;
+      if (once) shownOnceNotices.current.add(text);
       setActionNoticeState({ tone, text });
       if (actionNoticeTimer.current != null) {
         window.clearTimeout(actionNoticeTimer.current);
@@ -1928,55 +1933,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { conversation, greeting } = await client.createConversation(
-        translateText(uiLanguage, "conversations.newChatTitle"),
-        {
-          bootstrapGreeting: true,
-          lang: uiLanguage,
-        },
-      );
       if (!isCurrentHydration()) {
         return null;
       }
-      const nextCutoffTs = Date.now();
-      setConversations([conversation]);
-      setActiveConversationId(conversation.id);
-      activeConversationIdRef.current = conversation.id;
-      setCompanionMessageCutoffTs(nextCutoffTs);
-      client.sendWsMessage({
-        type: "active-conversation",
-        conversationId: conversation.id,
-      });
-
-      const greetingText = greeting?.text?.trim() ?? "";
-      if (greetingText) {
-        greetingFiredRef.current = true;
-        if (greeting?.persisted === true) {
-          scheduleGreetingWaveForCompanion(true);
-        }
-        const nextMessages = [
-          {
-            id: `greeting-${Date.now()}`,
-            role: "assistant" as const,
-            text: greetingText,
-            timestamp: Date.now(),
-            source: "agent_greeting" as const,
-          },
-        ];
-        conversationMessagesRef.current = nextMessages;
-        setConversationMessages(nextMessages);
-        return null;
-      }
-
       greetingFiredRef.current = false;
       conversationMessagesRef.current = [];
       setConversationMessages([]);
-      return conversation.id;
+      setActiveConversationId(null);
+      activeConversationIdRef.current = null;
+      return null;
     } catch (err) {
       console.warn("[milady][chat:init] failed to hydrate conversations", err);
       return null;
     }
-  }, [scheduleGreetingWaveForCompanion, uiLanguage]);
+  }, []);
+
+  const resetConversationDraftState = useCallback(() => {
+    conversationHydrationEpochRef.current += 1;
+    greetingFiredRef.current = false;
+    greetingInFlightConversationRef.current = null;
+    setChatInput("");
+    setChatPendingImages([]);
+    setChatSending(false);
+    setChatFirstTokenReceived(false);
+    conversationMessagesRef.current = [];
+    setConversationMessages([]);
+    setActiveConversationId(null);
+    activeConversationIdRef.current = null;
+    setCompanionMessageCutoffTs(Date.now());
+  }, []);
+
+  const handleStartDraftConversation = useCallback(async () => {
+    resetConversationDraftState();
+  }, [resetConversationDraftState]);
 
   const handleStart = useCallback(async () => {
     if (!beginLifecycleAction("start")) return;
@@ -2190,21 +2179,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleNewConversation = useCallback(
     async (title?: string) => {
-      conversationHydrationEpochRef.current += 1;
       const previousConversationId = activeConversationIdRef.current;
       const previousMessages = conversationMessagesRef.current;
       const previousCutoffTs = companionMessageCutoffTs;
 
-      greetingFiredRef.current = false;
-      greetingInFlightConversationRef.current = null;
-      setChatInput("");
-      setChatPendingImages([]);
-      setChatSending(false);
-      setChatFirstTokenReceived(false);
-      setConversationMessages([]);
-      setActiveConversationId(null);
-      activeConversationIdRef.current = null;
-      setCompanionMessageCutoffTs(Date.now());
+      resetConversationDraftState();
 
       try {
         const { conversation, greeting } = await client.createConversation(
@@ -2260,6 +2239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       companionMessageCutoffTs,
       requestGreetingWhenRunning,
+      resetConversationDraftState,
       scheduleGreetingWaveForCompanion,
       uiLanguage,
     ],
@@ -3092,6 +3072,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         conversationMessagesRef.current.length > 0
       )
         return;
+
+      // Clean up empty conversations: if the previous conversation has only
+      // system/greeting messages and no user messages, delete it silently.
+      const prevId = activeConversationId;
+      if (prevId && prevId !== id) {
+        const prevMessages = conversationMessagesRef.current;
+        const hasUserMessage = prevMessages.some((m) => m.role === "user");
+        if (!hasUserMessage && prevMessages.length <= 1) {
+          void client.deleteConversation(prevId).catch(() => {});
+          setConversations((prev) => prev.filter((c) => c.id !== prevId));
+          setUnreadConversations((prev) => {
+            const next = new Set(prev);
+            next.delete(prevId);
+            return next;
+          });
+        }
+      }
+
       const previousActive = activeConversationId;
       setActiveConversationId(id);
       activeConversationIdRef.current = id;
@@ -5764,6 +5762,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleChatRetry,
     handleChatEdit,
     handleChatClear,
+    handleStartDraftConversation,
     handleNewConversation,
     setChatPendingImages,
     handleSelectConversation,

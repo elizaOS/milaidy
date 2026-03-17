@@ -77,6 +77,8 @@ export class MiladyEmbeddingManager {
   private inFlightCount = 0;
   /** Serialized unload promise — prevents generateEmbedding from using resources being disposed. */
   private unloading: Promise<void> | null = null;
+  /** Promise-based drain for dispose() to wait on in-flight calls. */
+  private drainResolve: (() => void) | null = null;
   /** Only write dimension metadata on the very first init (not idle re-inits). */
   private dimensionCheckDone = false;
 
@@ -97,14 +99,16 @@ export class MiladyEmbeddingManager {
       throw new Error("[milady] EmbeddingManager has been disposed");
     }
 
-    if (this.unloading) await this.unloading;
-
-    await this.ensureInitialized();
-
+    // Increment BEFORE any async operations to close TOCTOU window:
+    // dispose() checks inFlightCount, so we must be counted before awaiting.
     this.inFlightCount += 1;
     this.lastUsedAt = Date.now();
 
     try {
+      if (this.unloading) await this.unloading;
+
+      await this.ensureInitialized();
+
       if (!this.embeddingContext) {
         throw new Error("[milady] Embedding context not available after init");
       }
@@ -127,12 +131,23 @@ export class MiladyEmbeddingManager {
       return new Array(this.dimensions).fill(0);
     } finally {
       this.inFlightCount -= 1;
+      if (this.inFlightCount === 0 && this.drainResolve) {
+        this.drainResolve();
+      }
     }
   }
 
   async dispose(): Promise<void> {
     if (this.disposed) return;
     this.disposed = true;
+    // Wait for in-flight generateEmbedding() calls to finish (max 5s).
+    if (this.inFlightCount > 0) {
+      const drainPromise = new Promise<void>((resolve) => {
+        this.drainResolve = resolve;
+      });
+      const timeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
+      await Promise.race([drainPromise, timeout]);
+    }
     await this.releaseResources();
   }
 

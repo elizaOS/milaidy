@@ -116,4 +116,3 @@ export function HeroBackground() {
     </section>
   );
 }
-
