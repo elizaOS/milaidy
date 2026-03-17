@@ -24,8 +24,8 @@ import {
   pluginRegistry,
 } from "@elizaos/plugin-plugin-manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppManager } from "../../packages/autonomous/src/services/app-manager.ts";
-import * as registryClient from "../../packages/autonomous/src/services/registry-client.ts";
+import { AppManager } from "@elizaos/autonomous/services/app-manager.ts";
+import * as registryClient from "@elizaos/autonomous/services/registry-client.ts";
 import type {
   PluginManagerLike,
   RegistryPluginInfo,
@@ -265,6 +265,7 @@ class FakeAgentRuntime implements IAgentRuntime {
 
   getAgent = async () => null;
   getAgents = async () => [];
+  getAgentsByIds = async () => [];
   createAgent = async () => true;
   updateAgent = async () => true;
   deleteAgent = async () => true;

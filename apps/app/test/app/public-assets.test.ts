@@ -7,8 +7,8 @@ import { EMOTE_CATALOG } from "../../../../src/emotes/catalog";
 const TEST_DIR = fileURLToPath(new URL(".", import.meta.url));
 const APP_DIR = join(TEST_DIR, "../..");
 const PUBLIC_DIR = join(APP_DIR, "public");
-const BUNDLED_VRM_SOURCE_IDS = [1, 4, 5, 9] as const;
-const BUNDLED_BACKGROUND_SOURCE_IDS = [1, 4, 5, 9] as const;
+const BUNDLED_VRM_SOURCE_IDS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+const BUNDLED_BACKGROUND_SOURCE_IDS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 const PROVIDER_LOGOS = [
   "logos/anthropic-icon-white.png",
   "logos/anthropic-icon.png",
@@ -81,7 +81,6 @@ describe("app public bundle assets", () => {
     const archivedCandidates = [
       "public_src/dev/vrm-gzip-smoke.html",
       "public_src/screenshotter.html",
-      "public_src/vrms/backgrounds/milady-20.png",
       "public_src/animations/idle.glb",
       "public_src/vrms/milady-1.vrm",
       "public_src/vrms/test-binary.vrm.gz",

@@ -31,7 +31,7 @@ vi.mock("@elizaos/core", () => ({
 
 // Mock resolveStateDir to use a temp dir
 const MOCK_STATE_DIR = path.join(__dirname, "__test_state__");
-vi.mock("../../packages/autonomous/src/config/paths.ts", () => ({
+vi.mock("@elizaos/autonomous/config/paths.ts", () => ({
   resolveStateDir: () => MOCK_STATE_DIR,
 }));
 
@@ -44,7 +44,7 @@ import {
   loadWhitelist,
   markAddressVerified,
   verifyTweet,
-} from "../../packages/autonomous/src/api/twitter-verify.ts";
+} from "@elizaos/autonomous/api/twitter-verify.ts";
 
 // ── Constants ────────────────────────────────────────────────────────────
 

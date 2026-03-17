@@ -11,8 +11,7 @@ import type { MiladyConfig } from "../config/config";
 import { AUTH_PROVIDER_PLUGINS } from "../config/plugin-auto-enable";
 
 // Mock all static plugin star-imports in eliza.ts to isolate boundary tests
-// from heavy transitive dependencies (e.g. plugin-ollama → @elizaos/core ESM
-// named-export issue with MAX_EMBEDDING_TOKENS).
+// from heavy transitive dependencies.
 vi.mock("@elizaos/plugin-agent-orchestrator", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-agent-skills", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-anthropic", () => ({ default: {} }));

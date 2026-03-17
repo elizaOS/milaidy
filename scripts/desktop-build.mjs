@@ -5,7 +5,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
-const APP_DIR = path.join(ROOT, "apps", "app");
+// --app=<name> selects which app to build (default: "app" → apps/app)
+const appArgMatch = process.argv.find((a) => a.startsWith("--app="));
+const appName = appArgMatch ? appArgMatch.split("=")[1] : "app";
+const APP_DIR = path.join(ROOT, "apps", appName);
 const ELECTROBUN_DIR = path.join(APP_DIR, "electrobun");
 const DIST_PACKAGE_JSON = path.join(ROOT, "dist", "package.json");
 const PROFILE_EXCLUDED_OPTIONAL_PACKS = {

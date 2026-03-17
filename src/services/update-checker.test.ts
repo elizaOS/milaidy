@@ -15,25 +15,25 @@ import { CHANNEL_DIST_TAGS } from "./update-checker";
 // ---------------------------------------------------------------------------
 
 // Mock config module before imports
-vi.mock("../../packages/autonomous/src/config/config.ts", () => ({
+vi.mock("@elizaos/autonomous/config/config.ts", () => ({
   loadMiladyConfig: vi.fn(() => ({})),
   saveMiladyConfig: vi.fn(),
 }));
 
 // Mock version module
-vi.mock("../../packages/autonomous/src/runtime/version.ts", () => ({
+vi.mock("@elizaos/autonomous/runtime/version.ts", () => ({
   VERSION: "2.0.0-alpha.7",
 }));
 
 import {
   loadMiladyConfig,
   saveMiladyConfig,
-} from "../../packages/autonomous/src/config/config.ts";
+} from "@elizaos/autonomous/config/config.ts";
 import {
   checkForUpdate,
   fetchAllChannelVersions,
   resolveChannel,
-} from "../../packages/autonomous/src/services/update-checker.ts";
+} from "@elizaos/autonomous/services/update-checker.ts";
 
 // ============================================================================
 // 1. Channel resolution

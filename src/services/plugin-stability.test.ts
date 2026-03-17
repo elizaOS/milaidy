@@ -901,11 +901,8 @@ describe("Version Skew Detection (issue #10)", () => {
     return manifest.overrides?.["@elizaos/core"];
   }
 
-  it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS (issue #10 fix)", async () => {
-    // Issue #10: plugins at "next" imported MAX_EMBEDDING_TOKENS from @elizaos/core,
-    // which was missing in older core versions.
-    // Fix: core is pinned to >= alpha.4 (where the export was introduced),
-    // so plugins at "next" dist-tag resolve safely.
+  it("core is pinned for plugin compatibility", async () => {
+    // Core must be pinned so plugins at "next" dist-tag resolve safely.
     const pkg = await readPackageManifest();
 
     const coreVersion = pkg.dependencies["@elizaos/core"];

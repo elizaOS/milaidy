@@ -33,7 +33,14 @@ import {
 import { buildVisionDepsFailureMessage } from "./lib/dev-ui-vision.mjs";
 
 const API_PORT = 31337;
-const UI_PORT = 2138;
+
+// --app=<name> selects which app to serve (default: "app" → apps/app)
+const appArgMatch = process.argv.find((a) => a.startsWith("--app="));
+const appName = appArgMatch ? appArgMatch.split("=")[1] : "app";
+const APP_UI_PORTS = { app: 2138, home: 2140 };
+const UI_PORT = APP_UI_PORTS[appName] ?? 2138;
+const appDir = `apps/${appName}`;
+
 const cwd = process.cwd();
 const uiOnly = process.argv.includes("--ui-only");
 const devLogLevel =
@@ -1005,8 +1012,8 @@ process.on("SIGTERM", () => cleanup(0));
 function startVite() {
   const viteCmd = hasBun ? "bunx" : "npx";
   viteProcess = spawn(viteCmd, ["vite", "--port", String(UI_PORT)], {
-    cwd: path.join(cwd, "apps/app"),
-    env: { ...process.env, MILADY_API_PORT: String(API_PORT) },
+    cwd: path.join(cwd, appDir),
+    env: { ...process.env, MILADY_API_PORT: String(API_PORT), ELIZA_HOME_API_PORT: String(API_PORT) },
     stdio: ["inherit", "pipe", "pipe"],
   });
 

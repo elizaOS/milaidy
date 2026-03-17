@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Mock all static plugin star-imports in eliza.ts to avoid ESM resolution
-// failure: @elizaos/plugin-ollama imports MAX_EMBEDDING_TOKENS which Vitest
-// cannot resolve from @elizaos/core at static-analysis time.
+// failures from heavy transitive dependencies at static-analysis time.
 vi.mock("@elizaos/plugin-agent-orchestrator", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-agent-skills", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-anthropic", () => ({ default: {} }));

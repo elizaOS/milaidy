@@ -33,8 +33,8 @@ const ROOT = resolve(__dirname, "..");
 const PUBLIC = join(ROOT, "apps", "app", "public");
 const VRMS_DIR = join(PUBLIC, "vrms");
 const ANIMATIONS_DIR = join(PUBLIC, "animations");
-const BUNDLED_VRM_SOURCE_IDS = [1, 4, 5, 9];
-const BUNDLED_BACKGROUND_SOURCE_IDS = [1, 4, 5, 9];
+const BUNDLED_VRM_SOURCE_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
+const BUNDLED_BACKGROUND_SOURCE_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
 const UNUSED_ANIMATION_PATHS = [
   join("emotes", "idle.glb"),
   join("emotes", "punch.glb"),
@@ -46,6 +46,7 @@ const UNUSED_ANIMATION_PATHS = [
 const AVATARS_REPO = "https://github.com/milady-ai/avatars.git";
 const AVATARS_COMMIT = "50f6bf0ad6db583581d4cbaeb377ca005b45195b";
 const TAG = "[ensure-avatars]";
+const CHARACTERS_VRM = join(ROOT, "apps", "app", "characters", "vrm");
 
 /** A bundled VRM asset is valid if its compressed or raw file is > 1 KB. */
 export function hasValidVrm(dir) {
@@ -154,6 +155,7 @@ export function runEnsureAvatars({
   _hasValidAnimations = hasValidAnimations,
   _gitAvailable = gitAvailable,
   _exec = execSync,
+  _charactersVrmPath = CHARACTERS_VRM,
 } = {}) {
   if (!force && _hasValidVrm(VRMS_DIR) && _hasValidAnimations(ANIMATIONS_DIR)) {
     log(`${TAG} Avatar assets already present — skipping`);
@@ -173,6 +175,30 @@ export function runEnsureAvatars({
   if (!_gitAvailable()) {
     logError(`${TAG} git not found — cannot clone avatar assets`);
     return { cloned: false, reason: "no-git" };
+  }
+
+  // Prefer local characters/vrm when available (process-vrms compresses with meshopt + gzip)
+  const localVrms =
+    _charactersVrmPath && existsSync(_charactersVrmPath)
+      ? readdirSync(_charactersVrmPath).filter((f) => f.endsWith(".vrm"))
+      : [];
+  const useLocalVrms =
+    localVrms.length > 0 && (!_hasValidVrm(VRMS_DIR) || force);
+
+  if (useLocalVrms) {
+    log(`${TAG} Using local characters/vrm — running process-vrms...`);
+    try {
+      _exec("node scripts/process-vrms.mjs", { cwd: ROOT, stdio: "inherit" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logError(`${TAG} process-vrms failed: ${msg}`);
+      return { cloned: false, reason: "process-vrms-failed", error: msg };
+    }
+    if (_hasValidAnimations(ANIMATIONS_DIR)) {
+      log(`${TAG} Avatar assets installed (local VRMs + existing animations)`);
+      return { cloned: false, vrmsOk: _hasValidVrm(VRMS_DIR), animsOk: true };
+    }
+    log(`${TAG} VRMs done; still need animations — cloning...`);
   }
 
   log(
@@ -207,7 +233,7 @@ export function runEnsureAvatars({
     });
 
     const avatarVrms = join(tmpDir, "vrms");
-    if (existsSync(avatarVrms)) {
+    if (existsSync(avatarVrms) && !useLocalVrms) {
       rmSync(VRMS_DIR, { recursive: true, force: true });
       mkdirSync(VRMS_DIR, { recursive: true });
       mkdirSync(join(VRMS_DIR, "previews"), { recursive: true });

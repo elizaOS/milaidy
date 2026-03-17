@@ -245,6 +245,7 @@ describe("runEnsureAvatars", () => {
       _hasValidVrm: presentVrm,
       _hasValidAnimations: presentAnims,
       _gitAvailable: () => true,
+      _charactersVrmPath: null,
       _exec: () => {
         throw new Error("git clone failed: connection refused");
       },
@@ -289,6 +290,7 @@ describe("runEnsureAvatars", () => {
       _hasValidVrm: presentVrm,
       _hasValidAnimations: presentAnims,
       _gitAvailable: () => true,
+      _charactersVrmPath: null,
       _exec: () => {},
     });
     expect(result.cloned).toBe(true);

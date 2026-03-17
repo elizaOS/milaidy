@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
@@ -48,6 +49,71 @@ function electronCorsPlugin(): Plugin {
   };
 }
 
+/**
+ * Serves raw VRM and animation files from public_src for the screenshotter.
+ * Public ships .vrm.gz and .glb.gz; the screenshotter needs uncompressed .vrm and .glb.
+ */
+function publicSrcPlugin(): Plugin {
+  const publicSrc = path.resolve(here, "public_src");
+  const charactersVrm = path.resolve(here, "characters", "vrm");
+  const charToIndex: Record<string, number> = {
+    Chen: 1, Jin: 2, Kei: 3, Momo: 4, Rin: 5, Ryu: 6, Satoshi: 7, Yuki: 8,
+  };
+  const indexToChar = Object.fromEntries(
+    Object.entries(charToIndex).map(([k, v]) => [v, k]),
+  );
+  return {
+    name: "public-src",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split("?")[0] ?? "";
+        const vrmMatch = url.match(/^\/vrms\/milady-(\d+)\.vrm$/);
+        if (vrmMatch) {
+          const index = Number(vrmMatch[1]);
+          const charName = indexToChar[index];
+          const charFile =
+            charName && path.join(charactersVrm, `${charName}.vrm`);
+          const publicSrcFile = path.join(publicSrc, "vrms", `milady-${index}.vrm`);
+          const file = charFile && fs.existsSync(charFile)
+            ? charFile
+            : publicSrcFile;
+          if (fs.existsSync(file)) {
+            res.setHeader("Content-Type", "model/gltf-binary");
+            fs.createReadStream(file).pipe(res);
+            return;
+          }
+        }
+        if (url === "/animations/idle.glb") {
+          const file = path.join(publicSrc, "animations", "idle.glb");
+          if (fs.existsSync(file)) {
+            res.setHeader("Content-Type", "model/gltf-binary");
+            fs.createReadStream(file).pipe(res);
+            return;
+          }
+        }
+        if (url.startsWith("/public_src/")) {
+          if (url === "/public_src/screenshotter.html") {
+            return next();
+          }
+          const file = path.join(publicSrc, url.slice("/public_src/".length));
+          if (fs.existsSync(file) && fs.statSync(file).isFile()) {
+            const ext = path.extname(file);
+            const types: Record<string, string> = {
+              ".html": "text/html",
+              ".png": "image/png",
+              ".jpg": "image/jpeg",
+            };
+            if (types[ext]) res.setHeader("Content-Type", types[ext]);
+            fs.createReadStream(file).pipe(res);
+            return;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
 function sparkWasmDataUrlPlugin(): Plugin {
   return {
     name: "spark-wasm-data-url",
@@ -72,6 +138,7 @@ export default defineConfig({
   base: "./",
   publicDir: path.resolve(here, "public"),
   plugins: [
+    publicSrcPlugin(),
     sparkWasmDataUrlPlugin(),
     tailwindcss(),
     react(),
@@ -165,6 +232,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(here, "index.html"),
+        screenshotter: path.resolve(here, "public_src/screenshotter.html"),
       },
       output: {
         manualChunks: {

@@ -27,7 +27,7 @@ vi.mock("@elizaos/core", () => ({
 
 // Mock twitter-verify's getVerifiedAddresses
 const mockAddresses: string[] = [];
-vi.mock("../../packages/autonomous/src/api/twitter-verify.ts", () => ({
+vi.mock("@elizaos/autonomous/api/twitter-verify.ts", () => ({
   getVerifiedAddresses: () => mockAddresses,
 }));
 
@@ -41,7 +41,7 @@ import {
   getRoot,
   hashLeaf,
   verifyProof,
-} from "../../packages/autonomous/src/api/merkle-tree.ts";
+} from "@elizaos/autonomous/api/merkle-tree.ts";
 
 // ── Setup ────────────────────────────────────────────────────────────────
 

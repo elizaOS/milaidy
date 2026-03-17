@@ -14,6 +14,12 @@
       "port": 2138
     },
     {
+      "name": "home",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": ["-l", "-c", "cd apps/home && npx vite --port 2140"],
+      "port": 2140
+    },
+    {
       "name": "homepage",
       "runtimeExecutable": "/opt/homebrew/bin/npm",
       "runtimeArgs": ["run", "dev:homepage"],

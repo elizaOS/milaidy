@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
+const elizaRoot = path.join(repoRoot, "..", "eliza");
 const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const isWindows = process.platform === "win32";
 const localWorkers = 2;
@@ -17,18 +18,45 @@ export default defineConfig({
         replacement: path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       },
       {
-        // Vite import analysis intermittently fails to resolve the published
-        // package metadata for @elizaos/core in test mode even though Bun/Node
-        // resolve it correctly. Pin tests to the published node bundle.
+        // Resolve @elizaos/core from the workspace source so that all elizaOS
+        // packages share the same version and transitive imports work.
         find: "@elizaos/core",
         replacement: path.join(
-          repoRoot,
-          "node_modules",
-          "@elizaos",
-          "core",
-          "dist",
-          "node",
-          "index.node.js",
+          elizaRoot,
+          "packages",
+          "typescript",
+          "src",
+          "index.ts",
+        ),
+      },
+      {
+        // Route @elizaos/autonomous sub-path imports to the workspace source so
+        // that transitive @elizaos/core imports resolve through our alias above.
+        find: /^@elizaos\/autonomous\/(.*)/,
+        replacement: path.join(elizaRoot, "packages", "autonomous", "src", "$1"),
+      },
+      {
+        find: "@elizaos/autonomous",
+        replacement: path.join(
+          elizaRoot,
+          "packages",
+          "autonomous",
+          "src",
+          "index.ts",
+        ),
+      },
+      {
+        find: /^@elizaos\/app-core\/(.*)/,
+        replacement: path.join(elizaRoot, "packages", "app-core", "src", "$1"),
+      },
+      {
+        find: "@elizaos/app-core",
+        replacement: path.join(
+          elizaRoot,
+          "packages",
+          "app-core",
+          "src",
+          "index.ts",
         ),
       },
       {
@@ -185,6 +213,30 @@ export default defineConfig({
         replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
       },
       {
+        // Stale npm dists have broken @elizaos/core resolution when loaded from
+        // the eliza workspace node_modules. Stub until next plugin release.
+        find: "@elizaos/plugin-openai",
+        replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
+      },
+      {
+        find: "@elizaos/plugin-ollama",
+        replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
+      },
+      {
+        find: "@elizaos/plugin-local-embedding",
+        replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
+      },
+      {
+        // plugin-sql and plugin-discord npm dists reference a non-existent
+        // @elizaos/core/dist/node/index.node.js path.
+        find: "@elizaos/plugin-sql",
+        replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
+      },
+      {
+        find: "@elizaos/plugin-discord",
+        replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
+      },
+      {
         find: "electron",
         replacement: path.join(repoRoot, "test", "stubs", "electron-module.ts"),
       },
@@ -251,7 +303,12 @@ export default defineConfig({
     },
     server: {
       deps: {
-        inline: ["@elizaos/core", "zod"],
+        inline: [
+          "@elizaos/core",
+          "@elizaos/autonomous",
+          /^@elizaos\/plugin-/,
+          "zod",
+        ],
       },
     },
   },
