@@ -14,8 +14,11 @@ describe("desktop-build.mjs", () => {
     expect(script).toContain("scripts/copy-runtime-node-modules.ts");
     expect(script).toContain("--exclude-optional-pack");
     expect(script).toContain(
-      'runBun(["install", "--frozen-lockfile", "--ignore-scripts"], {',
+      'const installArgs = ["install", "--ignore-scripts"];',
     );
+    expect(script).toContain('if (process.env.CI === "true") {');
+    expect(script).toContain('installArgs.push("--frozen-lockfile");');
+    expect(script).toContain("runBun(installArgs, {");
     expect(script).toContain(
       "Ensuring Electrobun workspace dependencies are installed",
     );
