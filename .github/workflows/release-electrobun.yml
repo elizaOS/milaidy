@@ -876,6 +876,7 @@ jobs:
           name: electrobun-${{ matrix.platform.artifact-name }}
           path: |
             apps/app/electrobun/artifacts/*.dmg
+            apps/app/electrobun/artifacts/*Setup*.zip
             apps/app/electrobun/artifacts/*.tar.zst
             apps/app/electrobun/artifacts/*.exe
             apps/app/electrobun/artifacts/*.exe.zip
@@ -923,22 +924,13 @@ jobs:
         run: |
           mkdir -p release-files
           # Public GitHub releases should expose end-user installables, not the
-          # updater transport files or the bare Windows bootstrap wrapper.
+          # updater transport files.
           find release-artifacts -type f \( \
             -name "*.dmg" -o \
             -name "*Setup*.zip" -o \
             -name "*Setup*.tar.gz" -o \
-            -name "*.exe.zip" -o \
             -name "*.msix" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
-
-          # Decompress Windows .exe.zip back to .exe for end-user downloads
-          # (zip was only used for inter-job artifact transfer to avoid SAS token timeout)
-          for f in release-files/*.exe.zip; do
-            [ -f "$f" ] || continue
-            echo "Decompressing $f"
-            cd release-files && unzip -o "$(basename "$f")" && rm "$(basename "$f")" && cd ..
-          done
 
           echo "=== Public release files ==="
           ls -lh release-files/ 2>/dev/null || echo "None"
