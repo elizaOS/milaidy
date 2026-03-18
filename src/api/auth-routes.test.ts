@@ -84,6 +84,7 @@ describe("auth routes", () => {
 
   test("reports auth status with pairing metadata", async () => {
     process.env.ELIZA_API_TOKEN = "token-123";
+    process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     getPairingExpiresAt.mockReturnValue(1_234_567_890);
 
@@ -116,6 +117,7 @@ describe("auth routes", () => {
 
   test("rejects pair requests when pairing is disabled", async () => {
     process.env.ELIZA_API_TOKEN = "token-123";
+    process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(false);
 
     const result = await invoke({
@@ -130,6 +132,7 @@ describe("auth routes", () => {
 
   test("rejects pair requests when rate limit is exceeded", async () => {
     process.env.ELIZA_API_TOKEN = "token-123";
+    process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     ensurePairingCode.mockReturnValue("ABCD");
     rateLimitPairing.mockReturnValue(false);
@@ -150,6 +153,7 @@ describe("auth routes", () => {
 
   test("rejects expired pairing codes", async () => {
     process.env.ELIZA_API_TOKEN = "token-123";
+    process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     ensurePairingCode.mockReturnValueOnce("ABCD").mockReturnValueOnce("WXYZ");
     getPairingExpiresAt.mockReturnValue(Date.now() - 1);
@@ -169,6 +173,7 @@ describe("auth routes", () => {
 
   test("rejects invalid pairing code", async () => {
     process.env.ELIZA_API_TOKEN = "token-123";
+    process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     ensurePairingCode.mockReturnValue("ABCD");
     getPairingExpiresAt.mockReturnValue(Date.now() + 60_000);
@@ -186,6 +191,7 @@ describe("auth routes", () => {
 
   test("returns token and clears pairing when code is valid", async () => {
     process.env.ELIZA_API_TOKEN = "token-123";
+    process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     ensurePairingCode.mockReturnValue("ABCD");
     getPairingExpiresAt.mockReturnValue(Date.now() + 60_000);

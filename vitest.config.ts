@@ -268,6 +268,7 @@ export default defineConfig({
     hookTimeout: isWindows ? 180_000 : 120_000,
     pool: "forks",
     maxWorkers: isCI ? ciWorkers : localWorkers,
+    restoreMocks: true,
     // Increase V8 heap for worker forks to prevent OOM during GC
     // teardown, especially for jsdom-heavy test files.
     execArgv: ["--max-old-space-size=4096"],

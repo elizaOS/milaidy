@@ -127,6 +127,7 @@ beforeEach(async () => {
     SKILLSMP_API_KEY: process.env.SKILLSMP_API_KEY,
   };
   process.env.MILADY_STATE_DIR = tmpDir;
+  process.env.ELIZA_STATE_DIR = tmpDir;
   delete process.env.SKILLS_REGISTRY;
   delete process.env.CLAWHUB_REGISTRY;
   delete process.env.SKILLS_MARKETPLACE_URL;

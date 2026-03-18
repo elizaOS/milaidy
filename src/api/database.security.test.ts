@@ -9,7 +9,6 @@ const saveConfigMock = vi.fn();
 
 // Mock both the "eliza" and "milady" branded function names so the test works
 // regardless of which branding the resolved @elizaos/autonomous source uses.
-// biome-ignore lint/style/useNamingConvention: matching external API names
 vi.mock("@elizaos/autonomous/config/config", () => ({
   loadMiladyConfig: () => loadConfigMock(),
   saveMiladyConfig: (cfg: unknown) => saveConfigMock(cfg),

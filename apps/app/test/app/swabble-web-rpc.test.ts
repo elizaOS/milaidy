@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SwabbleWeb } from "../../plugins/swabble/src/web.ts";
 
 type TestWindow = Window & {
-  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 interface ProcessorStub {
@@ -92,7 +92,7 @@ describe("SwabbleWeb desktop bridge", () => {
   });
 
   afterEach(() => {
-    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
     vi.restoreAllMocks();
 
     if (originalAudioContext) {
@@ -113,7 +113,7 @@ describe("SwabbleWeb desktop bridge", () => {
       .fn()
       .mockResolvedValue({ available: true });
     const swabbleAudioChunk = vi.fn().mockResolvedValue(undefined);
-    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
         swabbleStart,
         swabbleStop,
@@ -200,7 +200,7 @@ describe("SwabbleWeb desktop bridge", () => {
 
   it("uses direct swabble transcript and error push messages and keeps audio levels local", async () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
-    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: {
         swabbleStart: vi.fn().mockResolvedValue({ started: true }),
         swabbleStop: vi.fn().mockResolvedValue(undefined),

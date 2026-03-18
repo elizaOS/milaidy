@@ -317,6 +317,7 @@ describe("custom action SSRF guard", () => {
   it("attaches API auth token for shell handlers when ELIZA_API_TOKEN is set", async () => {
     const originalToken = process.env.ELIZA_API_TOKEN;
     process.env.ELIZA_API_TOKEN = "test-api-token";
+    process.env.MILADY_API_TOKEN = "test-api-token";
 
     try {
       const fetchSpy = vi
@@ -339,8 +340,10 @@ describe("custom action SSRF guard", () => {
     } finally {
       if (originalToken === undefined) {
         delete process.env.ELIZA_API_TOKEN;
+        delete process.env.MILADY_API_TOKEN;
       } else {
         process.env.ELIZA_API_TOKEN = originalToken;
+        process.env.MILADY_API_TOKEN = originalToken;
       }
     }
   });

@@ -247,7 +247,7 @@ describe("checkForUpdate", () => {
     await checkForUpdate({ force: true });
 
     expect(_saveConfig).toHaveBeenCalledOnce();
-    const savedConfig = _saveConfig.mock.calls[0][0] as Record<string, any>;
+    const savedConfig = _saveConfig.mock.calls[0][0] as Record<string, unknown>;
     expect(savedConfig.update?.lastCheckAt).toBeDefined();
     expect(savedConfig.update?.lastCheckVersion).toBe("2.1.0");
   });

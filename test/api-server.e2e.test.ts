@@ -768,6 +768,7 @@ beforeAll(async () => {
   _origStateDirEnv = process.env.ELIZA_STATE_DIR;
   _e2eTempDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-e2e-"));
   process.env.ELIZA_STATE_DIR = _e2eTempDir;
+  process.env.MILADY_STATE_DIR = _e2eTempDir;
 
   // Seed a minimal config so the server can start
   await fs.writeFile(
@@ -791,8 +792,10 @@ beforeAll(async () => {
 afterAll(async () => {
   if (_origStateDirEnv !== undefined) {
     process.env.ELIZA_STATE_DIR = _origStateDirEnv;
+    process.env.MILADY_STATE_DIR = _origStateDirEnv;
   } else {
     delete process.env.ELIZA_STATE_DIR;
+    delete process.env.MILADY_STATE_DIR;
   }
   if (_e2eTempDir) {
     await fs.rm(_e2eTempDir, { recursive: true, force: true });

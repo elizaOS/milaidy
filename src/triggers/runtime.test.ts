@@ -144,8 +144,10 @@ describe("trigger runtime", () => {
   test("honors trigger feature flag settings", () => {
     const previous = process.env.ELIZA_TRIGGERS_ENABLED;
     process.env.ELIZA_TRIGGERS_ENABLED = "0";
+    process.env.MILADY_TRIGGERS_ENABLED = "0";
     expect(triggersFeatureEnabled(runtime)).toBe(false);
     process.env.ELIZA_TRIGGERS_ENABLED = previous;
+    process.env.MILADY_TRIGGERS_ENABLED = previous;
   });
 
   test("executes cron trigger, dispatches and persists next schedule", async () => {

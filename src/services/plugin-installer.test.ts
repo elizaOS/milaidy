@@ -153,13 +153,17 @@ beforeEach(async () => {
     ELIZA_CONFIG_PATH: process.env.ELIZA_CONFIG_PATH,
   };
   process.env.ELIZA_STATE_DIR = configDir;
+  process.env.MILADY_STATE_DIR = configDir;
   process.env.ELIZA_CONFIG_PATH = configPath;
+  process.env.MILADY_CONFIG_PATH = configPath;
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
   process.env.ELIZA_STATE_DIR = savedEnv.ELIZA_STATE_DIR;
+  process.env.MILADY_STATE_DIR = savedEnv.ELIZA_STATE_DIR;
   process.env.ELIZA_CONFIG_PATH = savedEnv.ELIZA_CONFIG_PATH;
+  process.env.MILADY_CONFIG_PATH = savedEnv.ELIZA_CONFIG_PATH;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 

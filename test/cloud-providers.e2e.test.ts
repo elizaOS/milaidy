@@ -564,6 +564,7 @@ describe("Cloud env propagation respects service toggles", () => {
 
   it("cleans up per-service env vars when toggles re-enabled", () => {
     process.env.MILADY_CLOUD_TTS_DISABLED = "true";
+    process.env.ELIZA_CLOUD_TTS_DISABLED = "true";
     process.env.MILADY_CLOUD_MEDIA_DISABLED = "true";
     const config = {
       cloud: {
@@ -657,6 +658,7 @@ describe("Provider switch preserves cloud for RPC", () => {
 describe("Pi AI with cloud enabled for RPC (cloud inference byok)", () => {
   it("loads pi-ai plugin when cloud is enabled but inferenceMode is byok", () => {
     process.env.MILADY_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
     const config = {
       cloud: {
         enabled: true,
@@ -674,6 +676,7 @@ describe("Pi AI with cloud enabled for RPC (cloud inference byok)", () => {
 
   it("pi-ai removes direct providers when cloud is in byok mode", () => {
     process.env.MILADY_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
     const config = {
       cloud: {

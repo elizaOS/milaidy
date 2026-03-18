@@ -19,20 +19,37 @@ describe("resolveWebSocketUpgradeRejection", () => {
   const prevAllowNullOrigin = process.env.ELIZA_ALLOW_NULL_ORIGIN;
 
   afterEach(() => {
-    if (prevToken === undefined) delete process.env.ELIZA_API_TOKEN;
-    else process.env.ELIZA_API_TOKEN = prevToken;
+    if (prevToken === undefined) {
+      delete process.env.ELIZA_API_TOKEN;
+      delete process.env.MILADY_API_TOKEN;
+    } else {
+      process.env.ELIZA_API_TOKEN = prevToken;
+      process.env.MILADY_API_TOKEN = prevToken;
+    }
 
-    if (prevAllowQueryToken === undefined)
+    if (prevAllowQueryToken === undefined) {
       delete process.env.ELIZA_ALLOW_WS_QUERY_TOKEN;
-    else process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = prevAllowQueryToken;
+      delete process.env.MILADY_ALLOW_WS_QUERY_TOKEN;
+    } else {
+      process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = prevAllowQueryToken;
+      process.env.MILADY_ALLOW_WS_QUERY_TOKEN = prevAllowQueryToken;
+    }
 
-    if (prevAllowedOrigins === undefined)
+    if (prevAllowedOrigins === undefined) {
       delete process.env.ELIZA_ALLOWED_ORIGINS;
-    else process.env.ELIZA_ALLOWED_ORIGINS = prevAllowedOrigins;
+      delete process.env.MILADY_ALLOWED_ORIGINS;
+    } else {
+      process.env.ELIZA_ALLOWED_ORIGINS = prevAllowedOrigins;
+      process.env.MILADY_ALLOWED_ORIGINS = prevAllowedOrigins;
+    }
 
-    if (prevAllowNullOrigin === undefined)
+    if (prevAllowNullOrigin === undefined) {
       delete process.env.ELIZA_ALLOW_NULL_ORIGIN;
-    else process.env.ELIZA_ALLOW_NULL_ORIGIN = prevAllowNullOrigin;
+      delete process.env.MILADY_ALLOW_NULL_ORIGIN;
+    } else {
+      process.env.ELIZA_ALLOW_NULL_ORIGIN = prevAllowNullOrigin;
+      process.env.MILADY_ALLOW_NULL_ORIGIN = prevAllowNullOrigin;
+    }
   });
 
   it("rejects non-/ws paths", () => {
@@ -45,6 +62,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("rejects disallowed origins", () => {
     delete process.env.ELIZA_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
     const rejection = resolveWebSocketUpgradeRejection(
       req({ origin: "https://evil.example" }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -54,6 +72,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("rejects unauthenticated upgrades when API token is enabled", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -63,6 +82,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts valid bearer token", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     const rejection = resolveWebSocketUpgradeRejection(
       req({ authorization: "Bearer test-token" }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -72,7 +92,9 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("rejects query token auth by default", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     delete process.env.ELIZA_ALLOW_WS_QUERY_TOKEN;
+    delete process.env.MILADY_ALLOW_WS_QUERY_TOKEN;
 
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
@@ -83,7 +105,9 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts valid query token when explicitly enabled", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = "1";
+    process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
       new URL("ws://localhost/ws?token=test-token"),
@@ -93,6 +117,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts when token auth is disabled and origin is local", () => {
     delete process.env.ELIZA_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
     const rejection = resolveWebSocketUpgradeRejection(
       req({ origin: "http://localhost:5173" }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -105,6 +130,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
     "http://[0:0:0:0:0:0:0:1]:5173",
   ])("accepts IPv6 local origin when token auth is disabled (%s)", (origin) => {
     delete process.env.ELIZA_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
     const rejection = resolveWebSocketUpgradeRejection(
       req({ origin }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -114,6 +140,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("rejects invalid bearer token", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     const rejection = resolveWebSocketUpgradeRejection(
       req({ authorization: "Bearer wrong-token" }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -123,6 +150,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts X-Eliza-Token header auth", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     const rejection = resolveWebSocketUpgradeRejection(
       req({ "x-eliza-token": "test-token" }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -132,7 +160,9 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("rejects wrong query token when query auth enabled", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = "1";
+    process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
       new URL("ws://localhost/ws?token=wrong-token"),
@@ -147,6 +177,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
     "app://-",
   ])("accepts app-protocol origins (%s)", (origin) => {
     delete process.env.ELIZA_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
     const rejection = resolveWebSocketUpgradeRejection(
       req({ origin }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -156,7 +187,9 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts custom allowlisted origins via env", () => {
     delete process.env.ELIZA_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
     process.env.ELIZA_ALLOWED_ORIGINS = "https://trusted.example.com";
+    process.env.MILADY_ALLOWED_ORIGINS = "https://trusted.example.com";
     const rejection = resolveWebSocketUpgradeRejection(
       req({ origin: "https://trusted.example.com" }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -166,6 +199,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts upgrade when no origin header is present", () => {
     delete process.env.ELIZA_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -175,6 +209,7 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("rejects whitespace-only bearer token", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     const rejection = resolveWebSocketUpgradeRejection(
       req({ authorization: "Bearer   " }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),
@@ -184,7 +219,9 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts query token via apiKey param when enabled", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = "1";
+    process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
       new URL("ws://localhost/ws?apiKey=test-token"),
@@ -194,7 +231,9 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts query token via api_key param when enabled", () => {
     process.env.ELIZA_API_TOKEN = "test-token";
+    process.env.MILADY_API_TOKEN = "test-token";
     process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = "1";
+    process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
     const rejection = resolveWebSocketUpgradeRejection(
       req() as http.IncomingMessage,
       new URL("ws://localhost/ws?api_key=test-token"),
@@ -204,7 +243,9 @@ describe("resolveWebSocketUpgradeRejection", () => {
 
   it("accepts null origin when ELIZA_ALLOW_NULL_ORIGIN=1", () => {
     delete process.env.ELIZA_API_TOKEN;
+    delete process.env.MILADY_API_TOKEN;
     process.env.ELIZA_ALLOW_NULL_ORIGIN = "1";
+    process.env.MILADY_ALLOW_NULL_ORIGIN = "1";
     const rejection = resolveWebSocketUpgradeRejection(
       req({ origin: "null" }) as http.IncomingMessage,
       new URL("ws://localhost/ws"),

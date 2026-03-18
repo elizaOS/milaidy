@@ -937,13 +937,17 @@ let hasRetakePlugin = false;
 try {
   const mod = await import("@elizaos/plugin-retake");
   hasRetakePlugin = typeof mod.createRetakeDestination === "function";
-} catch { /* not available */ }
+} catch {
+  /* not available */
+}
 
 let hasTwitchPlugin = false;
 try {
   const mod = await import("@elizaos/plugin-twitch-streaming");
   hasTwitchPlugin = typeof mod.createTwitchDestination === "function";
-} catch { /* not available */ }
+} catch {
+  /* not available */
+}
 
 // ---------------------------------------------------------------------------
 // createRetakeDestination() — destination adapter unit tests

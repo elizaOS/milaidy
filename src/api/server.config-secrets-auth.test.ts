@@ -68,6 +68,7 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
 
   beforeAll(async () => {
     process.env.ELIZA_API_TOKEN = TOKEN;
+    process.env.MILADY_API_TOKEN = TOKEN;
     const server = await startApiServer({ port: 0 });
     port = server.port;
     close = server.close;
@@ -75,8 +76,13 @@ describe("sensitive endpoint auth gates (MW-04)", () => {
 
   afterAll(async () => {
     await close();
-    if (prevToken === undefined) delete process.env.ELIZA_API_TOKEN;
-    else process.env.ELIZA_API_TOKEN = prevToken;
+    if (prevToken === undefined) {
+      delete process.env.ELIZA_API_TOKEN;
+      delete process.env.MILADY_API_TOKEN;
+    } else {
+      process.env.ELIZA_API_TOKEN = prevToken;
+      process.env.MILADY_API_TOKEN = prevToken;
+    }
   });
 
   // ── Config mutation ─────────────────────────────────────────────────

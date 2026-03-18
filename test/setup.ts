@@ -140,6 +140,29 @@ if (typeof globalThis.HTMLCanvasElement !== "undefined") {
 
 import { withIsolatedTestHome } from "./test-env";
 
+// ── Environment isolation ────────────────────────────────────────────
+// Snapshot process.env before each test file so that env mutations made by
+// individual tests (e.g. setting MILADY_API_TOKEN) don't leak to subsequent
+// test files running in the same forked worker process.
+const envSnapshot = { ...process.env };
+
+afterEach(() => {
+  // Restore env: delete keys that were added, restore original values.
+  for (const key of Object.keys(process.env)) {
+    if (!(key in envSnapshot)) {
+      delete process.env[key];
+    } else if (process.env[key] !== envSnapshot[key]) {
+      process.env[key] = envSnapshot[key];
+    }
+  }
+  // Restore keys that may have been deleted by tests.
+  for (const key of Object.keys(envSnapshot)) {
+    if (!(key in process.env)) {
+      process.env[key] = envSnapshot[key];
+    }
+  }
+});
+
 const testEnv = withIsolatedTestHome();
 afterAll(() => testEnv.cleanup());
 
@@ -170,4 +193,6 @@ afterAll(() => {
 afterEach(() => {
   // Guard against leaked fake timers across test files/workers.
   vi.useRealTimers();
+  // Reset module mocks to prevent vi.mock() pollution across test files.
+  vi.restoreAllMocks();
 });

@@ -138,6 +138,7 @@ describe("Wallet API E2E", () => {
     process.env.SOLANA_PRIVATE_KEY =
       "4wBqpZM9xaSheZzJSMYGnGbUXDPSgWaC1LDUQ27gFdFtGm5qAshpcPMTgjLZ6Y7yDw3p6752kQhBEkZ1bPYoY8h";
     process.env.MILADY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
+    process.env.ELIZA_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
 
     // Start real server
     const server = await startApiServer({ port: 0 });
@@ -362,8 +363,7 @@ describe("Wallet API E2E", () => {
             bsc: "nodereal",
           },
           credentials: {
-            NODEREAL_BSC_RPC_URL:
-              "https://bsc-mainnet.nodereal.io/v1/test-key",
+            NODEREAL_BSC_RPC_URL: "https://bsc-mainnet.nodereal.io/v1/test-key",
           },
         }),
       );
@@ -759,6 +759,7 @@ describe("Key Management E2E", () => {
     process.env.SOLANA_PRIVATE_KEY =
       "4wBqpZM9xaSheZzJSMYGnGbUXDPSgWaC1LDUQ27gFdFtGm5qAshpcPMTgjLZ6Y7yDw3p6752kQhBEkZ1bPYoY8h";
     process.env.MILADY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
+    process.env.ELIZA_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;

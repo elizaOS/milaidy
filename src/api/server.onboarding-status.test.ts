@@ -5,6 +5,20 @@ import path from "node:path";
 import type { AgentRuntime } from "@elizaos/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+/** Best-effort temp dir cleanup — retries once on ENOTEMPTY (file handle race). */
+async function cleanupTempDir(dir: string): Promise<void> {
+  try {
+    await fs.rm(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: 3,
+      retryDelay: 100,
+    });
+  } catch {
+    // Ignore cleanup failures in tests
+  }
+}
+
 import { startApiServer } from "./server";
 
 vi.mock("../services/mcp-marketplace", () => ({
@@ -58,8 +72,10 @@ describe("GET /api/onboarding/status", () => {
   afterEach(async () => {
     if (originalStateDir === undefined) {
       delete process.env.ELIZA_STATE_DIR;
+      delete process.env.MILADY_STATE_DIR;
     } else {
       process.env.ELIZA_STATE_DIR = originalStateDir;
+      process.env.MILADY_STATE_DIR = originalStateDir;
     }
   });
 
@@ -68,6 +84,7 @@ describe("GET /api/onboarding/status", () => {
       path.join(os.tmpdir(), "milady-onboarding-status-"),
     );
     process.env.ELIZA_STATE_DIR = tempDir;
+    process.env.MILADY_STATE_DIR = tempDir;
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({
@@ -100,7 +117,7 @@ describe("GET /api/onboarding/status", () => {
       expect(data.complete).toBe(false);
     } finally {
       await server.close();
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await cleanupTempDir(tempDir);
     }
   });
 
@@ -109,6 +126,7 @@ describe("GET /api/onboarding/status", () => {
       path.join(os.tmpdir(), "milady-onboarding-status-"),
     );
     process.env.ELIZA_STATE_DIR = tempDir;
+    process.env.MILADY_STATE_DIR = tempDir;
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({
@@ -133,7 +151,7 @@ describe("GET /api/onboarding/status", () => {
       expect(data.complete).toBe(false);
     } finally {
       await server.close();
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await cleanupTempDir(tempDir);
     }
   });
 
@@ -142,6 +160,7 @@ describe("GET /api/onboarding/status", () => {
       path.join(os.tmpdir(), "milady-onboarding-status-"),
     );
     process.env.ELIZA_STATE_DIR = tempDir;
+    process.env.MILADY_STATE_DIR = tempDir;
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({
@@ -165,7 +184,7 @@ describe("GET /api/onboarding/status", () => {
       expect(data.complete).toBe(true);
     } finally {
       await server.close();
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await cleanupTempDir(tempDir);
     }
   });
 
@@ -174,6 +193,7 @@ describe("GET /api/onboarding/status", () => {
       path.join(os.tmpdir(), "milady-onboarding-status-"),
     );
     process.env.ELIZA_STATE_DIR = tempDir;
+    process.env.MILADY_STATE_DIR = tempDir;
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({
@@ -204,7 +224,7 @@ describe("GET /api/onboarding/status", () => {
       expect(data.complete).toBe(true);
     } finally {
       await server.close();
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await cleanupTempDir(tempDir);
     }
   });
 });
