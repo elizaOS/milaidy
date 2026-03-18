@@ -1644,14 +1644,11 @@ describe("DesktopManager — clipboard", () => {
   it("clipboardAvailableFormats() gracefully handles missing API (returns empty array)", async () => {
     const saved = (mockUtils as Record<string, unknown>)
       .clipboardAvailableFormats;
-    (
-      mockUtils as Record<string, unknown>
-    ).clipboardAvailableFormats = undefined;
+    (mockUtils as Record<string, unknown>).clipboardAvailableFormats =
+      undefined;
     const result = await manager.clipboardAvailableFormats();
     expect(result.formats).toEqual([]);
-    (
-      mockUtils as Record<string, unknown>
-    ).clipboardAvailableFormats = saved;
+    (mockUtils as Record<string, unknown>).clipboardAvailableFormats = saved;
   });
 });
 
@@ -1824,9 +1821,7 @@ describe("DesktopManager — app lifecycle", () => {
 
 describe("DesktopManager — auto launch", () => {
   let manager: DesktopManager;
-  const mockExistsSync = nodeFs.existsSync as Mock<
-    typeof nodeFs.existsSync
-  >;
+  const mockExistsSync = nodeFs.existsSync as Mock<typeof nodeFs.existsSync>;
   const mockReadFileSync = nodeFs.readFileSync as Mock<
     typeof nodeFs.readFileSync
   >;
@@ -2217,15 +2212,12 @@ describe("CanvasManager — URL security (navigate)", () => {
       on: vi.fn(),
       ptr: null,
     };
-    (mgr as { windows: Map<string, unknown> }).windows.set(
-      "test-id",
-      {
-        id: "test-id",
-        window: fakeWin,
-        url: "about:blank",
-        title: "Test",
-      },
-    );
+    (mgr as { windows: Map<string, unknown> }).windows.set("test-id", {
+      id: "test-id",
+      window: fakeWin,
+      url: "about:blank",
+      title: "Test",
+    });
     const result = await mgr.navigate({
       id: "test-id",
       url: "https://evil.com/steal",
@@ -2249,15 +2241,12 @@ describe("CanvasManager — URL security (navigate)", () => {
       on: vi.fn(),
       ptr: null,
     };
-    (mgr as { windows: Map<string, unknown> }).windows.set(
-      "test-id",
-      {
-        id: "test-id",
-        window: fakeWin,
-        url: "http://localhost:3000",
-        title: "Test",
-      },
-    );
+    (mgr as { windows: Map<string, unknown> }).windows.set("test-id", {
+      id: "test-id",
+      window: fakeWin,
+      url: "http://localhost:3000",
+      title: "Test",
+    });
     const result = await mgr.navigate({
       id: "test-id",
       url: "http://localhost:3000/app",
@@ -2283,15 +2272,12 @@ describe("CanvasManager — URL security (navigate)", () => {
       on: vi.fn(),
       ptr: null,
     };
-    (mgr as { windows: Map<string, unknown> }).windows.set(
-      "test-id",
-      {
-        id: "test-id",
-        window: fakeWin,
-        url: "about:blank",
-        title: "Test",
-      },
-    );
+    (mgr as { windows: Map<string, unknown> }).windows.set("test-id", {
+      id: "test-id",
+      window: fakeWin,
+      url: "about:blank",
+      title: "Test",
+    });
     const result = await mgr.navigate({
       id: "test-id",
       url: "file:///Users/test/index.html",
@@ -2323,15 +2309,12 @@ describe("CanvasManager — URL security (navigate)", () => {
       on: vi.fn(),
       ptr: null,
     };
-    (mgr as { windows: Map<string, unknown> }).windows.set(
-      "test-id",
-      {
-        id: "test-id",
-        window: fakeWin,
-        url: "about:blank",
-        title: "Test",
-      },
-    );
+    (mgr as { windows: Map<string, unknown> }).windows.set("test-id", {
+      id: "test-id",
+      window: fakeWin,
+      url: "about:blank",
+      title: "Test",
+    });
     const result = await mgr.navigate({
       id: "test-id",
       url: "data:text/html,<script>alert(1)</script>",

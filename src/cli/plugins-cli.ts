@@ -123,7 +123,7 @@ async function getPluginManager(): Promise<PluginManagerLike> {
     registerProvider: () => {},
     registerEvaluator: () => {},
     registerEvent: () => {},
-  } as Partial<IAgentRuntime> as IAgentRuntime;
+  } as unknown as Partial<IAgentRuntime> as IAgentRuntime;
   return new PluginManagerServiceCtor(mockRuntime);
 }
 

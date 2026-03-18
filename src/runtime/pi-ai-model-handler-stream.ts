@@ -63,8 +63,7 @@ function extractAbortSignal(
   if (fromGetter) return fromGetter;
 
   // Best-effort: some ElizaOS callers pass abortSignal in model params.
-  const maybe = (params as { abortSignal?: AbortSignal })
-    .abortSignal;
+  const maybe = (params as { abortSignal?: AbortSignal }).abortSignal;
   return maybe;
 }
 
@@ -170,7 +169,7 @@ export function createPiAiHandler(
     runtime: IAgentRuntime,
     params: Record<string, JsonValue | object>,
   ): Promise<JsonValue | object> => {
-    const p = params as GenerateTextParams;
+    const p = params as unknown as GenerateTextParams;
     const model = getModel();
     const context = elizaParamsToPiAiContext(p);
 

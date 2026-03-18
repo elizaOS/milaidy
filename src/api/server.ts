@@ -855,7 +855,7 @@ function persistCompatPluginMutation(
   saveElizaConfig(config);
 
   const refreshed = (
-    buildPluginListResponse(null).plugins as CompatPluginRecord[]
+    buildPluginListResponse(null).plugins as unknown as CompatPluginRecord[]
   ).find((candidate) => candidate.id === pluginId);
 
   return {
@@ -1057,7 +1057,7 @@ async function handleMiladyCompatRoute(
     );
     const plugin = (
       buildPluginListResponse(state.current)
-        .plugins as CompatPluginRecord[]
+        .plugins as unknown as CompatPluginRecord[]
     ).find((candidate) => candidate.id === pluginId);
 
     if (!plugin) {

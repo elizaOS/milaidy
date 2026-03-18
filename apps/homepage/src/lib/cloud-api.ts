@@ -2,14 +2,22 @@ export const CLOUD_BASE = "https://www.elizacloud.ai";
 
 export interface CloudAgentDetail {
   id: string;
-  name: string;
+  agentName: string;
+  name?: string; // fallback
   status: string;
+  databaseStatus?: string;
   model?: string;
   bridgeUrl?: string;
   tokens?: { used: number; limit: number };
-  errors?: string[];
+  errorMessage?: string | null;
+  lastBackupAt?: string | null;
+  lastHeartbeatAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  token_address?: string | null;
+  token_chain?: string | null;
+  token_name?: string | null;
+  token_ticker?: string | null;
 }
 
 export interface CloudBackup {
@@ -57,19 +65,18 @@ export class CloudClient {
 
   // Agent management
   async listAgents(): Promise<CloudAgentDetail[]> {
-    const data = await this.request<
-      | CloudAgentDetail[]
-      | { agents?: CloudAgentDetail[]; data?: CloudAgentDetail[] }
-    >("/api/v1/milady/agents", {
-      method: "GET",
-    });
-    return Array.isArray(data)
-      ? data
-      : ((data as { agents?: CloudAgentDetail[]; data?: CloudAgentDetail[] })
-          .agents ??
-          (data as { agents?: CloudAgentDetail[]; data?: CloudAgentDetail[] })
-            .data ??
-          []);
+    // Cloud API returns { success: true, data: [...] }
+    const json = await this.request<Record<string, unknown>>(
+      "/api/v1/milady/agents",
+      {
+        method: "GET",
+      },
+    );
+    const agents =
+      (json as { data?: CloudAgentDetail[] }).data ??
+      (json as { agents?: CloudAgentDetail[] }).agents ??
+      (Array.isArray(json) ? json : []);
+    return agents as CloudAgentDetail[];
   }
 
   async getAgent(agentId: string): Promise<CloudAgentDetail> {

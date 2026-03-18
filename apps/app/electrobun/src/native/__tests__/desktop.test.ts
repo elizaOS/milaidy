@@ -111,9 +111,8 @@ const mockOpenExternal = electrobunBun.Utils.openExternal as ReturnType<
 const mockShowItemInFolder = electrobunBun.Utils.showItemInFolder as ReturnType<
   typeof vi.fn
 >;
-const mockSpawn = (
-  globalThis as { Bun: { spawn: ReturnType<typeof vi.fn> } }
-).Bun.spawn;
+const mockSpawn = (globalThis as { Bun: { spawn: ReturnType<typeof vi.fn> } })
+  .Bun.spawn;
 const mockIsAppActive = macEffects.isAppActive as ReturnType<typeof vi.fn>;
 const mockMakeKeyAndOrderFront = macEffects.makeKeyAndOrderFront as ReturnType<
   typeof vi.fn

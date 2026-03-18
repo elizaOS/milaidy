@@ -183,6 +183,7 @@ export class EnhancedTelegramMessageManager extends MessageManager {
     }, TYPING_INTERVAL_MS);
 
     try {
+      // @ts-expect-error handleMessage exists at runtime
       await super.handleMessage(ctx);
     } catch (error) {
       logger.error(

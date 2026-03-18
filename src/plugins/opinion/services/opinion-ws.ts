@@ -42,7 +42,7 @@ export class OpinionWsService {
   static async start(runtime: IAgentRuntime): Promise<Service> {
     const service = new OpinionWsService();
     await service.initialize(runtime);
-    return service as Service;
+    return service as unknown as Service;
   }
 
   async initialize(runtime: IAgentRuntime) {

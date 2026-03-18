@@ -52,9 +52,12 @@ export async function cloudLoginPoll(
 
 export interface CloudAgent {
   id: string;
-  name: string;
+  agentName: string;
+  name?: string;
   status: string;
   model?: string;
+  errorMessage?: string | null;
+  lastHeartbeatAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -66,10 +69,17 @@ export async function fetchCloudAgents(): Promise<CloudAgent[]> {
     const res = await fetch(`${CLOUD_BASE}/api/v1/milady/agents`, {
       headers: { "X-Api-Key": token },
     });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data.agents ?? data.data ?? []);
-  } catch {
+    if (!res.ok) {
+      console.warn("[fetchCloudAgents] API returned", res.status);
+      return [];
+    }
+    const json = await res.json();
+    // Cloud API returns { success: true, data: [...] }
+    const agents =
+      json?.data ?? json?.agents ?? (Array.isArray(json) ? json : []);
+    return agents;
+  } catch (err) {
+    console.warn("[fetchCloudAgents] Failed:", err);
     return [];
   }
 }

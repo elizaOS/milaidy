@@ -78,7 +78,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         for (const ca of cloudAgents) {
           results.push({
             id: `cloud-${ca.id}`,
-            name: ca.name || ca.id,
+            name: ca.agentName || ca.name || ca.id,
             source: "cloud",
             status: mapCloudStatus(ca.status),
             model: ca.model,
@@ -88,8 +88,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             sourceUrl: `${CLOUD_BASE}/api/v1/milady/agents/${ca.id}`,
           });
         }
-      } catch {
-        // Cloud API failed — skip
+      } catch (err) {
+        console.warn("[AgentProvider] Cloud agent fetch failed:", err);
       }
     } else {
       setCloudClientState(null);
@@ -222,10 +222,21 @@ function mapCloudStatus(status: string): ManagedAgent["status"] {
   const s = status?.toLowerCase() ?? "";
   if (s === "running" || s === "active" || s === "healthy") return "running";
   if (s === "paused" || s === "suspended") return "paused";
-  if (s === "stopped" || s === "terminated" || s === "deleted")
+  if (
+    s === "stopped" ||
+    s === "terminated" ||
+    s === "deleted" ||
+    s === "disconnected"
+  )
     return "stopped";
-  if (s === "provisioning" || s === "creating" || s === "starting")
+  if (
+    s === "provisioning" ||
+    s === "creating" ||
+    s === "starting" ||
+    s === "pending"
+  )
     return "provisioning";
+  if (s === "error") return "stopped";
   return "unknown";
 }
 
