@@ -48,7 +48,6 @@
   "include": ["src/**/*"],
   "exclude": [
     "node_modules",
-    "node_modules/.bun",
     "dist",
     "packages",
     "plugins",

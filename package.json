@@ -113,7 +113,7 @@
     "test:live": "MILADY_LIVE_TEST=1 bun exec vitest run --config vitest.e2e.config.ts test/wallet-live.e2e.test.ts test/api-auth-live.e2e.test.ts test/cloud-providers.e2e.test.ts",
     "test:once": "bunx vitest run",
     "test:watch": "bunx vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/typecheck-filter.mjs",
     "tui": "scripts/rt.sh scripts/run-node.mjs tui",
     "tui:dev": "MILADY_PROFILE=dev scripts/rt.sh scripts/run-node.mjs --dev tui",
     "db:reset": "scripts/rt.sh scripts/run-node.mjs db reset",
