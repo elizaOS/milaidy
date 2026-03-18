@@ -132,6 +132,34 @@ export function resolveDiscordPluginImportSpecifier(): string | null {
   return null;
 }
 
+const FARCASTER_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-farcaster";
+const FARCASTER_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-farcaster/typescript/dist/index",
+  "../plugins/plugin-farcaster/dist/index",
+] as const;
+
+/**
+ * Resolve the Farcaster plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveFarcasterPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(FARCASTER_PLUGIN_PACKAGE_NAME)) {
+    return FARCASTER_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  for (const relativeEntryPath of FARCASTER_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
 /** Build a mock update check result with deterministic defaults. */
 export function buildMockUpdateCheckResult(
   overrides: Partial<MockUpdateCheckResult> = {},
