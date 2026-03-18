@@ -138,6 +138,7 @@
     "@elizaos/plugin-elevenlabs": "next",
     "@elizaos/plugin-elizacloud": "next",
     "@elizaos/plugin-experience": "next",
+    "@elizaos/plugin-farcaster": "next",
     "@elizaos/plugin-form": "next",
     "@elizaos/plugin-google-genai": "next",
     "@elizaos/plugin-groq": "next",
