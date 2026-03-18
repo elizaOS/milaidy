@@ -512,6 +512,38 @@ export class AgentManager {
       await this.killChildProcess();
     }
 
+    // Kill any stale bun process holding the target port from a previous
+    // crash or unclean shutdown.  Without this, the server falls back to a
+    // dynamic port and agent.ts may not detect the change.
+    const targetPort = Number(process.env.MILADY_PORT) || DEFAULT_PORT;
+    try {
+      const lsofResult = Bun.spawnSync(["lsof", "-ti", `tcp:${targetPort}`]);
+      const pids = new TextDecoder()
+        .decode(lsofResult.stdout)
+        .trim()
+        .split("\n")
+        .filter(Boolean);
+      for (const pid of pids) {
+        const numPid = parseInt(pid, 10);
+        if (!Number.isNaN(numPid) && numPid !== process.pid) {
+          diagnosticLog(
+            `[Agent] Killing stale process ${numPid} on port ${targetPort}`,
+          );
+          try {
+            process.kill(numPid, "SIGKILL");
+          } catch {
+            // Process may have already exited
+          }
+        }
+      }
+      if (pids.length > 0) {
+        // Brief pause for the OS to release the port
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    } catch {
+      // lsof not available or failed — proceed and let the port fallback handle it
+    }
+
     this.status = {
       state: "starting",
       agentName: null,
