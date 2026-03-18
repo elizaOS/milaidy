@@ -19,6 +19,7 @@ import {
   initializeStorageBridge,
   isElectrobunRuntime,
 } from "@elizaos/app-core/bridge";
+import type { BrandingConfig } from "@elizaos/app-core/config";
 import {
   AGENT_READY_EVENT,
   APP_PAUSE_EVENT,
@@ -30,13 +31,26 @@ import {
   TRAY_ACTION_EVENT,
 } from "@elizaos/app-core/events";
 import { applyLaunchConnectionFromUrl } from "@elizaos/app-core/platform";
-import type { BrandingConfig } from "@elizaos/app-core/config";
 import { AppProvider } from "@elizaos/app-core/state";
 // Import the agent plugin
 import { Agent } from "@miladyai/capacitor-agent";
 import { Desktop } from "@miladyai/capacitor-desktop";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+
+const MILADY_BRANDING: Partial<BrandingConfig> = {
+  appName: "Milady",
+  cloudName: "Milady Cloud",
+  orgName: "milady-ai",
+  repoName: "milady",
+  docsUrl: "https://docs.milady.ai",
+  appUrl: "https://app.milady.ai",
+  bugReportUrl:
+    "https://github.com/milady-ai/milady/issues/new?template=bug_report.yml",
+  hashtag: "#MiladyAgent",
+  fileExtension: ".milady-agent",
+  packageScope: "miladyai",
+};
 
 /**
  * Platform detection utilities
@@ -379,7 +393,7 @@ function mountReactApp(): void {
 
   createRoot(rootEl).render(
     <StrictMode>
-      <AppProvider>
+      <AppProvider branding={MILADY_BRANDING}>
         <App />
       </AppProvider>
     </StrictMode>,

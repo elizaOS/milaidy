@@ -1,9 +1,17 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+import {
+  getAppCoreSourceRoot,
+  getAutonomousSourceRoot,
+  getElizaCoreEntry,
+  resolveModuleEntry,
+} from "./test/eliza-package-paths";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
-const elizaRoot = path.join(repoRoot, "..", "eliza");
+const elizaCoreEntry = getElizaCoreEntry(repoRoot);
+const autonomousSourceRoot = getAutonomousSourceRoot(repoRoot);
+const appCoreSourceRoot = getAppCoreSourceRoot(repoRoot);
 
 export default defineConfig({
   resolve: {
@@ -12,44 +20,42 @@ export default defineConfig({
         find: "milady/plugin-sdk",
         replacement: path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       },
-      {
-        find: "@elizaos/core",
-        replacement: path.join(
-          elizaRoot,
-          "packages",
-          "typescript",
-          "src",
-          "index.ts",
-        ),
-      },
-      {
-        find: /^@elizaos\/autonomous\/(.*)/,
-        replacement: path.join(elizaRoot, "packages", "autonomous", "src", "$1"),
-      },
-      {
-        find: "@elizaos/autonomous",
-        replacement: path.join(
-          elizaRoot,
-          "packages",
-          "autonomous",
-          "src",
-          "index.ts",
-        ),
-      },
-      {
-        find: /^@elizaos\/app-core\/(.*)/,
-        replacement: path.join(elizaRoot, "packages", "app-core", "src", "$1"),
-      },
-      {
-        find: "@elizaos/app-core",
-        replacement: path.join(
-          elizaRoot,
-          "packages",
-          "app-core",
-          "src",
-          "index.ts",
-        ),
-      },
+      ...(elizaCoreEntry
+        ? [
+            {
+              find: "@elizaos/core",
+              replacement: elizaCoreEntry,
+            },
+          ]
+        : []),
+      ...(autonomousSourceRoot
+        ? [
+            {
+              find: /^@elizaos\/autonomous\/(.*)/,
+              replacement: path.join(autonomousSourceRoot, "$1"),
+            },
+            {
+              find: "@elizaos/autonomous",
+              replacement: resolveModuleEntry(
+                path.join(autonomousSourceRoot, "index"),
+              ),
+            },
+          ]
+        : []),
+      ...(appCoreSourceRoot
+        ? [
+            {
+              find: /^@elizaos\/app-core\/(.*)/,
+              replacement: path.join(appCoreSourceRoot, "$1"),
+            },
+            {
+              find: "@elizaos/app-core",
+              replacement: resolveModuleEntry(
+                path.join(appCoreSourceRoot, "index"),
+              ),
+            },
+          ]
+        : []),
       {
         find: "@elizaos/skills",
         replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),

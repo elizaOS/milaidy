@@ -3,12 +3,17 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+import {
+  getAppCoreSourceRoot,
+  getAutonomousSourceRoot,
+  getElizaCoreEntry,
+  resolveModuleEntry,
+} from "./test/eliza-package-paths";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
-const elizaRoot = path.join(repoRoot, "..", "eliza");
-const hasElizaWorkspace = fs.existsSync(
-  path.join(elizaRoot, "packages", "typescript", "src", "index.ts"),
-);
+const elizaCoreEntry = getElizaCoreEntry(repoRoot);
+const autonomousSourceRoot = getAutonomousSourceRoot(repoRoot);
+const appCoreSourceRoot = getAppCoreSourceRoot(repoRoot);
 const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const isWindows = process.platform === "win32";
 const localWorkers = 2;
@@ -23,59 +28,41 @@ export default defineConfig({
         replacement: path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       },
       // When the eliza workspace exists locally, resolve @elizaos packages from
-      // source so that all transitive imports share a single version.  In CI
-      // (where the workspace submodule is absent) we fall through to the
-      // npm-installed packages instead.
-      ...(hasElizaWorkspace
+      // source so that all transitive imports share a single version. In CI,
+      // autonomous falls back to the installed package source root because the
+      // published package layout does not match its declared exports.
+      ...(elizaCoreEntry
         ? [
             {
               find: "@elizaos/core",
-              replacement: path.join(
-                elizaRoot,
-                "packages",
-                "typescript",
-                "src",
-                "index.ts",
-              ),
+              replacement: elizaCoreEntry,
             },
+          ]
+        : []),
+      ...(autonomousSourceRoot
+        ? [
             {
               find: /^@elizaos\/autonomous\/(.*)/,
-              replacement: path.join(
-                elizaRoot,
-                "packages",
-                "autonomous",
-                "src",
-                "$1",
-              ),
+              replacement: path.join(autonomousSourceRoot, "$1"),
             },
             {
               find: "@elizaos/autonomous",
-              replacement: path.join(
-                elizaRoot,
-                "packages",
-                "autonomous",
-                "src",
-                "index.ts",
+              replacement: resolveModuleEntry(
+                path.join(autonomousSourceRoot, "index"),
               ),
             },
+          ]
+        : []),
+      ...(appCoreSourceRoot
+        ? [
             {
               find: /^@elizaos\/app-core\/(.*)/,
-              replacement: path.join(
-                elizaRoot,
-                "packages",
-                "app-core",
-                "src",
-                "$1",
-              ),
+              replacement: path.join(appCoreSourceRoot, "$1"),
             },
             {
               find: "@elizaos/app-core",
-              replacement: path.join(
-                elizaRoot,
-                "packages",
-                "app-core",
-                "src",
-                "index.ts",
+              replacement: resolveModuleEntry(
+                path.join(appCoreSourceRoot, "index"),
               ),
             },
           ]

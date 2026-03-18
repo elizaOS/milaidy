@@ -36,7 +36,6 @@
     "apps/*",
     "apps/*/plugins/*",
     "apps/app/electrobun",
-    "apps/home/electrobun",
     "deploy/cloud-agent-template",
     "packages/*",
     "plugins/plugin-*"

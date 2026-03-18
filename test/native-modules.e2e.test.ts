@@ -17,6 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { resolveAutonomousSourceFile } from "./eliza-package-paths";
 
 // ---------------------------------------------------------------------------
 // Environment
@@ -396,25 +397,14 @@ describe("Core Plugins with Vision Integration", () => {
   });
 
   it("plugin-vision has static import in eliza.ts", async () => {
-    const elizaPath = path.join(packageRoot, "src", "runtime", "eliza.ts");
-    const elizaContent = fs.readFileSync(elizaPath, "utf-8");
-    const canonicalElizaContent = elizaContent.includes(
-      '@elizaos/plugin-vision"',
-    )
-      ? elizaContent
-      : fs.readFileSync(
-          path.resolve(
-            packageRoot,
-            "..",
-            "eliza",
-            "packages",
-            "autonomous",
-            "src",
-            "runtime",
-            "eliza.ts",
-          ),
-          "utf-8",
-        );
+    const canonicalElizaPath = resolveAutonomousSourceFile(
+      packageRoot,
+      path.join("runtime", "eliza"),
+    );
+
+    expect(canonicalElizaPath).toBeDefined();
+
+    const canonicalElizaContent = fs.readFileSync(canonicalElizaPath!, "utf-8");
 
     expect(canonicalElizaContent).toContain('@elizaos/plugin-vision"');
     expect(canonicalElizaContent).toContain("plugin-vision");
