@@ -181,6 +181,16 @@ export function hasRequiredElizaWorkspaceFiles(
   );
 }
 
+export function hasInstalledElizaDependencies(
+  elizaRoot,
+  { pathExists = existsSync } = {},
+) {
+  return (
+    pathExists(path.join(elizaRoot, "node_modules", ".bun")) &&
+    pathExists(path.join(elizaRoot, "node_modules", ".bin"))
+  );
+}
+
 export function getElizaPackageLinks(
   repoRoot = DEFAULT_REPO_ROOT,
   elizaRoot = getSiblingElizaRoot(repoRoot),
@@ -289,15 +299,7 @@ async function ensureElizaWorkspace(repoRoot) {
 }
 
 async function ensureElizaDependencies(elizaRoot) {
-  const autonomousInstall = path.join(
-    elizaRoot,
-    "node_modules",
-    "@elizaos",
-    "autonomous",
-    "package.json",
-  );
-
-  if (existsSync(autonomousInstall)) {
+  if (hasInstalledElizaDependencies(elizaRoot)) {
     return;
   }
 

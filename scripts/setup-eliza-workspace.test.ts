@@ -14,6 +14,7 @@ import {
   createPackageLink,
   getElizaPackageLinks,
   getElizaWorkspaceSkipReason,
+  hasInstalledElizaDependencies,
   hasRequiredElizaWorkspaceFiles,
   isPackageLinkCurrent,
 } from "./setup-eliza-workspace.mjs";
@@ -69,6 +70,25 @@ describe("hasRequiredElizaWorkspaceFiles", () => {
 
     expect(
       hasRequiredElizaWorkspaceFiles(elizaRoot, {
+        pathExists: () => true,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("hasInstalledElizaDependencies", () => {
+  it("detects a Bun-installed workspace from root install markers", () => {
+    const elizaRoot = "/repo/eliza";
+
+    expect(
+      hasInstalledElizaDependencies(elizaRoot, {
+        pathExists: (candidate) =>
+          candidate !== path.join(elizaRoot, "node_modules", ".bin"),
+      }),
+    ).toBe(false);
+
+    expect(
+      hasInstalledElizaDependencies(elizaRoot, {
         pathExists: () => true,
       }),
     ).toBe(true);
