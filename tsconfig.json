@@ -18,9 +18,6 @@
     "paths": {
       "@elizaos/app-hyperscape/routes": [
         "../plugins/app-hyperscape/src/routes.ts"
-      ],
-      "@miladyai/plugin-streaming-base": [
-        "./packages/plugin-streaming-base/src/index.ts"
       ]
     }
   },

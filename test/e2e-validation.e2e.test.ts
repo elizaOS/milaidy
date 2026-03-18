@@ -328,7 +328,7 @@ describe("Fresh Install Simulation", () => {
     try {
       await execFileAsync(
         "sh",
-        ["-c", `node ${cliEntryPath} --help > ${outPath} 2>&1`],
+        ["-c", `bun ${cliEntryPath} --help > ${outPath} 2>&1`],
         { timeout: 30_000 },
       );
     } catch {
@@ -428,7 +428,7 @@ describe("CLI Entry Point (npx miladyai equivalent)", () => {
     try {
       await execFileAsync(
         "sh",
-        ["-c", `node ${cliEntryPath} --version > ${outPath} 2>&1`],
+        ["-c", `bun ${cliEntryPath} --version > ${outPath} 2>&1`],
         { timeout: 30_000 },
       );
     } catch {
