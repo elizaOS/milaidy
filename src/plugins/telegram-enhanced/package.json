@@ -8,8 +8,8 @@
     ".": "./index.js"
   },
   "dependencies": {
-    "@elizaos/core": "next",
-    "@elizaos/plugin-telegram": "next",
+    "@elizaos/core": "2.0.0-alpha.64",
+    "@elizaos/plugin-telegram": "2.0.0-alpha.9",
     "telegraf": "^4.16.3"
   }
 }
