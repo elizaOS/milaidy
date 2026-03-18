@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SwabbleElectron } from "../../plugins/swabble/electron/src/index";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 interface ProcessorStub {
@@ -88,7 +88,7 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
   });
 
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     vi.restoreAllMocks();
 
     if (originalAudioContext) {
@@ -115,7 +115,7 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
       .mockResolvedValue({ available: true });
     const swabbleAudioChunk = vi.fn().mockResolvedValue(undefined);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         swabbleStart,
         swabbleStop,
@@ -213,7 +213,7 @@ describe("SwabbleElectron direct Electrobun RPC bridge", () => {
     const rpcListeners = new Map<string, Set<(payload: unknown) => void>>();
     const swabbleStop = vi.fn().mockResolvedValue(undefined);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         swabbleStart: vi.fn().mockResolvedValue({ started: true }),
         swabbleStop,

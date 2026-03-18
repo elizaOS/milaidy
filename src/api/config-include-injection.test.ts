@@ -1,21 +1,21 @@
 /**
  * Tests that the $include config directive cannot be persisted to disk
- * via saveMiladyConfig, preventing arbitrary local file read on reload.
+ * via saveElizaConfig, preventing arbitrary local file read on reload.
  *
  * Attack vector: An authenticated client sends:
  *   PUT /api/config
  *   { "env": { "$include": "~/.milady/auth/credentials.json" } }
  *
  * Without protection, the persisted config would contain the $include
- * directive, and the next loadMiladyConfig() → resolveConfigIncludes
+ * directive, and the next loadElizaConfig() → resolveConfigIncludes
  * pass would read credentials.json into the config.
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { saveMiladyConfig } from "@elizaos/autonomous/config/config";
+import { saveElizaConfig } from "@elizaos/autonomous/config/config";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MiladyConfig } from "../config/types";
+import type { ElizaConfig } from "../config/types";
 
 // Mock resolveConfigPath so we can write to a temp file
 let tmpConfigPath: string;
@@ -25,7 +25,7 @@ vi.mock("@elizaos/autonomous/config/paths", () => ({
   resolveUserPath: (p: string) => p,
 }));
 
-describe("$include config injection — saveMiladyConfig defense-in-depth", () => {
+describe("$include config injection — saveElizaConfig defense-in-depth", () => {
   beforeEach(() => {
     tmpConfigPath = path.join(
       os.tmpdir(),
@@ -45,9 +45,9 @@ describe("$include config injection — saveMiladyConfig defense-in-depth", () =
     const config = {
       logging: { level: "error" },
       $include: "/etc/passwd",
-    } as unknown as MiladyConfig;
+    } as unknown as ElizaConfig;
 
-    saveMiladyConfig(config);
+    saveElizaConfig(config);
     const written = JSON.parse(fs.readFileSync(tmpConfigPath, "utf-8"));
 
     expect(written).not.toHaveProperty("$include");
@@ -61,9 +61,9 @@ describe("$include config injection — saveMiladyConfig defense-in-depth", () =
         SOME_KEY: "value",
         $include: "~/.milady/auth/credentials.json",
       },
-    } as unknown as MiladyConfig;
+    } as unknown as ElizaConfig;
 
-    saveMiladyConfig(config);
+    saveElizaConfig(config);
     const written = JSON.parse(fs.readFileSync(tmpConfigPath, "utf-8"));
 
     expect(written.env).not.toHaveProperty("$include");
@@ -81,9 +81,9 @@ describe("$include config injection — saveMiladyConfig defense-in-depth", () =
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as unknown as ElizaConfig;
 
-    saveMiladyConfig(config);
+    saveElizaConfig(config);
     const written = JSON.parse(fs.readFileSync(tmpConfigPath, "utf-8"));
 
     expect(written.plugins.myPlugin.settings).not.toHaveProperty("$include");
@@ -94,9 +94,9 @@ describe("$include config injection — saveMiladyConfig defense-in-depth", () =
     const config = {
       logging: { level: "error" },
       agents: [{ name: "alice", $include: "/etc/hosts" }, { name: "bob" }],
-    } as unknown as MiladyConfig;
+    } as unknown as ElizaConfig;
 
-    saveMiladyConfig(config);
+    saveElizaConfig(config);
     const written = JSON.parse(fs.readFileSync(tmpConfigPath, "utf-8"));
 
     expect(written.agents[0]).not.toHaveProperty("$include");
@@ -112,9 +112,9 @@ describe("$include config injection — saveMiladyConfig defense-in-depth", () =
         INCLUDE: "also-fine",
         $other: "fine-too",
       },
-    } as unknown as MiladyConfig;
+    } as unknown as ElizaConfig;
 
-    saveMiladyConfig(config);
+    saveElizaConfig(config);
     const written = JSON.parse(fs.readFileSync(tmpConfigPath, "utf-8"));
 
     expect(written.env.include).toBe("this-is-fine");

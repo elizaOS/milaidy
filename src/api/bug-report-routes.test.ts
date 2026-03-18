@@ -121,8 +121,8 @@ describe("bug-report-routes", () => {
 
   // ── BUG_REPORT_REPO constant ───────────────────────────────────────
   describe("BUG_REPORT_REPO", () => {
-    it("points to milady-ai/milady", () => {
-      expect(BUG_REPORT_REPO).toBe("milady-ai/milady");
+    it("points to elizaos/eliza", () => {
+      expect(BUG_REPORT_REPO).toBe("elizaos/eliza");
     });
   });
 });

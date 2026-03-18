@@ -95,7 +95,7 @@ describe("wallet transfer permissions", () => {
         assetSymbol: "BNB",
         confirm: true,
       },
-      { "X-Milady-Agent-Action": "1" },
+      { "X-Eliza-Agent-Action": "1" },
     );
 
     expect(status).toBe(200);

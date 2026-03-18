@@ -11,7 +11,7 @@ type AuthRouteCallArgs = {
 };
 
 describe("auth routes", () => {
-  const env = createEnvSandbox(["MILADY_API_TOKEN"]);
+  const env = createEnvSandbox(["ELIZA_API_TOKEN"]);
 
   let pairingEnabled: ReturnType<typeof vi.fn>;
   let ensurePairingCode: ReturnType<typeof vi.fn>;
@@ -83,6 +83,7 @@ describe("auth routes", () => {
   });
 
   test("reports auth status with pairing metadata", async () => {
+    process.env.ELIZA_API_TOKEN = "token-123";
     process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     getPairingExpiresAt.mockReturnValue(1_234_567_890);
@@ -115,6 +116,7 @@ describe("auth routes", () => {
   });
 
   test("rejects pair requests when pairing is disabled", async () => {
+    process.env.ELIZA_API_TOKEN = "token-123";
     process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(false);
 
@@ -129,6 +131,7 @@ describe("auth routes", () => {
   });
 
   test("rejects pair requests when rate limit is exceeded", async () => {
+    process.env.ELIZA_API_TOKEN = "token-123";
     process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     ensurePairingCode.mockReturnValue("ABCD");
@@ -149,6 +152,7 @@ describe("auth routes", () => {
   });
 
   test("rejects expired pairing codes", async () => {
+    process.env.ELIZA_API_TOKEN = "token-123";
     process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     ensurePairingCode.mockReturnValueOnce("ABCD").mockReturnValueOnce("WXYZ");
@@ -168,6 +172,7 @@ describe("auth routes", () => {
   });
 
   test("rejects invalid pairing code", async () => {
+    process.env.ELIZA_API_TOKEN = "token-123";
     process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     ensurePairingCode.mockReturnValue("ABCD");
@@ -185,6 +190,7 @@ describe("auth routes", () => {
   });
 
   test("returns token and clears pairing when code is valid", async () => {
+    process.env.ELIZA_API_TOKEN = "token-123";
     process.env.MILADY_API_TOKEN = "token-123";
     pairingEnabled.mockReturnValue(true);
     ensurePairingCode.mockReturnValue("ABCD");

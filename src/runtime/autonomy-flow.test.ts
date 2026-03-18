@@ -13,8 +13,14 @@ import { afterEach, describe, expect, it } from "vitest";
 
 let hasSqlPlugin = false;
 try {
-  await import("@elizaos/plugin-sql");
-  hasSqlPlugin = true;
+  const mod = (await import("@elizaos/plugin-sql")) as {
+    default?: { name?: string; init?: unknown };
+  };
+  // The plugin must have an init function to be a real SQL plugin (not a stub).
+  hasSqlPlugin =
+    !!mod.default &&
+    typeof mod.default.init === "function" &&
+    mod.default.name !== "stub-plugin";
 } catch {
   // @elizaos/plugin-sql not installed — skip integration tests
 }

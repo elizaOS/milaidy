@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const ONBOARDING_STEP_STORAGE_KEY = "milady:onboarding:step";
+const ONBOARDING_STEP_STORAGE_KEY = "eliza:onboarding:step";
 
 const { mockClient } = vi.hoisted(() => ({
   mockClient: {
@@ -292,14 +292,16 @@ describe("AppProvider onboarding step resume", () => {
     });
     await flushEffects();
 
-    expect(api?.getSnapshot().onboardingStep).toBe("wakeUp");
+    expect(api?.getSnapshot().onboardingStep).toBe("identity");
 
     await act(async () => {
       await api?.next();
     });
 
-    expect(localStorage.getItem(ONBOARDING_STEP_STORAGE_KEY)).toBe("identity");
-    expect(api?.getSnapshot().onboardingStep).toBe("identity");
+    expect(localStorage.getItem(ONBOARDING_STEP_STORAGE_KEY)).toBe(
+      "connection",
+    );
+    expect(api?.getSnapshot().onboardingStep).toBe("connection");
 
     await act(async () => {
       tree?.unmount();
@@ -325,7 +327,7 @@ describe("AppProvider onboarding step resume", () => {
 
     expect(api?.getSnapshot()).toEqual({
       onboardingLoading: false,
-      onboardingStep: "identity",
+      onboardingStep: "connection",
       onboardingRunMode: "",
       onboardingCloudProvider: "",
     });

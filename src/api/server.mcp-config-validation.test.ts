@@ -493,11 +493,14 @@ describe("resolveMcpServersRejection", () => {
 
 describe("resolveMcpTerminalAuthorizationRejection", () => {
   afterEach(() => {
+    delete process.env.ELIZA_API_TOKEN;
     delete process.env.MILADY_API_TOKEN;
+    delete process.env.ELIZA_TERMINAL_RUN_TOKEN;
     delete process.env.MILADY_TERMINAL_RUN_TOKEN;
   });
 
   it("requires terminal authorization for stdio MCP server configs", () => {
+    process.env.ELIZA_API_TOKEN = "api-secret";
     process.env.MILADY_API_TOKEN = "api-secret";
     const req: Pick<http.IncomingMessage, "headers"> = { headers: {} };
     const rejection = resolveMcpTerminalAuthorizationRejection(
@@ -517,6 +520,7 @@ describe("resolveMcpTerminalAuthorizationRejection", () => {
   });
 
   it("does not require terminal authorization for remote-only MCP configs", () => {
+    process.env.ELIZA_API_TOKEN = "api-secret";
     process.env.MILADY_API_TOKEN = "api-secret";
     const req: Pick<http.IncomingMessage, "headers"> = { headers: {} };
     const rejection = resolveMcpTerminalAuthorizationRejection(
@@ -534,7 +538,9 @@ describe("resolveMcpTerminalAuthorizationRejection", () => {
   });
 
   it("accepts stdio MCP config when terminal token is provided", () => {
+    process.env.ELIZA_API_TOKEN = "api-secret";
     process.env.MILADY_API_TOKEN = "api-secret";
+    process.env.ELIZA_TERMINAL_RUN_TOKEN = "terminal-secret";
     process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
     const req: Pick<http.IncomingMessage, "headers"> = { headers: {} };
     const rejection = resolveMcpTerminalAuthorizationRejection(

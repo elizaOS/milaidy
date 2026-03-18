@@ -54,7 +54,7 @@ vi.mock("@elizaos/core", () => ({
 
 import {
   verifyAndWhitelistHolder,
-  verifyMiladyHolder,
+  verifyElizaHolder,
 } from "@elizaos/autonomous/api/nft-verify.ts";
 
 // ── Tests ────────────────────────────────────────────────────────────────
@@ -69,12 +69,12 @@ describe("nft-verify", () => {
     vi.restoreAllMocks();
   });
 
-  // ── verifyMiladyHolder ─────────────────────────────────────────────
+  // ── verifyElizaHolder ─────────────────────────────────────────────
 
-  describe("verifyMiladyHolder", () => {
+  describe("verifyElizaHolder", () => {
     it("returns verified=true when wallet holds ≥1 Milady NFT", async () => {
       mockBalanceOf.mockResolvedValue(BigInt(3));
-      const result = await verifyMiladyHolder(
+      const result = await verifyElizaHolder(
         "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
       );
       expect(result.verified).toBe(true);
@@ -84,7 +84,7 @@ describe("nft-verify", () => {
 
     it("returns verified=false when wallet holds 0 NFTs", async () => {
       mockBalanceOf.mockResolvedValue(BigInt(0));
-      const result = await verifyMiladyHolder(
+      const result = await verifyElizaHolder(
         "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
       );
       expect(result.verified).toBe(false);
@@ -93,14 +93,14 @@ describe("nft-verify", () => {
     });
 
     it("rejects invalid Ethereum address", async () => {
-      const result = await verifyMiladyHolder("not-an-address");
+      const result = await verifyElizaHolder("not-an-address");
       expect(result.verified).toBe(false);
       expect(result.error).toContain("Invalid Ethereum address");
       expect(mockBalanceOf).not.toHaveBeenCalled();
     });
 
     it("rejects empty address", async () => {
-      const result = await verifyMiladyHolder("");
+      const result = await verifyElizaHolder("");
       expect(result.verified).toBe(false);
       expect(result.error).toContain("required");
       expect(mockBalanceOf).not.toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe("nft-verify", () => {
 
     it("handles RPC errors gracefully", async () => {
       mockBalanceOf.mockRejectedValue(new Error("network timeout"));
-      const result = await verifyMiladyHolder(
+      const result = await verifyElizaHolder(
         "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
       );
       expect(result.verified).toBe(false);
@@ -117,7 +117,7 @@ describe("nft-verify", () => {
 
     it("includes contract address in result", async () => {
       mockBalanceOf.mockResolvedValue(BigInt(1));
-      const result = await verifyMiladyHolder(
+      const result = await verifyElizaHolder(
         "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
       );
       expect(result.contractAddress).toBe(
@@ -127,7 +127,7 @@ describe("nft-verify", () => {
 
     it("destroys provider after call", async () => {
       mockBalanceOf.mockResolvedValue(BigInt(0));
-      await verifyMiladyHolder("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
+      await verifyElizaHolder("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
       expect(mockDestroy).toHaveBeenCalled();
     });
   });
@@ -143,8 +143,8 @@ describe("nft-verify", () => {
       expect(result.verified).toBe(true);
       expect(mockMarkAddressVerified).toHaveBeenCalledWith(
         "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-        expect.stringContaining("nft:milady:"),
-        expect.stringContaining("milady-holder:2"),
+        expect.stringContaining("nft:eliza:"),
+        expect.stringContaining("eliza-holder:2"),
       );
     });
 

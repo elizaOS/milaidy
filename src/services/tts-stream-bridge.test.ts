@@ -700,17 +700,17 @@ describe("decodeMp3ToPcm via speak()", () => {
 });
 
 // ===========================================================================
-// 6. Cloud TTS disabled — MILADY_CLOUD_TTS_DISABLED env var
+// 6. Cloud TTS disabled — ELIZA_CLOUD_TTS_DISABLED env var
 // ===========================================================================
 
-describe("MILADY_CLOUD_TTS_DISABLED env var", () => {
+describe("ELIZA_CLOUD_TTS_DISABLED env var", () => {
   it("uses cloud API key when TTS is NOT disabled", () => {
     withEnv(
       {
         ELEVENLABS_API_KEY: undefined,
         OPENAI_API_KEY: undefined,
         ELIZAOS_CLOUD_ENABLED: "true",
-        MILADY_CLOUD_TTS_DISABLED: undefined,
+        ELIZA_CLOUD_TTS_DISABLED: undefined,
         ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
       },
       () => {
@@ -727,13 +727,13 @@ describe("MILADY_CLOUD_TTS_DISABLED env var", () => {
     );
   });
 
-  it("skips cloud API key when MILADY_CLOUD_TTS_DISABLED=true", () => {
+  it("skips cloud API key when ELIZA_CLOUD_TTS_DISABLED=true", () => {
     withEnv(
       {
         ELEVENLABS_API_KEY: undefined,
         OPENAI_API_KEY: undefined,
         ELIZAOS_CLOUD_ENABLED: "true",
-        MILADY_CLOUD_TTS_DISABLED: "true",
+        ELIZA_CLOUD_TTS_DISABLED: "true",
         ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
       },
       () => {
@@ -754,7 +754,7 @@ describe("MILADY_CLOUD_TTS_DISABLED env var", () => {
       {
         ELEVENLABS_API_KEY: "direct-el-key",
         ELIZAOS_CLOUD_ENABLED: "true",
-        MILADY_CLOUD_TTS_DISABLED: "true",
+        ELIZA_CLOUD_TTS_DISABLED: "true",
         ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
       },
       () => {
@@ -776,7 +776,7 @@ describe("MILADY_CLOUD_TTS_DISABLED env var", () => {
       {
         ELEVENLABS_API_KEY: undefined,
         ELIZAOS_CLOUD_ENABLED: "true",
-        MILADY_CLOUD_TTS_DISABLED: "true",
+        ELIZA_CLOUD_TTS_DISABLED: "true",
         ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
       },
       () => {
@@ -799,7 +799,7 @@ describe("MILADY_CLOUD_TTS_DISABLED env var", () => {
         ELEVENLABS_API_KEY: undefined,
         OPENAI_API_KEY: "oai-direct",
         ELIZAOS_CLOUD_ENABLED: "true",
-        MILADY_CLOUD_TTS_DISABLED: "true",
+        ELIZA_CLOUD_TTS_DISABLED: "true",
         ELIZAOS_CLOUD_API_KEY: "cloud-key-123",
       },
       () => {

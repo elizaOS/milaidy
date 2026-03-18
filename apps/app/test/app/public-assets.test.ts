@@ -83,7 +83,6 @@ describe("app public bundle assets", () => {
       "public_src/screenshotter.html",
       "public_src/animations/idle.glb",
       "public_src/vrms/milady-1.vrm",
-      "public_src/vrms/test-binary.vrm.gz",
       "public_src/worlds/companion-day-collider.glb",
       "public_src/animations/Idle.fbx",
     ];

@@ -36,8 +36,6 @@ const DOCS_THAT_REFERENCE_THRESHOLDS = [
   "docs/guides/contribution-guide.md",
   "docs/guides/contributing.md",
   "docs/plugins/publish.md",
-  "docs/INTEGRATION_DEFINITION_OF_DONE_GRAPH.md",
-  "INTEGRATION_DOD_MAP.md",
   ".github/workflows/agent-review.yml",
 ];
 

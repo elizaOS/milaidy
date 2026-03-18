@@ -314,7 +314,7 @@ describe("registry-service", () => {
   it("returns default capabilities hash from static method", () => {
     const hash = RegistryService.defaultCapabilitiesHash();
 
-    expect(hash).toBe(ethers.id("milady-agent"));
+    expect(hash).toBe(ethers.id("eliza-agent"));
     expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 

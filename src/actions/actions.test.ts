@@ -13,15 +13,15 @@ vi.mock("@elizaos/core", () => ({
 }));
 
 vi.mock("@elizaos/autonomous/config/config", () => ({
-  loadMiladyConfig: vi.fn(() => ({ customActions: [] })),
-  saveMiladyConfig: vi.fn(),
+  loadElizaConfig: vi.fn(() => ({ customActions: [] })),
+  saveElizaConfig: vi.fn(),
 }));
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34", family: 4 }]),
 }));
 
-import { loadMiladyConfig } from "@elizaos/autonomous/config/config";
+import { loadElizaConfig } from "@elizaos/autonomous/config/config";
 import {
   __setPinnedFetchImplForTests,
   buildTestHandler,
@@ -124,13 +124,13 @@ describe("registerCustomActionLive", () => {
 
 describe("loadCustomActions", () => {
   it("returns empty array when config has no custom actions", () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({} as MiladyConfig);
+    vi.mocked(loadElizaConfig).mockReturnValue({} as MiladyConfig);
     const actions = loadCustomActions();
     expect(actions).toEqual([]);
   });
 
   it("loads enabled actions from config", () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    vi.mocked(loadElizaConfig).mockReturnValue({
       customActions: [
         makeDef({ id: "a1", name: "ACTION_ONE", enabled: true }),
         makeDef({ id: "a2", name: "ACTION_TWO", enabled: true }),
@@ -144,7 +144,7 @@ describe("loadCustomActions", () => {
   });
 
   it("filters out disabled actions", () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    vi.mocked(loadElizaConfig).mockReturnValue({
       customActions: [
         makeDef({ id: "a1", name: "ENABLED_ACTION", enabled: true }),
         makeDef({ id: "a2", name: "DISABLED_ACTION", enabled: false }),
@@ -157,7 +157,7 @@ describe("loadCustomActions", () => {
   });
 
   it("returns empty array when config loading throws", () => {
-    vi.mocked(loadMiladyConfig).mockImplementation(() => {
+    vi.mocked(loadElizaConfig).mockImplementation(() => {
       throw new Error("config corrupted");
     });
     const actions = loadCustomActions();

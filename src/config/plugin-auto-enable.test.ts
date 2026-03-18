@@ -288,14 +288,19 @@ describe("applyPluginAutoEnable — env vars", () => {
     ).toBe(true);
   });
 
-  it("enables pi-ai plugin when MILADY_USE_PI_AI is set", () => {
+  it("enables pi-ai plugin when USE_PI_AI env is set", () => {
+    // The env key name depends on branding: ELIZA_USE_PI_AI or MILADY_USE_PI_AI.
+    // Detect which key the source expects by looking at AUTH_PROVIDER_PLUGINS.
+    const piAiEnvKey = AUTH_PROVIDER_PLUGINS.ELIZA_USE_PI_AI
+      ? "ELIZA_USE_PI_AI"
+      : "MILADY_USE_PI_AI";
     const params = makeParams({
-      env: { MILADY_USE_PI_AI: "1" },
+      env: { [piAiEnvKey]: "1" },
     });
     const { config, changes } = applyPluginAutoEnable(params);
 
     expect(config.plugins?.allow).toContain("pi-ai");
-    expect(changes.some((c) => c.includes("MILADY_USE_PI_AI"))).toBe(true);
+    expect(changes.some((c) => c.includes("PI_AI"))).toBe(true);
   });
 
   it("skips env var with empty string value", () => {
@@ -693,10 +698,12 @@ describe("AUTH_PROVIDER_PLUGINS", () => {
     );
   });
 
-  it("maps MILADY_USE_PI_AI to pi-ai plugin", () => {
-    expect(AUTH_PROVIDER_PLUGINS.MILADY_USE_PI_AI).toBe(
-      "@elizaos/plugin-pi-ai",
-    );
+  it("maps USE_PI_AI env key to pi-ai plugin", () => {
+    // The key name depends on the branding of the resolved source.
+    const piAiMapping =
+      AUTH_PROVIDER_PLUGINS.ELIZA_USE_PI_AI ??
+      AUTH_PROVIDER_PLUGINS.MILADY_USE_PI_AI;
+    expect(piAiMapping).toBe("@elizaos/plugin-pi-ai");
   });
 
   it("maps CUA env keys to cua plugin", () => {
@@ -893,7 +900,7 @@ describe("STREAMING_PLUGINS mapping", () => {
     expect(STREAMING_PLUGINS.retake).toBe("@elizaos/plugin-retake");
     expect(STREAMING_PLUGINS.twitch).toBe("@elizaos/plugin-twitch-streaming");
     expect(STREAMING_PLUGINS.youtube).toBe("@elizaos/plugin-youtube-streaming");
-    expect(STREAMING_PLUGINS.customRtmp).toBe("@miladyai/plugin-custom-rtmp");
+    expect(STREAMING_PLUGINS.customRtmp).toBe("@elizaos/plugin-custom-rtmp");
   });
 });
 

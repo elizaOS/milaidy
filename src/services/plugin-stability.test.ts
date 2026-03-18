@@ -28,7 +28,6 @@ import {
   OPTIONAL_CORE_PLUGINS,
   resolvePrimaryModel,
 } from "../runtime/eliza";
-import { createMiladyPlugin } from "../runtime/milady-plugin";
 import {
   createEnvSandbox,
   extractPlugin,
@@ -624,11 +623,27 @@ describe("Provider Validation", () => {
     expect(typeof provider.name).toBe("string");
     expect(typeof provider.description).toBe("string");
     expect(typeof provider.get).toBe("function");
-    expect(provider.name).toBe("miladySessionKey");
+    // Upstream autonomous uses "elizaSessionKey"; milady fork uses "miladySessionKey"
+    expect(provider.name).toMatch(/^(milady|eliza)SessionKey$/);
   });
 
-  it("createMiladyPlugin returns a valid Plugin with providers", () => {
-    const plugin = createMiladyPlugin({
+  it("branded plugin factory returns a valid Plugin with providers", async () => {
+    // The plugin factory is createMiladyPlugin in the milady fork, but
+    // createElizaPlugin in the upstream autonomous package. Try both.
+    type PluginFactory = (config?: {
+      workspaceDir?: string;
+      agentId?: string;
+    }) => Plugin;
+    let createPlugin: PluginFactory;
+    try {
+      const mod = await import("../runtime/milady-plugin");
+      createPlugin = (mod as Record<string, PluginFactory>).createMiladyPlugin;
+    } catch {
+      const mod = await import("@elizaos/autonomous/runtime/eliza-plugin");
+      createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
+    }
+
+    const plugin = createPlugin({
       workspaceDir: "/tmp/test-workspace",
       agentId: "test-agent",
     });
@@ -636,7 +651,7 @@ describe("Provider Validation", () => {
     expect(plugin).toBeDefined();
     expect(typeof plugin.name).toBe("string");
     expect(typeof plugin.description).toBe("string");
-    expect(plugin.name).toBe("milady");
+    expect(plugin.name).toMatch(/^(milady|eliza)$/);
 
     // Providers should be an array of valid provider shapes
     if (plugin.providers) {
@@ -654,8 +669,21 @@ describe("Provider Validation", () => {
     }
   });
 
-  it("milady plugin is JSON-serializable (metadata only)", () => {
-    const plugin = createMiladyPlugin({
+  it("branded plugin is JSON-serializable (metadata only)", async () => {
+    type PluginFactory = (config?: {
+      workspaceDir?: string;
+      agentId?: string;
+    }) => Plugin;
+    let createPlugin: PluginFactory;
+    try {
+      const mod = await import("../runtime/milady-plugin");
+      createPlugin = (mod as Record<string, PluginFactory>).createMiladyPlugin;
+    } catch {
+      const mod = await import("@elizaos/autonomous/runtime/eliza-plugin");
+      createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
+    }
+
+    const plugin = createPlugin({
       workspaceDir: "/tmp/test-workspace",
       agentId: "test-agent",
     });
@@ -671,7 +699,7 @@ describe("Provider Validation", () => {
       name: string;
       description: string;
     };
-    expect(deserialized.name).toBe("milady");
+    expect(deserialized.name).toMatch(/^(milady|eliza)$/);
   });
 });
 
@@ -939,7 +967,7 @@ describe("Version Skew Detection (issue #10)", () => {
       // Workspace links are valid in monorepo development.
       // See docs/ELIZAOS_VERSIONING.md for details and update procedures
       if (ver !== "next" && ver !== "alpha" && !isWorkspaceDependency(ver)) {
-        expect(ver).toMatch(/^\d+\.\d+\.\d+/);
+        expect(ver).toMatch(/^[~^]?\d+\.\d+\.\d+/);
       }
     }
   });

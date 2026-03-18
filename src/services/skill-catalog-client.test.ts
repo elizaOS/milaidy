@@ -112,13 +112,15 @@ beforeEach(async () => {
   catalogPath = path.join(tmpDir, "catalog.json");
 
   savedEnv = {
-    MILADY_SKILLS_CATALOG: process.env.MILADY_SKILLS_CATALOG,
+    ELIZA_SKILLS_CATALOG: process.env.ELIZA_SKILLS_CATALOG,
   };
+  process.env.ELIZA_SKILLS_CATALOG = catalogPath;
   process.env.MILADY_SKILLS_CATALOG = catalogPath;
 });
 
 afterEach(async () => {
-  process.env.MILADY_SKILLS_CATALOG = savedEnv.MILADY_SKILLS_CATALOG;
+  process.env.ELIZA_SKILLS_CATALOG = savedEnv.ELIZA_SKILLS_CATALOG;
+  process.env.MILADY_SKILLS_CATALOG = savedEnv.ELIZA_SKILLS_CATALOG;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -140,8 +142,9 @@ describe("skill-catalog-client", () => {
     });
 
     it("returns empty array when no catalog file exists", async () => {
-      // Point env at a non-existent file — since MILADY_SKILLS_CATALOG is
+      // Point env at a non-existent file — since ELIZA_SKILLS_CATALOG is
       // set, the client won't fall back to other paths.
+      process.env.ELIZA_SKILLS_CATALOG = path.join(tmpDir, "nonexistent.json");
       process.env.MILADY_SKILLS_CATALOG = path.join(tmpDir, "nonexistent.json");
 
       const { getCatalogSkills } = await loadModule();

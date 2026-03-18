@@ -5,12 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DesktopElectron } from "../../plugins/desktop/electron/src/index.ts";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 describe("DesktopElectron desktop bridge", () => {
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     vi.restoreAllMocks();
   });
 
@@ -20,7 +20,7 @@ describe("DesktopElectron desktop bridge", () => {
       name: "Milady",
       runtime: "electrobun",
     });
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         desktopGetVersion,
       },
@@ -43,7 +43,7 @@ describe("DesktopElectron desktop bridge", () => {
   it("subscribes window events through direct Electrobun RPC when available", async () => {
     const listeners = new Map<string, Set<(payload: unknown) => void>>();
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {},
       onMessage: vi.fn(
         (messageName: string, listener: (payload: unknown) => void) => {

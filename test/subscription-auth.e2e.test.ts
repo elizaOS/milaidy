@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
+import { startApiServer } from "@elizaos/autonomous/api/server";
+import type { OAuthCredentials } from "@elizaos/autonomous/auth/types";
 import {
   afterAll,
   beforeAll,
@@ -11,8 +13,6 @@ import {
   it,
   vi,
 } from "vitest";
-import { startApiServer } from "@elizaos/autonomous/api/server";
-import type { OAuthCredentials } from "@elizaos/autonomous/auth/types";
 
 const authMocks = vi.hoisted(() => ({
   getSubscriptionStatus: vi.fn(() => [{ id: "openai-codex" }]),
@@ -127,16 +127,22 @@ describe("subscription auth routes (e2e contract)", () => {
   beforeAll(async () => {
     envBackup = saveEnv(
       "MILADY_STATE_DIR",
+      "ELIZA_STATE_DIR",
       "MILADY_CONFIG_PATH",
+      "ELIZA_CONFIG_PATH",
       "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
       "MILADY_PAIRING_DISABLED",
       "ANTHROPIC_API_KEY",
     );
 
     stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-subscription-"));
     process.env.MILADY_STATE_DIR = stateDir;
+    process.env.ELIZA_STATE_DIR = stateDir;
     delete process.env.MILADY_CONFIG_PATH;
+    delete process.env.ELIZA_CONFIG_PATH;
     delete process.env.MILADY_API_TOKEN;
+    delete process.env.ELIZA_API_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
     delete process.env.ANTHROPIC_API_KEY;
 

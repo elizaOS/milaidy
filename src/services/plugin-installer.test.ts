@@ -142,24 +142,28 @@ beforeEach(async () => {
   vi.resetModules();
 
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-inst-test-"));
-  configDir = path.join(tmpDir, ".milady");
-  configPath = path.join(configDir, "milady.json");
+  configDir = path.join(tmpDir, ".eliza");
+  configPath = path.join(configDir, "eliza.json");
 
   await fs.mkdir(configDir, { recursive: true });
   writeConfig({});
 
   savedEnv = {
-    MILADY_STATE_DIR: process.env.MILADY_STATE_DIR,
-    MILADY_CONFIG_PATH: process.env.MILADY_CONFIG_PATH,
+    ELIZA_STATE_DIR: process.env.ELIZA_STATE_DIR,
+    ELIZA_CONFIG_PATH: process.env.ELIZA_CONFIG_PATH,
   };
+  process.env.ELIZA_STATE_DIR = configDir;
   process.env.MILADY_STATE_DIR = configDir;
+  process.env.ELIZA_CONFIG_PATH = configPath;
   process.env.MILADY_CONFIG_PATH = configPath;
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
-  process.env.MILADY_STATE_DIR = savedEnv.MILADY_STATE_DIR;
-  process.env.MILADY_CONFIG_PATH = savedEnv.MILADY_CONFIG_PATH;
+  process.env.ELIZA_STATE_DIR = savedEnv.ELIZA_STATE_DIR;
+  process.env.MILADY_STATE_DIR = savedEnv.ELIZA_STATE_DIR;
+  process.env.ELIZA_CONFIG_PATH = savedEnv.ELIZA_CONFIG_PATH;
+  process.env.MILADY_CONFIG_PATH = savedEnv.ELIZA_CONFIG_PATH;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 

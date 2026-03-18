@@ -13,17 +13,21 @@ function fakeReq(host?: string): http.IncomingMessage {
 /* ── Tests ─────────────────────────────────────────────────────────── */
 
 describe("isAllowedHost — DNS rebinding protection", () => {
-  const savedBind = process.env.MILADY_API_BIND;
-  const savedAllowed = process.env.MILADY_ALLOWED_HOSTS;
+  const savedBind = process.env.ELIZA_API_BIND;
+  const savedAllowed = process.env.ELIZA_ALLOWED_HOSTS;
   afterEach(() => {
     if (savedBind === undefined) {
+      delete process.env.ELIZA_API_BIND;
       delete process.env.MILADY_API_BIND;
     } else {
+      process.env.ELIZA_API_BIND = savedBind;
       process.env.MILADY_API_BIND = savedBind;
     }
     if (savedAllowed === undefined) {
+      delete process.env.ELIZA_ALLOWED_HOSTS;
       delete process.env.MILADY_ALLOWED_HOSTS;
     } else {
+      process.env.ELIZA_ALLOWED_HOSTS = savedAllowed;
       process.env.MILADY_ALLOWED_HOSTS = savedAllowed;
     }
   });
@@ -102,73 +106,83 @@ describe("isAllowedHost — DNS rebinding protection", () => {
 
   /* ── Custom bind host ─────────────────────────────────────────── */
 
-  it("allows custom MILADY_API_BIND host", () => {
+  it("allows custom ELIZA_API_BIND host", () => {
+    process.env.ELIZA_API_BIND = "myhost.local";
     process.env.MILADY_API_BIND = "myhost.local";
     expect(isAllowedHost(fakeReq("myhost.local:31337"))).toBe(true);
   });
 
   it("still blocks unrelated hosts even with custom bind", () => {
+    process.env.ELIZA_API_BIND = "myhost.local";
     process.env.MILADY_API_BIND = "myhost.local";
     expect(isAllowedHost(fakeReq("evil.com"))).toBe(false);
   });
 
   /* ── Wildcard bind (0.0.0.0 / ::) ────────────────────────────── */
 
-  it("allows any hostname when MILADY_API_BIND=0.0.0.0", () => {
+  it("allows any hostname when ELIZA_API_BIND=0.0.0.0", () => {
+    process.env.ELIZA_API_BIND = "0.0.0.0";
     process.env.MILADY_API_BIND = "0.0.0.0";
     expect(isAllowedHost(fakeReq("192.168.1.42"))).toBe(true);
   });
 
-  it("allows LAN IP with port when MILADY_API_BIND=0.0.0.0", () => {
+  it("allows LAN IP with port when ELIZA_API_BIND=0.0.0.0", () => {
+    process.env.ELIZA_API_BIND = "0.0.0.0";
     process.env.MILADY_API_BIND = "0.0.0.0";
     expect(isAllowedHost(fakeReq("192.168.1.42:31337"))).toBe(true);
   });
 
-  it("allows arbitrary hostname when MILADY_API_BIND=0.0.0.0", () => {
+  it("allows arbitrary hostname when ELIZA_API_BIND=0.0.0.0", () => {
+    process.env.ELIZA_API_BIND = "0.0.0.0";
     process.env.MILADY_API_BIND = "0.0.0.0";
     expect(isAllowedHost(fakeReq("myserver.local"))).toBe(true);
   });
 
-  it("allows any hostname when MILADY_API_BIND=::", () => {
-    process.env.MILADY_API_BIND = "::";
+  it("allows any hostname when ELIZA_API_BIND=::", () => {
+    process.env.ELIZA_API_BIND = "::";
     expect(isAllowedHost(fakeReq("10.0.0.1"))).toBe(true);
   });
 
-  it("allows any hostname when MILADY_API_BIND=0.0.0.0 with port suffix", () => {
-    process.env.MILADY_API_BIND = "0.0.0.0:31337";
+  it("allows any hostname when ELIZA_API_BIND=0.0.0.0 with port suffix", () => {
+    process.env.ELIZA_API_BIND = "0.0.0.0:31337";
     expect(isAllowedHost(fakeReq("192.168.1.1"))).toBe(true);
   });
 
-  /* ── MILADY_ALLOWED_HOSTS ─────────────────────────────────────── */
+  /* ── ELIZA_ALLOWED_HOSTS ─────────────────────────────────────── */
 
-  it("allows hostname listed in MILADY_ALLOWED_HOSTS", () => {
+  it("allows hostname listed in ELIZA_ALLOWED_HOSTS", () => {
+    process.env.ELIZA_ALLOWED_HOSTS = "myserver.local";
     process.env.MILADY_ALLOWED_HOSTS = "myserver.local";
     expect(isAllowedHost(fakeReq("myserver.local"))).toBe(true);
   });
 
-  it("allows hostname with port when listed in MILADY_ALLOWED_HOSTS", () => {
+  it("allows hostname with port when listed in ELIZA_ALLOWED_HOSTS", () => {
+    process.env.ELIZA_ALLOWED_HOSTS = "myserver.local";
     process.env.MILADY_ALLOWED_HOSTS = "myserver.local";
     expect(isAllowedHost(fakeReq("myserver.local:31337"))).toBe(true);
   });
 
-  it("allows one of multiple comma-separated MILADY_ALLOWED_HOSTS", () => {
-    process.env.MILADY_ALLOWED_HOSTS =
+  it("allows one of multiple comma-separated ELIZA_ALLOWED_HOSTS", () => {
+    process.env.ELIZA_ALLOWED_HOSTS =
       "myserver.local,192.168.1.10,staging.internal";
     expect(isAllowedHost(fakeReq("192.168.1.10"))).toBe(true);
     expect(isAllowedHost(fakeReq("staging.internal"))).toBe(true);
   });
 
-  it("blocks hostname not in MILADY_ALLOWED_HOSTS", () => {
+  it("blocks hostname not in ELIZA_ALLOWED_HOSTS", () => {
+    process.env.ELIZA_ALLOWED_HOSTS = "myserver.local";
     process.env.MILADY_ALLOWED_HOSTS = "myserver.local";
     expect(isAllowedHost(fakeReq("evil.com"))).toBe(false);
   });
 
-  it("MILADY_ALLOWED_HOSTS is case-insensitive", () => {
+  it("ELIZA_ALLOWED_HOSTS is case-insensitive", () => {
+    process.env.ELIZA_ALLOWED_HOSTS = "MyServer.Local";
     process.env.MILADY_ALLOWED_HOSTS = "MyServer.Local";
     expect(isAllowedHost(fakeReq("myserver.local"))).toBe(true);
   });
 
-  it("MILADY_ALLOWED_HOSTS with spaces around commas", () => {
+  it("ELIZA_ALLOWED_HOSTS with spaces around commas", () => {
+    process.env.ELIZA_ALLOWED_HOSTS = " myserver.local , 192.168.1.10 ";
     process.env.MILADY_ALLOWED_HOSTS = " myserver.local , 192.168.1.10 ";
     expect(isAllowedHost(fakeReq("myserver.local"))).toBe(true);
     expect(isAllowedHost(fakeReq("192.168.1.10"))).toBe(true);

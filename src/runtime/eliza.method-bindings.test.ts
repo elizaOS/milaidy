@@ -49,7 +49,7 @@ describe("installRuntimeMethodBindings", () => {
   });
 
   it("dedupes createEntities input and recovers via ensureEntityExists fallback", async () => {
-    const createEntities = vi.fn(async () => false);
+    const createEntities = vi.fn(async () => []);
     const ensureEntityExists = vi.fn(async () => true);
 
     const runtime = {
@@ -61,7 +61,7 @@ describe("installRuntimeMethodBindings", () => {
     } as unknown as AgentRuntime & {
       createEntities: (
         entities: Array<{ id: string; agentId: string; names: string[] }>,
-      ) => Promise<boolean>;
+      ) => Promise<string[]>;
     };
 
     installRuntimeMethodBindings(runtime);
@@ -71,7 +71,7 @@ describe("installRuntimeMethodBindings", () => {
 
     const ok = await runtime.createEntities([e1, e1, e2]);
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual(["entity-1", "entity-2"]);
     expect(createEntities).toHaveBeenCalledTimes(1);
     const passed = createEntities.mock.calls[0][0] as Array<{ id: string }>;
     expect(passed.map((entity) => entity.id)).toEqual(["entity-1", "entity-2"]);
@@ -81,12 +81,12 @@ describe("installRuntimeMethodBindings", () => {
   it("serializes concurrent createEntities calls behind a mutex", async () => {
     const firstGate = createDeferred<void>();
     let firstCall = true;
-    const createEntities = vi.fn(async () => {
+    const createEntities = vi.fn(async (entities: Array<{ id: string }>) => {
       if (firstCall) {
         firstCall = false;
         await firstGate.promise;
       }
-      return true;
+      return entities.map((e) => e.id);
     });
 
     const runtime = {
@@ -97,7 +97,7 @@ describe("installRuntimeMethodBindings", () => {
     } as unknown as AgentRuntime & {
       createEntities: (
         entities: Array<{ id: string; agentId: string; names: string[] }>,
-      ) => Promise<boolean>;
+      ) => Promise<string[]>;
     };
 
     installRuntimeMethodBindings(runtime);
@@ -113,8 +113,8 @@ describe("installRuntimeMethodBindings", () => {
     expect(createEntities).toHaveBeenCalledTimes(1);
 
     firstGate.resolve();
-    await expect(first).resolves.toBe(true);
-    await expect(second).resolves.toBe(true);
+    await expect(first).resolves.toEqual(["entity-a"]);
+    await expect(second).resolves.toEqual(["entity-b"]);
     expect(createEntities).toHaveBeenCalledTimes(2);
   });
 });

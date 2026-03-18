@@ -17,13 +17,13 @@ describe("resolvePluginConfigMutationRejections", () => {
 
   it("rejects blocked env keys even when declared by a plugin", () => {
     const rejections = resolvePluginConfigMutationRejections(
-      [{ key: "MILADY_API_TOKEN" }],
-      { MILADY_API_TOKEN: "secret" },
+      [{ key: "ELIZA_API_TOKEN" }],
+      { ELIZA_API_TOKEN: "secret" },
     );
     expect(rejections).toEqual([
       {
-        field: "MILADY_API_TOKEN",
-        message: "MILADY_API_TOKEN is blocked for security reasons",
+        field: "ELIZA_API_TOKEN",
+        message: "ELIZA_API_TOKEN is blocked for security reasons",
       },
     ]);
   });

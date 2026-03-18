@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TalkModeElectron } from "../../plugins/talkmode/electron/src/index.ts";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 type TalkModeElectronPrivate = TalkModeElectron & {
@@ -89,7 +89,7 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
   });
 
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     vi.restoreAllMocks();
 
     if (originalAudioContext) {
@@ -105,7 +105,7 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
     const talkmodeAudioChunk = vi.fn().mockResolvedValue(undefined);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         talkmodeAudioChunk,
       },
@@ -253,7 +253,7 @@ describe("TalkModeElectron direct Electrobun RPC bridge", () => {
   it("uses direct talkmode error push messages when Electrobun exposes them", async () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {},
       onMessage: vi.fn(
         (messageName: string, listener: (payload: unknown) => void) => {

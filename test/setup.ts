@@ -1,4 +1,53 @@
+import Module from "node:module";
 import { afterAll, afterEach, vi } from "vitest";
+
+// ── React deduplication ──────────────────────────────────────────────
+// bun hoists react-test-renderer's peer react into a separate .bun/ path,
+// creating two React instances that break hooks.  Intercept Node's CJS
+// resolution so every `require("react")` returns the root copy.
+// Wrapped in try/catch so CI environments without react don't crash.
+try {
+  const _require = Module.createRequire(import.meta.url);
+  const rootReactDir = require("node:path").dirname(
+    _require.resolve("react/package.json"),
+  );
+
+  const origResolve = (Module as unknown as { _resolveFilename: Function })
+    ._resolveFilename;
+  (Module as unknown as { _resolveFilename: Function })._resolveFilename =
+    function patchedResolve(
+      request: string,
+      parent: unknown,
+      isMain: boolean,
+      options: unknown,
+    ) {
+      const resolved: string = origResolve.call(
+        this,
+        request,
+        parent,
+        isMain,
+        options,
+      );
+      // Redirect any .bun/-hoisted react files to the root copy so
+      // react-test-renderer and component code share one React instance.
+      if (
+        resolved.includes("node_modules/.bun/") &&
+        resolved.includes("/react/") &&
+        !resolved.includes("react-dom") &&
+        !resolved.includes("react-test-renderer")
+      ) {
+        // Extract the relative path within the react package
+        const reactPkgIdx = resolved.lastIndexOf("/react/");
+        if (reactPkgIdx !== -1) {
+          const relPath = resolved.slice(reactPkgIdx + "/react/".length);
+          return require("node:path").join(rootReactDir, relPath);
+        }
+      }
+      return resolved;
+    };
+} catch {
+  // React not available — skip deduplication patch (e.g. CI without react)
+}
 
 // Ensure Vitest environment is properly set
 process.env.VITEST = "true";
@@ -91,6 +140,29 @@ if (typeof globalThis.HTMLCanvasElement !== "undefined") {
 
 import { withIsolatedTestHome } from "./test-env";
 
+// ── Environment isolation ────────────────────────────────────────────
+// Snapshot process.env before each test file so that env mutations made by
+// individual tests (e.g. setting MILADY_API_TOKEN) don't leak to subsequent
+// test files running in the same forked worker process.
+const envSnapshot = { ...process.env };
+
+afterEach(() => {
+  // Restore env: delete keys that were added, restore original values.
+  for (const key of Object.keys(process.env)) {
+    if (!(key in envSnapshot)) {
+      delete process.env[key];
+    } else if (process.env[key] !== envSnapshot[key]) {
+      process.env[key] = envSnapshot[key];
+    }
+  }
+  // Restore keys that may have been deleted by tests.
+  for (const key of Object.keys(envSnapshot)) {
+    if (!(key in process.env)) {
+      process.env[key] = envSnapshot[key];
+    }
+  }
+});
+
 const testEnv = withIsolatedTestHome();
 afterAll(() => testEnv.cleanup());
 
@@ -121,4 +193,6 @@ afterAll(() => {
 afterEach(() => {
   // Guard against leaked fake timers across test files/workers.
   vi.useRealTimers();
+  // Reset module mocks to prevent vi.mock() pollution across test files.
+  vi.restoreAllMocks();
 });

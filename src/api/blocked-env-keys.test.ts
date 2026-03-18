@@ -49,6 +49,8 @@ const BLOCKED_ENV_KEYS = new Set([
   "MILADY_WALLET_EXPORT_TOKEN",
   "MILADY_TERMINAL_RUN_TOKEN",
   "HYPERSCAPE_AUTH_TOKEN",
+  // Cloud API key
+  "ELIZAOS_CLOUD_API_KEY",
   // Wallet private keys
   "EVM_PRIVATE_KEY",
   "SOLANA_PRIVATE_KEY",
@@ -77,6 +79,10 @@ describe("BLOCKED_ENV_KEYS — privilege escalation prevention", () => {
 
     it("blocks HYPERSCAPE_AUTH_TOKEN (API relay auth)", () => {
       expect(BLOCKED_ENV_KEYS.has("HYPERSCAPE_AUTH_TOKEN")).toBe(true);
+    });
+
+    it("blocks ELIZAOS_CLOUD_API_KEY (cloud service access)", () => {
+      expect(BLOCKED_ENV_KEYS.has("ELIZAOS_CLOUD_API_KEY")).toBe(true);
     });
   });
 

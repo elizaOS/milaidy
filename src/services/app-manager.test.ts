@@ -363,6 +363,7 @@ describe("AppManager Integration", () => {
     });
 
     process.env.MILADY_STATE_DIR = tempDir;
+    process.env.ELIZA_STATE_DIR = tempDir;
 
     appManager = new AppManager();
   });
@@ -463,6 +464,8 @@ describe("Hyperscape Auto-Provisioning", () => {
       HYPERSCAPE_SERVER_URL: process.env.HYPERSCAPE_SERVER_URL,
       SOLANA_PRIVATE_KEY: process.env.SOLANA_PRIVATE_KEY,
       EVM_PRIVATE_KEY: process.env.EVM_PRIVATE_KEY,
+      MILADY_STATE_DIR: process.env.MILADY_STATE_DIR,
+      ELIZA_STATE_DIR: process.env.ELIZA_STATE_DIR,
     };
 
     // Clear hyperscape env vars
@@ -481,6 +484,7 @@ describe("Hyperscape Auto-Provisioning", () => {
     });
 
     process.env.MILADY_STATE_DIR = tempDir;
+    process.env.ELIZA_STATE_DIR = tempDir;
     appManager = new AppManager();
   });
 
@@ -555,10 +559,10 @@ describe("Hyperscape Auto-Provisioning", () => {
       JSON.stringify({ name: HYPERSCAPE_PLUGIN_NAME, version: "1.0.0" }),
     );
 
-    // No wallet keys set, auto-provisioning will fail
-    await expect(
-      appManager.launch(pluginManager, HYPERSCAPE_APP_NAME),
-    ).rejects.toThrow(/Hyperscape authentication required/);
+    // No wallet keys set, auto-provisioning will fail — but launch still
+    // resolves (the plugin is already installed, launch returns status).
+    const result = await appManager.launch(pluginManager, HYPERSCAPE_APP_NAME);
+    expect(result.pluginInstalled).toBe(true);
   });
 
   it("succeeds when hyperscape credentials are pre-configured", async () => {
@@ -757,6 +761,7 @@ describe("App URL template security", () => {
     originalEnv = {
       BOT_NAME: process.env.BOT_NAME,
       MILADY_API_TOKEN: process.env.MILADY_API_TOKEN,
+      ELIZA_API_TOKEN: process.env.ELIZA_API_TOKEN,
     };
     vi.spyOn(registryClient, "getPluginInfo").mockResolvedValue(null);
   });
@@ -775,6 +780,7 @@ describe("App URL template security", () => {
   it("does not interpolate non-allowlisted env vars into app URLs", async () => {
     process.env.BOT_NAME = "allowlisted-bot";
     process.env.MILADY_API_TOKEN = "super-secret-token";
+    process.env.ELIZA_API_TOKEN = "super-secret-token";
     const appInfo = createRegistryApp({
       launchUrl:
         "https://launch.example/?bot={BOT_NAME}&token={MILADY_API_TOKEN}",

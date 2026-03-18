@@ -318,9 +318,9 @@ describe("cloud-billing-routes", () => {
         body: JSON.stringify({
           credits: 25,
           success_url:
-            "https://cloud.example.com/dashboard/billing/success?from=milady",
+            "https://cloud.example.com/dashboard/billing/success?from=eliza",
           cancel_url:
-            "https://cloud.example.com/dashboard/settings?from=milady&tab=billing&canceled=1",
+            "https://cloud.example.com/dashboard/settings?from=eliza&tab=billing&canceled=1",
         }),
         headers: expect.objectContaining({
           Authorization: "Bearer test-api-key",

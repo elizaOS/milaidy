@@ -178,7 +178,7 @@ describe("agent admin routes", () => {
     expect(result.payload).toMatchObject({ ok: true });
     expect(state.runtime).toBeNull();
     expect(state.agentState).toBe("stopped");
-    expect(state.agentName).toBe("Milady");
+    expect(state.agentName).toBe("Eliza");
     expect(state.model).toBeUndefined();
     expect(state.startedAt).toBeUndefined();
     expect(state.chatRoomId).toBeNull();

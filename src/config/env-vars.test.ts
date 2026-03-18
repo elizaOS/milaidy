@@ -173,7 +173,7 @@ describe("collectConfigEnvVars", () => {
   it("blocks auth tokens from being loaded", () => {
     const result = collectConfigEnvVars(
       cfg({
-        MILADY_API_TOKEN: "stolen",
+        ELIZA_API_TOKEN: "stolen",
         EVM_PRIVATE_KEY: "0xdead",
         SAFE: "kept",
       }),

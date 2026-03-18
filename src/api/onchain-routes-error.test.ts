@@ -70,7 +70,7 @@ vi.mock("@elizaos/autonomous/api/drop-service.ts", () => ({
 }));
 
 vi.mock("@elizaos/autonomous/config/config.ts", () => ({
-  loadMiladyConfig: () => ({
+  loadElizaConfig: () => ({
     registry: {
       registryAddress: "0x2222222222222222222222222222222222222222",
       mainnetRpc: "http://mock-rpc",
@@ -82,7 +82,7 @@ vi.mock("@elizaos/autonomous/config/config.ts", () => ({
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     },
   }),
-  saveMiladyConfig: () => {},
+  saveElizaConfig: () => {},
   configFileExists: () => true,
 }));
 

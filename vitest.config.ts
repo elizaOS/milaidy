@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,9 +6,9 @@ import { defineConfig } from "vitest/config";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 const elizaRoot = path.join(repoRoot, "..", "eliza");
-// Only use eliza sibling aliases when the local checkout exists (dev workflow).
-// CI resolves @elizaos/* from node_modules instead.
-const hasElizaSibling = existsSync(path.join(elizaRoot, "packages"));
+const hasElizaWorkspace = fs.existsSync(
+  path.join(elizaRoot, "packages", "typescript", "src", "index.ts"),
+);
 const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const isWindows = process.platform === "win32";
 const localWorkers = 2;
@@ -16,32 +16,67 @@ const ciWorkers = isWindows ? 2 : 3;
 
 export default defineConfig({
   resolve: {
+    dedupe: ["react", "react-dom", "ethers"],
     alias: [
       {
         find: "milady/plugin-sdk",
         replacement: path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       },
-      ...(hasElizaSibling
+      // When the eliza workspace exists locally, resolve @elizaos packages from
+      // source so that all transitive imports share a single version.  In CI
+      // (where the workspace submodule is absent) we fall through to the
+      // npm-installed packages instead.
+      ...(hasElizaWorkspace
         ? [
             {
               find: "@elizaos/core",
-              replacement: path.join(elizaRoot, "packages", "typescript", "src", "index.ts"),
+              replacement: path.join(
+                elizaRoot,
+                "packages",
+                "typescript",
+                "src",
+                "index.ts",
+              ),
             },
             {
               find: /^@elizaos\/autonomous\/(.*)/,
-              replacement: path.join(elizaRoot, "packages", "autonomous", "src", "$1"),
+              replacement: path.join(
+                elizaRoot,
+                "packages",
+                "autonomous",
+                "src",
+                "$1",
+              ),
             },
             {
               find: "@elizaos/autonomous",
-              replacement: path.join(elizaRoot, "packages", "autonomous", "src", "index.ts"),
+              replacement: path.join(
+                elizaRoot,
+                "packages",
+                "autonomous",
+                "src",
+                "index.ts",
+              ),
             },
             {
               find: /^@elizaos\/app-core\/(.*)/,
-              replacement: path.join(elizaRoot, "packages", "app-core", "src", "$1"),
+              replacement: path.join(
+                elizaRoot,
+                "packages",
+                "app-core",
+                "src",
+                "$1",
+              ),
             },
             {
               find: "@elizaos/app-core",
-              replacement: path.join(elizaRoot, "packages", "app-core", "src", "index.ts"),
+              replacement: path.join(
+                elizaRoot,
+                "packages",
+                "app-core",
+                "src",
+                "index.ts",
+              ),
             },
           ]
         : []),
@@ -233,6 +268,7 @@ export default defineConfig({
     hookTimeout: isWindows ? 180_000 : 120_000,
     pool: "forks",
     maxWorkers: isCI ? ciWorkers : localWorkers,
+    restoreMocks: true,
     // Increase V8 heap for worker forks to prevent OOM during GC
     // teardown, especially for jsdom-heavy test files.
     execArgv: ["--max-old-space-size=4096"],

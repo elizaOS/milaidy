@@ -6,7 +6,7 @@ import { ScreenCaptureElectron } from "../../plugins/screencapture/electron/src/
 import { ScreenCaptureWeb } from "../../plugins/screencapture/src/web";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 const SAMPLE_DATA_URL = "data:image/png;base64,ZmFrZQ==";
@@ -45,7 +45,7 @@ describe("ScreenCaptureElectron desktop bridge", () => {
   });
 
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     Object.defineProperty(globalThis, "Image", {
       configurable: true,
       writable: true,
@@ -64,7 +64,7 @@ describe("ScreenCaptureElectron desktop bridge", () => {
       available: true,
       data: SAMPLE_DATA_URL,
     });
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         screencaptureTakeScreenshot,
       },
@@ -113,7 +113,7 @@ describe("ScreenCaptureElectron desktop bridge", () => {
       .spyOn(ScreenCaptureWeb.prototype, "captureScreenshot")
       .mockResolvedValue(fallbackResult);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         screencaptureTakeScreenshot: vi.fn().mockResolvedValue({
           available: false,

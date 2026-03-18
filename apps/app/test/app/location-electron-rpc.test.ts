@@ -5,12 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocationElectron } from "../../plugins/location/electron/src/index";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 describe("LocationElectron direct Electrobun RPC bridge", () => {
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     vi.restoreAllMocks();
   });
 
@@ -21,7 +21,7 @@ describe("LocationElectron direct Electrobun RPC bridge", () => {
       accuracy: 25,
       timestamp: 123456789,
     });
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         locationGetCurrentPosition: rpcRequest,
       },
@@ -52,7 +52,7 @@ describe("LocationElectron direct Electrobun RPC bridge", () => {
       .mockResolvedValue({ watchId: "native-watch-1" });
     const locationClearWatch = vi.fn().mockResolvedValue(undefined);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         locationWatchPosition,
         locationClearWatch,

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GatewayElectron } from "../../plugins/gateway/electron/src/index.ts";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 const sampleGateway = {
@@ -19,7 +19,7 @@ const sampleGateway = {
 
 describe("GatewayElectron desktop bridge", () => {
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     vi.restoreAllMocks();
   });
 
@@ -31,7 +31,7 @@ describe("GatewayElectron desktop bridge", () => {
     });
     const gatewayStopDiscovery = vi.fn().mockResolvedValue(undefined);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         gatewayStartDiscovery,
         gatewayStopDiscovery,

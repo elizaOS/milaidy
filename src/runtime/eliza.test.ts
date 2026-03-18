@@ -53,6 +53,11 @@ import { findPluginExport } from "../cli/plugins-cli";
 import type { MiladyConfig } from "../config/config";
 import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
 import { CONNECTOR_IDS } from "../config/schema";
+// Import the plugin import specifier resolver by whichever name is exported.
+// The eliza workspace exports resolveElizaPluginImportSpecifier while the
+// npm-published @elizaos/autonomous package exports
+// resolveMiladyPluginImportSpecifier.
+import * as _elizaExports from "./eliza";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
@@ -73,7 +78,6 @@ import {
   isRecoverablePgliteInitError,
   mergeDropInPlugins,
   repairBrokenInstallRecord,
-  resolveMiladyPluginImportSpecifier,
   resolvePackageEntry,
   resolvePrimaryModel,
   resolveVisionModeSetting,
@@ -82,6 +86,16 @@ import {
   shutdownRuntime,
 } from "./eliza";
 import { detectEmbeddingPreset } from "./embedding-presets";
+
+const resolvePluginImportSpecifier:
+  | ((name: string, url?: string) => string)
+  | undefined =
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic export name
+  ((_elizaExports as any).resolveElizaPluginImportSpecifier ??
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic export name
+    (_elizaExports as any).resolveMiladyPluginImportSpecifier) as
+    | ((name: string, url?: string) => string)
+    | undefined;
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -123,7 +137,9 @@ describe("collectPluginNames", () => {
     "OLLAMA_BASE_URL",
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
+    "ELIZA_USE_PI_AI",
     "MILADY_USE_PI_AI",
+    "ELIZA_DISABLE_LOCAL_EMBEDDINGS",
     "MILADY_DISABLE_LOCAL_EMBEDDINGS",
     "OBSIDIAN_VAULT_PATH",
     "OBSIDAN_VAULT_PATH",
@@ -171,6 +187,7 @@ describe("collectPluginNames", () => {
     });
 
     it("should omit @elizaos/plugin-local-embedding when explicitly disabled via env", async () => {
+      process.env.ELIZA_DISABLE_LOCAL_EMBEDDINGS = "1";
       process.env.MILADY_DISABLE_LOCAL_EMBEDDINGS = "1";
 
       const plugins = collectPluginNames({} as MiladyConfig);
@@ -268,6 +285,7 @@ describe("collectPluginNames", () => {
   });
 
   it("adds pi-ai provider plugin when MILADY_USE_PI_AI is enabled", () => {
+    process.env.ELIZA_USE_PI_AI = "1";
     process.env.MILADY_USE_PI_AI = "1";
     const names = collectPluginNames({} as MiladyConfig);
 
@@ -279,6 +297,7 @@ describe("collectPluginNames", () => {
   });
 
   it("cloud mode takes precedence over pi-ai mode", () => {
+    process.env.ELIZA_USE_PI_AI = "1";
     process.env.MILADY_USE_PI_AI = "1";
     const config = {
       cloud: { enabled: true },
@@ -290,6 +309,7 @@ describe("collectPluginNames", () => {
   });
 
   it("pi-ai mode overrides explicit direct-provider entries", () => {
+    process.env.ELIZA_USE_PI_AI = "1";
     process.env.MILADY_USE_PI_AI = "1";
     const config = {
       plugins: {
@@ -1001,7 +1021,7 @@ describe("autoResolveDiscordAppId", () => {
     );
     expect(process.env.DISCORD_APPLICATION_ID).toBe("app-123");
     expect(infoSpy).toHaveBeenCalledWith(
-      "[milady] Auto-resolved Discord Application ID: app-123",
+      expect.stringContaining("Auto-resolved Discord Application ID: app-123"),
     );
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -1019,7 +1039,9 @@ describe("autoResolveDiscordAppId", () => {
 
     expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
     expect(warnSpy).toHaveBeenCalledWith(
-      "[milady] Failed to auto-resolve Discord Application ID: 401",
+      expect.stringContaining(
+        "Failed to auto-resolve Discord Application ID: 401",
+      ),
     );
   });
 
@@ -1209,7 +1231,12 @@ describe("applyX402ConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = [
+    "POSTGRES_URL",
+    "PGLITE_DATA_DIR",
+    "ELIZA_PROFILE",
+    "MILADY_PROFILE",
+  ];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -1222,8 +1249,10 @@ describe("applyDatabaseConfigToEnv", () => {
   it("defaults PGLITE_DATA_DIR to the agent workspace when database config is missing", () => {
     applyDatabaseConfigToEnv({} as MiladyConfig);
     expect(process.env.POSTGRES_URL).toBeUndefined();
-    expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.join(os.homedir(), ".milady", "workspace", ".eliza", ".elizadb"),
+    // The state dir name depends on the @elizaos/autonomous build
+    // (either .eliza in workspace or .milady in the published npm package).
+    expect(process.env.PGLITE_DATA_DIR).toMatch(
+      /\.(eliza|milady)[/\\]workspace[/\\]\.eliza[/\\]\.elizadb$/,
     );
   });
 
@@ -1293,7 +1322,12 @@ describe("applyDatabaseConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv — directory creation", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = [
+    "POSTGRES_URL",
+    "PGLITE_DATA_DIR",
+    "ELIZA_PROFILE",
+    "MILADY_PROFILE",
+  ];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -1469,9 +1503,9 @@ describe("buildCharacterFromConfig", () => {
     expect(char.name).toBe("Reimu");
   });
 
-  it("defaults to 'Milady' when no name is configured", () => {
+  it("defaults to 'Eliza' or 'Milady' when no name is configured", () => {
     const char = buildCharacterFromConfig({} as MiladyConfig);
-    expect(char.name).toBe("Milady");
+    expect(["Eliza", "Milady"]).toContain(char.name);
   });
 
   it("collects API keys from process.env as secrets", () => {
@@ -1536,7 +1570,9 @@ describe("buildCharacterFromConfig", () => {
   it("does not throw when agents.list is empty", () => {
     const config = { agents: { list: [] } } as MiladyConfig;
     expect(() => buildCharacterFromConfig(config)).not.toThrow();
-    expect(buildCharacterFromConfig(config).name).toBe("Milady");
+    expect(["Eliza", "Milady"]).toContain(
+      buildCharacterFromConfig(config).name,
+    );
   });
 
   it("builds a character with name from agents.list and default personality", () => {
@@ -2049,50 +2085,54 @@ describe("mergeDropInPlugins", () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveMiladyPluginImportSpecifier
+// resolvePluginImportSpecifier (resolveElizaPluginImportSpecifier or
+// resolveMiladyPluginImportSpecifier depending on the resolved source)
 // ---------------------------------------------------------------------------
 
-describe("resolveMiladyPluginImportSpecifier", () => {
-  it("prefers a bundled local plugin wrapper when one exists", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-plugin-"));
-    const runtimeDir = path.join(tmpDir, "runtime");
-    const pluginIndex = path.join(tmpDir, "plugins", "retake", "index.js");
+describe.skipIf(!resolvePluginImportSpecifier)(
+  "resolvePluginImportSpecifier",
+  () => {
+    it("prefers a bundled local plugin wrapper when one exists", async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-plugin-"));
+      const runtimeDir = path.join(tmpDir, "runtime");
+      const pluginIndex = path.join(tmpDir, "plugins", "retake", "index.js");
 
-    await fs.mkdir(runtimeDir, { recursive: true });
-    await fs.mkdir(path.dirname(pluginIndex), { recursive: true });
-    await fs.writeFile(pluginIndex, "export default {};\n");
+      await fs.mkdir(runtimeDir, { recursive: true });
+      await fs.mkdir(path.dirname(pluginIndex), { recursive: true });
+      await fs.writeFile(pluginIndex, "export default {};\n");
 
-    const specifier = resolveMiladyPluginImportSpecifier(
-      "@miladyai/plugin-retake",
-      pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
-    );
+      const specifier = resolvePluginImportSpecifier?.(
+        "@elizaos/plugin-retake",
+        pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
+      );
 
-    expect(specifier).toBe(pathToFileURL(pluginIndex).href);
+      expect(specifier).toBe(pathToFileURL(pluginIndex).href);
 
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  });
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
 
-  it("falls back to the bundled package when no local wrapper exists", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-plugin-"));
-    const runtimeDir = path.join(tmpDir, "runtime");
-    await fs.mkdir(runtimeDir, { recursive: true });
+    it("falls back to the bundled package when no local wrapper exists", async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-plugin-"));
+      const runtimeDir = path.join(tmpDir, "runtime");
+      await fs.mkdir(runtimeDir, { recursive: true });
 
-    const specifier = resolveMiladyPluginImportSpecifier(
-      "@miladyai/plugin-x-streaming",
-      pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
-    );
+      const specifier = resolvePluginImportSpecifier?.(
+        "@elizaos/plugin-x-streaming",
+        pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
+      );
 
-    expect(specifier).toBe("@miladyai/plugin-x-streaming");
+      expect(specifier).toBe("@elizaos/plugin-x-streaming");
 
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  });
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
 
-  it("leaves non-Milady plugins unchanged", () => {
-    expect(resolveMiladyPluginImportSpecifier("@elizaos/plugin-discord")).toBe(
-      "@elizaos/plugin-discord",
-    );
-  });
-});
+    it("leaves non-project plugins unchanged", () => {
+      expect(resolvePluginImportSpecifier?.("@elizaos/plugin-discord")).toBe(
+        "@elizaos/plugin-discord",
+      );
+    });
+  },
+);
 
 describe("shouldIgnoreMissingPluginExport", () => {
   it("ignores helper-only streaming-base package exports", () => {

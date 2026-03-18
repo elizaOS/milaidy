@@ -3,15 +3,15 @@ import { isSafeResetStateDir } from "./server";
 
 describe("isSafeResetStateDir", () => {
   it("accepts default state dir under home", () => {
-    expect(isSafeResetStateDir("/Users/alice/.milady", "/Users/alice")).toBe(
+    expect(isSafeResetStateDir("/Users/alice/.eliza", "/Users/alice")).toBe(
       true,
     );
   });
 
-  it("accepts nested paths under .milady", () => {
+  it("accepts nested paths under .eliza", () => {
     expect(
       isSafeResetStateDir(
-        "/Users/alice/.milady/workspace/snapshots",
+        "/Users/alice/.eliza/workspace/snapshots",
         "/Users/alice",
       ),
     ).toBe(true);
@@ -25,15 +25,13 @@ describe("isSafeResetStateDir", () => {
     expect(isSafeResetStateDir("/Users/alice", "/Users/alice")).toBe(false);
   });
 
-  it("rejects paths outside home even if they contain milady", () => {
-    expect(isSafeResetStateDir("/tmp/milady-state", "/Users/alice")).toBe(
-      false,
-    );
+  it("rejects paths outside home even if they contain eliza", () => {
+    expect(isSafeResetStateDir("/tmp/eliza-state", "/Users/alice")).toBe(false);
   });
 
-  it("rejects substring-only matches without a milady segment", () => {
+  it("rejects substring-only matches without an eliza segment", () => {
     expect(
-      isSafeResetStateDir("/Users/alice/not-milady-backup", "/Users/alice"),
+      isSafeResetStateDir("/Users/alice/not-eliza-backup", "/Users/alice"),
     ).toBe(false);
   });
 });

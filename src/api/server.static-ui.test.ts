@@ -13,9 +13,9 @@ describe("injectApiBaseIntoHtml", () => {
     ).toString("utf8");
 
     expect(injected).toContain(
-      'window.__MILADY_API_BASE__="https://proxy.example.com/proxy/2138"',
+      'window.__ELIZA_API_BASE__="https://proxy.example.com/proxy/2138"',
     );
-    expect(injected.indexOf("window.__MILADY_API_BASE__")).toBeLessThan(
+    expect(injected.indexOf("window.__ELIZA_API_BASE__")).toBeLessThan(
       injected.indexOf("</head>"),
     );
   });
