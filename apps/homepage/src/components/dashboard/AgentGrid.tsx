@@ -1,11 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useAgents } from "../../lib/AgentProvider";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 
-export function AgentGrid() {
+interface AgentGridProps {
+  selectedAgentId: string | null;
+  onSelectAgent: (id: string | null) => void;
+}
+
+export function AgentGrid({ selectedAgentId, onSelectAgent }: AgentGridProps) {
   const { agents, loading, refresh } = useAgents();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const handleAction = useCallback(
     async (agentId: string, action: "play" | "resume" | "pause" | "stop") => {
@@ -61,7 +65,9 @@ export function AgentGrid() {
     );
   }
 
-  const selected = selectedId ? agents.find((a) => a.id === selectedId) : null;
+  const selected = selectedAgentId
+    ? agents.find((a) => a.id === selectedAgentId)
+    : null;
 
   return (
     <div>
@@ -82,9 +88,9 @@ export function AgentGrid() {
             onPause={() => handleAction(agent.id, "pause")}
             onStop={() => handleAction(agent.id, "stop")}
             onSelect={() =>
-              setSelectedId(selectedId === agent.id ? null : agent.id)
+              onSelectAgent(selectedAgentId === agent.id ? null : agent.id)
             }
-            selected={selectedId === agent.id}
+            selected={selectedAgentId === agent.id}
           />
         ))}
       </div>

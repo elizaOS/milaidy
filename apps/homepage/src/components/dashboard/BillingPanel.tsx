@@ -6,7 +6,10 @@ import { CloudClient } from "../../lib/cloud-api";
 export function BillingPanel() {
   const { agents } = useAgents();
   const cloudAgents = agents.filter((a) => a.source === "cloud");
-  const [billingSettings, setBillingSettings] = useState<object | null>(null);
+  const [billingSettings, setBillingSettings] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

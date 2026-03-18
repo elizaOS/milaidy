@@ -12,12 +12,12 @@ export function Nav() {
       e.preventDefault();
       if (isOnDashboard) {
         navigate("/");
-        // Wait for route change, then scroll
-        requestAnimationFrame(() => {
+        // Wait for route to render, then scroll
+        setTimeout(() => {
           document
             .getElementById(anchor)
             ?.scrollIntoView({ behavior: "smooth" });
-        });
+        }, 100);
       } else {
         document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth" });
       }
