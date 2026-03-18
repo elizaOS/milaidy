@@ -1789,13 +1789,7 @@ describe("handleCloudRoute timeout behavior", () => {
       });
       const { res } = createMockHttpResponse();
 
-      await handleCloudRoute(
-        req,
-        res,
-        "/api/cloud/disconnect",
-        "POST",
-        state,
-      );
+      await handleCloudRoute(req, res, "/api/cloud/disconnect", "POST", state);
 
       expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
       expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
@@ -1875,9 +1869,7 @@ describe("handleCloudRoute timeout behavior", () => {
       // The key must not appear in JSON.stringify(process.env) or Object.keys
       const envDump = JSON.stringify(process.env);
       expect(envDump).not.toContain("ck-hidden");
-      expect(Object.keys(process.env)).not.toContain(
-        "ELIZAOS_CLOUD_API_KEY",
-      );
+      expect(Object.keys(process.env)).not.toContain("ELIZAOS_CLOUD_API_KEY");
     });
   });
 });

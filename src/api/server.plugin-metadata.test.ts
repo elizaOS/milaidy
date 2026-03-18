@@ -42,7 +42,7 @@ describe("plugin metadata discovery", () => {
       expect(retake?.category).toBe("streaming");
       expect(retake?.tags?.length).toBeGreaterThan(0);
       expect(retake?.setupGuideUrl).toMatch(
-        /^https:\/\/docs\.(eliza|milady)\.ai\/plugin-setup-guide#retaketv$/,
+        /^https:\/\/docs\.(elizaos|eliza|milady)\.ai\/plugin-setup-guide#retaketv$/,
       );
       expect(retake?.repository).toContain("plugin-retake");
     },
