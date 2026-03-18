@@ -30,6 +30,7 @@ import {
   TRAY_ACTION_EVENT,
 } from "@elizaos/app-core/events";
 import { applyLaunchConnectionFromUrl } from "@elizaos/app-core/platform";
+import type { BrandingConfig } from "@elizaos/app-core/config";
 import { AppProvider } from "@elizaos/app-core/state";
 // Import the agent plugin
 import { Agent } from "@miladyai/capacitor-agent";

@@ -14,44 +14,7 @@
     "strict": true,
     "target": "es2023",
     "useDefineForClassFields": false,
-    "baseUrl": ".",
-    "paths": {
-      "@elizaos/app-hyperscape/routes": [
-        "../plugins/app-hyperscape/src/routes.ts"
-      ],
-      "@elizaos/core": [
-        "../eliza/packages/typescript/src/index.ts",
-        "node_modules/@elizaos/core/dist/node/index.d.ts"
-      ],
-      "@elizaos/core/*": [
-        "../eliza/packages/typescript/src/*",
-        "node_modules/@elizaos/core/dist/node/*"
-      ],
-      "@elizaos/autonomous": [
-        "../eliza/packages/autonomous/src/index.ts",
-        "node_modules/@elizaos/autonomous/src/index.ts"
-      ],
-      "@elizaos/autonomous/*": [
-        "../eliza/packages/autonomous/src/*",
-        "node_modules/@elizaos/autonomous/src/*"
-      ],
-      "@elizaos/app-core": [
-        "../eliza/packages/app-core/src/index.ts",
-        "node_modules/@elizaos/app-core/src/index.ts"
-      ],
-      "@elizaos/app-core/*": [
-        "../eliza/packages/app-core/src/*",
-        "node_modules/@elizaos/app-core/src/*"
-      ],
-      "@elizaos/ui": [
-        "../eliza/packages/ui/src/index.ts",
-        "node_modules/@elizaos/ui/src/index.ts"
-      ],
-      "@elizaos/ui/*": [
-        "../eliza/packages/ui/src/*",
-        "node_modules/@elizaos/ui/src/*"
-      ]
-    }
+    "baseUrl": "."
   },
   "include": ["src/**/*"],
   "exclude": [

@@ -148,8 +148,7 @@ export async function createBenchmarkRuntime(): Promise<{
   const shouldLoadCua = envFlag("MILADY_ENABLE_CUA") || hasCuaConfig();
   if (shouldLoadCua) {
     const cuaSources = [
-      "@elizaos/plugin-cua",
-      "../../../eliza/packages/plugin-cua/src/index.ts",
+      "@elizaos/plugin-cua"
     ];
 
     let loaded = false;
