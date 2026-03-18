@@ -3,10 +3,9 @@ import { DownloadIcons } from "./components/DownloadIcons";
 import { Features } from "./components/Features";
 import { Footer } from "./components/Footer";
 import { HeroBackground } from "./components/Hero";
-import { Nav } from "./components/Nav";
 import { Privacy } from "./components/Privacy";
 
-export function App() {
+export function Homepage() {
   return (
     <div
       id="top"
@@ -22,11 +21,8 @@ export function App() {
           <HeroBackground />
         </div>
 
-        {/* LAYER 2: Foreground UI (Nav, Download Icons) */}
+        {/* LAYER 2: Foreground UI (Download Icons) */}
         <div className="absolute top-0 left-0 right-0 z-30 pointer-events-none">
-          <div className="pointer-events-auto">
-            <Nav />
-          </div>
           <div className="w-full min-h-screen flex items-end justify-center pb-6 sm:pb-10 px-4 pointer-events-auto">
             <DownloadIcons />
           </div>
