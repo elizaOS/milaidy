@@ -580,9 +580,10 @@ jobs:
         if: matrix.platform.os == 'windows'
         shell: pwsh
         env:
-          # agent.ts now sets MILADY_DISABLE_LOCAL_EMBEDDINGS=1 on Windows
-          # automatically, so the smoke test validates the same code path
-          # real users hit.
+          # agent.ts sets MILADY_DISABLE_LOCAL_EMBEDDINGS=1 on Windows
+          # automatically; we also set it here so the ENTIRE process tree
+          # (including the PowerShell parent and any subprocesses) inherits it.
+          MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
           MILADY_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\milady-windows-ui-launcher
           MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\milady-windows-ui-launcher.txt
         run: |

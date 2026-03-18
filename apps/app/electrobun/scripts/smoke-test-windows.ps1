@@ -97,7 +97,7 @@ function Get-ObservedBackendPorts([int]$DefaultPort) {
     if (
       $line -match 'Runtime started -- agent: .* port: ([0-9]+), pid:' -or
       $line -match 'Server bound to dynamic port ([0-9]+)' -or
-      $line -match 'Waiting for health endpoint at http://localhost:([0-9]+)/api/health'
+      $line -match 'Waiting for health endpoint at http://(?:localhost|127\.0\.0\.1):([0-9]+)/api/health'
     ) {
       $observedPort = [int]$Matches[1]
       if (-not $ports.Contains($observedPort)) {
@@ -247,7 +247,20 @@ try {
           break
         }
       } catch {
-        # ignore and continue checking other observed ports
+        # Log the actual error periodically so we can diagnose connection issues
+        $elapsed = [int]((Get-Date) - $deadline.AddSeconds(-$TimeoutSeconds)).TotalSeconds
+        if ($elapsed % 30 -lt 3) {
+          Write-Host "Health check attempt on port ${port} failed ($elapsed s): $($_.Exception.Message)"
+        }
+        # Fallback: try curl.exe which handles Windows networking differently
+        try {
+          $curlResult = & curl.exe -s -o NUL -w "%{http_code}" "http://127.0.0.1:${port}/api/health" --connect-timeout 2 2>$null
+          if ($curlResult -eq "200") {
+            $healthy = $true
+            Write-Host "Backend health check passed on port $port (via curl)."
+            break
+          }
+        } catch {}
       }
     }
 

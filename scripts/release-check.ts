@@ -72,6 +72,7 @@ const requiredWorkflowSnippets = [
   "node scripts/desktop-build.mjs package --env=$" +
     "{{ needs.prepare.outputs.env }}",
   "MILADY_ELECTROBUN_NOTARIZE: 0",
+  'MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"',
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
   "if ($null -eq $resolvedRceditPackageJson)",
   '$resolvedRceditPackageJson = "$resolvedRceditPackageJson".Trim()',
@@ -460,7 +461,7 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
     "Find-Launcher $selfExtractionRoot",
     "Started extracted launcher:",
     "Runtime started -- agent: .* port:",
-    "Waiting for health endpoint at http://localhost:",
+    "Waiting for health endpoint at http://(?:localhost|127\\.0\\.0\\.1):",
   ];
   const missingSnippets = requiredSnippets.filter(
     (snippet) => !script.includes(snippet),
