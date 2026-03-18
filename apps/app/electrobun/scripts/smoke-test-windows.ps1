@@ -210,6 +210,100 @@ $env:NO_PROXY = "127.0.0.1,localhost"
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $healthy = $false
 $healthCheckMethod = $null
+$lastNetstatDump = [DateTime]::MinValue
+
+function Dump-PortDiagnostics([int]$Port) {
+  Write-Host "--- netstat for port $Port ---"
+  try {
+    netstat -ano | Select-String ":$Port " | ForEach-Object { Write-Host $_ }
+  } catch {
+    Write-Host "(netstat failed: $($_.Exception.Message))"
+  }
+  Write-Host "--- end netstat ---"
+}
+
+function Dump-ProcessDiagnostics() {
+  Write-Host "--- Bun/launcher processes ---"
+  try {
+    Get-Process -ErrorAction SilentlyContinue |
+      Where-Object {
+        $_.ProcessName -in @("launcher", "bun") -or
+        $_.ProcessName -like "Milady*"
+      } |
+      Format-Table -Property Id, ProcessName, StartTime, Responding -AutoSize |
+      Out-String |
+      Write-Host
+  } catch {
+    Write-Host "(process list failed: $($_.Exception.Message))"
+  }
+  Write-Host "--- end processes ---"
+}
+
+function Dump-FailureDiagnostics([int]$Port) {
+  Write-Host ""
+  Write-Host "========== FAILURE DIAGNOSTICS =========="
+
+  # 1. Port binding state
+  Write-Host ""
+  Write-Host "[1/6] Port $Port binding state:"
+  Dump-PortDiagnostics $Port
+
+  # 2. All listening TCP ports (find if server bound elsewhere)
+  Write-Host ""
+  Write-Host "[2/6] All LISTENING TCP ports:"
+  try {
+    netstat -ano -p TCP | Select-String "LISTENING" | ForEach-Object { Write-Host $_ }
+  } catch {
+    Write-Host "(netstat LISTENING failed)"
+  }
+
+  # 3. Process tree
+  Write-Host ""
+  Write-Host "[3/6] Process tree:"
+  Dump-ProcessDiagnostics
+
+  # 4. Full startup log (not just tail 200)
+  Write-Host ""
+  Write-Host "[4/6] Full startup log:"
+  if (Test-Path $startupLog) {
+    $fullLog = Get-Content $startupLog -ErrorAction SilentlyContinue
+    $lineCount = ($fullLog | Measure-Object).Count
+    Write-Host "(startup log: $lineCount lines total)"
+    $fullLog | ForEach-Object { Write-Host $_ }
+  } else {
+    Write-Host "(startup log not found at $startupLog)"
+  }
+
+  # 5. Firewall state for port
+  Write-Host ""
+  Write-Host "[5/6] Firewall rules mentioning port $Port or Bun/Milady:"
+  try {
+    netsh advfirewall firewall show rule name=all dir=in |
+      Select-String -Pattern "($Port|bun|milady|launcher)" -Context 2 |
+      ForEach-Object { Write-Host $_ }
+  } catch {
+    Write-Host "(firewall query failed: $($_.Exception.Message))"
+  }
+
+  # 6. Relevant environment variables
+  Write-Host ""
+  Write-Host "[6/6] Relevant environment variables:"
+  foreach ($varName in @(
+    "MILADY_PORT", "MILADY_API_BIND", "MILADY_API_PORT",
+    "MILADY_DISABLE_LOCAL_EMBEDDINGS", "ANTHROPIC_API_KEY",
+    "NO_PROXY", "HTTP_PROXY", "HTTPS_PROXY",
+    "ELECTROBUN_CONSOLE", "APPDATA", "LOCALAPPDATA"
+  )) {
+    $val = [System.Environment]::GetEnvironmentVariable($varName)
+    if ($varName -eq "ANTHROPIC_API_KEY" -and $val) {
+      $val = "$($val.Substring(0, [Math]::Min(8, $val.Length)))..."
+    }
+    Write-Host "  ${varName}=$($val ?? '<unset>')"
+  }
+
+  Write-Host "========== END DIAGNOSTICS =========="
+  Write-Host ""
+}
 
 try {
   while ((Get-Date) -lt $deadline) {
@@ -242,6 +336,16 @@ try {
         $recentLog
         throw "Windows packaged app reported a startup failure."
       }
+    }
+
+    # Periodic diagnostics: dump netstat + process list every 60s during the wait
+    $now = Get-Date
+    if (($now - $lastNetstatDump).TotalSeconds -ge 60) {
+      $elapsed = [int](($now) - $deadline.AddSeconds(-$TimeoutSeconds)).TotalSeconds
+      Write-Host "--- periodic diagnostics at ${elapsed}s ---"
+      Dump-PortDiagnostics $BackendPort
+      Dump-ProcessDiagnostics
+      $lastNetstatDump = $now
     }
 
     foreach ($port in Get-ObservedBackendPorts $BackendPort) {
@@ -322,7 +426,7 @@ try {
       }
     }
     if (Test-Path $startupLog) {
-      Write-Host "Recent startup log:"
+      Write-Host "Recent startup log (tail 200):"
       Get-Content $startupLog -Tail 200
     }
     if (Test-Path $selfExtractionRoot) {
@@ -330,6 +434,9 @@ try {
       Get-ChildItem -Path $selfExtractionRoot -Recurse -File -ErrorAction SilentlyContinue |
         Select-Object -ExpandProperty FullName
     }
+
+    Dump-FailureDiagnostics $BackendPort
+
     throw "Windows packaged app did not become healthy within $TimeoutSeconds seconds."
   }
 } finally {

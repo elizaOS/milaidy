@@ -584,6 +584,10 @@ jobs:
           # automatically; we also set it here so the ENTIRE process tree
           # (including the PowerShell parent and any subprocesses) inherits it.
           MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
+          # The runtime requires at least one AI provider plugin to fully
+          # initialize — without it, startApiServer() can fail before
+          # server.listen() and the health endpoint never becomes reachable.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MILADY_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\milady-windows-ui-launcher
           MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\milady-windows-ui-launcher.txt
         run: |

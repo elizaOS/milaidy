@@ -48,6 +48,13 @@ export default {
       // the canonical runtime entry (`entry.js start`).
       // Paths are relative to apps/app/electrobun/ (where electrobun build is run).
       "../../../dist": "milady-dist",
+      // plugins.json lives at repo root, not in dist/. Without it,
+      // findOwnPackageRoot() can't locate the manifest and
+      // discoverPluginsFromManifest() returns an empty array.
+      "../../../plugins.json": "milady-dist/plugins.json",
+      // package.json is needed so findOwnPackageRoot() can match on the
+      // "milady" package name. dist/package.json only has {"type":"module"}.
+      "../../../package.json": "milady-dist/package.json",
       // libMacWindowEffects.dylib is macOS-only — only copy when building on macOS.
       // On Windows/Linux this file does not exist and the copy would fail the build.
       ...(process.platform === "darwin"

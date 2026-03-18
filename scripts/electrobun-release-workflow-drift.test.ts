@@ -31,6 +31,10 @@ const WINDOWS_PACKAGED_TEST_PATH = path.join(
   ROOT,
   "apps/app/test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
 );
+const ELECTROBUN_CONFIG_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/electrobun.config.ts",
+);
 
 describe("Electrobun release workflow drift", () => {
   it("uses the shared desktop-build script to stage bundle inputs before packaging", () => {
@@ -277,6 +281,32 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
+  it("includes heavy failure diagnostics in the Windows smoke test", () => {
+    const smokeScript = fs.readFileSync(WINDOWS_SMOKE_PATH, "utf8");
+
+    expect(smokeScript).toContain("Dump-PortDiagnostics");
+    expect(smokeScript).toContain("Dump-ProcessDiagnostics");
+    expect(smokeScript).toContain("Dump-FailureDiagnostics");
+    expect(smokeScript).toContain("periodic diagnostics at");
+    expect(smokeScript).toContain("FAILURE DIAGNOSTICS");
+    expect(smokeScript).toContain("netstat -ano");
+    expect(smokeScript).toContain("netsh advfirewall firewall");
+    expect(smokeScript).toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("bundles plugins.json and package.json into milady-dist for packaged builds", () => {
+    const config = fs.readFileSync(ELECTROBUN_CONFIG_PATH, "utf8");
+
+    // plugins.json must be copied so discoverPluginsFromManifest() can find it
+    expect(config).toContain(
+      '"../../../plugins.json": "milady-dist/plugins.json"',
+    );
+    // package.json must be copied so findOwnPackageRoot() can match on package name
+    expect(config).toContain(
+      '"../../../package.json": "milady-dist/package.json"',
+    );
+  });
+
   it("reads the Windows packaged startup log from %APPDATA%", () => {
     const smokeScript = fs.readFileSync(WINDOWS_SMOKE_PATH, "utf8");
 
@@ -309,6 +339,14 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
     expect(workflow).toContain(
       'Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"',
+    );
+  });
+
+  it("passes ANTHROPIC_API_KEY to the Windows smoke test for full runtime init", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      "ANTHROPIC_API_KEY: $" + "{{ secrets.ANTHROPIC_API_KEY }}",
     );
   });
 

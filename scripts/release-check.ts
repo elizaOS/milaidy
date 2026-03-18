@@ -73,6 +73,7 @@ const requiredWorkflowSnippets = [
     "{{ needs.prepare.outputs.env }}",
   "MILADY_ELECTROBUN_NOTARIZE: 0",
   'MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"',
+  "ANTHROPIC_API_KEY: $" + "{{ secrets.ANTHROPIC_API_KEY }}",
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
   "if ($null -eq $resolvedRceditPackageJson)",
   '$resolvedRceditPackageJson = "$resolvedRceditPackageJson".Trim()',
@@ -82,6 +83,8 @@ const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
   'postWrap: "scripts/postwrap-diagnostics.ts"',
   'process.env.MILADY_ELECTROBUN_NOTARIZE !== "0"',
+  '"../../../plugins.json": "milady-dist/plugins.json"',
+  '"../../../package.json": "milady-dist/package.json"',
 ];
 const localPackHotspotPaths = [
   "dist/node_modules",
@@ -464,6 +467,11 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
     "Waiting for health endpoint at http://(?:localhost|127\\.0\\.0\\.1):",
     "$handler.UseProxy = $false",
     '--noproxy "127.0.0.1"',
+    "Dump-PortDiagnostics",
+    "Dump-ProcessDiagnostics",
+    "Dump-FailureDiagnostics",
+    "periodic diagnostics at",
+    "FAILURE DIAGNOSTICS",
   ];
   const missingSnippets = requiredSnippets.filter(
     (snippet) => !script.includes(snippet),
