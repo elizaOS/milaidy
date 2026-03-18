@@ -8,7 +8,7 @@ export const ScreenCapture = registerPlugin<ScreenCapturePlugin>(
   "ScreenCapture",
   {
     web: loadWeb,
-    },
+  },
 );
 
 export * from "./definitions";

@@ -147,7 +147,10 @@ export class TalkModeElectrobun {
   removeNativeListeners() {
     if (!window.electrobun?.ipcRenderer) return;
     for (const entry of this.ipcHandlers) {
-      window.electrobun.ipcRenderer.removeListener(entry.channel, entry.handler);
+      window.electrobun.ipcRenderer.removeListener(
+        entry.channel,
+        entry.handler,
+      );
     }
     this.ipcHandlers = [];
   }

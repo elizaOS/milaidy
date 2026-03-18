@@ -32,7 +32,7 @@ The simplest configuration for getting started with a single model provider.
   
   modelProvider: {
     type: "openai",
-    apiKey: "YOUR_API_KEY",
+    apiKey: process.env.OPENAI_API_KEY,
     model: "gpt-4-turbo",
     temperature: 0.7,
     maxTokens: 2000

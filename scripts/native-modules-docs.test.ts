@@ -12,9 +12,8 @@ describe("native modules desktop docs", () => {
     expect(doc).toContain("window.__MILADY_ELECTROBUN_RPC__");
     expect(doc).toContain("request.<method>(params)");
     expect(doc).toContain('onMessage("agentStatusUpdate"');
-
-        expect(doc).not.toContain("ipcRenderer.invoke");
-      });
+    expect(doc).not.toContain("ipcRenderer.invoke");
+  });
 
   it("describes native app-window screen capture, not desktopCapturer as the public path", () => {
     const doc = fs.readFileSync(DOC_PATH, "utf8");

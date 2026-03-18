@@ -11,8 +11,8 @@
 import { Updater } from "electrobun/bun";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
-import { scanProviderCredentials } from "./native/credentials";
 import { getCanvasManager } from "./native/canvas";
+import { scanProviderCredentials } from "./native/credentials";
 import { getDesktopManager } from "./native/desktop";
 import { getGatewayDiscovery } from "./native/gateway";
 import { getGpuWindowManager } from "./native/gpu-window";

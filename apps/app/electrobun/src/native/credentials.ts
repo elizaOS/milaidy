@@ -61,9 +61,7 @@ async function isCliInstalled(name: string): Promise<boolean> {
   }
 }
 
-async function readKeychainCredential(
-  service: string,
-): Promise<string | null> {
+async function readKeychainCredential(service: string): Promise<string | null> {
   if (process.platform !== "darwin") return null;
   try {
     const proc = Bun.spawn(
@@ -116,9 +114,7 @@ async function scanClaudeFileCredentials(
 }
 
 async function scanClaudeKeychainCredentials(): Promise<DetectedProvider | null> {
-  const keychainData = await readKeychainCredential(
-    "Claude Code-credentials",
-  );
+  const keychainData = await readKeychainCredential("Claude Code-credentials");
   if (!keychainData) return null;
 
   // The keychain value may be a JSON blob with OAuth tokens
