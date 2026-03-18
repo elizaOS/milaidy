@@ -10,6 +10,7 @@ import {
   constants,
   existsSync,
   readFileSync,
+  realpathSync,
   statfsSync,
 } from "node:fs";
 import { createConnection } from "node:net";
@@ -488,6 +489,62 @@ export async function checkPort(port: number): Promise<CheckResult> {
 }
 
 // ---------------------------------------------------------------------------
+// Eliza workspace checks
+// ---------------------------------------------------------------------------
+
+export function checkElizaWorkspace(projectRoot?: string): CheckResult {
+  const root =
+    projectRoot ??
+    path.resolve(process.env.ELIZA_PROJECT_ROOT ?? process.cwd());
+  const elizaRoot = path.resolve(root, "..", "eliza");
+
+  if (!existsSync(elizaRoot)) {
+    return {
+      label: "Eliza workspace",
+      category: "system",
+      status: "warn",
+      detail:
+        "Not found at ../eliza (optional — needed only for local @elizaos development)",
+      fix: "bun run setup:eliza-workspace",
+    };
+  }
+
+  const elizaPkg = path.join(elizaRoot, "package.json");
+  if (!existsSync(elizaPkg)) {
+    return {
+      label: "Eliza workspace",
+      category: "system",
+      status: "warn",
+      detail: `${elizaRoot} exists but missing package.json`,
+      fix: "bun run setup:eliza-workspace",
+    };
+  }
+
+  // Check if symlinks are in place
+  const coreLink = path.join(root, "node_modules", "@elizaos", "core");
+  try {
+    const realTarget = realpathSync(coreLink);
+    if (realTarget.startsWith(elizaRoot)) {
+      return {
+        label: "Eliza workspace",
+        category: "system",
+        status: "pass",
+        detail: `Linked to ${elizaRoot}`,
+      };
+    }
+  } catch {
+    // Not a symlink or can't resolve — that's fine
+  }
+
+  return {
+    label: "Eliza workspace",
+    category: "system",
+    status: "pass",
+    detail: `Found at ${elizaRoot} (run setup:eliza-workspace to link)`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Run all checks
 // ---------------------------------------------------------------------------
 
@@ -510,6 +567,7 @@ export async function runAllChecks(
     checkRuntime(),
     checkNodeModules(opts.projectRoot),
     checkBuildArtifacts(opts.projectRoot),
+    checkElizaWorkspace(opts.projectRoot),
     // config
     checkConfigFile(opts.configPath, env),
     checkModelKey(env),
