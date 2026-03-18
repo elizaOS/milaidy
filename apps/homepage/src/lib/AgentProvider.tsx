@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { type CloudAgent, getToken } from "./auth";
-import { CloudApiClient, CloudClient } from "./cloud-api";
+import { CLOUD_BASE, CloudApiClient, CloudClient } from "./cloud-api";
 import { addConnection, getConnections, removeConnection } from "./connections";
 
 export type AgentSource = "cloud" | "local" | "remote";
@@ -40,43 +40,50 @@ interface AgentContextValue {
 const AgentContext = createContext<AgentContextValue | null>(null);
 
 const LOCAL_PROBE_URL = "http://localhost:2138";
-const CLOUD_BASE = "https://www.elizacloud.ai";
 
 export function AgentProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cloudClientRef, setCloudClientRef] = useState<CloudClient | null>(
-    null,
-  );
+  const [cloudClient, setCloudClient] = useState<CloudClient | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const tokenRef = useRef<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     const results: ManagedAgent[] = [];
+    const token = getToken();
 
     // 1. Cloud agents (if authenticated)
-    if (getToken()) {
-      const cc = new CloudClient(getToken() ?? "");
-      setCloudClientRef(cc);
-      try {
-        const cloudAgents = await cc.listAgents();
-        for (const ca of cloudAgents) {
-          results.push({
-            id: `cloud-${ca.id}`,
-            name: ca.name || ca.id,
-            source: "cloud",
-            status: mapCloudStatus(ca.status),
-            model: ca.model,
-            cloudAgent: ca,
-            cloudClient: cc,
-            cloudAgentId: ca.id,
-            sourceUrl: `${CLOUD_BASE}/api/v1/milady/agents/${ca.id}`,
-          });
+    if (token) {
+      // Reuse CloudClient if token hasn't changed
+      let cc = cloudClient;
+      if (token !== tokenRef.current) {
+        cc = new CloudClient(token);
+        tokenRef.current = token;
+        setCloudClient(cc);
+      }
+      if (cc) {
+        try {
+          const cloudAgents = await cc.listAgents();
+          for (const ca of cloudAgents) {
+            results.push({
+              id: `cloud-${ca.id}`,
+              name: ca.agentName || ca.name || ca.id,
+              source: "cloud",
+              status: mapCloudStatus(ca.status),
+              model: ca.model,
+              cloudAgent: ca,
+              cloudClient: cc,
+              cloudAgentId: ca.id,
+              sourceUrl: `${CLOUD_BASE}/api/v1/milady/agents/${ca.id}`,
+            });
+          }
+        } catch (err) {
+          console.warn("[AgentProvider] Cloud agent fetch failed:", err);
         }
-      } catch {
-        // Cloud API failed — skip
       }
     } else {
-      setCloudClientRef(null);
+      tokenRef.current = null;
+      setCloudClient(null);
     }
 
     // 2. Local agent (auto-probe localhost:2138)
@@ -101,7 +108,6 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             client: localClient,
           });
         } catch {
-          // Health OK but no agent status endpoint — show as running
           results.push({
             id: "local-default",
             name: "Local Agent",
@@ -159,12 +165,10 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
     setAgents(results);
     setLoading(false);
-  }, []);
+  }, [cloudClient]);
 
   useEffect(() => {
     fetchAll();
-    // Poll every 30s — sources that fail are already caught silently,
-    // no need to hammer them every 10s
     intervalRef.current = setInterval(fetchAll, 30000);
     return () => clearInterval(intervalRef.current);
   }, [fetchAll]);
@@ -191,7 +195,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       value={{
         agents,
         loading,
-        cloudClient: cloudClientRef,
+        cloudClient,
         refresh: fetchAll,
         addRemoteUrl,
         removeRemote,
@@ -206,9 +210,20 @@ function mapCloudStatus(status: string): ManagedAgent["status"] {
   const s = status?.toLowerCase() ?? "";
   if (s === "running" || s === "active" || s === "healthy") return "running";
   if (s === "paused" || s === "suspended") return "paused";
-  if (s === "stopped" || s === "terminated" || s === "deleted")
+  if (
+    s === "stopped" ||
+    s === "terminated" ||
+    s === "deleted" ||
+    s === "disconnected" ||
+    s === "error"
+  )
     return "stopped";
-  if (s === "provisioning" || s === "creating" || s === "starting")
+  if (
+    s === "provisioning" ||
+    s === "creating" ||
+    s === "starting" ||
+    s === "pending"
+  )
     return "provisioning";
   return "unknown";
 }
