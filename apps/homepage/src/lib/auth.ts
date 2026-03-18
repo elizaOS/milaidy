@@ -16,7 +16,7 @@ export function isAuthenticated(): boolean {
   return getToken() !== null;
 }
 
-import { CLOUD_BASE } from "./cloud-api";
+const CLOUD_BASE = "https://www.elizacloud.ai";
 
 export async function cloudLogin(): Promise<{
   sessionId: string;

@@ -1,4 +1,4 @@
-export const CLOUD_BASE = "https://www.elizacloud.ai";
+const CLOUD_BASE = "https://www.elizacloud.ai";
 
 export interface CloudAgentDetail {
   id: string;
@@ -28,13 +28,6 @@ export interface JobStatus {
   status: "pending" | "in_progress" | "completed" | "failed";
   result?: unknown;
   error?: string;
-}
-
-export interface BridgeResponse {
-  jsonrpc: string;
-  id: string;
-  result?: Record<string, unknown>;
-  error?: { code: number; message: string };
 }
 
 export class CloudClient {
@@ -143,7 +136,7 @@ export class CloudClient {
     agentId: string,
     method: string,
     params?: object,
-  ): Promise<BridgeResponse> {
+  ): Promise<Record<string, unknown>> {
     return this.request(`/api/v1/milady/agents/${agentId}/bridge`, {
       method: "POST",
       body: JSON.stringify({
@@ -159,11 +152,7 @@ export class CloudClient {
     agentId: string,
   ): Promise<{ state: string; uptime?: number; memories?: number }> {
     const res = await this.bridge(agentId, "status.get");
-    return (res.result ?? res) as {
-      state: string;
-      uptime?: number;
-      memories?: number;
-    };
+    return res.result ?? res;
   }
 
   // Credits & billing
@@ -171,7 +160,7 @@ export class CloudClient {
     return this.request("/api/credits/balance", { method: "GET" });
   }
 
-  async getCreditsSummary(): Promise<Record<string, unknown>> {
+  async getCreditsSummary(): Promise<object> {
     return this.request("/api/v1/credits/summary", { method: "GET" });
   }
 
@@ -221,17 +210,13 @@ export class CloudClient {
           []);
   }
 
-  async getContainerHealth(
-    containerId: string,
-  ): Promise<Record<string, unknown>> {
+  async getContainerHealth(containerId: string): Promise<object> {
     return this.request(`/api/v1/containers/${containerId}/health`, {
       method: "GET",
     });
   }
 
-  async getContainerMetrics(
-    containerId: string,
-  ): Promise<Record<string, unknown>> {
+  async getContainerMetrics(containerId: string): Promise<object> {
     return this.request(`/api/v1/containers/${containerId}/metrics`, {
       method: "GET",
     });
@@ -249,7 +234,7 @@ export class CloudClient {
   }
 
   // Billing settings
-  async getBillingSettings(): Promise<Record<string, unknown>> {
+  async getBillingSettings(): Promise<object> {
     return this.request("/api/v1/billing/settings", { method: "GET" });
   }
 
@@ -312,7 +297,7 @@ export class CloudApiClient {
   async health(): Promise<{
     status: string;
     uptime: number;
-    memoryUsage?: Record<string, unknown>;
+    memoryUsage?: object;
   }> {
     return this.request("/api/health", { method: "GET" });
   }
@@ -385,7 +370,7 @@ export class CloudApiClient {
     return this.request(`/api/logs${qs ? `?${qs}` : ""}`, { method: "GET" });
   }
 
-  async getBilling(): Promise<Record<string, unknown>> {
+  async getBilling(): Promise<object> {
     return this.request("/api/billing", { method: "GET" });
   }
 }
