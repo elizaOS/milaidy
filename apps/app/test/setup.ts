@@ -42,7 +42,7 @@ type RpcMessageHandler = (
   message: string,
   listener: (payload: unknown) => void,
 ) => void;
-type RpcRequestMap = Record<string, (params?: unknown) => Promise<unknown>>;
+type RpcRequestMap = Record<string, (params?: unknown) => unknown>;
 
 vi.mock("@elizaos/app-core/bridge/electrobun-rpc", () => {
   function getElectrobunRendererRpc() {

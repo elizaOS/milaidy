@@ -358,6 +358,7 @@ export default defineConfig({
         inline: [
           "@elizaos/core",
           "@elizaos/autonomous",
+          "@elizaos/app-core",
           /^@elizaos\/plugin-/,
           "zod",
         ],
