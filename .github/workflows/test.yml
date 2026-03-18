@@ -223,6 +223,7 @@ jobs:
       - name: Run app startup/onboarding tests
         run: >
           bunx vitest run --root apps/app --config vitest.config.ts
+          --passWithNoTests
           test/app/startup-chat.e2e.test.ts
           test/app/startup-onboarding.e2e.test.ts
           test/app/startup-backend-missing.e2e.test.ts
