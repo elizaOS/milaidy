@@ -589,6 +589,12 @@ export class AgentManager {
         MILADY_PORT: String(apiPort),
       };
 
+      // node-llama-cpp crashes Bun on Windows during packaged startup.
+      // Disable local embeddings until upstream fix lands.
+      if (process.platform === "win32") {
+        childEnv.MILADY_DISABLE_LOCAL_EMBEDDINGS = "1";
+      }
+
       if (nodePaths.length > 0) {
         childEnv.NODE_PATH = nodePaths.join(path.delimiter);
         diagnosticLog(`[Agent] Child NODE_PATH: ${childEnv.NODE_PATH}`);
