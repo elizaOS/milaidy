@@ -1524,7 +1524,7 @@ export function CharacterView({
         </div>
       )}
 
-      <div className={`${sectionCls} relative z-10`}>
+      <div className={`${sectionCls} relative z-10 ${sceneOverlay ? "character-action-bar" : ""}`}>
         {(characterSaveSuccess || combinedSaveError) && (
           <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
             {characterSaveSuccess && (
@@ -1612,7 +1612,7 @@ export function CharacterView({
           <div className="flex items-center justify-center md:absolute md:left-1/2 md:top-1/2 md:z-10 md:-translate-x-1/2 md:-translate-y-1/2">
             <Button
               size="lg"
-              className="rounded-xl px-8 text-[13px] font-bold tracking-wider shadow-[0_0_15px_rgba(var(--accent),0.2)] transition-all hover:shadow-[0_0_20px_rgba(var(--accent),0.4)]"
+              className="rounded-xl px-8 text-[13px] font-bold tracking-wider shadow-[0_0_15px_color-mix(in_srgb,var(--accent)_20%,transparent)] transition-all hover:shadow-[0_0_20px_color-mix(in_srgb,var(--accent)_40%,transparent)]"
               disabled={characterSaving || voiceSaving}
               onClick={() => void handleSaveAll()}
             >
@@ -1628,7 +1628,7 @@ export function CharacterView({
               className={`h-10 rounded-xl px-4 text-sm font-semibold ${
                 customOverridesEnabled
                   ? "border-border/40 bg-bg/40 text-txt"
-                  : "shadow-[0_0_18px_rgba(var(--accent),0.18)]"
+                  : "shadow-[0_0_18px_color-mix(in_srgb,var(--accent)_18%,transparent)]"
               }`}
               onClick={() =>
                 handleCustomOverridesChange(!customOverridesEnabled)
