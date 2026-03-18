@@ -19,8 +19,8 @@ export function Dashboard() {
           data-testid="dashboard"
           className="min-h-screen bg-dark text-text-light"
         >
-          {/* Push everything below the fixed nav */}
-          <div className="pt-[72px] flex min-h-screen">
+          {/* Push everything below the fixed nav (nav is ~95px with version clock row) */}
+          <div className="pt-[100px] flex min-h-screen">
             <Sidebar active={section} onChange={setSection} />
             <div className="flex-1 flex flex-col min-w-0">
               <ConnectionBar />
