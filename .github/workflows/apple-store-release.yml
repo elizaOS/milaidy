@@ -127,6 +127,20 @@ jobs:
         working-directory: apps/app
         run: bun run build
 
+      - name: Validate iOS secrets
+        run: |
+          missing=()
+          [[ -z "$MATCH_GIT_URL" ]] && missing+=("MATCH_GIT_URL")
+          [[ -z "$MATCH_PASSWORD" ]] && missing+=("MATCH_PASSWORD")
+          [[ -z "$MATCH_GIT_BASIC_AUTHORIZATION" ]] && missing+=("MATCH_GIT_BASIC_AUTHORIZATION")
+          [[ -z "$ITC_TEAM_ID" ]] && missing+=("ITC_TEAM_ID")
+          [[ -z "$APP_STORE_APP_ID" ]] && missing+=("APP_STORE_APP_ID")
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing required iOS signing secrets: ${missing[*]}"
+            echo "Configure these secrets in the repo settings to enable iOS App Store builds."
+            exit 1
+          fi
+
       - name: Sync Capacitor iOS
         working-directory: apps/app
         run: npx cap sync ios
@@ -244,6 +258,19 @@ jobs:
       - name: Build webview preload
         working-directory: apps/app/electrobun
         run: bun run build:preload
+
+      - name: Validate signing secrets
+        run: |
+          missing=()
+          [[ -z "$CSC_LINK" ]] && missing+=("MAS_CSC_LINK")
+          [[ -z "$CSC_KEY_PASSWORD" ]] && missing+=("MAS_CSC_KEY_PASSWORD")
+          [[ -z "$MAS_INSTALLER_CERT" ]] && missing+=("MAS_INSTALLER_CERT")
+          [[ -z "$MAS_INSTALLER_KEY_PASSWORD" ]] && missing+=("MAS_INSTALLER_KEY_PASSWORD")
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing required signing secrets: ${missing[*]}"
+            echo "Configure these secrets in the repo settings to enable Mac App Store builds."
+            exit 1
+          fi
 
       - name: Import signing certificates
         run: |
