@@ -105,7 +105,6 @@ describe("sendWhatsAppMessage action", () => {
         runtime,
         stubMessage(),
         undefined,
-        undefined,
         callback,
       );
 
@@ -220,8 +219,6 @@ describe("sendWhatsAppMessage action", () => {
       const result = await sendWhatsAppMessage.handler(
         runtime,
         stubMessage(),
-        undefined,
-        undefined,
         undefined,
       );
 

@@ -12,7 +12,7 @@ import {
 
 function fakeRuntime(): IAgentRuntime {
   return {
-    plugins: [{ name: "milady" }, { name: "test-plugin" }],
+    plugins: [{ name: "eliza" }, { name: "test-plugin" }],
     character: { settings: { model: "claude-opus-4-6" } },
     getSetting: () => null,
     getService: () => null,
@@ -45,7 +45,6 @@ describe("self-awareness integration", () => {
     setGlobalAwarenessRegistry(registry);
     const actionResult = await getSelfStatusAction.handler(
       runtime,
-      {} as never,
       {} as never,
       { parameters: { module: "all", detailLevel: "brief" } },
     );

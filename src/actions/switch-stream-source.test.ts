@@ -14,8 +14,6 @@ import { switchStreamSourceAction } from "./switch-stream-source";
 function callHandler(params: Record<string, unknown> = {}) {
   return switchStreamSourceAction.handler(
     {} as never,
-    {} as never,
-    {} as never,
     { parameters: params } as HandlerOptions,
   );
 }
@@ -63,8 +61,6 @@ describe("SWITCH_STREAM_SOURCE action", () => {
 
   it("validates successfully", async () => {
     const result = await switchStreamSourceAction.validate(
-      {} as never,
-      {} as never,
       {} as never,
     );
     expect(result).toBe(true);
@@ -309,8 +305,6 @@ describe("SWITCH_STREAM_SOURCE action", () => {
     });
 
     const result = await switchStreamSourceAction.handler(
-      {} as never,
-      {} as never,
       {} as never,
       undefined,
     );

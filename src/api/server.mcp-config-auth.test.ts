@@ -23,8 +23,8 @@ describe("extractAuthToken", () => {
   });
 
   it("extracts token from X-Eliza-Token header", () => {
-    const token = extractAuthToken(req({ "x-eliza-token": "milady-tok" }));
-    expect(token).toBe("milady-tok");
+    const token = extractAuthToken(req({ "x-eliza-token": "eliza-tok" }));
+    expect(token).toBe("eliza-tok");
   });
 
   it("extracts token from X-Api-Key header", () => {
@@ -58,22 +58,18 @@ describe("isAuthorized (global API auth gate)", () => {
   afterEach(() => {
     if (prevToken === undefined) {
       delete process.env.ELIZA_API_TOKEN;
-      delete process.env.MILADY_API_TOKEN;
     } else {
       process.env.ELIZA_API_TOKEN = prevToken;
-      process.env.MILADY_API_TOKEN = prevToken;
     }
   });
 
   it("rejects when ELIZA_API_TOKEN is set and no token provided", () => {
     process.env.ELIZA_API_TOKEN = "secret-token";
-    process.env.MILADY_API_TOKEN = "secret-token";
     expect(isAuthorized(req())).toBe(false);
   });
 
   it("rejects when ELIZA_API_TOKEN is set and wrong token provided", () => {
     process.env.ELIZA_API_TOKEN = "secret-token";
-    process.env.MILADY_API_TOKEN = "secret-token";
     expect(isAuthorized(req({ authorization: "Bearer wrong-token" }))).toBe(
       false,
     );
@@ -81,13 +77,11 @@ describe("isAuthorized (global API auth gate)", () => {
 
   it("rejects when token has different length than expected", () => {
     process.env.ELIZA_API_TOKEN = "secret-token";
-    process.env.MILADY_API_TOKEN = "secret-token";
     expect(isAuthorized(req({ authorization: "Bearer short" }))).toBe(false);
   });
 
   it("accepts when ELIZA_API_TOKEN is set and correct Bearer token provided", () => {
     process.env.ELIZA_API_TOKEN = "secret-token";
-    process.env.MILADY_API_TOKEN = "secret-token";
     expect(isAuthorized(req({ authorization: "Bearer secret-token" }))).toBe(
       true,
     );
@@ -95,25 +89,21 @@ describe("isAuthorized (global API auth gate)", () => {
 
   it("accepts when ELIZA_API_TOKEN is set and correct X-Api-Key provided", () => {
     process.env.ELIZA_API_TOKEN = "secret-token";
-    process.env.MILADY_API_TOKEN = "secret-token";
     expect(isAuthorized(req({ "x-api-key": "secret-token" }))).toBe(true);
   });
 
   it("accepts when ELIZA_API_TOKEN is set and correct X-Eliza-Token provided", () => {
     process.env.ELIZA_API_TOKEN = "secret-token";
-    process.env.MILADY_API_TOKEN = "secret-token";
     expect(isAuthorized(req({ "x-eliza-token": "secret-token" }))).toBe(true);
   });
 
   it("accepts any request when ELIZA_API_TOKEN is unset (open access)", () => {
     delete process.env.ELIZA_API_TOKEN;
-    delete process.env.MILADY_API_TOKEN;
     expect(isAuthorized(req())).toBe(true);
   });
 
   it("accepts any request when ELIZA_API_TOKEN is empty string", () => {
     process.env.ELIZA_API_TOKEN = "   ";
-    process.env.MILADY_API_TOKEN = "   ";
     expect(isAuthorized(req())).toBe(true);
   });
 });

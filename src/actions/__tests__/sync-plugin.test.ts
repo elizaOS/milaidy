@@ -18,9 +18,6 @@ describe("syncPluginAction", () => {
   it("should require a plugin ID", async () => {
     const result = await syncPluginAction.handler(
       undefined,
-      undefined,
-      undefined,
-      undefined,
     );
 
     expect(result.success).toBe(false);
@@ -37,8 +34,6 @@ describe("syncPluginAction", () => {
     });
 
     const result = await syncPluginAction.handler(
-      undefined,
-      undefined,
       undefined,
       { parameters: { pluginId: "  discord  " } },
     );
@@ -59,8 +54,6 @@ describe("syncPluginAction", () => {
 
     const result = await syncPluginAction.handler(
       undefined,
-      undefined,
-      undefined,
       { parameters: { pluginId: "discord" } },
     );
 
@@ -79,8 +72,6 @@ describe("syncPluginAction", () => {
     });
 
     const result = await syncPluginAction.handler(
-      undefined,
-      undefined,
       undefined,
       { parameters: { pluginId: "telegram-enhanced" } },
     );

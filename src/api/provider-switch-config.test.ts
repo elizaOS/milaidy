@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { MiladyConfig } from "../config/types.milady";
+import type { ElizaConfig } from "../config/types.eliza";
 
 const { applySubscriptionCredentials, deleteCredentials } = vi.hoisted(() => ({
   applySubscriptionCredentials: vi.fn(async () => undefined),
@@ -29,13 +29,13 @@ import {
 // helpers
 // ---------------------------------------------------------------------------
 
-function emptyConfig(): Partial<MiladyConfig> {
+function emptyConfig(): Partial<ElizaConfig> {
   return {};
 }
 
 function configWithDefaults(
-  defaults: NonNullable<NonNullable<MiladyConfig["agents"]>["defaults"]> = {},
-): Partial<MiladyConfig> {
+  defaults: NonNullable<NonNullable<ElizaConfig["agents"]>["defaults"]> = {},
+): Partial<ElizaConfig> {
   return { agents: { defaults } };
 }
 
@@ -84,7 +84,7 @@ describe("applySubscriptionProviderConfig", () => {
   });
 
   it("preserves existing agents config fields", () => {
-    const config: Partial<MiladyConfig> = {
+    const config: Partial<ElizaConfig> = {
       agents: {
         defaults: { workspace: "/some/path" },
       },
@@ -173,7 +173,6 @@ describe("clearSubscriptionProviderConfig", () => {
       subscriptionProvider: "openai-codex",
     });
 
-    clearSubscriptionProviderConfig(config);
     clearSubscriptionProviderConfig(config);
 
     expect(config.agents?.defaults?.subscriptionProvider).toBeUndefined();

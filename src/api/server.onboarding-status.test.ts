@@ -57,7 +57,7 @@ function req(
 }
 
 const RUNTIME_STUB = {
-  character: { name: "Milady" },
+  character: { name: "Eliza" },
   plugins: [],
   getService: () => null,
   getRoomsByWorld: async () => [],
@@ -72,19 +72,16 @@ describe("GET /api/onboarding/status", () => {
   afterEach(async () => {
     if (originalStateDir === undefined) {
       delete process.env.ELIZA_STATE_DIR;
-      delete process.env.MILADY_STATE_DIR;
     } else {
       process.env.ELIZA_STATE_DIR = originalStateDir;
-      process.env.MILADY_STATE_DIR = originalStateDir;
     }
   });
 
   it("returns incomplete for a fresh skeleton config even when a runtime exists", async () => {
     const tempDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "milady-onboarding-status-"),
+      path.join(os.tmpdir(), "eliza-onboarding-status-"),
     );
     process.env.ELIZA_STATE_DIR = tempDir;
-    process.env.MILADY_STATE_DIR = tempDir;
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({
@@ -123,10 +120,9 @@ describe("GET /api/onboarding/status", () => {
 
   it("returns incomplete for partial cloud auth state before onboarding is finished", async () => {
     const tempDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "milady-onboarding-status-"),
+      path.join(os.tmpdir(), "eliza-onboarding-status-"),
     );
     process.env.ELIZA_STATE_DIR = tempDir;
-    process.env.MILADY_STATE_DIR = tempDir;
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({
@@ -157,10 +153,9 @@ describe("GET /api/onboarding/status", () => {
 
   it("returns complete when a provider is configured via env-backed config", async () => {
     const tempDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "milady-onboarding-status-"),
+      path.join(os.tmpdir(), "eliza-onboarding-status-"),
     );
     process.env.ELIZA_STATE_DIR = tempDir;
-    process.env.MILADY_STATE_DIR = tempDir;
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({
@@ -190,10 +185,9 @@ describe("GET /api/onboarding/status", () => {
 
   it("returns complete when cloud inference was explicitly configured", async () => {
     const tempDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "milady-onboarding-status-"),
+      path.join(os.tmpdir(), "eliza-onboarding-status-"),
     );
     process.env.ELIZA_STATE_DIR = tempDir;
-    process.env.MILADY_STATE_DIR = tempDir;
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({

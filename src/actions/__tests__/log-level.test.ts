@@ -39,7 +39,6 @@ describe("logLevelAction", () => {
       mockRuntime,
       mockMessage,
       undefined,
-      undefined,
       mockCallback,
     );
 
@@ -60,7 +59,6 @@ describe("logLevelAction", () => {
       mockRuntime,
       mockMessage,
       undefined,
-      undefined,
       mockCallback,
     );
 
@@ -80,7 +78,6 @@ describe("logLevelAction", () => {
     const result = await logLevelAction.handler(
       legacyRuntime,
       mockMessage,
-      undefined,
       undefined,
       mockCallback,
     );

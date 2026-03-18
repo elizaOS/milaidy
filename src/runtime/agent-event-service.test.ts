@@ -4,7 +4,7 @@ import {
   AGENT_EVENT_SERVICE_TYPES,
   getAgentEventService,
 } from "./agent-event-service";
-import { createMiladyPlugin } from "./milady-plugin";
+import { createElizaPlugin } from "./eliza-plugin";
 
 describe("getAgentEventService", () => {
   it("prefers the canonical lowercase service type", () => {
@@ -44,15 +44,15 @@ describe("getAgentEventService", () => {
   });
 });
 
-describe("createMiladyPlugin", () => {
+describe("createElizaPlugin", () => {
   it("registers the core AgentEventService", () => {
-    const plugin = createMiladyPlugin();
+    const plugin = createElizaPlugin();
 
     expect(plugin.services).toContain(AgentEventService);
   });
 
   it("omits idle and locomotion emotes from the agent provider prompt", async () => {
-    const plugin = createMiladyPlugin();
+    const plugin = createElizaPlugin();
     const emoteProvider = plugin.providers?.find(
       (provider) => provider.name === "emotes",
     );
@@ -61,7 +61,6 @@ describe("createMiladyPlugin", () => {
 
     const result = await emoteProvider?.get(
       { character: { settings: {} } } as never,
-      {} as never,
       {} as never,
     );
     const availableIdsLine = result?.text

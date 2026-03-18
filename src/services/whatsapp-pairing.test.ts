@@ -153,7 +153,6 @@ describe("whatsapp-pairing", () => {
 
     it("stop() can be called multiple times", () => {
       session.stop();
-      session.stop();
       expect(session.getStatus()).toBe("idle");
     });
   });

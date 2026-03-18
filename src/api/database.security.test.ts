@@ -7,11 +7,11 @@ import {
 const loadConfigMock = vi.fn();
 const saveConfigMock = vi.fn();
 
-// Mock both the "eliza" and "milady" branded function names so the test works
+// Mock both the "eliza" and "eliza" branded function names so the test works
 // regardless of which branding the resolved @elizaos/autonomous source uses.
 vi.mock("@elizaos/autonomous/config/config", () => ({
-  loadMiladyConfig: () => loadConfigMock(),
-  saveMiladyConfig: (cfg: unknown) => saveConfigMock(cfg),
+  loadElizaConfig: () => loadConfigMock(),
+  saveElizaConfig: (cfg: unknown) => saveConfigMock(cfg),
   loadElizaConfig: () => loadConfigMock(),
   saveElizaConfig: (cfg: unknown) => saveConfigMock(cfg),
 }));
@@ -20,13 +20,12 @@ import { handleDatabaseRoute } from "@elizaos/autonomous/api/database";
 
 describe("database API security hardening", () => {
   const prevElizaBind = process.env.ELIZA_API_BIND;
-  const prevMiladyBind = process.env.MILADY_API_BIND;
+  const prevElizaBind = process.env.ELIZA_API_BIND;
 
   beforeEach(() => {
     // Set both env var names so the test works regardless of which branding
     // the resolved @elizaos/autonomous source reads.
     process.env.ELIZA_API_BIND = "0.0.0.0";
-    process.env.MILADY_API_BIND = "0.0.0.0";
     loadConfigMock.mockReturnValue({
       database: { provider: "postgres", postgres: { host: "8.8.8.8" } },
     });
@@ -39,10 +38,10 @@ describe("database API security hardening", () => {
     } else {
       process.env.ELIZA_API_BIND = prevElizaBind;
     }
-    if (prevMiladyBind === undefined) {
-      delete process.env.MILADY_API_BIND;
+    if (prevElizaBind === undefined) {
+      delete process.env.ELIZA_API_BIND;
     } else {
-      process.env.MILADY_API_BIND = prevMiladyBind;
+      process.env.ELIZA_API_BIND = prevElizaBind;
     }
     vi.clearAllMocks();
   });
@@ -194,7 +193,6 @@ describe("database API security hardening", () => {
     "127.0.0.1:2138",
   ])("allows private postgres hosts when API_BIND is loopback with host+port (%s)", async (bindHost) => {
     process.env.ELIZA_API_BIND = bindHost;
-    process.env.MILADY_API_BIND = bindHost;
     const req = createMockJsonRequest(
       {
         provider: "postgres",
@@ -225,7 +223,6 @@ describe("database API security hardening", () => {
     "http://127.0.0.1@evil.com:2138",
   ])("does not treat hostname spoof values as loopback binds (%s)", async (bindHost) => {
     process.env.ELIZA_API_BIND = bindHost;
-    process.env.MILADY_API_BIND = bindHost;
     const req = createMockJsonRequest(
       {
         provider: "postgres",

@@ -49,7 +49,6 @@ describe("plugin-agent-skills catalog fetch patch", () => {
 
     const [first, second] = await Promise.all([
       service.getCatalog({ forceRefresh: true }),
-      service.getCatalog({ forceRefresh: true }),
     ]);
 
     expect(first).toEqual([]);

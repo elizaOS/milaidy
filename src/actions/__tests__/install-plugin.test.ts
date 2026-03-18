@@ -40,7 +40,6 @@ describe("installPluginAction", () => {
       undefined,
       { roomId: "room", content: { text: "" } },
       undefined,
-      undefined,
     );
 
     expect(result.success).toBe(false);

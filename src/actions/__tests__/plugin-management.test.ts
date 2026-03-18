@@ -43,7 +43,6 @@ describe("plugin eject/reinject/list actions", () => {
         undefined,
         { roomId: "room", content: { text: "" } },
         undefined,
-        undefined,
       );
 
       expect(result.success).toBe(false);
@@ -107,7 +106,6 @@ describe("plugin eject/reinject/list actions", () => {
       const result = await reinjectPluginAction.handler(
         undefined,
         { roomId: "room", content: { text: "" } },
-        undefined,
         undefined,
       );
 
@@ -185,7 +183,7 @@ describe("plugin eject/reinject/list actions", () => {
           path: "/tmp/plugins/ejected/_elizaos_plugin-discord",
           version: "2.0.0",
           upstream: {
-            $schema: "milady-upstream-v1",
+            $schema: "eliza-upstream-v1",
             branch: "develop",
             gitUrl: "https://github.com/elizaos-plugins/plugin-discord",
             commitHash: "abc",
@@ -201,7 +199,7 @@ describe("plugin eject/reinject/list actions", () => {
           path: "/tmp/plugins/ejected/_elizaos_plugin-telegram",
           version: "1.0.0",
           upstream: {
-            $schema: "milady-upstream-v1",
+            $schema: "eliza-upstream-v1",
             gitUrl: "https://github.com/elizaos-plugins/plugin-telegram",
             commitHash: "def",
             source: "github:elizaos-plugins/plugin-telegram",

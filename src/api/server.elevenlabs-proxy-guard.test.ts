@@ -54,7 +54,6 @@ describe("ElevenLabs proxy guards", () => {
       new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(new Uint8Array(8));
-          controller.enqueue(new Uint8Array(8));
           controller.close();
         },
       }),

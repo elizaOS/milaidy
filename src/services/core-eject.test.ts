@@ -107,7 +107,7 @@ async function writeEjectedCore(stateDir: string, withUpstream = true) {
       path.join(stateDir, "core", ".upstream.json"),
       JSON.stringify(
         {
-          $schema: "milady-upstream-v1",
+          $schema: "eliza-upstream-v1",
           source: "github:elizaos/eliza",
           gitUrl: "https://github.com/elizaos/eliza.git",
           branch: "develop",
@@ -134,7 +134,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   originalCwd = process.cwd();
 
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-core-eject-test-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-core-eject-test-"));
   repoDir = path.join(tmpDir, "repo");
   mockedStateDir = path.join(tmpDir, "state");
 
@@ -212,7 +212,7 @@ describe("core-eject", () => {
         "utf-8",
       );
       const upstream = JSON.parse(upstreamRaw) as Record<string, unknown>;
-      expect(upstream.$schema).toBe("milady-upstream-v1");
+      expect(upstream.$schema).toBe("eliza-upstream-v1");
       expect(upstream.gitUrl).toBe("https://github.com/elizaos/eliza.git");
       expect(upstream.branch).toBe("develop");
       expect(upstream.commitHash).toBe("head123");
@@ -246,7 +246,6 @@ describe("core-eject", () => {
       ).not.toHaveBeenCalledWith(
         "git",
         expect.arrayContaining(["clone"]),
-        expect.anything(),
         expect.anything(),
       );
     });
@@ -366,7 +365,7 @@ describe("core-eject", () => {
         "utf-8",
       );
       const upstream = JSON.parse(upstreamRaw) as Record<string, unknown>;
-      expect(upstream.$schema).toBe("milady-upstream-v1");
+      expect(upstream.$schema).toBe("eliza-upstream-v1");
       expect(upstream.commitHash).toBe("newhead456");
       expect(upstream.localCommits).toBe(1);
       expect(typeof upstream.lastSyncAt).toBe("string");
@@ -504,7 +503,7 @@ describe("core-eject", () => {
       expect(status.version).toBe("2.0.0-alpha.99");
       expect(status.commitHash).toBe("corehead987");
       expect(status.localChanges).toBe(true);
-      expect(status.upstream?.$schema).toBe("milady-upstream-v1");
+      expect(status.upstream?.$schema).toBe("eliza-upstream-v1");
     });
   });
 

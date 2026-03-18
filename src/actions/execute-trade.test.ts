@@ -16,8 +16,6 @@ const VALID_TOKEN = "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82";
 function callHandler(params: Record<string, unknown>) {
   return executeTradeAction.handler(
     {} as never,
-    {} as never,
-    {} as never,
     { parameters: params } as HandlerOptions,
   );
 }
@@ -78,7 +76,6 @@ describe("EXECUTE_TRADE action", () => {
     const result = await executeTradeAction.validate(
       runtime as never,
       {} as never,
-      {} as never,
     );
     expect(result).toBe(true);
   });
@@ -91,7 +88,6 @@ describe("EXECUTE_TRADE action", () => {
     const result = await executeTradeAction.validate(
       runtime as never,
       {} as never,
-      {} as never,
     );
     expect(result).toBe(true);
   });
@@ -102,7 +98,6 @@ describe("EXECUTE_TRADE action", () => {
     };
     const result = await executeTradeAction.validate(
       runtime as never,
-      {} as never,
       {} as never,
     );
     expect(result).toBe(false);
@@ -257,7 +252,7 @@ describe("EXECUTE_TRADE action", () => {
     expect(url).toBe("http://127.0.0.1:2138/api/wallet/trade/execute");
     expect(opts.method).toBe("POST");
     expect(
-      (opts.headers as Record<string, string>)["X-Milady-Agent-Action"],
+      (opts.headers as Record<string, string>)["X-Eliza-Agent-Action"],
     ).toBe("1");
     expect((opts.headers as Record<string, string>)["Content-Type"]).toBe(
       "application/json",
@@ -448,8 +443,6 @@ describe("EXECUTE_TRADE action", () => {
   it("handles missing parameters entirely", async () => {
     const result = await executeTradeAction.handler(
       {} as never,
-      {} as never,
-      {} as never,
       undefined,
     );
     expect((result as { success: boolean }).success).toBe(false);
@@ -457,9 +450,9 @@ describe("EXECUTE_TRADE action", () => {
 
   // ── Auth header ──────────────────────────────────────────────────────────
 
-  it("includes Authorization header when MILADY_API_TOKEN is set", async () => {
-    const originalToken = process.env.MILADY_API_TOKEN;
-    process.env.MILADY_API_TOKEN = "test-secret-token";
+  it("includes Authorization header when ELIZA_API_TOKEN is set", async () => {
+    const originalToken = process.env.ELIZA_API_TOKEN;
+    process.env.ELIZA_API_TOKEN = "test-secret-token";
 
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce({
@@ -490,12 +483,12 @@ describe("EXECUTE_TRADE action", () => {
       "Bearer test-secret-token",
     );
 
-    process.env.MILADY_API_TOKEN = originalToken;
+    process.env.ELIZA_API_TOKEN = originalToken;
   });
 
-  it("omits Authorization header when MILADY_API_TOKEN is not set", async () => {
-    const originalToken = process.env.MILADY_API_TOKEN;
-    delete process.env.MILADY_API_TOKEN;
+  it("omits Authorization header when ELIZA_API_TOKEN is not set", async () => {
+    const originalToken = process.env.ELIZA_API_TOKEN;
+    delete process.env.ELIZA_API_TOKEN;
 
     const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
     mockFetch.mockResolvedValueOnce({
@@ -526,7 +519,7 @@ describe("EXECUTE_TRADE action", () => {
       (opts.headers as Record<string, string>).Authorization,
     ).toBeUndefined();
 
-    process.env.MILADY_API_TOKEN = originalToken;
+    process.env.ELIZA_API_TOKEN = originalToken;
   });
 
   // ── Prompt injection resistance ──────────────────────────────────────────

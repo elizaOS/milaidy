@@ -22,7 +22,6 @@ describe("emoteAction", () => {
       undefined,
       { roomId: "room", content: { text: "" } },
       undefined,
-      undefined,
     );
 
     expect(result.success).toBe(false);
@@ -44,7 +43,6 @@ describe("emoteAction", () => {
     const result = await emoteAction.handler(
       undefined,
       { roomId: "room", content: { text: "please wave now" } },
-      undefined,
       undefined,
     );
 
@@ -83,7 +81,6 @@ describe("emoteAction", () => {
     const result = await emoteAction.handler(
       undefined,
       { roomId: "room", content: { text: "walk over there" } },
-      undefined,
       undefined,
     );
 

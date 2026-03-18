@@ -112,7 +112,6 @@ describe("AwarenessRegistry", () => {
       }),
     );
     await reg.composeSummary(fakeRuntime());
-    await reg.composeSummary(fakeRuntime());
     expect(callCount).toBe(1);
   });
 

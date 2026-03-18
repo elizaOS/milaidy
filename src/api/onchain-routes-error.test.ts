@@ -52,7 +52,7 @@ class ThrowingDropService {
 
 // ── Module mocks (hoisted by vitest) ────────────────────────────────────────
 
-vi.mock("@elizaos/autonomous/api/tx-service.ts", () => ({
+vi.mock("@elizaos/autonomous/api/tx-service", () => ({
   TxService: class MockTxService {
     address = "0x1111111111111111111111111111111111111111";
     getContract() {
@@ -61,15 +61,15 @@ vi.mock("@elizaos/autonomous/api/tx-service.ts", () => ({
   },
 }));
 
-vi.mock("@elizaos/autonomous/api/registry-service.ts", () => ({
+vi.mock("@elizaos/autonomous/api/registry-service", () => ({
   RegistryService: ThrowingRegistryService,
 }));
 
-vi.mock("@elizaos/autonomous/api/drop-service.ts", () => ({
+vi.mock("@elizaos/autonomous/api/drop-service", () => ({
   DropService: ThrowingDropService,
 }));
 
-vi.mock("@elizaos/autonomous/config/config.ts", () => {
+vi.mock("@elizaos/autonomous/config/config", () => {
   const configData = {
     registry: {
       registryAddress: "0x2222222222222222222222222222222222222222",
@@ -84,14 +84,12 @@ vi.mock("@elizaos/autonomous/config/config.ts", () => {
   };
   return {
     loadElizaConfig: () => configData,
-    loadMiladyConfig: () => configData,
     saveElizaConfig: () => {},
-    saveMiladyConfig: () => {},
     configFileExists: () => true,
   };
 });
 
-vi.mock("@elizaos/autonomous/services/mcp-marketplace.ts", () => ({
+vi.mock("@elizaos/autonomous/services/mcp-marketplace", () => ({
   searchMcpMarketplace: vi.fn().mockResolvedValue({ results: [] }),
   getMcpServerDetails: vi.fn().mockResolvedValue(null),
 }));
@@ -140,7 +138,7 @@ function req(
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-const { startApiServer } = await import("@elizaos/autonomous/api/server.ts");
+const { startApiServer } = await import("@elizaos/autonomous/api/server");
 
 describe("on-chain route error propagation (MW-02)", () => {
   let port: number;

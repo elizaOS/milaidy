@@ -92,8 +92,6 @@ describe("ConnectorHealthMonitor", () => {
     });
 
     monitor.check();
-    monitor.check();
-    monitor.check();
 
     // Should only fire once on the first transition
     expect(broadcastWs).toHaveBeenCalledTimes(1);

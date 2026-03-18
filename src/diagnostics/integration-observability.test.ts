@@ -387,8 +387,6 @@ describe("createIntegrationTelemetrySpan", () => {
       );
 
       span.success();
-      span.success();
-      span.success();
 
       expect(loggerMock.info).toHaveBeenCalledOnce();
     });

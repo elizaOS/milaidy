@@ -18,11 +18,13 @@ import {
   findPackageFilePaths,
   findPackageJsonPaths,
   patchAgentSkillsCatalogFetch,
+  patchBrokenElizaCoreRuntimeDists,
   patchBunExports,
   patchExtensionlessJsExports,
   patchMissingLifecycleScript,
   patchNobleHashesCompat,
   patchProperLockfileSignalExitCompat,
+  repairElizaCoreRuntimeDist,
 } from "./patch-bun-exports.mjs";
 
 describe("patch-bun-exports", () => {
@@ -191,6 +193,114 @@ describe("patch-bun-exports", () => {
 
       const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
       expect(updated.exports["."].bun).toBeUndefined();
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("repairElizaCoreRuntimeDist copies runtime dist into a broken cached core package", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const sourcePkgDir = join(tmp, "node_modules", "@elizaos", "core");
+      const brokenPkgDir = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+core@2.0.0-alpha.21",
+        "node_modules",
+        "@elizaos",
+        "core",
+      );
+
+      mkdirSync(join(sourcePkgDir, "dist", "node"), { recursive: true });
+      mkdirSync(join(sourcePkgDir, "dist", "browser"), { recursive: true });
+      writeFileSync(join(sourcePkgDir, "dist", "index.js"), "// root", "utf8");
+      writeFileSync(
+        join(sourcePkgDir, "dist", "node", "index.node.js"),
+        "// node",
+        "utf8",
+      );
+      writeFileSync(
+        join(sourcePkgDir, "dist", "browser", "index.browser.js"),
+        "// browser",
+        "utf8",
+      );
+
+      mkdirSync(join(brokenPkgDir, "dist", "testing"), { recursive: true });
+      writeFileSync(
+        join(brokenPkgDir, "dist", "testing", "index.js"),
+        "// only testing",
+        "utf8",
+      );
+
+      const patched = repairElizaCoreRuntimeDist(brokenPkgDir, sourcePkgDir);
+      expect(patched).toBe(true);
+      expect(readFileSync(join(brokenPkgDir, "dist", "index.js"), "utf8")).toBe(
+        "// root",
+      );
+      expect(
+        readFileSync(
+          join(brokenPkgDir, "dist", "node", "index.node.js"),
+          "utf8",
+        ),
+      ).toBe("// node");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchBrokenElizaCoreRuntimeDists repairs broken Bun cache copies from the root install", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const rootPkgDir = join(tmp, "node_modules", "@elizaos", "core");
+      const brokenPkgDir = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+core@2.0.0-alpha.13",
+        "node_modules",
+        "@elizaos",
+        "core",
+      );
+
+      mkdirSync(join(rootPkgDir, "dist", "node"), { recursive: true });
+      mkdirSync(join(rootPkgDir, "dist", "browser"), { recursive: true });
+      writeFileSync(join(rootPkgDir, "package.json"), "{}", "utf8");
+      writeFileSync(join(rootPkgDir, "dist", "index.js"), "// root", "utf8");
+      writeFileSync(
+        join(rootPkgDir, "dist", "node", "index.node.js"),
+        "// node",
+        "utf8",
+      );
+      writeFileSync(
+        join(rootPkgDir, "dist", "browser", "index.browser.js"),
+        "// browser",
+        "utf8",
+      );
+
+      mkdirSync(join(brokenPkgDir, "dist", "testing"), { recursive: true });
+      writeFileSync(join(brokenPkgDir, "package.json"), "{}", "utf8");
+      writeFileSync(
+        join(brokenPkgDir, "dist", "testing", "index.js"),
+        "// only testing",
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchBrokenElizaCoreRuntimeDists(tmp, (msg) =>
+        logs.push(msg),
+      );
+
+      expect(patched).toBe(true);
+      expect(logs.some((line) => line.includes("Repaired @elizaos/core"))).toBe(
+        true,
+      );
+      expect(
+        readFileSync(
+          join(brokenPkgDir, "dist", "node", "index.node.js"),
+          "utf8",
+        ),
+      ).toBe("// node");
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

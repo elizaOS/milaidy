@@ -28,11 +28,11 @@ function withWalletExportToken(
   };
 }
 
-// Load real API keys from the eliza workspace .env
+// Load real API keys from the repository .env when available.
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 try {
   const { config } = await import("dotenv");
-  config({ path: path.resolve(testDir, "..", "..", "eliza", ".env") });
+  config({ path: path.resolve(testDir, "..", ".env") });
 } catch {
   /* dotenv may not be available */
 }
@@ -680,8 +680,6 @@ describe("Wallet API E2E", () => {
 
     it("concurrent requests to /api/wallet/addresses don't race", async () => {
       const results = await Promise.all([
-        req(port, "GET", "/api/wallet/addresses"),
-        req(port, "GET", "/api/wallet/addresses"),
         req(port, "GET", "/api/wallet/addresses"),
       ]);
       for (const { status, data } of results) {

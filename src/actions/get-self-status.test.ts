@@ -27,8 +27,6 @@ describe("GET_SELF_STATUS action", () => {
   it("validates successfully", async () => {
     const result = await getSelfStatusAction.validate(
       {} as never,
-      {} as never,
-      {} as never,
     );
     expect(result).toBe(true);
   });
@@ -46,7 +44,6 @@ describe("GET_SELF_STATUS action", () => {
     const rt = mockRuntime(registry);
     const result = await getSelfStatusAction.handler(
       rt,
-      {} as never,
       {} as never,
       {
         parameters: { module: "wallet", detailLevel: "brief" },
@@ -69,7 +66,6 @@ describe("GET_SELF_STATUS action", () => {
     const result = await getSelfStatusAction.handler(
       rt,
       {} as never,
-      {} as never,
       { parameters: {} } as HandlerOptions,
     );
     expect(result?.text).toContain("test detail");
@@ -81,7 +77,6 @@ describe("GET_SELF_STATUS action", () => {
     >[0];
     const result = await getSelfStatusAction.handler(
       rt,
-      {} as never,
       {} as never,
       { parameters: {} } as HandlerOptions,
     );

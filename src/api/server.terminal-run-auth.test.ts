@@ -28,26 +28,20 @@ describe("resolveTerminalRunRejection", () => {
   afterEach(() => {
     if (prevApiToken === undefined) {
       delete process.env.ELIZA_API_TOKEN;
-      delete process.env.MILADY_API_TOKEN;
     } else {
       process.env.ELIZA_API_TOKEN = prevApiToken;
-      process.env.MILADY_API_TOKEN = prevApiToken;
     }
 
     if (prevTerminalToken === undefined) {
       delete process.env.ELIZA_TERMINAL_RUN_TOKEN;
-      delete process.env.MILADY_TERMINAL_RUN_TOKEN;
     } else {
       process.env.ELIZA_TERMINAL_RUN_TOKEN = prevTerminalToken;
-      process.env.MILADY_TERMINAL_RUN_TOKEN = prevTerminalToken;
     }
   });
 
   it("allows legacy local mode when no API token and no terminal token are set", () => {
     delete process.env.ELIZA_API_TOKEN;
-    delete process.env.MILADY_API_TOKEN;
     delete process.env.ELIZA_TERMINAL_RUN_TOKEN;
-    delete process.env.MILADY_TERMINAL_RUN_TOKEN;
 
     const rejection = resolveTerminalRunRejection(
       req() as http.IncomingMessage,
@@ -59,9 +53,7 @@ describe("resolveTerminalRunRejection", () => {
 
   it("rejects token-authenticated API sessions when terminal token is disabled", () => {
     process.env.ELIZA_API_TOKEN = "api-token";
-    process.env.MILADY_API_TOKEN = "api-token";
     delete process.env.ELIZA_TERMINAL_RUN_TOKEN;
-    delete process.env.MILADY_TERMINAL_RUN_TOKEN;
 
     const rejection = resolveTerminalRunRejection(
       req() as http.IncomingMessage,
@@ -77,9 +69,7 @@ describe("resolveTerminalRunRejection", () => {
 
   it("rejects when terminal token is missing", () => {
     process.env.ELIZA_API_TOKEN = "api-token";
-    process.env.MILADY_API_TOKEN = "api-token";
     process.env.ELIZA_TERMINAL_RUN_TOKEN = "terminal-secret";
-    process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
 
     const rejection = resolveTerminalRunRejection(
       req() as http.IncomingMessage,
@@ -95,9 +85,7 @@ describe("resolveTerminalRunRejection", () => {
 
   it("rejects invalid terminal token", () => {
     process.env.ELIZA_API_TOKEN = "api-token";
-    process.env.MILADY_API_TOKEN = "api-token";
     process.env.ELIZA_TERMINAL_RUN_TOKEN = "terminal-secret";
-    process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
 
     const rejection = resolveTerminalRunRejection(
       req() as http.IncomingMessage,
@@ -112,9 +100,7 @@ describe("resolveTerminalRunRejection", () => {
 
   it("accepts a valid terminal token from header", () => {
     process.env.ELIZA_API_TOKEN = "api-token";
-    process.env.MILADY_API_TOKEN = "api-token";
     process.env.ELIZA_TERMINAL_RUN_TOKEN = "terminal-secret";
-    process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
 
     const rejection = resolveTerminalRunRejection(
       req({
@@ -128,9 +114,7 @@ describe("resolveTerminalRunRejection", () => {
 
   it("accepts a valid terminal token from body", () => {
     process.env.ELIZA_API_TOKEN = "api-token";
-    process.env.MILADY_API_TOKEN = "api-token";
     process.env.ELIZA_TERMINAL_RUN_TOKEN = "terminal-secret";
-    process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
 
     const rejection = resolveTerminalRunRejection(
       req() as http.IncomingMessage,
@@ -142,9 +126,7 @@ describe("resolveTerminalRunRejection", () => {
 
   it("enforces explicit terminal token when configured without API token", () => {
     delete process.env.ELIZA_API_TOKEN;
-    delete process.env.MILADY_API_TOKEN;
     process.env.ELIZA_TERMINAL_RUN_TOKEN = "terminal-secret";
-    process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
 
     const rejection = resolveTerminalRunRejection(
       req() as http.IncomingMessage,

@@ -16,8 +16,8 @@ import http from "node:http";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-// Load .env from the eliza workspace root
-const envPath = path.resolve(import.meta.dirname, "..", "..", "eliza", ".env");
+// Load .env from the repository root when present.
+const envPath = path.resolve(import.meta.dirname, "..", ".env");
 try {
   const { config } = await import("dotenv");
   config({ path: envPath });
@@ -278,7 +278,6 @@ describe.skipIf(!canRun)("Wallet live E2E — real keys, real APIs", () => {
         tokenId: string;
         collectionName: string;
       }>;
-    }>;
 
     expect(Array.isArray(evm)).toBe(true);
     expect(evm.length).toBe(5); // All 5 chains attempted

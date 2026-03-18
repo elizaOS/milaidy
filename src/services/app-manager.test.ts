@@ -2,8 +2,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { AppManager } from "@elizaos/autonomous/services/app-manager.ts";
-import * as registryClient from "@elizaos/autonomous/services/registry-client.ts";
+import { AppManager } from "@elizaos/autonomous/services/app-manager";
+import * as registryClient from "@elizaos/autonomous/services/registry-client";
 import {
   type Action,
   type Character,
@@ -326,7 +326,7 @@ describe("AppManager Integration", () => {
 
   beforeEach(async () => {
     // Setup temp directory for plugins
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-test-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "eliza-test-"));
     const pluginsDir = path.join(tempDir, "plugins");
     fs.mkdirSync(pluginsDir);
 
@@ -362,7 +362,6 @@ describe("AppManager Integration", () => {
       pluginDirectory: pluginsDir,
     });
 
-    process.env.MILADY_STATE_DIR = tempDir;
     process.env.ELIZA_STATE_DIR = tempDir;
 
     appManager = new AppManager();
@@ -464,7 +463,6 @@ describe("Hyperscape Auto-Provisioning", () => {
       HYPERSCAPE_SERVER_URL: process.env.HYPERSCAPE_SERVER_URL,
       SOLANA_PRIVATE_KEY: process.env.SOLANA_PRIVATE_KEY,
       EVM_PRIVATE_KEY: process.env.EVM_PRIVATE_KEY,
-      MILADY_STATE_DIR: process.env.MILADY_STATE_DIR,
       ELIZA_STATE_DIR: process.env.ELIZA_STATE_DIR,
     };
 
@@ -474,7 +472,7 @@ describe("Hyperscape Auto-Provisioning", () => {
     delete process.env.SOLANA_PRIVATE_KEY;
     delete process.env.EVM_PRIVATE_KEY;
 
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-hyperscape-test-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "eliza-hyperscape-test-"));
     const pluginsDir = path.join(tempDir, "plugins");
     fs.mkdirSync(pluginsDir);
 
@@ -483,7 +481,6 @@ describe("Hyperscape Auto-Provisioning", () => {
       pluginDirectory: pluginsDir,
     });
 
-    process.env.MILADY_STATE_DIR = tempDir;
     process.env.ELIZA_STATE_DIR = tempDir;
     appManager = new AppManager();
   });
@@ -760,7 +757,6 @@ describe("App URL template security", () => {
   beforeEach(() => {
     originalEnv = {
       BOT_NAME: process.env.BOT_NAME,
-      MILADY_API_TOKEN: process.env.MILADY_API_TOKEN,
       ELIZA_API_TOKEN: process.env.ELIZA_API_TOKEN,
     };
     vi.spyOn(registryClient, "getPluginInfo").mockResolvedValue(null);
@@ -779,14 +775,13 @@ describe("App URL template security", () => {
 
   it("does not interpolate non-allowlisted env vars into app URLs", async () => {
     process.env.BOT_NAME = "allowlisted-bot";
-    process.env.MILADY_API_TOKEN = "super-secret-token";
     process.env.ELIZA_API_TOKEN = "super-secret-token";
     const appInfo = createRegistryApp({
       launchUrl:
-        "https://launch.example/?bot={BOT_NAME}&token={MILADY_API_TOKEN}",
+        "https://launch.example/?bot={BOT_NAME}&token={ELIZA_API_TOKEN}",
       viewer: {
-        url: "https://viewer.example/play?bot={BOT_NAME}&token={MILADY_API_TOKEN}",
-        embedParams: { session: "{MILADY_API_TOKEN}" },
+        url: "https://viewer.example/play?bot={BOT_NAME}&token={ELIZA_API_TOKEN}",
+        embedParams: { session: "{ELIZA_API_TOKEN}" },
       },
     });
 

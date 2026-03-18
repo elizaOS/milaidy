@@ -22,8 +22,6 @@ async function callAction(
 ) {
   return action.handler(
     {} as never,
-    {} as never,
-    {} as never,
     { parameters: params } as HandlerOptions,
   ) as Promise<{ text: string; success: boolean }>;
 }

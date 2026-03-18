@@ -22,10 +22,10 @@ function getBenchmarkAction() {
 function getBenchmarkProvider() {
   const plugin = createBenchmarkPlugin();
   const provider = plugin.providers?.find(
-    (entry) => entry.name === "MILADY_BENCHMARK",
+    (entry) => entry.name === "ELIZA_BENCHMARK",
   );
   if (!provider?.get) {
-    throw new Error("MILADY_BENCHMARK provider is not configured");
+    throw new Error("ELIZA_BENCHMARK provider is not configured");
   }
   return provider;
 }
@@ -41,15 +41,11 @@ describe("benchmark plugin action capture", () => {
 
     const withoutContext = await action.validate(
       {} as never,
-      {} as never,
-      {} as never,
     );
     expect(withoutContext).toBe(false);
 
     setBenchmarkContext({ benchmark: "agentbench", taskId: "task-1" });
     const withContext = await action.validate(
-      {} as never,
-      {} as never,
       {} as never,
     );
     expect(withContext).toBe(true);
@@ -60,8 +56,6 @@ describe("benchmark plugin action capture", () => {
     setBenchmarkContext({ benchmark: "agentbench", taskId: "task-2" });
 
     await action.handler(
-      {} as never,
-      {} as never,
       {} as never,
       {
         parameters: {
@@ -81,8 +75,6 @@ describe("benchmark plugin action capture", () => {
     setBenchmarkContext({ benchmark: "tau-bench", taskId: "task-3" });
 
     await action.handler(
-      {} as never,
-      {} as never,
       {} as never,
       {
         parameters: {
@@ -105,8 +97,6 @@ describe("benchmark plugin action capture", () => {
 
     await action.handler(
       {} as never,
-      {} as never,
-      {} as never,
       {
         parameters: {
           tool_name: "lookup_order",
@@ -127,8 +117,6 @@ describe("benchmark plugin action capture", () => {
     setBenchmarkContext({ benchmark: "mind2web", taskId: "task-5" });
 
     await action.handler(
-      {} as never,
-      {} as never,
       {} as never,
       {
         parameters: {

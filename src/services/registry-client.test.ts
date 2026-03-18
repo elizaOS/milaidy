@@ -1,5 +1,5 @@
 /**
- * Tests for the Milady registry client.
+ * Tests for the Eliza registry client.
  *
  * Exercises the full cache hierarchy (memory → file → network), search
  * scoring, plugin lookup, and edge cases for malformed data.
@@ -297,21 +297,19 @@ beforeEach(async () => {
   // Reset module cache to get fresh module-level state
   vi.resetModules();
 
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-reg-test-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-reg-test-"));
   savedEnv = {
-    MILADY_STATE_DIR: process.env.MILADY_STATE_DIR,
-    MILADY_WORKSPACE_ROOT: process.env.MILADY_WORKSPACE_ROOT,
+    ELIZA_STATE_DIR: process.env.ELIZA_STATE_DIR,
+    ELIZA_WORKSPACE_ROOT: process.env.ELIZA_WORKSPACE_ROOT,
     // The upstream autonomous package uses ELIZA_* env vars
     ELIZA_STATE_DIR: process.env.ELIZA_STATE_DIR,
     ELIZA_WORKSPACE_ROOT: process.env.ELIZA_WORKSPACE_ROOT,
   };
-  // Point the file cache at our temp dir (set both milady and eliza variants
+  // Point the file cache at our temp dir (set both eliza and eliza variants
   // so tests pass regardless of which source is resolved via vitest aliases)
-  process.env.MILADY_STATE_DIR = tmpDir;
   process.env.ELIZA_STATE_DIR = tmpDir;
   const isolatedWorkspaceRoot = path.join(tmpDir, "workspace-empty");
   await fs.mkdir(isolatedWorkspaceRoot, { recursive: true });
-  process.env.MILADY_WORKSPACE_ROOT = isolatedWorkspaceRoot;
   process.env.ELIZA_WORKSPACE_ROOT = isolatedWorkspaceRoot;
 
   // Mock global fetch
@@ -320,8 +318,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.unstubAllGlobals();
-  process.env.MILADY_STATE_DIR = savedEnv.MILADY_STATE_DIR;
-  process.env.MILADY_WORKSPACE_ROOT = savedEnv.MILADY_WORKSPACE_ROOT;
+  process.env.ELIZA_STATE_DIR = savedEnv.ELIZA_STATE_DIR;
+  process.env.ELIZA_WORKSPACE_ROOT = savedEnv.ELIZA_WORKSPACE_ROOT;
   process.env.ELIZA_STATE_DIR = savedEnv.ELIZA_STATE_DIR;
   process.env.ELIZA_WORKSPACE_ROOT = savedEnv.ELIZA_WORKSPACE_ROOT;
   await removeDirWithRetries(tmpDir);
@@ -936,7 +934,6 @@ describe("registry-client", () => {
         launchType: "connect",
         launchUrl: "https://hyperscape.ai",
       });
-      process.env.MILADY_WORKSPACE_ROOT = workspaceRoot;
       process.env.ELIZA_WORKSPACE_ROOT = workspaceRoot;
 
       vi.stubGlobal(
@@ -983,7 +980,6 @@ describe("registry-client", () => {
         description: "Local plugin with keyword metadata",
         keywords: ["voice", "speech-to-text", "elizaos", "plugin"],
       });
-      process.env.MILADY_WORKSPACE_ROOT = workspaceRoot;
       process.env.ELIZA_WORKSPACE_ROOT = workspaceRoot;
 
       vi.stubGlobal(

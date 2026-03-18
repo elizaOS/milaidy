@@ -417,7 +417,6 @@ describe("createPiAiHandler", () => {
       // Verify stream was called with signal in options
       expect(mockStream).toHaveBeenCalledWith(
         expect.anything(),
-        expect.anything(),
         expect.objectContaining({ signal: controller.signal }),
       );
     });
@@ -446,7 +445,6 @@ describe("createPiAiHandler", () => {
       );
 
       expect(mockStream).toHaveBeenCalledWith(
-        expect.anything(),
         expect.anything(),
         expect.objectContaining({ signal: controller.signal }),
       );
@@ -532,7 +530,6 @@ describe("createPiAiHandler", () => {
       await handler(runtime as unknown, { prompt: "test" } as unknown);
 
       expect(mockStream).toHaveBeenCalledWith(
-        expect.anything(),
         expect.anything(),
         expect.objectContaining({ apiKey: "test-api-key" }),
       );

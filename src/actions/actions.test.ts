@@ -3,7 +3,7 @@
  *
  * Tests the custom action lifecycle (not SSRF — that's in custom-actions.test.ts).
  * Covers: registerCustomActionLive, loadCustomActions, defToAction, buildTestHandler,
- * and the built-in action registration on the Milady plugin.
+ * and the built-in action registration on the Eliza plugin.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,9 +17,7 @@ vi.mock("@elizaos/autonomous/config/config", () => {
   const saveFn = vi.fn();
   return {
     loadElizaConfig: loadFn,
-    loadMiladyConfig: loadFn,
     saveElizaConfig: saveFn,
-    saveMiladyConfig: saveFn,
   };
 });
 
@@ -36,7 +34,7 @@ import {
   setCustomActionsRuntime,
 } from "@elizaos/autonomous/runtime/custom-actions";
 import type { IAgentRuntime } from "@elizaos/core";
-import type { CustomActionDef, MiladyConfig } from "../config/types.milady";
+import type { CustomActionDef, ElizaConfig } from "../config/types.eliza";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -130,7 +128,7 @@ describe("registerCustomActionLive", () => {
 
 describe("loadCustomActions", () => {
   it("returns empty array when config has no custom actions", () => {
-    vi.mocked(loadElizaConfig).mockReturnValue({} as MiladyConfig);
+    vi.mocked(loadElizaConfig).mockReturnValue({} as ElizaConfig);
     const actions = loadCustomActions();
     expect(actions).toEqual([]);
   });
@@ -141,7 +139,7 @@ describe("loadCustomActions", () => {
         makeDef({ id: "a1", name: "ACTION_ONE", enabled: true }),
         makeDef({ id: "a2", name: "ACTION_TWO", enabled: true }),
       ],
-    } as MiladyConfig);
+    } as ElizaConfig);
 
     const actions = loadCustomActions();
     expect(actions).toHaveLength(2);
@@ -155,7 +153,7 @@ describe("loadCustomActions", () => {
         makeDef({ id: "a1", name: "ENABLED_ACTION", enabled: true }),
         makeDef({ id: "a2", name: "DISABLED_ACTION", enabled: false }),
       ],
-    } as MiladyConfig);
+    } as ElizaConfig);
 
     const actions = loadCustomActions();
     expect(actions).toHaveLength(1);

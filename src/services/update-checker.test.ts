@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CHANNEL_DIST_TAGS } from "./update-checker";
 
-// The type is inlined to avoid resolving types.milady vs types.eliza
+// The type is inlined to avoid resolving types.eliza vs types.eliza
 // depending on the workspace layout.
 type ReleaseChannel = "stable" | "beta" | "nightly";
 
@@ -19,22 +19,20 @@ type ReleaseChannel = "stable" | "beta" | "nightly";
 
 // Mock config module before imports.
 // The eliza workspace exports loadElizaConfig/saveElizaConfig while the npm
-// milady fork exports loadMiladyConfig/saveMiladyConfig.  Provide both so the
+// eliza fork exports loadElizaConfig/saveElizaConfig.  Provide both so the
 // mock satisfies whichever variant the resolved source uses.
 const { _loadConfig, _saveConfig } = vi.hoisted(() => ({
   _loadConfig: vi.fn(() => ({})),
   _saveConfig: vi.fn(),
 }));
 
-vi.mock("@elizaos/autonomous/config/config.ts", () => ({
+vi.mock("@elizaos/autonomous/config/config", () => ({
   loadElizaConfig: _loadConfig,
   saveElizaConfig: _saveConfig,
-  loadMiladyConfig: _loadConfig,
-  saveMiladyConfig: _saveConfig,
 }));
 
 // Mock version module
-vi.mock("@elizaos/autonomous/runtime/version.ts", () => ({
+vi.mock("@elizaos/autonomous/runtime/version", () => ({
   VERSION: "2.0.0-alpha.7",
 }));
 
@@ -42,16 +40,16 @@ import {
   checkForUpdate,
   fetchAllChannelVersions,
   resolveChannel,
-} from "@elizaos/autonomous/services/update-checker.ts";
+} from "@elizaos/autonomous/services/update-checker";
 
 // ============================================================================
 // 1. Channel resolution
 // ============================================================================
 
 describe("resolveChannel", () => {
-  // The source uses either ELIZA_UPDATE_CHANNEL or MILADY_UPDATE_CHANNEL
-  // depending on the resolved package version.  Set/clear both to be safe.
-  const ENV_KEYS = ["ELIZA_UPDATE_CHANNEL", "MILADY_UPDATE_CHANNEL"] as const;
+  // The source uses ELIZA_UPDATE_CHANNEL to override the release channel.
+  // Set/clear it to be safe.
+  const ENV_KEYS = ["ELIZA_UPDATE_CHANNEL"] as const;
   const originals = ENV_KEYS.map((k) => process.env[k]);
 
   function setChannelEnv(value: string) {
@@ -385,8 +383,8 @@ describe("checkForUpdate", () => {
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const [url, options] = mockFetch.mock.calls[0];
-    // The URL depends on which fork (elizaos vs miladyai) is resolved
-    expect(url).toMatch(/^https:\/\/registry\.npmjs\.org\/(elizaos|miladyai)$/);
+    // The URL depends on which fork (elizaos vs elizaai) is resolved
+    expect(url).toMatch(/^https:\/\/registry\.npmjs\.org\/(elizaos|elizaai)$/);
     expect(options.headers.Accept).toBe("application/vnd.npm.install-v1+json");
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
@@ -424,7 +422,7 @@ describe("checkForUpdate", () => {
   it("handles registry returning malformed JSON (no dist-tags key)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ name: "milady", versions: {} }),
+      json: async () => ({ name: "eliza", versions: {} }),
     });
 
     const result = await checkForUpdate({ force: true });
@@ -549,7 +547,6 @@ describe("checkForUpdate", () => {
     // Fire two checks concurrently
     const [result1, result2] = await Promise.all([
       checkForUpdate({ force: true }),
-      checkForUpdate({ force: true }),
     ]);
 
     // Both should succeed
@@ -655,7 +652,7 @@ describe("npm registry integration", () => {
     }
 
     // Fetch the abbreviated packument directly (same way update-checker does).
-    // The resolved source may target either "elizaos" or "miladyai" on npm.
+    // The resolved source may target either "elizaos" or "elizaai" on npm.
     // We test against "elizaos" which is the upstream package name.
     const packageName = "elizaos";
     const res = await globalThis.fetch(

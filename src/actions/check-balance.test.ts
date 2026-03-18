@@ -14,8 +14,6 @@ import { checkBalanceAction } from "./check-balance";
 function callHandler(params: Record<string, unknown> = {}) {
   return checkBalanceAction.handler(
     {} as never,
-    {} as never,
-    {} as never,
     { parameters: params } as HandlerOptions,
   );
 }
@@ -134,8 +132,6 @@ describe("CHECK_BALANCE action", () => {
 
   it("validates successfully", async () => {
     const result = await checkBalanceAction.validate(
-      {} as never,
-      {} as never,
       {} as never,
     );
     expect(result).toBe(true);
@@ -561,8 +557,6 @@ describe("CHECK_BALANCE action", () => {
     });
 
     const result = await checkBalanceAction.handler(
-      {} as never,
-      {} as never,
       {} as never,
       undefined,
     );

@@ -4,8 +4,8 @@ import { resolveTerminalRunLimits } from "./terminal-run-limits";
 describe("resolveTerminalRunLimits", () => {
   const prevMaxConcurrent = process.env.ELIZA_TERMINAL_MAX_CONCURRENT;
   const prevMaxDuration = process.env.ELIZA_TERMINAL_MAX_DURATION_MS;
-  const prevMiladyMaxConcurrent = process.env.MILADY_TERMINAL_MAX_CONCURRENT;
-  const prevMiladyMaxDuration = process.env.MILADY_TERMINAL_MAX_DURATION_MS;
+  const prevElizaMaxConcurrent = process.env.ELIZA_TERMINAL_MAX_CONCURRENT;
+  const prevElizaMaxDuration = process.env.ELIZA_TERMINAL_MAX_DURATION_MS;
   const prevLegacyMaxConcurrent = process.env.MILAIDY_TERMINAL_MAX_CONCURRENT;
   const prevLegacyMaxDuration = process.env.MILAIDY_TERMINAL_MAX_DURATION_MS;
 
@@ -16,10 +16,10 @@ describe("resolveTerminalRunLimits", () => {
       process.env.ELIZA_TERMINAL_MAX_CONCURRENT = prevMaxConcurrent;
     }
 
-    if (prevMiladyMaxConcurrent === undefined) {
-      delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
+    if (prevElizaMaxConcurrent === undefined) {
+      delete process.env.ELIZA_TERMINAL_MAX_CONCURRENT;
     } else {
-      process.env.MILADY_TERMINAL_MAX_CONCURRENT = prevMiladyMaxConcurrent;
+      process.env.ELIZA_TERMINAL_MAX_CONCURRENT = prevElizaMaxConcurrent;
     }
 
     if (prevMaxDuration === undefined) {
@@ -28,10 +28,10 @@ describe("resolveTerminalRunLimits", () => {
       process.env.ELIZA_TERMINAL_MAX_DURATION_MS = prevMaxDuration;
     }
 
-    if (prevMiladyMaxDuration === undefined) {
-      delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
+    if (prevElizaMaxDuration === undefined) {
+      delete process.env.ELIZA_TERMINAL_MAX_DURATION_MS;
     } else {
-      process.env.MILADY_TERMINAL_MAX_DURATION_MS = prevMiladyMaxDuration;
+      process.env.ELIZA_TERMINAL_MAX_DURATION_MS = prevElizaMaxDuration;
     }
 
     if (prevLegacyMaxConcurrent === undefined) {
@@ -49,9 +49,7 @@ describe("resolveTerminalRunLimits", () => {
 
   it("uses secure defaults when env vars are unset", () => {
     delete process.env.ELIZA_TERMINAL_MAX_CONCURRENT;
-    delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
     delete process.env.ELIZA_TERMINAL_MAX_DURATION_MS;
-    delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
     delete process.env.MILAIDY_TERMINAL_MAX_CONCURRENT;
     delete process.env.MILAIDY_TERMINAL_MAX_DURATION_MS;
 
@@ -63,9 +61,7 @@ describe("resolveTerminalRunLimits", () => {
 
   it("clamps canonical ELIZA env values into safe bounds", () => {
     process.env.ELIZA_TERMINAL_MAX_CONCURRENT = "999";
-    process.env.MILADY_TERMINAL_MAX_CONCURRENT = "999";
     process.env.ELIZA_TERMINAL_MAX_DURATION_MS = "100";
-    process.env.MILADY_TERMINAL_MAX_DURATION_MS = "100";
     delete process.env.MILAIDY_TERMINAL_MAX_CONCURRENT;
     delete process.env.MILAIDY_TERMINAL_MAX_DURATION_MS;
 
@@ -77,9 +73,7 @@ describe("resolveTerminalRunLimits", () => {
 
   it("supports legacy MILAIDY env vars as fallback", () => {
     delete process.env.ELIZA_TERMINAL_MAX_CONCURRENT;
-    delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
     delete process.env.ELIZA_TERMINAL_MAX_DURATION_MS;
-    delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
     process.env.MILAIDY_TERMINAL_MAX_CONCURRENT = "999";
     process.env.MILAIDY_TERMINAL_MAX_DURATION_MS = "100";
 
@@ -91,9 +85,7 @@ describe("resolveTerminalRunLimits", () => {
 
   it("prefers canonical ELIZA vars when both are set", () => {
     process.env.ELIZA_TERMINAL_MAX_CONCURRENT = "4";
-    process.env.MILADY_TERMINAL_MAX_CONCURRENT = "4";
     process.env.ELIZA_TERMINAL_MAX_DURATION_MS = "2000";
-    process.env.MILADY_TERMINAL_MAX_DURATION_MS = "2000";
     process.env.MILAIDY_TERMINAL_MAX_CONCURRENT = "12";
     process.env.MILAIDY_TERMINAL_MAX_DURATION_MS = "45000";
 
