@@ -1,9 +1,10 @@
+import { Link, useLocation } from "react-router-dom";
 import { releaseData } from "../generated/release-data";
 
-const ELIZA_CLOUD_LOGIN_URL =
-  "https://elizacloud.ai/login?returnTo=%2Fdashboard%2Fmilady";
-
 export function Nav() {
+  const location = useLocation();
+  const isOnDashboard = location.pathname === "/dashboard";
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex flex-col bg-dark/95 backdrop-blur-md border-b border-sharp">
       <div className="flex items-center justify-between px-6 py-4 md:px-12">
@@ -25,14 +26,12 @@ export function Nav() {
           >
             Install
           </a>
-          <a
-            href={ELIZA_CLOUD_LOGIN_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="text-text-muted hover:text-brand transition-colors duration-300"
+          <Link
+            to="/dashboard"
+            className={`transition-colors duration-300 ${isOnDashboard ? "text-brand" : "text-text-muted hover:text-brand"}`}
           >
             Cloud
-          </a>
+          </Link>
           <a
             href="#privacy"
             className="text-text-muted hover:text-brand transition-colors duration-300"
