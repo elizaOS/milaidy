@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useAgents, type ManagedAgent } from "../../lib/AgentProvider";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 
 export function AgentGrid() {
-  const { agents, loading } = useAgents();
+  const { agents, loading, refresh } = useAgents();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   if (loading) {
@@ -27,6 +27,33 @@ export function AgentGrid() {
     );
   }
 
+  const handleAction = useCallback(
+    async (agentId: string, action: "play" | "resume" | "pause" | "stop") => {
+      const agent = agents.find((a) => a.id === agentId);
+      if (!agent) return;
+      try {
+        if (agent.source === "cloud" && agent.cloudClient && agent.cloudAgentId) {
+          if (action === "play" || action === "resume") {
+            await agent.cloudClient.resumeAgent(agent.cloudAgentId);
+          } else if (action === "pause") {
+            await agent.cloudClient.suspendAgent(agent.cloudAgentId);
+          } else if (action === "stop") {
+            await agent.cloudClient.suspendAgent(agent.cloudAgentId);
+          }
+        } else if (agent.client) {
+          if (action === "play") await agent.client.playAgent();
+          else if (action === "resume") await agent.client.resumeAgent();
+          else if (action === "pause") await agent.client.pauseAgent();
+          else if (action === "stop") await agent.client.stopAgent();
+        }
+        await refresh();
+      } catch (err) {
+        console.error(`Failed to ${action} agent:`, err);
+      }
+    },
+    [agents, refresh],
+  );
+
   const selected = selectedId ? agents.find((a) => a.id === selectedId) : null;
 
   return (
@@ -43,10 +70,10 @@ export function AgentGrid() {
               memories: agent.memories,
             }}
             connectionName={agent.source}
-            onPlay={() => { agent.client?.playAgent(); }}
-            onResume={() => { agent.client?.resumeAgent(); }}
-            onPause={() => { agent.client?.pauseAgent(); }}
-            onStop={() => { agent.client?.stopAgent(); }}
+            onPlay={() => handleAction(agent.id, "play")}
+            onResume={() => handleAction(agent.id, "resume")}
+            onPause={() => handleAction(agent.id, "pause")}
+            onStop={() => handleAction(agent.id, "stop")}
             onSelect={() => setSelectedId(selectedId === agent.id ? null : agent.id)}
             selected={selectedId === agent.id}
           />

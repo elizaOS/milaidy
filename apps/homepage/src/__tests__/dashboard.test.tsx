@@ -24,6 +24,7 @@ vi.mock("../lib/AgentProvider", () => ({
       },
     ],
     loading: false,
+    cloudClient: null,
     refresh: vi.fn(),
     addRemoteUrl: vi.fn(),
     removeRemote: vi.fn(),

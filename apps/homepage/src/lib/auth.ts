@@ -70,7 +70,7 @@ export async function fetchWithAuth(url: string, opts: RequestInit = {}): Promis
   const token = getToken();
   const headers = new Headers(opts.headers);
   if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+    headers.set("X-Api-Key", token);
   }
   const res = await fetch(url, { ...opts, headers });
   if (res.status === 401) {

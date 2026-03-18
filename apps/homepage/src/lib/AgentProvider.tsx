@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { getToken, fetchCloudAgents, type CloudAgent } from "./auth";
-import { CloudApiClient } from "./cloud-api";
+import { getToken, type CloudAgent } from "./auth";
+import { CloudApiClient, CloudClient } from "./cloud-api";
 import { getConnections, addConnection, removeConnection } from "./connections";
 
 export type AgentSource = "cloud" | "local" | "remote";
@@ -16,11 +16,14 @@ export interface ManagedAgent {
   sourceUrl?: string;
   cloudAgent?: CloudAgent;
   client?: CloudApiClient;
+  cloudClient?: CloudClient;
+  cloudAgentId?: string;
 }
 
 interface AgentContextValue {
   agents: ManagedAgent[];
   loading: boolean;
+  cloudClient: CloudClient | null;
   refresh: () => Promise<void>;
   addRemoteUrl: (name: string, url: string) => void;
   removeRemote: (id: string) => void;
@@ -34,6 +37,7 @@ const CLOUD_BASE = "https://www.elizacloud.ai";
 export function AgentProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cloudClientRef, setCloudClientRef] = useState<CloudClient | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   const fetchAll = useCallback(async () => {
@@ -41,18 +45,28 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
     // 1. Cloud agents (if authenticated)
     if (getToken()) {
-      const cloudAgents = await fetchCloudAgents();
-      for (const ca of cloudAgents) {
-        results.push({
-          id: `cloud-${ca.id}`,
-          name: ca.name || ca.id,
-          source: "cloud",
-          status: mapCloudStatus(ca.status),
-          model: ca.model,
-          cloudAgent: ca,
-          sourceUrl: `${CLOUD_BASE}/api/v1/milady/agents/${ca.id}`,
-        });
+      const cc = new CloudClient(getToken()!);
+      setCloudClientRef(cc);
+      try {
+        const cloudAgents = await cc.listAgents();
+        for (const ca of cloudAgents) {
+          results.push({
+            id: `cloud-${ca.id}`,
+            name: ca.name || ca.id,
+            source: "cloud",
+            status: mapCloudStatus(ca.status),
+            model: ca.model,
+            cloudAgent: ca,
+            cloudClient: cc,
+            cloudAgentId: ca.id,
+            sourceUrl: `${CLOUD_BASE}/api/v1/milady/agents/${ca.id}`,
+          });
+        }
+      } catch {
+        // Cloud API failed — skip
       }
+    } else {
+      setCloudClientRef(null);
     }
 
     // 2. Local agent (auto-probe localhost:2138)
@@ -154,7 +168,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   }, [fetchAll]);
 
   return (
-    <AgentContext value={{ agents, loading, refresh: fetchAll, addRemoteUrl, removeRemote }}>
+    <AgentContext value={{ agents, loading, cloudClient: cloudClientRef, refresh: fetchAll, addRemoteUrl, removeRemote }}>
       {children}
     </AgentContext>
   );
