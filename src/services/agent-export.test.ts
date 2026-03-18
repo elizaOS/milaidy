@@ -278,7 +278,10 @@ function createMockAdapter(db: MockDb): IDatabaseAdapter<object> {
           return entity;
         });
     },
-    getEntitiesForRooms: async (roomIds: UUID[], includeComponents?: boolean) => {
+    getEntitiesForRooms: async (
+      roomIds: UUID[],
+      includeComponents?: boolean,
+    ) => {
       const result: Entity[] = [];
       for (const roomId of roomIds) {
         const participantData = db.participants.get(roomId);

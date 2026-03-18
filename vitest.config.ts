@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,6 +6,9 @@ import { defineConfig } from "vitest/config";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 const elizaRoot = path.join(repoRoot, "..", "eliza");
+// Only use eliza sibling aliases when the local checkout exists (dev workflow).
+// CI resolves @elizaos/* from node_modules instead.
+const hasElizaSibling = existsSync(path.join(elizaRoot, "packages"));
 const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const isWindows = process.platform === "win32";
 const localWorkers = 2;
@@ -17,48 +21,30 @@ export default defineConfig({
         find: "milady/plugin-sdk",
         replacement: path.join(repoRoot, "src", "plugin-sdk", "index.ts"),
       },
-      {
-        // Resolve @elizaos/core from the workspace source so that all elizaOS
-        // packages share the same version and transitive imports work.
-        find: "@elizaos/core",
-        replacement: path.join(
-          elizaRoot,
-          "packages",
-          "typescript",
-          "src",
-          "index.ts",
-        ),
-      },
-      {
-        // Route @elizaos/autonomous sub-path imports to the workspace source so
-        // that transitive @elizaos/core imports resolve through our alias above.
-        find: /^@elizaos\/autonomous\/(.*)/,
-        replacement: path.join(elizaRoot, "packages", "autonomous", "src", "$1"),
-      },
-      {
-        find: "@elizaos/autonomous",
-        replacement: path.join(
-          elizaRoot,
-          "packages",
-          "autonomous",
-          "src",
-          "index.ts",
-        ),
-      },
-      {
-        find: /^@elizaos\/app-core\/(.*)/,
-        replacement: path.join(elizaRoot, "packages", "app-core", "src", "$1"),
-      },
-      {
-        find: "@elizaos/app-core",
-        replacement: path.join(
-          elizaRoot,
-          "packages",
-          "app-core",
-          "src",
-          "index.ts",
-        ),
-      },
+      ...(hasElizaSibling
+        ? [
+            {
+              find: "@elizaos/core",
+              replacement: path.join(elizaRoot, "packages", "typescript", "src", "index.ts"),
+            },
+            {
+              find: /^@elizaos\/autonomous\/(.*)/,
+              replacement: path.join(elizaRoot, "packages", "autonomous", "src", "$1"),
+            },
+            {
+              find: "@elizaos/autonomous",
+              replacement: path.join(elizaRoot, "packages", "autonomous", "src", "index.ts"),
+            },
+            {
+              find: /^@elizaos\/app-core\/(.*)/,
+              replacement: path.join(elizaRoot, "packages", "app-core", "src", "$1"),
+            },
+            {
+              find: "@elizaos/app-core",
+              replacement: path.join(elizaRoot, "packages", "app-core", "src", "index.ts"),
+            },
+          ]
+        : []),
       {
         find: "@miladyai/capacitor-gateway",
         replacement: path.join(
