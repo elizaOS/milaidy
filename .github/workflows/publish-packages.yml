@@ -279,8 +279,12 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y debhelper devscripts fakeroot
+          for attempt in 1 2 3; do
+            sudo apt-get update && \
+            sudo apt-get install -y debhelper devscripts fakeroot && break
+            echo "apt-get attempt $attempt failed, retrying in 10s..."
+            sleep 10
+          done
 
       - name: Build .deb package
         run: |
