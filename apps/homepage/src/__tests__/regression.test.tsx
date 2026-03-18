@@ -13,7 +13,6 @@ import {
   getConnections,
   removeConnection,
 } from "../lib/connections";
-import { generateMockLogs, generateMockMetrics } from "../lib/mock-data";
 
 beforeEach(() => localStorage.clear());
 afterEach(() => {
@@ -114,92 +113,6 @@ describe("Regression: connections store", () => {
     const url = "http://my-server.com:2138";
     addConnection({ name: "Test", url, type: "remote" });
     expect(getConnections()[0].url).toBe(url);
-  });
-});
-
-/* ------------------------------------------------------------------ */
-/*  Regression: mock data                                              */
-/* ------------------------------------------------------------------ */
-describe("Regression: mock data", () => {
-  it("metrics timestamps are in chronological order", () => {
-    const metrics = generateMockMetrics(10);
-    for (let i = 1; i < metrics.length; i++) {
-      expect(new Date(metrics[i].timestamp).getTime()).toBeGreaterThan(
-        new Date(metrics[i - 1].timestamp).getTime(),
-      );
-    }
-  });
-
-  it("logs timestamps are in chronological order", () => {
-    const logs = generateMockLogs(10);
-    for (let i = 1; i < logs.length; i++) {
-      expect(new Date(logs[i].timestamp).getTime()).toBeGreaterThan(
-        new Date(logs[i - 1].timestamp).getTime(),
-      );
-    }
-  });
-
-  it("all log levels are valid", () => {
-    const logs = generateMockLogs(50);
-    for (const log of logs) {
-      expect(["info", "warn", "error"]).toContain(log.level);
-    }
-  });
-
-  it("metrics cpu values are within reasonable range", () => {
-    const metrics = generateMockMetrics(20);
-    for (const m of metrics) {
-      expect(m.cpu).toBeGreaterThanOrEqual(0);
-      expect(m.cpu).toBeLessThanOrEqual(100);
-    }
-  });
-
-  it("metrics memoryMb values are positive", () => {
-    const metrics = generateMockMetrics(20);
-    for (const m of metrics) {
-      expect(m.memoryMb).toBeGreaterThan(0);
-    }
-  });
-
-  it("metrics diskMb values are positive", () => {
-    const metrics = generateMockMetrics(20);
-    for (const m of metrics) {
-      expect(m.diskMb).toBeGreaterThan(0);
-    }
-  });
-
-  it("metrics timestamps are valid ISO strings", () => {
-    const metrics = generateMockMetrics(5);
-    for (const m of metrics) {
-      const date = new Date(m.timestamp);
-      expect(date.toISOString()).toBe(m.timestamp);
-    }
-  });
-
-  it("logs have non-empty messages", () => {
-    const logs = generateMockLogs(20);
-    for (const log of logs) {
-      expect(log.message.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("logs have non-empty agentNames", () => {
-    const logs = generateMockLogs(20);
-    for (const log of logs) {
-      expect(log.agentName.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("generates correct count of metrics", () => {
-    expect(generateMockMetrics(0)).toHaveLength(0);
-    expect(generateMockMetrics(1)).toHaveLength(1);
-    expect(generateMockMetrics(100)).toHaveLength(100);
-  });
-
-  it("generates correct count of logs", () => {
-    expect(generateMockLogs(0)).toHaveLength(0);
-    expect(generateMockLogs(1)).toHaveLength(1);
-    expect(generateMockLogs(100)).toHaveLength(100);
   });
 });
 

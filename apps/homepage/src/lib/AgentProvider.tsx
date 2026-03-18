@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { type CloudAgent, getToken } from "./auth";
-import { CloudApiClient, CloudClient } from "./cloud-api";
+import { CLOUD_BASE, CloudApiClient, CloudClient } from "./cloud-api";
 import { addConnection, getConnections, removeConnection } from "./connections";
 
 export type AgentSource = "cloud" | "local" | "remote";
@@ -40,23 +40,39 @@ interface AgentContextValue {
 const AgentContext = createContext<AgentContextValue | null>(null);
 
 const LOCAL_PROBE_URL = "http://localhost:2138";
-const CLOUD_BASE = "https://www.elizacloud.ai";
 
 export function AgentProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cloudClientRef, setCloudClientRef] = useState<CloudClient | null>(
+  const [cloudClientState, setCloudClientState] = useState<CloudClient | null>(
     null,
   );
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const tokenRef = useRef<string | null>(null);
+  const cloudClientRef = useRef<CloudClient | null>(null);
+
+  const getOrCreateCloudClient = useCallback((): CloudClient | null => {
+    const token = getToken();
+    if (!token) {
+      cloudClientRef.current = null;
+      tokenRef.current = null;
+      return null;
+    }
+    if (token !== tokenRef.current) {
+      cloudClientRef.current = new CloudClient(token);
+      tokenRef.current = token;
+    }
+    return cloudClientRef.current;
+  }, []);
 
   const fetchAll = useCallback(async () => {
     const results: ManagedAgent[] = [];
 
     // 1. Cloud agents (if authenticated)
     if (getToken()) {
-      const cc = new CloudClient(getToken() ?? "");
-      setCloudClientRef(cc);
+      const cc = getOrCreateCloudClient();
+      if (!cc) return;
+      setCloudClientState(cc);
       try {
         const cloudAgents = await cc.listAgents();
         for (const ca of cloudAgents) {
@@ -76,7 +92,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         // Cloud API failed — skip
       }
     } else {
-      setCloudClientRef(null);
+      setCloudClientState(null);
     }
 
     // 2. Local agent (auto-probe localhost:2138)
@@ -159,7 +175,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
     setAgents(results);
     setLoading(false);
-  }, []);
+  }, [getOrCreateCloudClient]);
 
   useEffect(() => {
     fetchAll();
@@ -191,7 +207,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       value={{
         agents,
         loading,
-        cloudClient: cloudClientRef,
+        cloudClient: cloudClientState,
         refresh: fetchAll,
         addRemoteUrl,
         removeRemote,

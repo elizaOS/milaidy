@@ -12,6 +12,7 @@ import { SourceBar } from "./SourceBar";
 
 export function Dashboard() {
   const [section, setSection] = useState<DashboardSection>("agents");
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   return (
     <AuthGate>
@@ -25,7 +26,11 @@ export function Dashboard() {
             <div className="flex-1 flex flex-col min-w-0">
               <SourceBar />
               <main className="flex-1 px-8 py-6">
-                <DashboardContent section={section} />
+                <DashboardContent
+                  section={section}
+                  selectedAgentId={selectedAgentId}
+                  onSelectAgent={setSelectedAgentId}
+                />
               </main>
             </div>
           </div>
@@ -35,16 +40,29 @@ export function Dashboard() {
   );
 }
 
-function DashboardContent({ section }: { section: DashboardSection }) {
+function DashboardContent({
+  section,
+  selectedAgentId,
+  onSelectAgent,
+}: {
+  section: DashboardSection;
+  selectedAgentId: string | null;
+  onSelectAgent: (id: string | null) => void;
+}) {
   switch (section) {
     case "agents":
-      return <AgentGrid />;
+      return (
+        <AgentGrid
+          selectedAgentId={selectedAgentId}
+          onSelectAgent={onSelectAgent}
+        />
+      );
     case "metrics":
       return <MetricsPanel />;
     case "logs":
       return <LogsPanel />;
     case "snapshots":
-      return <ExportPanel connectionId="" />;
+      return <ExportPanel connectionId={selectedAgentId ?? ""} />;
     case "credits":
       return <CreditsPanel />;
     case "billing":

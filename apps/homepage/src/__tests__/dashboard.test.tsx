@@ -221,11 +221,9 @@ describe("AgentCard", () => {
 /*  MetricsPanel                                                      */
 /* ------------------------------------------------------------------ */
 describe("MetricsPanel", () => {
-  it("renders CPU, Memory, and Disk metric bars", () => {
+  it("renders coming soon placeholder", () => {
     const { container } = render(<MetricsPanel />);
-    expect(container.textContent).toContain("CPU");
-    expect(container.textContent).toContain("Memory");
-    expect(container.textContent).toContain("Disk");
+    expect(container.textContent).toContain("Metrics coming soon");
   });
 });
 
@@ -233,15 +231,9 @@ describe("MetricsPanel", () => {
 /*  LogsPanel                                                         */
 /* ------------------------------------------------------------------ */
 describe("LogsPanel", () => {
-  it("renders log entries with timestamps and severity levels", () => {
+  it("renders coming soon placeholder", () => {
     const { container } = render(<LogsPanel />);
-    // Mock data generates 30 entries, so we should see level text
-    const text = container.textContent ?? "";
-    const hasLevel =
-      text.includes("info") || text.includes("warn") || text.includes("error");
-    expect(hasLevel).toBe(true);
-    // Timestamps rendered via toLocaleTimeString — check for colon-separated time
-    expect(text).toMatch(/\d{1,2}:\d{2}:\d{2}/);
+    expect(container.textContent).toContain("Logs coming soon");
   });
 });
 
@@ -290,8 +282,7 @@ describe("AgentDetail", () => {
     const { container } = render(
       <AgentDetail agent={agent} connectionId="local-default" />,
     );
-    expect(container.textContent).toContain("CPU");
-    expect(container.textContent).toContain("Memory");
+    expect(container.textContent).toContain("Metrics coming soon");
   });
 
   it("shows agent name in header", () => {
@@ -313,11 +304,7 @@ describe("AgentDetail", () => {
       <AgentDetail agent={agent} connectionId="local-default" />,
     );
     fireEvent.click(screen.getByText("Logs"));
-    const text = container.textContent ?? "";
-    // Logs tab shows log entries with level indicators
-    const hasLevel =
-      text.includes("info") || text.includes("warn") || text.includes("error");
-    expect(hasLevel).toBe(true);
+    expect(container.textContent).toContain("Logs coming soon");
   });
 
   it("switches to Snapshots tab", () => {
