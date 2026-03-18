@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { AgentStatus } from "../../lib/cloud-api";
-import { MetricsPanel } from "./MetricsPanel";
-import { LogsPanel } from "./LogsPanel";
 import { ExportPanel } from "./ExportPanel";
+import { LogsPanel } from "./LogsPanel";
+import { MetricsPanel } from "./MetricsPanel";
 
 const TABS = ["Metrics", "Logs", "Snapshots"] as const;
 type Tab = (typeof TABS)[number];
@@ -20,6 +20,7 @@ export function AgentDetail({ agent, connectionId }: AgentDetailProps) {
       <div className="flex border-b border-white/10">
         {TABS.map((t) => (
           <button
+            type="button"
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors ${

@@ -1,11 +1,17 @@
-import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Sidebar } from "../components/dashboard/Sidebar";
-import { ConnectionModal } from "../components/dashboard/ConnectionModal";
 import { AgentCard } from "../components/dashboard/AgentCard";
 import { AgentDetail } from "../components/dashboard/AgentDetail";
-import { MetricsPanel } from "../components/dashboard/MetricsPanel";
+import { ConnectionModal } from "../components/dashboard/ConnectionModal";
 import { LogsPanel } from "../components/dashboard/LogsPanel";
+import { MetricsPanel } from "../components/dashboard/MetricsPanel";
+import { Sidebar } from "../components/dashboard/Sidebar";
 import type { AgentStatus } from "../lib/cloud-api";
 
 vi.mock("../lib/AgentProvider", () => ({
@@ -33,7 +39,10 @@ vi.mock("../lib/AgentProvider", () => ({
 }));
 
 beforeEach(() => localStorage.clear());
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 /* ------------------------------------------------------------------ */
 /*  Sidebar                                                           */
@@ -43,11 +52,17 @@ describe("Sidebar", () => {
     const onChange = vi.fn();
     render(<Sidebar active="agents" onChange={onChange} />);
 
-    for (const label of ["Agents", "Metrics", "Logs", "Snapshots", "Credits", "Billing"]) {
-      const buttons = screen.getAllByText((_content, el) =>
-        el?.textContent?.includes(label) && el?.tagName === "BUTTON"
-          ? true
-          : false,
+    for (const label of [
+      "Agents",
+      "Metrics",
+      "Logs",
+      "Snapshots",
+      "Credits",
+      "Billing",
+    ]) {
+      const buttons = screen.getAllByText(
+        (_content, el) =>
+          !!(el?.textContent?.includes(label) && el?.tagName === "BUTTON"),
       );
       expect(buttons.length).toBeGreaterThanOrEqual(1);
     }
@@ -58,18 +73,16 @@ describe("Sidebar", () => {
     render(<Sidebar active="agents" onChange={onChange} />);
 
     // Click the first "Metrics" button (desktop sidebar)
-    const metricsButtons = screen.getAllByText((_content, el) =>
-      el?.textContent?.includes("Metrics") && el?.tagName === "BUTTON"
-        ? true
-        : false,
+    const metricsButtons = screen.getAllByText(
+      (_content, el) =>
+        !!(el?.textContent?.includes("Metrics") && el?.tagName === "BUTTON"),
     );
     fireEvent.click(metricsButtons[0]);
     expect(onChange).toHaveBeenCalledWith("metrics");
 
-    const logsButtons = screen.getAllByText((_content, el) =>
-      el?.textContent?.includes("Logs") && el?.tagName === "BUTTON"
-        ? true
-        : false,
+    const logsButtons = screen.getAllByText(
+      (_content, el) =>
+        !!(el?.textContent?.includes("Logs") && el?.tagName === "BUTTON"),
     );
     fireEvent.click(logsButtons[0]);
     expect(onChange).toHaveBeenCalledWith("logs");
@@ -176,9 +189,7 @@ describe("AgentCard", () => {
   });
 
   it("shows Resume button when paused", () => {
-    render(
-      <AgentCard {...baseProps} agent={makeAgent({ state: "paused" })} />,
-    );
+    render(<AgentCard {...baseProps} agent={makeAgent({ state: "paused" })} />);
     expect(screen.getByText("Resume")).toBeTruthy();
     expect(screen.queryByText("Play")).toBeNull();
   });
@@ -239,9 +250,7 @@ describe("LogsPanel", () => {
 /* ------------------------------------------------------------------ */
 describe("ExportPanel", () => {
   it("renders password input and export/import buttons", async () => {
-    const { ExportPanel } = await import(
-      "../components/dashboard/ExportPanel"
-    );
+    const { ExportPanel } = await import("../components/dashboard/ExportPanel");
     const { container } = render(<ExportPanel connectionId="local-default" />);
     const text = container.textContent ?? "";
     expect(text).toContain("Password");
@@ -250,9 +259,7 @@ describe("ExportPanel", () => {
   });
 
   it("Export button is disabled when password < 4 chars", async () => {
-    const { ExportPanel } = await import(
-      "../components/dashboard/ExportPanel"
-    );
+    const { ExportPanel } = await import("../components/dashboard/ExportPanel");
     render(<ExportPanel connectionId="local-default" />);
     const exportBtn = screen.getByText("Export Agent");
     expect(exportBtn).toBeDisabled();
@@ -308,7 +315,8 @@ describe("AgentDetail", () => {
     fireEvent.click(screen.getByText("Logs"));
     const text = container.textContent ?? "";
     // Logs tab shows log entries with level indicators
-    const hasLevel = text.includes("info") || text.includes("warn") || text.includes("error");
+    const hasLevel =
+      text.includes("info") || text.includes("warn") || text.includes("error");
     expect(hasLevel).toBe(true);
   });
 
@@ -360,9 +368,7 @@ describe("AgentCard regression", () => {
   });
 
   it("shows Stop button for paused agent", () => {
-    render(
-      <AgentCard {...baseProps} agent={makeAgent({ state: "paused" })} />,
-    );
+    render(<AgentCard {...baseProps} agent={makeAgent({ state: "paused" })} />);
     expect(screen.getByText("Stop")).toBeTruthy();
   });
 
@@ -405,7 +411,11 @@ describe("AgentCard regression", () => {
 
   it("shows connection source label", () => {
     const { container } = render(
-      <AgentCard {...baseProps} connectionName="Cloud-Prod" agent={makeAgent()} />,
+      <AgentCard
+        {...baseProps}
+        connectionName="Cloud-Prod"
+        agent={makeAgent()}
+      />,
     );
     expect(container.textContent).toContain("Cloud-Prod");
   });
@@ -422,7 +432,11 @@ describe("AgentCard regression", () => {
   it("calls onPlay when Play button is clicked on stopped agent", () => {
     const onPlay = vi.fn();
     render(
-      <AgentCard {...baseProps} onPlay={onPlay} agent={makeAgent({ state: "stopped" })} />,
+      <AgentCard
+        {...baseProps}
+        onPlay={onPlay}
+        agent={makeAgent({ state: "stopped" })}
+      />,
     );
     fireEvent.click(screen.getByText("Play"));
     expect(onPlay).toHaveBeenCalled();
@@ -431,7 +445,11 @@ describe("AgentCard regression", () => {
   it("calls onPause when Pause button is clicked on running agent", () => {
     const onPause = vi.fn();
     render(
-      <AgentCard {...baseProps} onPause={onPause} agent={makeAgent({ state: "running" })} />,
+      <AgentCard
+        {...baseProps}
+        onPause={onPause}
+        agent={makeAgent({ state: "running" })}
+      />,
     );
     fireEvent.click(screen.getByText("Pause"));
     expect(onPause).toHaveBeenCalled();
@@ -440,7 +458,11 @@ describe("AgentCard regression", () => {
   it("calls onResume when Resume button is clicked on paused agent", () => {
     const onResume = vi.fn();
     render(
-      <AgentCard {...baseProps} onResume={onResume} agent={makeAgent({ state: "paused" })} />,
+      <AgentCard
+        {...baseProps}
+        onResume={onResume}
+        agent={makeAgent({ state: "paused" })}
+      />,
     );
     fireEvent.click(screen.getByText("Resume"));
     expect(onResume).toHaveBeenCalled();
@@ -464,40 +486,56 @@ describe("AuthGate", () => {
     let result: ReturnType<typeof render>;
     await act(async () => {
       const { AuthGate } = await import("../components/dashboard/AuthGate");
-      result = render(<AuthGate><div>Dashboard Content</div></AuthGate>);
+      result = render(
+        <AuthGate>
+          <div>Dashboard Content</div>
+        </AuthGate>,
+      );
     });
-    expect(result!.getByText("Dashboard Content")).toBeTruthy();
+    expect(result?.getByText("Dashboard Content")).toBeTruthy();
   });
 
   it("shows login UI when not authenticated", async () => {
     let result: ReturnType<typeof render>;
     await act(async () => {
       const { AuthGate } = await import("../components/dashboard/AuthGate");
-      result = render(<AuthGate><div>Dashboard Content</div></AuthGate>);
+      result = render(
+        <AuthGate>
+          <div>Dashboard Content</div>
+        </AuthGate>,
+      );
     });
-    expect(result!.getByText("Login with Eliza Cloud")).toBeTruthy();
-    expect(result!.getByText("Skip (local only)")).toBeTruthy();
+    expect(result?.getByText("Login with Eliza Cloud")).toBeTruthy();
+    expect(result?.getByText("Skip (local only)")).toBeTruthy();
   });
 
   it("renders children after clicking Skip", async () => {
     let result: ReturnType<typeof render>;
     await act(async () => {
       const { AuthGate } = await import("../components/dashboard/AuthGate");
-      result = render(<AuthGate><div>Dashboard Content</div></AuthGate>);
+      result = render(
+        <AuthGate>
+          <div>Dashboard Content</div>
+        </AuthGate>,
+      );
     });
-    const skipBtn = result!.getByText("Skip (local only)");
+    const skipBtn = result?.getByText("Skip (local only)");
     await act(async () => {
       fireEvent.click(skipBtn);
     });
-    expect(result!.getByText("Dashboard Content")).toBeTruthy();
+    expect(result?.getByText("Dashboard Content")).toBeTruthy();
   });
 
   it("shows Milady Cloud heading in login view", async () => {
     let result: ReturnType<typeof render>;
     await act(async () => {
       const { AuthGate } = await import("../components/dashboard/AuthGate");
-      result = render(<AuthGate><div>child</div></AuthGate>);
+      result = render(
+        <AuthGate>
+          <div>child</div>
+        </AuthGate>,
+      );
     });
-    expect(result!.getByText("Milady Cloud")).toBeTruthy();
+    expect(result?.getByText("Milady Cloud")).toBeTruthy();
   });
 });

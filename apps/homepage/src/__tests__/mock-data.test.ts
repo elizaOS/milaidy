@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateMockMetrics, generateMockLogs } from "../lib/mock-data";
+import { generateMockLogs, generateMockMetrics } from "../lib/mock-data";
 
 describe("mock-data", () => {
   it("generates metrics with correct shape", () => {

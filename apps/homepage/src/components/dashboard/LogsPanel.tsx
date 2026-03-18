@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { generateMockLogs } from "../../lib/mock-data";
 import type { LogEntry } from "../../lib/cloud-api";
+import { generateMockLogs } from "../../lib/mock-data";
 
 const LEVEL_COLORS = {
   info: "text-text-muted",
@@ -22,8 +22,11 @@ export function LogsPanel() {
   return (
     <div>
       <div className="bg-dark border border-white/10 rounded p-3 h-64 overflow-y-auto custom-scrollbar font-mono text-[11px] space-y-0.5">
-        {logs.map((log, i) => (
-          <div key={i} className="flex gap-3">
+        {logs.map((log) => (
+          <div
+            key={`${log.timestamp}-${log.agentName}-${log.message}`}
+            className="flex gap-3"
+          >
             <span className="text-text-muted/50 flex-shrink-0">
               {new Date(log.timestamp).toLocaleTimeString()}
             </span>

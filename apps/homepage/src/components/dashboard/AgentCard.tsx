@@ -26,6 +26,13 @@ function formatUptime(seconds?: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function stopProp(handler: () => void) {
+  return (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handler();
+  };
+}
+
 export function AgentCard({
   agent,
   connectionName,
@@ -37,9 +44,10 @@ export function AgentCard({
   selected,
 }: AgentCardProps) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onSelect}
-      className={`border rounded p-4 cursor-pointer transition-all duration-200 ${
+      className={`border rounded p-4 cursor-pointer transition-all duration-200 text-left w-full ${
         selected
           ? "border-brand bg-brand/5"
           : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]"
@@ -65,21 +73,32 @@ export function AgentCard({
       </div>
 
       <div className="flex items-center gap-4 text-[10px] font-mono text-text-muted mb-3">
-        <span>{"\u2191"} {formatUptime(agent.uptime)}</span>
+        <span>
+          {"\u2191"} {formatUptime(agent.uptime)}
+        </span>
         {agent.memories !== undefined && (
-          <span>{"\u29eb"} {agent.memories} memories</span>
+          <span>
+            {"\u29eb"} {agent.memories} memories
+          </span>
         )}
-        <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider ${
-          connectionName === "cloud" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-          connectionName === "local" ? "bg-green-500/10 text-green-400 border border-green-500/20" :
-          "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-        }`}>{connectionName}</span>
+        <span
+          className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider ${
+            connectionName === "cloud"
+              ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+              : connectionName === "local"
+                ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                : "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+          }`}
+        >
+          {connectionName}
+        </span>
       </div>
 
-      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+      <div className="flex gap-2">
         {agent.state === "stopped" && (
           <button
-            onClick={onPlay}
+            type="button"
+            onClick={stopProp(onPlay)}
             className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider border border-green-500/30 text-green-500 rounded hover:bg-green-500/10 transition-colors"
           >
             Play
@@ -87,7 +106,8 @@ export function AgentCard({
         )}
         {agent.state === "paused" && (
           <button
-            onClick={onResume}
+            type="button"
+            onClick={stopProp(onResume)}
             className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider border border-green-500/30 text-green-500 rounded hover:bg-green-500/10 transition-colors"
           >
             Resume
@@ -95,20 +115,24 @@ export function AgentCard({
         )}
         {agent.state === "running" && (
           <button
-            onClick={onPause}
+            type="button"
+            onClick={stopProp(onPause)}
             className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider border border-yellow-500/30 text-yellow-500 rounded hover:bg-yellow-500/10 transition-colors"
           >
             Pause
           </button>
         )}
-        {agent.state !== "stopped" && agent.state !== "provisioning" && agent.state !== "unknown" && (
-          <button
-            onClick={onStop}
-            className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider border border-red-500/30 text-red-500 rounded hover:bg-red-500/10 transition-colors"
-          >
-            Stop
-          </button>
-        )}
+        {agent.state !== "stopped" &&
+          agent.state !== "provisioning" &&
+          agent.state !== "unknown" && (
+            <button
+              type="button"
+              onClick={stopProp(onStop)}
+              className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider border border-red-500/30 text-red-500 rounded hover:bg-red-500/10 transition-colors"
+            >
+              Stop
+            </button>
+          )}
         {agent.state === "provisioning" && (
           <span className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-cyan-500 animate-pulse">
             Provisioning...
@@ -120,6 +144,6 @@ export function AgentCard({
           </span>
         )}
       </div>
-    </div>
+    </button>
   );
 }

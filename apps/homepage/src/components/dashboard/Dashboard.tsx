@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { AgentProvider } from "../../lib/AgentProvider";
-import { AuthGate } from "./AuthGate";
 import { AgentGrid } from "./AgentGrid";
+import { AuthGate } from "./AuthGate";
 import { BillingPanel } from "./BillingPanel";
 import { CreditsPanel } from "./CreditsPanel";
 import { ExportPanel } from "./ExportPanel";
 import { LogsPanel } from "./LogsPanel";
 import { MetricsPanel } from "./MetricsPanel";
-import { Sidebar, type DashboardSection } from "./Sidebar";
+import { type DashboardSection, Sidebar } from "./Sidebar";
 import { SourceBar } from "./SourceBar";
 
 export function Dashboard() {

@@ -1,12 +1,26 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { getToken, setToken, clearToken, isAuthenticated, fetchWithAuth } from "../lib/auth";
-import { getConnections, addConnection, removeConnection } from "../lib/connections";
-import { generateMockMetrics, generateMockLogs } from "../lib/mock-data";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearToken,
+  fetchWithAuth,
+  getToken,
+  isAuthenticated,
+  setToken,
+} from "../lib/auth";
+import {
+  addConnection,
+  getConnections,
+  removeConnection,
+} from "../lib/connections";
+import { generateMockLogs, generateMockMetrics } from "../lib/mock-data";
 
 beforeEach(() => localStorage.clear());
-afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  vi.unstubAllGlobals();
+});
 
 /* ------------------------------------------------------------------ */
 /*  Regression: auth state                                             */
@@ -79,9 +93,9 @@ describe("Regression: connections store", () => {
   });
 
   it("preserves other connections when removing one", () => {
-    const c1 = addConnection({ name: "A", url: "http://a", type: "remote" });
+    const _c1 = addConnection({ name: "A", url: "http://a", type: "remote" });
     const c2 = addConnection({ name: "B", url: "http://b", type: "remote" });
-    const c3 = addConnection({ name: "C", url: "http://c", type: "remote" });
+    const _c3 = addConnection({ name: "C", url: "http://c", type: "remote" });
     removeConnection(c2.id);
     const remaining = getConnections();
     expect(remaining).toHaveLength(2);
@@ -110,16 +124,18 @@ describe("Regression: mock data", () => {
   it("metrics timestamps are in chronological order", () => {
     const metrics = generateMockMetrics(10);
     for (let i = 1; i < metrics.length; i++) {
-      expect(new Date(metrics[i].timestamp).getTime())
-        .toBeGreaterThan(new Date(metrics[i - 1].timestamp).getTime());
+      expect(new Date(metrics[i].timestamp).getTime()).toBeGreaterThan(
+        new Date(metrics[i - 1].timestamp).getTime(),
+      );
     }
   });
 
   it("logs timestamps are in chronological order", () => {
     const logs = generateMockLogs(10);
     for (let i = 1; i < logs.length; i++) {
-      expect(new Date(logs[i].timestamp).getTime())
-        .toBeGreaterThan(new Date(logs[i - 1].timestamp).getTime());
+      expect(new Date(logs[i].timestamp).getTime()).toBeGreaterThan(
+        new Date(logs[i - 1].timestamp).getTime(),
+      );
     }
   });
 

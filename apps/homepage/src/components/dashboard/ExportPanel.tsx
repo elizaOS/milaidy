@@ -19,13 +19,15 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
   const [backups, setBackups] = useState<CloudBackup[]>([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
 
-  const isCloud = agent?.source === "cloud" && agent.cloudClient && agent.cloudAgentId;
+  const isCloud =
+    agent?.source === "cloud" && agent.cloudClient && agent.cloudAgentId;
 
   // Fetch cloud backups on mount / agent change
   useEffect(() => {
     if (!isCloud) return;
     setBackupsLoading(true);
-    agent.cloudClient!.listBackups(agent.cloudAgentId!)
+    agent.cloudClient
+      ?.listBackups(agent.cloudAgentId ?? "")
       .then(setBackups)
       .catch(() => setBackups([]))
       .finally(() => setBackupsLoading(false));
@@ -47,16 +49,19 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
   }, [agent]);
 
   // Cloud: restore backup
-  const handleRestore = useCallback(async (backupId: string) => {
-    if (!agent?.cloudClient || !agent.cloudAgentId) return;
-    setStatus("Restoring...");
-    try {
-      await agent.cloudClient.restoreBackup(agent.cloudAgentId, backupId);
-      setStatus("Restore complete");
-    } catch (err) {
-      setStatus(`Restore failed: ${err}`);
-    }
-  }, [agent]);
+  const handleRestore = useCallback(
+    async (backupId: string) => {
+      if (!agent?.cloudClient || !agent.cloudAgentId) return;
+      setStatus("Restoring...");
+      try {
+        await agent.cloudClient.restoreBackup(agent.cloudAgentId, backupId);
+        setStatus("Restore complete");
+      } catch (err) {
+        setStatus(`Restore failed: ${err}`);
+      }
+    },
+    [agent],
+  );
 
   // Local/remote: export
   const handleExport = useCallback(async () => {
@@ -109,9 +114,7 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
 
   if (!agent) {
     return (
-      <div className="text-text-muted font-mono text-sm">
-        Agent not found
-      </div>
+      <div className="text-text-muted font-mono text-sm">Agent not found</div>
     );
   }
 
@@ -124,6 +127,7 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
         </h3>
 
         <button
+          type="button"
           onClick={handleSnapshot}
           className="px-4 py-2 bg-brand text-dark font-mono text-xs uppercase tracking-widest rounded hover:bg-brand-hover transition-colors"
         >
@@ -131,26 +135,38 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
         </button>
 
         {backupsLoading && (
-          <div className="text-brand font-mono text-sm animate-pulse">Loading backups...</div>
+          <div className="text-brand font-mono text-sm animate-pulse">
+            Loading backups...
+          </div>
         )}
 
         {!backupsLoading && backups.length === 0 && (
-          <div className="text-text-muted font-mono text-xs">No backups yet.</div>
+          <div className="text-text-muted font-mono text-xs">
+            No backups yet.
+          </div>
         )}
 
         {!backupsLoading && backups.length > 0 && (
           <div className="space-y-2">
-            <div className="text-text-muted font-mono text-[10px] uppercase tracking-wider">Backups</div>
+            <div className="text-text-muted font-mono text-[10px] uppercase tracking-wider">
+              Backups
+            </div>
             {backups.map((b) => (
-              <div key={b.id} className="flex items-center justify-between bg-dark border border-white/10 rounded p-3">
+              <div
+                key={b.id}
+                className="flex items-center justify-between bg-dark border border-white/10 rounded p-3"
+              >
                 <div>
-                  <div className="text-text-light font-mono text-xs">{b.id.slice(0, 12)}</div>
+                  <div className="text-text-light font-mono text-xs">
+                    {b.id.slice(0, 12)}
+                  </div>
                   <div className="text-text-muted font-mono text-[10px]">
                     {new Date(b.createdAt).toLocaleString()}
                     {b.size ? ` — ${(b.size / 1024 / 1024).toFixed(1)} MB` : ""}
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => handleRestore(b.id)}
                   className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider border border-brand/30 text-brand rounded hover:bg-brand/10 transition-colors"
                 >
@@ -161,7 +177,9 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
           </div>
         )}
 
-        {status && <p className="text-xs font-mono text-text-muted">{status}</p>}
+        {status && (
+          <p className="text-xs font-mono text-text-muted">{status}</p>
+        )}
       </div>
     );
   }
@@ -185,6 +203,7 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
 
       <div className="flex gap-3">
         <button
+          type="button"
           onClick={handleExport}
           disabled={password.length < 4}
           className="px-4 py-2 bg-brand text-dark font-mono text-xs uppercase tracking-widest rounded hover:bg-brand-hover transition-colors disabled:opacity-30"
@@ -192,12 +211,14 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
           Export Agent
         </button>
         <button
+          type="button"
           onClick={() => fileRef.current?.click()}
           className="px-4 py-2 border border-white/10 text-text-muted font-mono text-xs uppercase tracking-widest rounded hover:border-white/30 transition-colors"
         >
           Select File...
         </button>
         <button
+          type="button"
           onClick={handleImport}
           disabled={password.length < 4}
           className="px-4 py-2 border border-white/10 text-text-muted font-mono text-xs uppercase tracking-widest rounded hover:border-white/30 transition-colors disabled:opacity-30"

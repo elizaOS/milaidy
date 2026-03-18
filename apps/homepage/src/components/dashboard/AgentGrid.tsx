@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useAgents, type ManagedAgent } from "../../lib/AgentProvider";
+import { useAgents } from "../../lib/AgentProvider";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 
@@ -7,32 +7,16 @@ export function AgentGrid() {
   const { agents, loading, refresh } = useAgents();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <div className="text-brand font-mono text-sm animate-pulse">Discovering agents...</div>
-      </div>
-    );
-  }
-
-  if (agents.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-3">
-        <div className="text-text-muted/30 text-4xl">{"\u25C9"}</div>
-        <div className="text-text-muted font-mono text-sm">No agents found</div>
-        <div className="text-text-muted/50 font-mono text-xs text-center max-w-md">
-          Log in with Eliza Cloud to see your hosted agents, or start a local Milady agent on port 2138.
-        </div>
-      </div>
-    );
-  }
-
   const handleAction = useCallback(
     async (agentId: string, action: "play" | "resume" | "pause" | "stop") => {
       const agent = agents.find((a) => a.id === agentId);
       if (!agent) return;
       try {
-        if (agent.source === "cloud" && agent.cloudClient && agent.cloudAgentId) {
+        if (
+          agent.source === "cloud" &&
+          agent.cloudClient &&
+          agent.cloudAgentId
+        ) {
           if (action === "play" || action === "resume") {
             await agent.cloudClient.resumeAgent(agent.cloudAgentId);
           } else if (action === "pause") {
@@ -54,6 +38,29 @@ export function AgentGrid() {
     [agents, refresh],
   );
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="text-brand font-mono text-sm animate-pulse">
+          Discovering agents...
+        </div>
+      </div>
+    );
+  }
+
+  if (agents.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-3">
+        <div className="text-text-muted/30 text-4xl">{"\u25C9"}</div>
+        <div className="text-text-muted font-mono text-sm">No agents found</div>
+        <div className="text-text-muted/50 font-mono text-xs text-center max-w-md">
+          Log in with Eliza Cloud to see your hosted agents, or start a local
+          Milady agent on port 2138.
+        </div>
+      </div>
+    );
+  }
+
   const selected = selectedId ? agents.find((a) => a.id === selectedId) : null;
 
   return (
@@ -74,7 +81,9 @@ export function AgentGrid() {
             onResume={() => handleAction(agent.id, "resume")}
             onPause={() => handleAction(agent.id, "pause")}
             onStop={() => handleAction(agent.id, "stop")}
-            onSelect={() => setSelectedId(selectedId === agent.id ? null : agent.id)}
+            onSelect={() =>
+              setSelectedId(selectedId === agent.id ? null : agent.id)
+            }
             selected={selectedId === agent.id}
           />
         ))}

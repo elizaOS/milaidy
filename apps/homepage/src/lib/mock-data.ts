@@ -1,4 +1,4 @@
-import type { MetricsData, LogEntry } from "./cloud-api";
+import type { LogEntry, MetricsData } from "./cloud-api";
 
 const AGENT_NAMES = ["Milady-1", "Milady-2", "Chen", "Kei", "Momo"];
 const LOG_MESSAGES = [
@@ -28,7 +28,14 @@ export function generateMockMetrics(count: number): MetricsData[] {
 
 export function generateMockLogs(count: number): LogEntry[] {
   const now = Date.now();
-  const levels: LogEntry["level"][] = ["info", "info", "info", "info", "warn", "error"];
+  const levels: LogEntry["level"][] = [
+    "info",
+    "info",
+    "info",
+    "info",
+    "warn",
+    "error",
+  ];
   return Array.from({ length: count }, (_, i) => ({
     level: levels[Math.floor(Math.random() * levels.length)],
     message: LOG_MESSAGES[Math.floor(Math.random() * LOG_MESSAGES.length)],

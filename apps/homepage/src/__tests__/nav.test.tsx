@@ -1,13 +1,17 @@
 import { cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
+import { afterEach, describe, expect, it } from "vitest";
 import { Nav } from "../components/Nav";
 import { releaseData } from "../generated/release-data";
 
 afterEach(cleanup);
 
 function renderNav() {
-  return render(<MemoryRouter><Nav /></MemoryRouter>);
+  return render(
+    <MemoryRouter>
+      <Nav />
+    </MemoryRouter>,
+  );
 }
 
 describe("Nav", () => {

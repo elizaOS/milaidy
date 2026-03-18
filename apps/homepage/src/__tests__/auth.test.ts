@@ -1,8 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getToken, setToken, clearToken, isAuthenticated, fetchWithAuth, cloudLogin, cloudLoginPoll } from "../lib/auth";
+import {
+  clearToken,
+  cloudLogin,
+  cloudLoginPoll,
+  fetchWithAuth,
+  getToken,
+  isAuthenticated,
+  setToken,
+} from "../lib/auth";
 
-beforeEach(() => { localStorage.clear(); vi.restoreAllMocks(); });
-afterEach(() => { localStorage.clear(); vi.unstubAllGlobals(); });
+beforeEach(() => {
+  localStorage.clear();
+  vi.restoreAllMocks();
+});
+afterEach(() => {
+  localStorage.clear();
+  vi.unstubAllGlobals();
+});
 
 describe("auth", () => {
   it("stores and retrieves token", () => {
@@ -90,14 +104,18 @@ describe("fetchWithAuth", () => {
 describe("cloudLogin", () => {
   it("creates session and returns browserUrl", async () => {
     const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: true, status: 201,
-      json: () => Promise.resolve({ sessionId: "test-session", status: "pending" }),
+      ok: true,
+      status: 201,
+      json: () =>
+        Promise.resolve({ sessionId: "test-session", status: "pending" }),
     });
     vi.stubGlobal("fetch", mockFetch);
     vi.stubGlobal("crypto", { randomUUID: () => "mock-uuid" });
     const result = await cloudLogin();
     expect(result.sessionId).toBe("mock-uuid");
-    expect(result.browserUrl).toContain("elizacloud.ai/auth/cli-login?session=mock-uuid");
+    expect(result.browserUrl).toContain(
+      "elizacloud.ai/auth/cli-login?session=mock-uuid",
+    );
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/auth/cli-session"),
       expect.objectContaining({ method: "POST" }),
@@ -115,8 +133,10 @@ describe("cloudLogin", () => {
 describe("cloudLoginPoll", () => {
   it("returns authenticated status with apiKey", async () => {
     const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: true, status: 200,
-      json: () => Promise.resolve({ status: "authenticated", apiKey: "key-123" }),
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ status: "authenticated", apiKey: "key-123" }),
     });
     vi.stubGlobal("fetch", mockFetch);
     const result = await cloudLoginPoll("test-session");
@@ -133,12 +153,15 @@ describe("cloudLoginPoll", () => {
   it("throws on other non-ok status", async () => {
     const mockFetch = vi.fn().mockResolvedValueOnce({ ok: false, status: 500 });
     vi.stubGlobal("fetch", mockFetch);
-    await expect(cloudLoginPoll("test-session")).rejects.toThrow("Poll failed: 500");
+    await expect(cloudLoginPoll("test-session")).rejects.toThrow(
+      "Poll failed: 500",
+    );
   });
 
   it("calls correct URL with encoded session id", async () => {
     const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: true, status: 200,
+      ok: true,
+      status: 200,
       json: () => Promise.resolve({ status: "pending" }),
     });
     vi.stubGlobal("fetch", mockFetch);

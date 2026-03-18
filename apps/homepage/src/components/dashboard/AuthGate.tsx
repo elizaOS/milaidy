@@ -1,7 +1,24 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { isAuthenticated, setToken, clearToken, cloudLogin, cloudLoginPoll } from "../../lib/auth";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  clearToken,
+  cloudLogin,
+  cloudLoginPoll,
+  isAuthenticated,
+  setToken,
+} from "../../lib/auth";
 
-type AuthState = "checking" | "unauthenticated" | "polling" | "authenticated" | "error";
+type AuthState =
+  | "checking"
+  | "unauthenticated"
+  | "polling"
+  | "authenticated"
+  | "error";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>("checking");
@@ -10,7 +27,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setState(isAuthenticated() ? "authenticated" : "unauthenticated");
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   const handleLogin = useCallback(async () => {
@@ -50,7 +69,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const _handleLogout = useCallback(() => {
     clearToken();
     setState("unauthenticated");
   }, []);
@@ -75,7 +94,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-dark flex items-center justify-center pt-20">
       <div className="max-w-sm w-full space-y-6 p-6">
         <div className="text-center">
-          <h2 className="text-xl font-medium text-text-light mb-2">Milady Cloud</h2>
+          <h2 className="text-xl font-medium text-text-light mb-2">
+            Milady Cloud
+          </h2>
           <p className="text-text-muted text-sm">
             Sign in with your Eliza Cloud account to manage your agents.
           </p>
@@ -93,12 +114,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
         ) : (
           <div className="space-y-3">
             <button
+              type="button"
               onClick={handleLogin}
               className="w-full px-4 py-2 bg-brand text-dark font-mono text-xs uppercase tracking-widest rounded hover:bg-brand-hover transition-colors"
             >
               Login with Eliza Cloud
             </button>
             <button
+              type="button"
               onClick={handleSkip}
               className="w-full px-4 py-2 border border-white/10 text-text-muted font-mono text-xs uppercase tracking-widest rounded hover:border-white/30 transition-colors"
             >
@@ -109,8 +132,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
         {error && (
           <div className="space-y-2">
-            <div className="text-red-500 font-mono text-xs text-center">{error}</div>
+            <div className="text-red-500 font-mono text-xs text-center">
+              {error}
+            </div>
             <button
+              type="button"
               onClick={() => setState("unauthenticated")}
               className="w-full px-4 py-2 border border-white/10 text-text-muted font-mono text-xs uppercase tracking-widest rounded hover:border-white/30 transition-colors"
             >

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { generateMockMetrics } from "../../lib/mock-data";
 import type { MetricsData } from "../../lib/cloud-api";
+import { generateMockMetrics } from "../../lib/mock-data";
 
 export function MetricsPanel() {
   const [metrics, setMetrics] = useState<MetricsData[]>([]);
@@ -20,7 +20,12 @@ export function MetricsPanel() {
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-4">
         <MetricBar label="CPU" value={latest.cpu} max={100} unit="%" />
-        <MetricBar label="Memory" value={latest.memoryMb} max={2048} unit="MB" />
+        <MetricBar
+          label="Memory"
+          value={latest.memoryMb}
+          max={2048}
+          unit="MB"
+        />
         <MetricBar label="Disk" value={latest.diskMb} max={4096} unit="MB" />
       </div>
       <p className="text-[10px] font-mono text-text-muted">

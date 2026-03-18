@@ -22,7 +22,9 @@ function saveConnections(conns: StoredConnection[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(conns));
 }
 
-export function addConnection(input: Omit<StoredConnection, "id">): StoredConnection {
+export function addConnection(
+  input: Omit<StoredConnection, "id">,
+): StoredConnection {
   const conn: StoredConnection = { ...input, id: crypto.randomUUID() };
   const conns = getConnections();
   conns.push(conn);

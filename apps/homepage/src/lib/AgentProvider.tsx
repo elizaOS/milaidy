@@ -1,7 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { getToken, type CloudAgent } from "./auth";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { type CloudAgent, getToken } from "./auth";
 import { CloudApiClient, CloudClient } from "./cloud-api";
-import { getConnections, addConnection, removeConnection } from "./connections";
+import { addConnection, getConnections, removeConnection } from "./connections";
 
 export type AgentSource = "cloud" | "local" | "remote";
 
@@ -37,7 +45,9 @@ const CLOUD_BASE = "https://www.elizacloud.ai";
 export function AgentProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cloudClientRef, setCloudClientRef] = useState<CloudClient | null>(null);
+  const [cloudClientRef, setCloudClientRef] = useState<CloudClient | null>(
+    null,
+  );
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   const fetchAll = useCallback(async () => {
@@ -45,7 +55,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
     // 1. Cloud agents (if authenticated)
     if (getToken()) {
-      const cc = new CloudClient(getToken()!);
+      const cc = new CloudClient(getToken() ?? "");
       setCloudClientRef(cc);
       try {
         const cloudAgents = await cc.listAgents();
@@ -71,7 +81,10 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
     // 2. Local agent (auto-probe localhost:2138)
     try {
-      const localClient = new CloudApiClient({ url: LOCAL_PROBE_URL, type: "local" });
+      const localClient = new CloudApiClient({
+        url: LOCAL_PROBE_URL,
+        type: "local",
+      });
       const health = await localClient.health();
       if (health.status) {
         try {
@@ -156,19 +169,34 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(intervalRef.current);
   }, [fetchAll]);
 
-  const addRemoteUrl = useCallback((name: string, url: string) => {
-    addConnection({ name, url, type: "remote" });
-    fetchAll();
-  }, [fetchAll]);
+  const addRemoteUrl = useCallback(
+    (name: string, url: string) => {
+      addConnection({ name, url, type: "remote" });
+      fetchAll();
+    },
+    [fetchAll],
+  );
 
-  const removeRemote = useCallback((id: string) => {
-    const connId = id.replace("remote-", "");
-    removeConnection(connId);
-    fetchAll();
-  }, [fetchAll]);
+  const removeRemote = useCallback(
+    (id: string) => {
+      const connId = id.replace("remote-", "");
+      removeConnection(connId);
+      fetchAll();
+    },
+    [fetchAll],
+  );
 
   return (
-    <AgentContext value={{ agents, loading, cloudClient: cloudClientRef, refresh: fetchAll, addRemoteUrl, removeRemote }}>
+    <AgentContext
+      value={{
+        agents,
+        loading,
+        cloudClient: cloudClientRef,
+        refresh: fetchAll,
+        addRemoteUrl,
+        removeRemote,
+      }}
+    >
       {children}
     </AgentContext>
   );
@@ -178,8 +206,10 @@ function mapCloudStatus(status: string): ManagedAgent["status"] {
   const s = status?.toLowerCase() ?? "";
   if (s === "running" || s === "active" || s === "healthy") return "running";
   if (s === "paused" || s === "suspended") return "paused";
-  if (s === "stopped" || s === "terminated" || s === "deleted") return "stopped";
-  if (s === "provisioning" || s === "creating" || s === "starting") return "provisioning";
+  if (s === "stopped" || s === "terminated" || s === "deleted")
+    return "stopped";
+  if (s === "provisioning" || s === "creating" || s === "starting")
+    return "provisioning";
   return "unknown";
 }
 

@@ -19,10 +19,13 @@ export function Sidebar({ active, onChange }: SidebarProps) {
     <>
       {/* Desktop sidebar */}
       <aside className="hidden md:block w-52 border-r border-white/10 px-4 py-6 flex-shrink-0">
-        <h3 className="text-[10px] font-mono uppercase tracking-widest text-text-muted/50 px-3 mb-4">Dashboard</h3>
+        <h3 className="text-[10px] font-mono uppercase tracking-widest text-text-muted/50 px-3 mb-4">
+          Dashboard
+        </h3>
         <nav className="space-y-1">
           {SECTIONS.map((s) => (
             <button
+              type="button"
               key={s.id}
               onClick={() => onChange(s.id)}
               className={`w-full text-left px-3 py-2 font-mono text-xs uppercase tracking-widest transition-colors duration-200 rounded ${
@@ -42,6 +45,7 @@ export function Sidebar({ active, onChange }: SidebarProps) {
       <div className="md:hidden flex overflow-x-auto border-b border-white/10 px-2 gap-1">
         {SECTIONS.map((s) => (
           <button
+            type="button"
             key={s.id}
             onClick={() => onChange(s.id)}
             className={`flex-shrink-0 px-3 py-2 font-mono text-[10px] uppercase tracking-widest transition-colors ${
