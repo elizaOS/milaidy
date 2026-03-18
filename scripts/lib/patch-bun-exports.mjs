@@ -911,6 +911,8 @@ export function patchAutonomousTypeError(root, log = console.log) {
   for (const filePath of candidates) {
     if (!existsSync(filePath)) continue;
     let source = readFileSync(filePath, "utf8");
+    // Skip if already fixed (contains "as unknown as SubscriptionAuthApi")
+    if (source.includes("as unknown as SubscriptionAuthApi")) continue;
     if (source.includes("as SubscriptionAuthApi")) {
       source = source.replaceAll(
         "as SubscriptionAuthApi",
