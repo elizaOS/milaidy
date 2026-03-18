@@ -462,6 +462,8 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
     "Started extracted launcher:",
     "Runtime started -- agent: .* port:",
     "Waiting for health endpoint at http://(?:localhost|127\\.0\\.0\\.1):",
+    "$handler.UseProxy = $false",
+    '--noproxy "127.0.0.1"',
   ];
   const missingSnippets = requiredSnippets.filter(
     (snippet) => !script.includes(snippet),

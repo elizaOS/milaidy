@@ -202,8 +202,14 @@ if (-not $launcher) {
   $launcherStarted = $true
 }
 
+# Bypass proxy for loopback — WinHTTP (used by Invoke-WebRequest) respects
+# system proxy settings on GitHub Actions runners, causing 127.0.0.1 requests
+# to route through a non-existent proxy and timeout.
+$env:NO_PROXY = "127.0.0.1,localhost"
+
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $healthy = $false
+$healthCheckMethod = $null
 
 try {
   while ((Get-Date) -lt $deadline) {
@@ -239,25 +245,56 @@ try {
     }
 
     foreach ($port in Get-ObservedBackendPorts $BackendPort) {
+      $uri = "http://127.0.0.1:${port}/api/health"
+
+      # Method 1: .NET HttpClient with proxy explicitly disabled.
+      # Invoke-WebRequest uses WinHTTP which honours system proxy settings;
+      # on GitHub Actions runners this can route 127.0.0.1 through a
+      # non-existent proxy, causing a TCP timeout.
       try {
-        $response = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/health" -UseBasicParsing -TimeoutSec 2
-        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+        $handler = [System.Net.Http.HttpClientHandler]::new()
+        $handler.UseProxy = $false
+        $client = [System.Net.Http.HttpClient]::new($handler)
+        $client.Timeout = [TimeSpan]::FromSeconds(3)
+        $task = $client.GetAsync($uri)
+        $task.Wait()
+        if ($task.Result.IsSuccessStatusCode) {
           $healthy = $true
-          Write-Host "Backend health check passed on port $port."
+          $healthCheckMethod = "HttpClient(no-proxy)"
+          Write-Host "Backend health check passed on port $port (via HttpClient, proxy bypassed)."
           break
         }
       } catch {
-        # Log the actual error periodically so we can diagnose connection issues
         $elapsed = [int]((Get-Date) - $deadline.AddSeconds(-$TimeoutSeconds)).TotalSeconds
         if ($elapsed % 30 -lt 3) {
-          Write-Host "Health check attempt on port ${port} failed ($elapsed s): $($_.Exception.Message)"
+          Write-Host "Health check on port ${port} failed ($elapsed s): $($_.Exception.InnerException.Message ?? $_.Exception.Message)"
         }
-        # Fallback: try curl.exe which handles Windows networking differently
+      } finally {
+        if ($client) { $client.Dispose() }
+        if ($handler) { $handler.Dispose() }
+      }
+
+      # Method 2: curl.exe (ships with Windows 10+, uses its own network stack).
+      if (-not $healthy) {
         try {
-          $curlResult = & curl.exe -s -o NUL -w "%{http_code}" "http://127.0.0.1:${port}/api/health" --connect-timeout 2 2>$null
+          $curlResult = & "$env:SystemRoot\System32\curl.exe" -s -o NUL -w "%{http_code}" $uri --connect-timeout 3 --noproxy "127.0.0.1" 2>$null
           if ($curlResult -eq "200") {
             $healthy = $true
-            Write-Host "Backend health check passed on port $port (via curl)."
+            $healthCheckMethod = "curl.exe"
+            Write-Host "Backend health check passed on port $port (via curl.exe)."
+            break
+          }
+        } catch {}
+      }
+
+      # Method 3: Invoke-WebRequest with -NoProxy (PowerShell 7+).
+      if (-not $healthy) {
+        try {
+          $response = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 3 -NoProxy
+          if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+            $healthy = $true
+            $healthCheckMethod = "Invoke-WebRequest(-NoProxy)"
+            Write-Host "Backend health check passed on port $port (via Invoke-WebRequest -NoProxy)."
             break
           }
         } catch {}
