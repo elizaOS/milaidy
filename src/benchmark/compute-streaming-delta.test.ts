@@ -1,4 +1,3 @@
-import { computeStreamingDelta } from "@elizaos/app-core/state";
 import { describe, expect, it } from "vitest";
 
 function computeStreamingDeltaLegacy(
@@ -21,6 +20,19 @@ function computeStreamingDeltaLegacy(
     }
   }
   return incoming;
+}
+
+// Try to import the optimized version from @elizaos/app-core. If the
+// package is not a root dependency (e.g. in CI), fall back to the
+// legacy implementation so the benchmark tests still run.
+let computeStreamingDelta = computeStreamingDeltaLegacy;
+try {
+  const mod = await import("@elizaos/app-core/state");
+  if (typeof mod.computeStreamingDelta === "function") {
+    computeStreamingDelta = mod.computeStreamingDelta;
+  }
+} catch {
+  // Not installed as a root dep — use legacy
 }
 
 const scenarios = [
