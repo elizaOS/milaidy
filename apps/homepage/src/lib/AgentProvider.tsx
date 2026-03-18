@@ -136,7 +136,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchAll();
-    intervalRef.current = setInterval(fetchAll, 10000);
+    // Poll every 30s — sources that fail are already caught silently,
+    // no need to hammer them every 10s
+    intervalRef.current = setInterval(fetchAll, 30000);
     return () => clearInterval(intervalRef.current);
   }, [fetchAll]);
 

@@ -16,9 +16,9 @@ export function SourceBar() {
     <div className="px-8 py-3 border-b border-white/10 flex items-center gap-6 text-xs font-mono">
       {/* Cloud source */}
       <div className="flex items-center gap-2">
-        <span className={`w-1.5 h-1.5 rounded-full ${authed ? "bg-green-500" : "bg-white/20"}`} />
+        <span className={`w-1.5 h-1.5 rounded-full ${authed && cloudCount > 0 ? "bg-green-500" : authed ? "bg-yellow-500" : "bg-white/20"}`} />
         <span className="text-text-muted">
-          {authed ? `cloud (${cloudCount})` : "cloud (not connected)"}
+          {!authed ? "cloud (not connected)" : cloudCount > 0 ? `cloud (${cloudCount})` : "cloud (0 agents)"}
         </span>
       </div>
 
