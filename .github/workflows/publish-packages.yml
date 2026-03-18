@@ -145,6 +145,9 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packaging/pypi/dist/
+          # Falls back to API token when OIDC trusted publishing is not
+          # configured (e.g. first publish before the project exists on PyPI).
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
   # ── Homebrew ───────────────────────────────────────────────────────────
   update-homebrew:
