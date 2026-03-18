@@ -16,6 +16,7 @@ import { createConnection } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { getCloudSecret } from "../../api/cloud-secrets";
 
 export type CheckStatus = "pass" | "fail" | "warn" | "skip";
 export type CheckCategory = "system" | "config" | "network" | "storage";
@@ -220,7 +221,13 @@ export function checkModelKey(
   env: Record<string, string | undefined> = process.env,
 ): CheckResult {
   for (const entry of MODEL_KEY_VARS) {
-    if (env[entry.key]?.trim()) {
+    // Cloud API key may have been scrubbed from process.env into the
+    // sealed secret store — check there first.
+    const value =
+      entry.key === "ELIZAOS_CLOUD_API_KEY"
+        ? (getCloudSecret("ELIZAOS_CLOUD_API_KEY") ?? env[entry.key])
+        : env[entry.key];
+    if (value?.trim()) {
       return {
         label: "Model API key",
         category: "config",

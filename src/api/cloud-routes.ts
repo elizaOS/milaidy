@@ -8,6 +8,14 @@ import type { AgentRuntime } from "@elizaos/core";
 import type { MiladyConfig } from "../config/config";
 import { saveMiladyConfig } from "../config/config";
 import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
+import { scrubCloudSecretsFromEnv } from "./cloud-secrets";
+
+// Re-export the public API from the decoupled secrets module so existing
+// consumers can still import from "./cloud-routes".
+export {
+  _resetCloudSecretsForTesting,
+  getCloudSecret,
+} from "./cloud-secrets";
 
 export interface CloudRouteState {
   config: MiladyConfig;
@@ -31,11 +39,17 @@ export async function handleCloudRoute(
   method: string,
   state: CloudRouteState,
 ): Promise<boolean> {
-  return handleAutonomousCloudRoute(
+  const result = await handleAutonomousCloudRoute(
     req,
     res,
     pathname,
     method,
     toAutonomousState(state),
   );
+
+  // The upstream handler writes secrets to process.env — scrub them
+  // immediately so they don't leak to child processes or env dumps.
+  scrubCloudSecretsFromEnv();
+
+  return result;
 }

@@ -5,7 +5,11 @@ import {
   createMockIncomingMessage,
 } from "../test-support/test-helpers";
 import type { CloudRouteState } from "./cloud-routes";
-import { handleCloudRoute } from "./cloud-routes";
+import {
+  _resetCloudSecretsForTesting,
+  getCloudSecret,
+  handleCloudRoute,
+} from "./cloud-routes";
 
 const fetchMock =
   vi.fn<
@@ -1430,8 +1434,11 @@ describe("handleCloudRoute timeout behavior", () => {
     expect(getJson()).toEqual({ status: "authenticated", keyPrefix: "ak-pfx" });
     expect(saveMiladyConfigMock).toHaveBeenCalledWith(state.config);
     expect(initMock).toHaveBeenCalledTimes(1);
-    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ak-test");
-    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
+    // Keys are scrubbed from process.env into the sealed store
+    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ak-test");
+    expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBe("true");
   });
 
   it("persists authenticated login to runtime and logs non-Error DB failures", async () => {
@@ -1588,7 +1595,8 @@ describe("handleCloudRoute timeout behavior", () => {
       keyPrefix: undefined,
     });
     expect(initMock).toHaveBeenCalledTimes(1);
-    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ak-test");
+    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+    expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ak-test");
   });
 
   it("persists authenticated login to runtime secrets and handles runtime failures", async () => {
@@ -1720,6 +1728,156 @@ describe("handleCloudRoute timeout behavior", () => {
     expect(getJson()).toEqual({
       status: "error",
       error: "Failed to reach Eliza Cloud",
+    });
+  });
+
+  // ── Security: cloud secret scrubbing regression tests ───────────────────
+  describe("cloud secret scrubbing (CVE mitigation)", () => {
+    beforeEach(() => {
+      _resetCloudSecretsForTesting();
+    });
+
+    it("scrubs ELIZAOS_CLOUD_API_KEY from process.env after login", async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authenticated",
+            apiKey: "ck-secret-key",
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const state = {
+        config: {},
+        runtime: null,
+        cloudManager: null,
+      } as unknown as CloudRouteState;
+
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/login",
+        headers: { "content-type": "application/json" },
+        bodyChunks: [
+          Buffer.from(JSON.stringify({ email: "a@b.c", code: "123456" })),
+        ],
+      });
+      const { res } = createMockHttpResponse();
+
+      await handleCloudRoute(req, res, "/api/cloud/login", "POST", state);
+
+      // The upstream handler sets process.env.ELIZAOS_CLOUD_API_KEY.
+      // Our wrapper must have scrubbed it.
+      expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+      expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    });
+
+    it("scrubs ELIZAOS_CLOUD_ENABLED from process.env after disconnect", async () => {
+      // Simulate a prior login that leaked into process.env
+      process.env.ELIZAOS_CLOUD_API_KEY = "ck-leaked";
+      process.env.ELIZAOS_CLOUD_ENABLED = "true";
+
+      const state = {
+        config: { cloud: { enabled: true, apiKey: "ck-leaked" } },
+        runtime: null,
+        cloudManager: null,
+      } as unknown as CloudRouteState;
+
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/disconnect",
+      });
+      const { res } = createMockHttpResponse();
+
+      await handleCloudRoute(
+        req,
+        res,
+        "/api/cloud/disconnect",
+        "POST",
+        state,
+      );
+
+      expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+      expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    });
+
+    it("getCloudSecret returns the scrubbed value after process.env is cleaned", async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authenticated",
+            apiKey: "ck-sealed",
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const state = {
+        config: {},
+        runtime: null,
+        cloudManager: null,
+      } as unknown as CloudRouteState;
+
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/login",
+        headers: { "content-type": "application/json" },
+        bodyChunks: [
+          Buffer.from(JSON.stringify({ email: "a@b.c", code: "123456" })),
+        ],
+      });
+      const { res } = createMockHttpResponse();
+
+      await handleCloudRoute(req, res, "/api/cloud/login", "POST", state);
+
+      // process.env is clean
+      expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+      // but the sealed store has the value
+      expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ck-sealed");
+      expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBe("true");
+    });
+
+    it("getCloudSecret falls back to process.env for docker entrypoint keys", () => {
+      // Docker entrypoints set process.env before this module loads
+      process.env.ELIZAOS_CLOUD_API_KEY = "ck-docker";
+      expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ck-docker");
+    });
+
+    it("cloud API key is not enumerable in process.env after login", async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authenticated",
+            apiKey: "ck-hidden",
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const state = {
+        config: {},
+        runtime: null,
+        cloudManager: null,
+      } as unknown as CloudRouteState;
+
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/login",
+        headers: { "content-type": "application/json" },
+        bodyChunks: [
+          Buffer.from(JSON.stringify({ email: "a@b.c", code: "123456" })),
+        ],
+      });
+      const { res } = createMockHttpResponse();
+
+      await handleCloudRoute(req, res, "/api/cloud/login", "POST", state);
+
+      // The key must not appear in JSON.stringify(process.env) or Object.keys
+      const envDump = JSON.stringify(process.env);
+      expect(envDump).not.toContain("ck-hidden");
+      expect(Object.keys(process.env)).not.toContain(
+        "ELIZAOS_CLOUD_API_KEY",
+      );
     });
   });
 });
