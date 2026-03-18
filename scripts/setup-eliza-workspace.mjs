@@ -3,6 +3,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -19,6 +20,7 @@ const DEFAULT_REPO_ROOT = path.resolve(__dirname, "..");
 
 export const LOCAL_ELIZA_SKIP_ENV = "ELIZA_SKIP_LOCAL_ELIZA";
 export const LOCAL_ELIZA_FORCE_ENV = "ELIZA_FORCE_LOCAL_ELIZA";
+export const ELIZA_FORCE_RESET_ENV = "ELIZA_FORCE_RESET";
 export const ELIZA_GIT_URL = "https://github.com/elizaos/eliza.git";
 export const ELIZA_BRANCH = "develop";
 export const ELIZA_REQUIRED_FILES = ["package.json"];
@@ -106,6 +108,27 @@ function hasLocalChanges(dir) {
   }
 
   return result.stdout.trim().length > 0;
+}
+
+function getCurrentBranch(dir) {
+  const result = spawnSync(
+    "git",
+    ["-C", dir, "rev-parse", "--abbrev-ref", "HEAD"],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+  );
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function getLocalRev(dir, ref) {
+  const result = spawnSync("git", ["-C", dir, "rev-parse", ref], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+export function isForceReset({ env = process.env, argv = process.argv } = {}) {
+  return env[ELIZA_FORCE_RESET_ENV] === "1" || argv.includes("--force");
 }
 
 export function getSiblingElizaRoot(repoRoot = DEFAULT_REPO_ROOT) {
@@ -272,10 +295,11 @@ export function createPackageLink(linkPath, targetPath) {
   return true;
 }
 
-async function ensureElizaWorkspace(repoRoot) {
+async function ensureElizaWorkspace(repoRoot, { force = false } = {}) {
   const elizaRoot = getSiblingElizaRoot(repoRoot);
 
   if (!existsSync(elizaRoot)) {
+    // Fresh clone
     console.log(
       `[setup-eliza-workspace] Cloning ${ELIZA_GIT_URL} (${ELIZA_BRANCH}) into ${toDisplayPath(elizaRoot)}`,
     );
@@ -294,34 +318,76 @@ async function ensureElizaWorkspace(repoRoot) {
         label: "git clone eliza",
       },
     );
-  } else if (!hasRequiredElizaWorkspaceFiles(elizaRoot)) {
-    if (!isGitRepo(elizaRoot)) {
-      throw new Error(
-        `Expected ${toDisplayPath(elizaRoot)} to be a git checkout of eliza with ${ELIZA_BRANCH} package layout.`,
-      );
-    }
-
-    if (hasLocalChanges(elizaRoot)) {
-      throw new Error(
-        `${toDisplayPath(elizaRoot)} is missing the ${ELIZA_BRANCH} package layout and has local changes. Switch it manually or remove it so Milady can re-clone it.`,
-      );
-    }
-
-    console.log(
-      `[setup-eliza-workspace] Existing ${toDisplayPath(elizaRoot)} is missing the ${ELIZA_BRANCH} package layout; checking out ${ELIZA_BRANCH}`,
+  } else if (!isGitRepo(elizaRoot)) {
+    throw new Error(
+      `Expected ${toDisplayPath(elizaRoot)} to be a git checkout of eliza with ${ELIZA_BRANCH} package layout.`,
     );
-    await runCommand("git", ["fetch", "origin", ELIZA_BRANCH], {
-      cwd: elizaRoot,
-      label: "git fetch eliza",
-    });
-    await runCommand("git", ["checkout", ELIZA_BRANCH], {
-      cwd: elizaRoot,
-      label: "git checkout develop",
-    });
-    await runCommand("git", ["pull", "--ff-only", "origin", ELIZA_BRANCH], {
-      cwd: elizaRoot,
-      label: "git pull eliza",
-    });
+  } else {
+    // Existing checkout — sync to latest
+    const dirty = hasLocalChanges(elizaRoot);
+    const currentBranch = getCurrentBranch(elizaRoot);
+    const wrongBranch = currentBranch !== ELIZA_BRANCH;
+
+    if (dirty && !force) {
+      console.warn(
+        `\n⚠️  ${toDisplayPath(elizaRoot)} has uncommitted changes — skipping sync.`,
+      );
+      console.warn(
+        `   To discard changes and pull latest, run:  bun run setup:dev:force\n`,
+      );
+    } else {
+      if (dirty && force) {
+        console.log(
+          `[setup-eliza-workspace] Force-resetting ${toDisplayPath(elizaRoot)} (discarding local changes)`,
+        );
+        await runCommand("git", ["reset", "--hard"], {
+          cwd: elizaRoot,
+          label: "git reset --hard (eliza)",
+        });
+        await runCommand("git", ["clean", "-fd"], {
+          cwd: elizaRoot,
+          label: "git clean (eliza)",
+        });
+      }
+
+      if (wrongBranch) {
+        console.log(
+          `[setup-eliza-workspace] Switching from ${currentBranch ?? "unknown"} to ${ELIZA_BRANCH}`,
+        );
+        await runCommand("git", ["fetch", "origin", ELIZA_BRANCH], {
+          cwd: elizaRoot,
+          label: "git fetch eliza",
+        });
+        await runCommand("git", ["checkout", ELIZA_BRANCH], {
+          cwd: elizaRoot,
+          label: "git checkout develop",
+        });
+      }
+
+      // Pull latest
+      const revBefore = getLocalRev(elizaRoot, "HEAD");
+      await runCommand("git", ["fetch", "origin", ELIZA_BRANCH], {
+        cwd: elizaRoot,
+        label: "git fetch eliza",
+      });
+      await runCommand(
+        "git",
+        ["pull", "--ff-only", "origin", ELIZA_BRANCH],
+        {
+          cwd: elizaRoot,
+          label: "git pull eliza",
+        },
+      );
+      const revAfter = getLocalRev(elizaRoot, "HEAD");
+
+      if (revBefore && revAfter && revBefore !== revAfter) {
+        console.log(
+          `[setup-eliza-workspace] Updated eliza ${revBefore.slice(0, 8)} → ${revAfter.slice(0, 8)}`,
+        );
+      } else {
+        console.log("[setup-eliza-workspace] Eliza already up to date");
+      }
+    }
   }
 
   if (!hasRequiredElizaWorkspaceFiles(elizaRoot)) {
@@ -385,7 +451,71 @@ function linkElizaPackages(repoRoot, elizaRoot) {
   );
 }
 
-export async function setupElizaWorkspace(repoRoot = DEFAULT_REPO_ROOT) {
+/**
+ * Reverse-link external @elizaos/* packages from milady's node_modules into
+ * eliza's root node_modules.  When eliza workspace packages are symlinked into
+ * milady, Bun resolves their imports from the *real* path inside the eliza
+ * workspace.  External deps like plugin-agent-orchestrator are only installed
+ * under milady — not in eliza's root node_modules — so the import fails.
+ * Creating links in eliza's root node_modules makes them resolvable.
+ */
+function reverseLinksExternalElizaDeps(repoRoot, elizaRoot) {
+  const miladyScope = path.join(repoRoot, "node_modules", "@elizaos");
+  const elizaScope = path.join(elizaRoot, "node_modules", "@elizaos");
+
+  if (!existsSync(miladyScope)) return;
+
+  // Collect names that ARE eliza workspace packages (i.e. the ones we just symlinked)
+  const workspaceNames = new Set();
+  for (const { linkPath } of getElizaPackageLinks(repoRoot, elizaRoot)) {
+    if (linkPath.startsWith(miladyScope + path.sep)) {
+      workspaceNames.add(path.basename(linkPath));
+    }
+  }
+
+  let dirEntries;
+  try {
+    dirEntries = readdirSync(miladyScope, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  let linked = 0;
+  for (const entry of dirEntries) {
+    const name = entry.name;
+
+    // Skip workspace packages — those already live in eliza
+    if (workspaceNames.has(name)) continue;
+
+    const miladyPkg = path.join(miladyScope, name);
+    const elizaPkg = path.join(elizaScope, name);
+
+    // Only link real (non-symlinked-to-eliza) packages
+    try {
+      if (lstatSync(miladyPkg).isSymbolicLink()) {
+        const target = realpathSync(miladyPkg);
+        if (target.startsWith(elizaRoot)) continue;
+      }
+    } catch {
+      continue;
+    }
+
+    if (createPackageLink(elizaPkg, miladyPkg)) {
+      linked += 1;
+    }
+  }
+
+  if (linked > 0) {
+    console.log(
+      `[setup-eliza-workspace] Reverse-linked ${linked} external @elizaos dep${linked === 1 ? "" : "s"} into eliza workspace`,
+    );
+  }
+}
+
+export async function setupElizaWorkspace(
+  repoRoot = DEFAULT_REPO_ROOT,
+  { force = isForceReset() } = {},
+) {
   const skipReason = getElizaWorkspaceSkipReason(repoRoot);
   if (skipReason) {
     console.log(`[setup-eliza-workspace] Skipping: ${skipReason}`);
@@ -402,10 +532,11 @@ export async function setupElizaWorkspace(repoRoot = DEFAULT_REPO_ROOT) {
     );
   }
 
-  const elizaRoot = await ensureElizaWorkspace(repoRoot);
+  const elizaRoot = await ensureElizaWorkspace(repoRoot, { force });
   await ensureElizaDependencies(elizaRoot);
   await ensureElizaBuildOutputs(elizaRoot);
   linkElizaPackages(repoRoot, elizaRoot);
+  reverseLinksExternalElizaDeps(repoRoot, elizaRoot);
 
   return {
     skipped: false,
