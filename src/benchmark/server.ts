@@ -760,9 +760,7 @@ export async function startBenchmarkServer() {
 
   await runtime.initialize();
   disableManualCompactionAction(runtime);
-  const modelHandlers = (
-    runtime as { models?: Map<string, unknown[]> }
-  ).models;
+  const modelHandlers = (runtime as { models?: Map<string, unknown[]> }).models;
   const modelHandlerSummary = Object.fromEntries(
     [...(modelHandlers?.entries() ?? [])].map(([modelType, handlers]) => [
       modelType,

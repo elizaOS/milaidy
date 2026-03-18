@@ -217,10 +217,7 @@ describe("handleWhatsAppRoute", () => {
 
       const existingSession = { stop: vi.fn(), getStatus: vi.fn() };
       const sessions = new Map<string, WhatsAppPairingSession>();
-      sessions.set(
-        "default",
-        existingSession as WhatsAppPairingSession,
-      );
+      sessions.set("default", existingSession as WhatsAppPairingSession);
       const state = createState({ whatsappPairingSessions: sessions });
 
       await handleWhatsAppRoute(req, res, "/api/whatsapp/pair", "POST", state);
@@ -388,10 +385,7 @@ describe("handleWhatsAppRoute", () => {
       // Fill the sessions map to the limit
       const sessions = new Map<string, WhatsAppPairingSession>();
       for (let i = 0; i < MAX_PAIRING_SESSIONS; i++) {
-        sessions.set(
-          `acct-${i}`,
-          mockSession as WhatsAppPairingSession,
-        );
+        sessions.set(`acct-${i}`, mockSession as WhatsAppPairingSession);
       }
       const state = createState({ whatsappPairingSessions: sessions });
 

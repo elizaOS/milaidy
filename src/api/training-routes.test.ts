@@ -10,7 +10,9 @@ describe("training routes", () => {
   let trainingService: FallbackTrainingService;
 
   beforeEach(() => {
-    runtime = { character: { name: "Eliza" } } as unknown as unknown as AgentRuntime;
+    runtime = {
+      character: { name: "Eliza" },
+    } as unknown as unknown as AgentRuntime;
 
     const config = {} as ElizaConfig;
     trainingService = new FallbackTrainingService({

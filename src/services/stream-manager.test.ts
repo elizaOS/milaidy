@@ -753,8 +753,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
     await streamManager.stop();
     expect(streamManager.isRunning()).toBe(false);
 
-    const spawnCountBefore = vi.mocked(spawn).mock
-      .calls.length;
+    const spawnCountBefore = vi.mocked(spawn).mock.calls.length;
 
     // Simulate exit event after intentional stop — should NOT trigger restart
     const exitHandler = getExitHandler(proc);
@@ -768,8 +767,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
       vi.useRealTimers();
     }
 
-    const spawnCountAfter = vi.mocked(spawn).mock
-      .calls.length;
+    const spawnCountAfter = vi.mocked(spawn).mock.calls.length;
     // No new spawn calls — restart was prevented by intentionalStop
     expect(spawnCountAfter).toBe(spawnCountBefore);
   });
@@ -796,8 +794,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
     }
 
     // spawn should only have been called once (second start was rejected)
-    const spawnCalls = vi.mocked(spawn).mock
-      .calls;
+    const spawnCalls = vi.mocked(spawn).mock.calls;
     expect(spawnCalls.length).toBe(1);
   });
 });

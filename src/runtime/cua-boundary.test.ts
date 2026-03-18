@@ -96,13 +96,17 @@ describe("CUA plugin mapping — feature flags and config entries", () => {
   afterEach(() => snap.restore());
 
   it("features.cua = true loads @elizaos/plugin-cua", () => {
-    const config = { features: { cua: true } } as Partial<ElizaConfig> as ElizaConfig;
+    const config = {
+      features: { cua: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-cua")).toBe(true);
   });
 
   it("features.cua = false does NOT load @elizaos/plugin-cua", () => {
-    const config = { features: { cua: false } } as Partial<ElizaConfig> as ElizaConfig;
+    const config = {
+      features: { cua: false },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-cua")).toBe(false);
   });

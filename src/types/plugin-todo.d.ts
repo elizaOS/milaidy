@@ -17,9 +17,7 @@ declare module "@elizaos/plugin-todo" {
     updateTodo(id: string, data: Record<string, unknown>): Promise<void>;
   }
 
-  export function createTodoDataService(
-    runtime: AgentRuntime,
-  ): TodoDataService;
+  export function createTodoDataService(runtime: AgentRuntime): TodoDataService;
 
   const todoPlugin: Plugin;
   export default todoPlugin;

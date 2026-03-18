@@ -686,9 +686,8 @@ describe("handleIncomingMessage()", () => {
 
     const results = await callback({ text: "Hi there!" });
 
-    const sock = (
-      svc as { sock: { sendMessage: ReturnType<typeof vi.fn> } }
-    ).sock;
+    const sock = (svc as { sock: { sendMessage: ReturnType<typeof vi.fn> } })
+      .sock;
     expect(sock.sendMessage).toHaveBeenCalledWith(
       "5511999999999@s.whatsapp.net",
       { text: "Hi there!" },
@@ -707,9 +706,8 @@ describe("handleIncomingMessage()", () => {
 
     const results = await callback({ text: "Hi", target: "discord" });
 
-    const sock = (
-      svc as { sock: { sendMessage: ReturnType<typeof vi.fn> } }
-    ).sock;
+    const sock = (svc as { sock: { sendMessage: ReturnType<typeof vi.fn> } })
+      .sock;
     expect(sock.sendMessage).not.toHaveBeenCalled();
     expect(results).toHaveLength(0);
   });
@@ -724,9 +722,8 @@ describe("handleIncomingMessage()", () => {
 
     const results = await callback({ text: "   " });
 
-    const sock = (
-      svc as { sock: { sendMessage: ReturnType<typeof vi.fn> } }
-    ).sock;
+    const sock = (svc as { sock: { sendMessage: ReturnType<typeof vi.fn> } })
+      .sock;
     expect(sock.sendMessage).not.toHaveBeenCalled();
     expect(results).toHaveLength(0);
   });

@@ -370,14 +370,10 @@ async function ensureElizaWorkspace(repoRoot, { force = false } = {}) {
         cwd: elizaRoot,
         label: "git fetch eliza",
       });
-      await runCommand(
-        "git",
-        ["pull", "--ff-only", "origin", ELIZA_BRANCH],
-        {
-          cwd: elizaRoot,
-          label: "git pull eliza",
-        },
-      );
+      await runCommand("git", ["pull", "--ff-only", "origin", ELIZA_BRANCH], {
+        cwd: elizaRoot,
+        label: "git pull eliza",
+      });
       const revAfter = getLocalRev(elizaRoot, "HEAD");
 
       if (revBefore && revAfter && revBefore !== revAfter) {

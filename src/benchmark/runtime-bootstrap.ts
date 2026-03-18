@@ -252,9 +252,7 @@ export async function createBenchmarkRuntime(): Promise<{
 
   await runtime.initialize();
 
-  const modelHandlers = (
-    runtime as { models?: Map<string, unknown[]> }
-  ).models;
+  const modelHandlers = (runtime as { models?: Map<string, unknown[]> }).models;
   const modelHandlerSummary = Object.fromEntries(
     [...(modelHandlers?.entries() ?? [])].map(([modelType, handlers]) => [
       modelType,

@@ -253,9 +253,7 @@ describe("installDatabaseTrajectoryLogger", () => {
       createRuntimeWithTrajectoryLogger(legacyLogger);
 
     // Set orchestrator context on the runtime
-    (
-      runtime as Record<string, unknown>
-    ).__orchestratorTrajectoryCtx = {
+    (runtime as Record<string, unknown>).__orchestratorTrajectoryCtx = {
       source: "orchestrator",
       decisionType: "stall-check",
       sessionId: "sess-42",
@@ -823,8 +821,7 @@ describe("observation buffer", () => {
 
     // After the call, the context should be cleaned up
     expect(
-      (runtime as Record<string, unknown>)
-        .__orchestratorTrajectoryCtx,
+      (runtime as Record<string, unknown>).__orchestratorTrajectoryCtx,
     ).toBeUndefined();
   });
 
@@ -849,8 +846,7 @@ describe("observation buffer", () => {
     const result = await flushObservationBuffer(runtime);
     expect(result).toEqual([]);
     expect(
-      (runtime as Record<string, unknown>)
-        .__orchestratorTrajectoryCtx,
+      (runtime as Record<string, unknown>).__orchestratorTrajectoryCtx,
     ).toBeUndefined();
   });
 });

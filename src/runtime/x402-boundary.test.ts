@@ -274,7 +274,9 @@ describe("x402 plugin mapping", () => {
   afterEach(() => snap.restore());
 
   it("collectPluginNames includes @elizaos/plugin-x402 when config.x402.enabled", () => {
-    const config = { x402: { enabled: true } } as Partial<ElizaConfig> as ElizaConfig;
+    const config = {
+      x402: { enabled: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-x402")).toBe(true);
   });

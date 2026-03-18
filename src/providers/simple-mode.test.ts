@@ -11,7 +11,9 @@ function makeMessage(channelType?: ChannelType): Memory {
 }
 
 function makeModeMessage(mode: "simple" | "power"): Memory {
-  return { content: { channelType: CT.DM, conversationMode: mode } } as unknown as Memory;
+  return {
+    content: { channelType: CT.DM, conversationMode: mode },
+  } as unknown as Memory;
 }
 
 describe("createChannelProfileProvider", () => {

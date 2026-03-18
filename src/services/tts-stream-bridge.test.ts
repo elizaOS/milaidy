@@ -427,9 +427,7 @@ describe("TtsStreamBridge.speak()", () => {
       stdout: mockStdout,
       stdin: mockStdin,
     });
-    vi.mocked(spawn).mockReturnValueOnce(
-      mockProc,
-    );
+    vi.mocked(spawn).mockReturnValueOnce(mockProc);
 
     const speakPromise = ttsStreamBridge.speak("Hello world", {
       provider: "elevenlabs",
@@ -476,9 +474,7 @@ describe("TtsStreamBridge.speak()", () => {
       stdout: mockStdout,
       stdin: mockStdin,
     });
-    vi.mocked(spawn).mockReturnValueOnce(
-      mockProc,
-    );
+    vi.mocked(spawn).mockReturnValueOnce(mockProc);
 
     const speakPromise = ttsStreamBridge.speak(
       "Hello there (quietly). *waves* Visit now.",
@@ -524,9 +520,7 @@ describe("TtsStreamBridge.speak()", () => {
       stdout: mockStdout,
       stdin: mockStdin,
     });
-    vi.mocked(spawn).mockReturnValueOnce(
-      mockProc,
-    );
+    vi.mocked(spawn).mockReturnValueOnce(mockProc);
 
     const speakPromise = ttsStreamBridge.speak("Hello", {
       provider: "openai",
@@ -593,9 +587,7 @@ describe("TtsStreamBridge.speak()", () => {
       stdout: mockStdout,
       stdin: mockStdin,
     });
-    vi.mocked(spawn).mockReturnValueOnce(
-      mockProc,
-    );
+    vi.mocked(spawn).mockReturnValueOnce(mockProc);
 
     const speakPromise = ttsStreamBridge.speak("Hello", {
       provider: "elevenlabs",
@@ -666,9 +658,7 @@ describe("decodeMp3ToPcm via speak()", () => {
       stdout: mockStdout,
       stdin: mockStdin,
     });
-    vi.mocked(spawn).mockReturnValueOnce(
-      mockProc,
-    );
+    vi.mocked(spawn).mockReturnValueOnce(mockProc);
 
     const speakPromise = ttsStreamBridge.speak("Test", {
       provider: "elevenlabs",
@@ -681,8 +671,7 @@ describe("decodeMp3ToPcm via speak()", () => {
     await speakPromise;
 
     // Verify FFmpeg was spawned with correct decode args
-    const spawnCalls = vi.mocked(spawn).mock
-      .calls;
+    const spawnCalls = vi.mocked(spawn).mock.calls;
     expect(spawnCalls.length).toBe(1);
     const [cmd, args] = spawnCalls[0];
     expect(cmd).toBe("ffmpeg");

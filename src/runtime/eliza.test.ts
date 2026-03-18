@@ -620,7 +620,9 @@ describe("collectPluginNames", () => {
   });
 
   it("handles empty plugins.installs gracefully", () => {
-    const config = { plugins: { installs: {} } } as Partial<ElizaConfig> as ElizaConfig;
+    const config = {
+      plugins: { installs: {} },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     // Should still have all core plugins, no crash
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
@@ -808,7 +810,9 @@ describe("repairBrokenInstallRecord", () => {
   });
 
   it("returns false when no install record exists", () => {
-    const config = { plugins: { installs: {} } } as Partial<ElizaConfig> as ElizaConfig;
+    const config = {
+      plugins: { installs: {} },
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
       false,
     );

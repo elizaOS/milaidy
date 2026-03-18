@@ -118,10 +118,7 @@ describe("SignalNativeService", () => {
 
     (service as { native: typeof native }).native = native;
     (service as { connected: boolean }).connected = true;
-    (service as { authDir: string }).authDir = path.join(
-      tmpDir,
-      "signal-auth",
-    );
+    (service as { authDir: string }).authDir = path.join(tmpDir, "signal-auth");
 
     await service.handleSendMessage(
       runtime as never,
@@ -150,10 +147,7 @@ describe("SignalNativeService", () => {
     };
 
     (service as { native: typeof native }).native = native;
-    (service as { authDir: string }).authDir = path.join(
-      tmpDir,
-      "signal-auth",
-    );
+    (service as { authDir: string }).authDir = path.join(tmpDir, "signal-auth");
 
     await (
       service as {
