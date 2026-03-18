@@ -304,7 +304,9 @@ describe("Electrobun release workflow drift", () => {
       "MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: $" +
         "{{ runner.temp }}\\milady-windows-ui-launcher.txt",
     );
-    expect(workflow).toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
+    // agent.ts now sets MILADY_DISABLE_LOCAL_EMBEDDINGS=1 on Windows
+    // automatically, so the workflow no longer needs the env var override.
+    expect(workflow).not.toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
     expect(workflow).toContain(
       'Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"',
     );
@@ -351,7 +353,7 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(
       "bunx playwright test --config playwright.electrobun.packaged.config.ts test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
     );
-    expect(workflow).toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
+    expect(workflow).not.toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
     expect(workflow).not.toContain(
       "name: Install Playwright Chromium (Windows)",
     );
