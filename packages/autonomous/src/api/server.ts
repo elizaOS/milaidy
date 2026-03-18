@@ -30,19 +30,20 @@ import {
 import { ethers } from "ethers";
 import { type WebSocket, WebSocketServer } from "ws";
 import { getGlobalAwarenessRegistry } from "../awareness/registry";
+import { CharacterSchema } from "../config/character-schema";
 import {
   configFileExists,
   loadMiladyConfig,
   type MiladyConfig,
   saveMiladyConfig,
 } from "../config/config";
-import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 import { resolveModelsCacheDir, resolveStateDir } from "../config/paths";
 import {
   isConnectorConfigured,
   isStreamingDestinationConfigured,
 } from "../config/plugin-auto-enable";
 import type { ConnectorConfig, CustomActionDef } from "../config/types.milady";
+import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
 import { EMOTE_BY_ID, EMOTE_CATALOG } from "../emotes/catalog";
 import { resolveDefaultAgentWorkspaceDir } from "../providers/workspace";
 import {
@@ -60,24 +61,24 @@ import {
   getBundledRuntimePluginIds,
 } from "../runtime/release-plugin-policy";
 import {
-  isBlockedPrivateOrLinkLocalIp,
-  isLoopbackHost,
-  normalizeHostLike,
-} from "../security/network-policy";
-import {
   AUDIT_EVENT_TYPES,
   AUDIT_SEVERITIES,
   getAuditFeedSize,
   queryAuditFeed,
   subscribeAuditFeed,
 } from "../security/audit-log";
-import { AppManager } from "../services/app-manager";
+import {
+  isBlockedPrivateOrLinkLocalIp,
+  isLoopbackHost,
+  normalizeHostLike,
+} from "../security/network-policy";
 import {
   AgentExportError,
   estimateExportSize,
   exportAgent,
   importAgent,
 } from "../services/agent-export";
+import { AppManager } from "../services/app-manager";
 import { FallbackTrainingService } from "../services/fallback-training-service";
 import {
   getMcpServerDetails,
@@ -96,12 +97,24 @@ import {
 } from "../services/privy-wallets";
 import type { SandboxManager } from "../services/sandbox-manager";
 import {
+  SignalPairingSession,
+  sanitizeAccountId as sanitizeSignalAccountId,
+  signalAuthExists,
+  signalLogout,
+} from "../services/signal-pairing";
+import {
   installMarketplaceSkill,
   listInstalledMarketplaceSkills,
   searchSkillsMarketplace,
   uninstallMarketplaceSkill,
 } from "../services/skill-marketplace";
 import { streamManager } from "../services/stream-manager";
+import {
+  sanitizeAccountId as sanitizeWhatsAppAccountId,
+  WhatsAppPairingSession,
+  whatsappAuthExists,
+  whatsappLogout,
+} from "../services/whatsapp-pairing";
 import {
   executeTriggerTask,
   getTriggerHealthSnapshot,
@@ -128,7 +141,6 @@ import { detectRuntimeModel, resolveProviderFromModel } from "./agent-model";
 import { handleAgentTransferRoutes } from "./agent-transfer-routes";
 import { handleAppsRoutes } from "./apps-routes";
 import { handleAuthRoutes } from "./auth-routes";
-
 import {
   buildBscApproveUnsignedTx,
   buildBscBuyUnsignedTx,
@@ -219,19 +231,6 @@ import {
   applyWhatsAppQrOverride,
   handleWhatsAppRoute,
 } from "./whatsapp-routes";
-import { CharacterSchema } from "../config/character-schema";
-import {
-  SignalPairingSession,
-  sanitizeAccountId as sanitizeSignalAccountId,
-  signalAuthExists,
-  signalLogout,
-} from "../services/signal-pairing";
-import {
-  sanitizeAccountId as sanitizeWhatsAppAccountId,
-  WhatsAppPairingSession,
-  whatsappAuthExists,
-  whatsappLogout,
-} from "../services/whatsapp-pairing";
 
 /**
  * Local stubs for types removed from @elizaos/plugin-agent-orchestrator 2.x.
@@ -513,7 +512,7 @@ interface ServerState {
   _anthropicFlow?: import("../auth/anthropic").AnthropicFlow;
   _codexFlow?: import("../auth/openai-codex").CodexFlow;
   _codexFlowTimer?: ReturnType<typeof setTimeout>;
-  /** System permission states (cached from Electron IPC). */
+  /** System permission states (cached from the desktop bridge). */
   permissionStates?: Record<
     string,
     {
@@ -1073,7 +1072,6 @@ const BLOCKED_ENV_KEYS = new Set([
   "DYLD_LIBRARY_PATH",
   "NODE_OPTIONS",
   "NODE_EXTRA_CA_CERTS",
-  "ELECTRON_RUN_AS_NODE",
   // TLS bypass — setting to "0" disables ALL certificate verification,
   // enabling MITM interception of every outbound HTTPS request (API keys
   // for OpenAI, Anthropic, ElevenLabs etc. sent in plaintext headers).
@@ -3977,7 +3975,6 @@ const BLOCKED_MCP_ENV_KEYS = new Set([
   "DYLD_LIBRARY_PATH",
   "NODE_OPTIONS",
   "NODE_EXTRA_CA_CERTS",
-  "ELECTRON_RUN_AS_NODE",
   "NODE_TLS_REJECT_UNAUTHORIZED",
   "HTTP_PROXY",
   "HTTPS_PROXY",
@@ -5338,8 +5335,7 @@ export function resolveMcpTerminalAuthorizationRejection(
 
 const LOCAL_ORIGIN_RE =
   /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|\[0:0:0:0:0:0:0:1\])(:\d+)?$/i;
-const APP_ORIGIN_RE =
-  /^(capacitor|capacitor-electron|app|tauri|file|electrobun):\/\/.*$/i;
+const APP_ORIGIN_RE = /^(capacitor|app|tauri|file|electrobun):\/\/.*$/i;
 
 /**
  * Hostname allowlist for DNS rebinding protection.
@@ -13072,9 +13068,7 @@ async function handleRequest(
       const timeout = new Promise<void>((_, reject) =>
         setTimeout(
           () =>
-            reject(
-              new Error("Conversation restore timed out after 5000ms"),
-            ),
+            reject(new Error("Conversation restore timed out after 5000ms")),
           5000,
         ),
       );
@@ -16335,6 +16329,7 @@ async function handleRequest(
 // headless `startEliza()` path).
 // ---------------------------------------------------------------------------
 import { type captureEarlyLogs, flushEarlyLogs } from "./early-logs";
+
 export type { captureEarlyLogs };
 
 // ---------------------------------------------------------------------------
@@ -16935,7 +16930,7 @@ export async function startApiServer(opts?: {
           "./stream-routes.js"
         );
         onAgentMessageFn = onAgentMessage;
-        // Screen capture manager is injected by Electron host via globalThis
+        // Screen capture manager is injected by the desktop host via globalThis
         const screenCapture = (globalThis as Record<string, unknown>)
           .__miladyScreenCapture as
           | {
@@ -17598,6 +17593,12 @@ export async function startApiServer(opts?: {
         `API server listening on http://${displayHost}:${actualPort}`,
         "system",
         ["server", "system"],
+      );
+      // Log to both stdout (for agent.ts port detection) and the in-memory
+      // logger. agent.ts watches stdout for "Listening on http://host:PORT"
+      // to detect dynamic port reassignment when the default port is in use.
+      console.log(
+        `[milady-api] Listening on http://${displayHost}:${actualPort}`,
       );
       logger.info(
         `[milady-api] Listening on http://${displayHost}:${actualPort}`,
