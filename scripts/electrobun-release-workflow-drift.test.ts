@@ -3,10 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const SERVER_TS_PATH = path.join(
-  ROOT,
-  "packages/autonomous/src/api/server.ts",
-);
+const SERVER_TS_PATH = path.join(ROOT, "packages/autonomous/src/api/server.ts");
 const ELIZA_TS_PATH = path.join(
   ROOT,
   "packages/autonomous/src/runtime/eliza.ts",
@@ -438,8 +435,7 @@ describe("Electrobun release workflow drift", () => {
     const lines = serverSource.split("\n");
     const staticImports = lines.filter(
       (line) =>
-        /^\s*import\s/.test(line) &&
-        line.includes("@elizaos/app-hyperscape"),
+        /^\s*import\s/.test(line) && line.includes("@elizaos/app-hyperscape"),
     );
     expect(staticImports).toHaveLength(0);
   });
@@ -449,9 +445,7 @@ describe("Electrobun release workflow drift", () => {
 
     // The catch block around startApiServer must use console.error (not just logger.warn)
     // so errors are written to stderr and visible in Electrobun agent.ts output.
-    expect(elizaSource).toContain(
-      "console.error(apiErrMsg)",
-    );
+    expect(elizaSource).toContain("console.error(apiErrMsg)");
   });
 
   it("exits with process.exit(1) when startApiServer fails in server-only mode", () => {

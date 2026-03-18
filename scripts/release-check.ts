@@ -557,8 +557,7 @@ function assertServerDynamicHyperscapeImport() {
   const lines = serverSource.split("\n");
   const staticImports = lines.filter(
     (line) =>
-      /^\s*import\s/.test(line) &&
-      line.includes("@elizaos/app-hyperscape"),
+      /^\s*import\s/.test(line) && line.includes("@elizaos/app-hyperscape"),
   );
   if (staticImports.length > 0) {
     console.error(
@@ -570,7 +569,7 @@ function assertServerDynamicHyperscapeImport() {
     process.exit(1);
   }
 
-  if (!serverSource.includes('@elizaos/app-hyperscape/routes')) {
+  if (!serverSource.includes("@elizaos/app-hyperscape/routes")) {
     console.error(
       "release-check: server.ts must dynamically import @elizaos/app-hyperscape/routes.",
     );

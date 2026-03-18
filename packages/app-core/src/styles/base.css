@@ -107,15 +107,15 @@
   padding: 0.75rem;
   border-radius: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.70);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 [data-theme="dark"] .character-action-bar,
 .dark .character-action-bar {
-  border-color: rgba(255, 255, 255, 0.10);
-  background: rgba(0, 0, 0, 0.40);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.4);
 }
 
 [data-theme="dark"],
