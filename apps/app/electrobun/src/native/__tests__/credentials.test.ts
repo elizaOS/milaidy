@@ -140,7 +140,7 @@ describe("scanProviderCredentials", () => {
 
     expect(providers).toEqual([
       {
-        id: "anthropic",
+        id: "anthropic-subscription",
         source: "claude-credentials",
         apiKey: "claude-oauth-token",
         authMode: "oauth",
@@ -182,11 +182,18 @@ describe("scanProviderCredentials", () => {
         cliInstalled: true,
       },
       {
-        id: "anthropic",
+        id: "anthropic-subscription",
         source: "claude-credentials",
         apiKey: "file-anthropic",
         authMode: "oauth",
         cliInstalled: true,
+      },
+      {
+        id: "anthropic",
+        source: "env",
+        apiKey: "env-anthropic",
+        authMode: "api-key",
+        cliInstalled: false,
       },
     ]);
     expect(
@@ -209,7 +216,7 @@ describe("scanProviderCredentials", () => {
 
     expect(providers).toEqual([
       {
-        id: "anthropic",
+        id: "anthropic-subscription",
         source: "keychain",
         apiKey: "keychain-oauth-token",
         authMode: "oauth",
@@ -246,13 +253,54 @@ describe("scanProviderCredentials", () => {
 
     expect(providers).toEqual([
       {
-        id: "anthropic",
+        id: "anthropic-subscription",
         source: "keychain",
         apiKey: "raw-keychain-token",
         authMode: "oauth",
         cliInstalled: false,
       },
     ]);
+  });
+
+  it("extracts nested oauth tokens from keychain json", async () => {
+    setPlatform("darwin");
+    keychainResult = {
+      exitCode: 0,
+      stdout: JSON.stringify({
+        oauth: {
+          credentials: {
+            access_token: "nested-keychain-token",
+          },
+        },
+      }),
+    };
+    installedClis.add("claude");
+
+    const providers = await scanProviderCredentials();
+
+    expect(providers).toEqual([
+      {
+        id: "anthropic-subscription",
+        source: "keychain",
+        apiKey: "nested-keychain-token",
+        authMode: "oauth",
+        cliInstalled: true,
+      },
+    ]);
+  });
+
+  it("ignores parsed keychain json that does not contain an oauth token", async () => {
+    setPlatform("darwin");
+    keychainResult = {
+      exitCode: 0,
+      stdout: JSON.stringify({
+        oauth: {
+          refreshToken: "refresh-only",
+        },
+      }),
+    };
+
+    await expect(scanProviderCredentials()).resolves.toEqual([]);
   });
 
   it("skips keychain on non-darwin and trims env credentials", async () => {

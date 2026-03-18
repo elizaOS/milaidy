@@ -38,6 +38,38 @@ interface ClaudeCredentialsJson {
   };
 }
 
+function extractOauthAccessToken(value: unknown): string | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const token =
+        item && typeof item === "object" ? extractOauthAccessToken(item) : null;
+      if (token) return token;
+    }
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const directToken = record.accessToken ?? record.access_token;
+  if (typeof directToken === "string") {
+    const trimmed = directToken.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+
+  for (const nestedValue of Object.values(record)) {
+    const token =
+      nestedValue && typeof nestedValue === "object"
+        ? extractOauthAccessToken(nestedValue)
+        : null;
+    if (token) return token;
+  }
+
+  return null;
+}
+
 function readJsonFile<T>(filePath: string): T | null {
   try {
     if (!fs.existsSync(filePath)) return null;
@@ -100,12 +132,12 @@ async function scanClaudeFileCredentials(
 ): Promise<DetectedProvider | null> {
   const credPath = path.join(home, ".claude", ".credentials.json");
   const data = readJsonFile<ClaudeCredentialsJson>(credPath);
-  const token = data?.claudeAiOauth?.accessToken;
+  const token = extractOauthAccessToken(data);
   if (!token) return null;
 
   const cliInstalled = await isCliInstalled("claude");
   return {
-    id: "anthropic",
+    id: "anthropic-subscription",
     source: "claude-credentials",
     apiKey: token,
     authMode: "oauth",
@@ -120,15 +152,12 @@ async function scanClaudeKeychainCredentials(): Promise<DetectedProvider | null>
   // The keychain value may be a JSON blob with OAuth tokens
   try {
     const parsed = JSON.parse(keychainData) as Record<string, unknown>;
-    const token =
-      (parsed.accessToken as string) ??
-      (parsed.access_token as string) ??
-      keychainData;
-    if (!token || typeof token !== "string") return null;
+    const token = extractOauthAccessToken(parsed);
+    if (!token) return null;
 
     const cliInstalled = await isCliInstalled("claude");
     return {
-      id: "anthropic",
+      id: "anthropic-subscription",
       source: "keychain",
       apiKey: token,
       authMode: "oauth",
@@ -138,7 +167,7 @@ async function scanClaudeKeychainCredentials(): Promise<DetectedProvider | null>
     // Not JSON — treat the raw string as the credential
     const cliInstalled = await isCliInstalled("claude");
     return {
-      id: "anthropic",
+      id: "anthropic-subscription",
       source: "keychain",
       apiKey: keychainData,
       authMode: "oauth",
@@ -193,8 +222,8 @@ export async function scanProviderCredentials(): Promise<DetectedProvider[]> {
   if (codex) detected.set(codex.id, codex);
   if (claudeFile) detected.set(claudeFile.id, claudeFile);
 
-  // Keychain (only if no file credential found for anthropic)
-  if (!detected.has("anthropic")) {
+  // Keychain (only if no Claude subscription credential was detected from file)
+  if (!detected.has("anthropic-subscription")) {
     const keychainResult = await scanClaudeKeychainCredentials();
     if (keychainResult) detected.set(keychainResult.id, keychainResult);
   }
