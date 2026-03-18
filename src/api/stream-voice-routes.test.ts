@@ -11,6 +11,20 @@ import {
   createMockIncomingMessage,
 } from "../test-support/test-helpers";
 
+// Mock stream-persistence for settings read/write
+vi.mock("./stream-persistence", () => {
+  let settings: Record<string, unknown> = {};
+  return {
+    readStreamSettings: vi.fn(() => settings),
+    writeStreamSettings: vi.fn((s: Record<string, unknown>) => {
+      settings = s;
+    }),
+    __resetSettings: () => {
+      settings = {};
+    },
+  };
+});
+
 // Mock the TTS bridge so we can control isSpeaking/isAttached
 vi.mock("../services/tts-stream-bridge", () => ({
   ttsStreamBridge: {
@@ -40,8 +54,13 @@ vi.mock("@elizaos/core", () => ({
 }));
 
 import { ttsStreamBridge } from "../services/tts-stream-bridge";
+import * as persistence from "./stream-persistence";
 import type { StreamRouteState } from "./stream-routes";
 import { handleStreamVoiceRoute } from "./stream-voice-routes";
+
+const resetSettings = (
+  persistence as unknown as { __resetSettings: () => void }
+).__resetSettings;
 
 function mockState(
   overrides: Partial<StreamRouteState> = {},
@@ -288,5 +307,52 @@ describe("handleStreamVoiceRoute — speak guards", () => {
     );
 
     expect(handled).toBe(false);
+  });
+});
+
+// ===========================================================================
+// POST /api/stream/voice — default settings consistency
+// ===========================================================================
+
+describe("handleStreamVoiceRoute — voice settings defaults", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetSettings();
+  });
+
+  it("defaults autoSpeak to false when no prior settings exist", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/voice",
+      body: { enabled: true },
+      json: true,
+    });
+    const state = mockState();
+
+    await handleStreamVoiceRoute(req, res, "/api/stream/voice", "POST", state);
+
+    expect(getStatus()).toBe(200);
+    const data = getJson();
+    expect(data.voice.enabled).toBe(true);
+    expect(data.voice.autoSpeak).toBe(false);
+  });
+
+  it("rejects oversized request body with 413", async () => {
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    // 3KB body exceeds the 2048-byte limit
+    const req = createMockIncomingMessage({
+      method: "POST",
+      url: "/api/stream/voice",
+      body: JSON.stringify({ enabled: true, padding: "x".repeat(3000) }),
+    });
+    const state = mockState();
+
+    await handleStreamVoiceRoute(req, res, "/api/stream/voice", "POST", state);
+
+    expect(getStatus()).toBe(413);
+    expect(getJson()).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("too large") }),
+    );
   });
 });

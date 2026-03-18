@@ -26,6 +26,7 @@ vi.mock("@elizaos/core", () => ({
 
 import {
   getHeadlessCaptureConfig,
+  parseAvatarIndex,
   parseDestinationQuery,
   readOverlayLayout,
   readStreamSettings,
@@ -357,6 +358,41 @@ describe("seedOverlayDefaults()", () => {
 });
 
 // ===========================================================================
+// parseAvatarIndex()
+// ===========================================================================
+
+describe("parseAvatarIndex()", () => {
+  it("returns undefined for non-numeric input", () => {
+    expect(parseAvatarIndex("abc")).toBeUndefined();
+  });
+
+  it("parses valid numeric string", () => {
+    expect(parseAvatarIndex("42")).toBe(42);
+  });
+
+  it("returns undefined for out-of-range value (> 999)", () => {
+    expect(parseAvatarIndex("1000")).toBeUndefined();
+  });
+
+  it("returns undefined for negative value", () => {
+    expect(parseAvatarIndex("-1")).toBeUndefined();
+  });
+
+  it("returns undefined for empty string", () => {
+    expect(parseAvatarIndex("")).toBeUndefined();
+  });
+
+  it("returns undefined for undefined input", () => {
+    expect(parseAvatarIndex(undefined)).toBeUndefined();
+  });
+
+  it("accepts boundary values 0 and 999", () => {
+    expect(parseAvatarIndex("0")).toBe(0);
+    expect(parseAvatarIndex("999")).toBe(999);
+  });
+});
+
+// ===========================================================================
 // getHeadlessCaptureConfig()
 // ===========================================================================
 
@@ -398,5 +434,21 @@ describe("getHeadlessCaptureConfig()", () => {
   it("passes through destinationId", () => {
     const config = getHeadlessCaptureConfig("retake");
     expect(config.destinationId).toBe("retake");
+  });
+
+  it("returns undefined avatarIndex for non-numeric STREAM_AVATAR_INDEX", () => {
+    const settingsFile = path.join(TEST_DIR, "stream-settings.json");
+    try {
+      fs.unlinkSync(settingsFile);
+    } catch {
+      // Not present
+    }
+    process.env.STREAM_AVATAR_INDEX = "abc";
+    try {
+      const config = getHeadlessCaptureConfig(null);
+      expect(config.avatarIndex).toBeUndefined();
+    } finally {
+      delete process.env.STREAM_AVATAR_INDEX;
+    }
   });
 });
