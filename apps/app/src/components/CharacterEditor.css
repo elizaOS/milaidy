@@ -312,8 +312,8 @@
    is hard to read, so we swap to a subtle highlight with light text. */
 
 .ce-voice-inline .bg-accent {
-  background: rgba(250, 204, 21, 0.15) !important;
-  color: #facc15 !important;
+  background: var(--ce-gold-glow) !important;
+  color: var(--ce-gold-highlight) !important;
 }
 
 /* ── Inputs ────────────────────────────────────────────────────── */

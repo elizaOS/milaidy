@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sendSignalMessage } from "@elizaos/plugin-signal/actions";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 function createRuntime(overrides: Record<string, unknown> = {}) {
   return {

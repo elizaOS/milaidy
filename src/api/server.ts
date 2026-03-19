@@ -27,8 +27,8 @@ import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import { handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
 import {
-  createHardenedExportGuard,
   type WalletExportRejection as CompatWalletExportRejection,
+  createHardenedExportGuard,
 } from "./wallet-export-guard";
 
 const hardenedGuard = createHardenedExportGuard(
