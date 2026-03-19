@@ -224,6 +224,219 @@ Export private keys in plaintext. Requires explicit confirmation. This action is
 }
 ```
 
+---
+
+## Trading
+
+### POST /api/wallet/trade/preflight
+
+Run a preflight check to verify the wallet and RPC are ready for a BSC trade.
+
+**Request Body**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tokenAddress` | string | No | Token contract address to validate (optional) |
+
+**Response**
+
+Returns a readiness object with wallet balance, RPC status, and any blocking issues.
+
+---
+
+### POST /api/wallet/trade/quote
+
+Get a price quote for a BSC token swap before executing.
+
+**Request Body**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `side` | string | Yes | `"buy"` or `"sell"` |
+| `tokenAddress` | string | Yes | Token contract address |
+| `amount` | string | Yes | Trade amount (in human-readable units) |
+| `slippageBps` | number | No | Slippage tolerance in basis points |
+
+**Response**
+
+Returns a quote object with estimated output amount, price impact, and route details.
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Missing `side`, `tokenAddress`, or `amount` |
+
+---
+
+### POST /api/wallet/trade/execute
+
+Execute a token trade on BSC. Behavior depends on wallet configuration and confirmation:
+
+- Without `confirm: true` or without a local private key, returns an unsigned transaction for client-side signing.
+- With `confirm: true`, a local key, and appropriate trade permissions, executes the trade on-chain and returns the receipt.
+
+**Request Body**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `side` | string | Yes | `"buy"` or `"sell"` |
+| `tokenAddress` | string | Yes | Token contract address |
+| `amount` | string | Yes | Trade amount (in human-readable units) |
+| `slippageBps` | number | No | Slippage tolerance in basis points |
+| `deadlineSeconds` | number | No | Transaction deadline in seconds |
+| `confirm` | boolean | No | Set to `true` to execute immediately with a local key |
+| `source` | string | No | `"agent"` or `"manual"` — attribution for ledger tracking |
+
+**Response (unsigned)**
+
+```json
+{
+  "ok": true,
+  "mode": "user-sign",
+  "executed": false,
+  "requiresUserSignature": true,
+  "unsignedTx": { "to": "0x...", "data": "0x...", "value": "0x0" },
+  "requiresApproval": true,
+  "unsignedApprovalTx": { "to": "0x...", "data": "0x..." }
+}
+```
+
+**Response (executed)**
+
+```json
+{
+  "ok": true,
+  "mode": "local-sign",
+  "executed": true,
+  "requiresUserSignature": false,
+  "execution": {
+    "hash": "0x...",
+    "explorerUrl": "https://bscscan.com/tx/0x..."
+  }
+}
+```
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Missing `side`, `tokenAddress`, or `amount` |
+| 403 | Trade permission denied |
+
+---
+
+### GET /api/wallet/trade/tx-status
+
+Check the on-chain status of a previously submitted trade transaction.
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `hash` | string | Yes | Transaction hash |
+
+**Response**
+
+```json
+{
+  "ok": true,
+  "hash": "0x...",
+  "status": "success",
+  "explorerUrl": "https://bscscan.com/tx/0x...",
+  "chainId": 56,
+  "blockNumber": 12345678,
+  "confirmations": 12,
+  "nonce": 42,
+  "gasUsed": "150000",
+  "effectiveGasPriceWei": "3000000000"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `"pending"`, `"success"`, `"reverted"`, or `"not_found"` |
+| `chainId` | number | Always `56` (BSC) |
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Missing `hash` query parameter |
+
+---
+
+### GET /api/wallet/trading/profile
+
+Get a trading profit-and-loss profile from the local trade ledger.
+
+**Query Parameters**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | string | `30d` | Time window: `"7d"`, `"30d"`, or `"all"` |
+| `source` | string | `all` | Filter by attribution: `"agent"`, `"manual"`, or `"all"` |
+
+**Response**
+
+Returns aggregated trading statistics including realized and unrealized P&L over the requested window.
+
+---
+
+### POST /api/wallet/transfer/execute
+
+Transfer native tokens (BNB) or ERC-20 tokens on BSC.
+
+- Without `confirm: true` or without a local private key, returns an unsigned transaction for client-side signing.
+- With `confirm: true` and a local key, executes the transfer on-chain.
+
+**Request Body**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `toAddress` | string | Yes | Recipient EVM address |
+| `amount` | string | Yes | Amount to transfer (in human-readable units) |
+| `assetSymbol` | string | Yes | Token symbol (e.g. `"BNB"`, `"USDT"`) |
+| `tokenAddress` | string | No | ERC-20 contract address (required for non-native tokens) |
+| `confirm` | boolean | No | Set to `true` to execute immediately with a local key |
+
+**Response**
+
+Same shape as the trade execute response — returns either an unsigned transaction or an execution receipt.
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Missing `toAddress`, `amount`, or `assetSymbol` |
+| 400 | Invalid EVM address format |
+
+---
+
+### POST /api/wallet/production-defaults
+
+Apply opinionated production defaults for wallet trading configuration (trade permission mode, RPC settings, etc.).
+
+**Response**
+
+```json
+{
+  "ok": true,
+  "applied": [
+    "tradePermissionMode=user-sign-only",
+    "bscRpcUrl=https://bsc-dataseed.binance.org"
+  ],
+  "tradePermissionMode": "user-sign-only"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `applied` | string[] | List of configuration changes that were applied |
+| `tradePermissionMode` | string | The resulting trade permission mode |
+
+---
+
 ## Common Error Codes
 
 | Status | Code | Description |
@@ -232,6 +445,8 @@ Export private keys in plaintext. Requires explicit confirmation. This action is
 | 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
 | 404 | `NOT_FOUND` | Requested resource does not exist |
 | 400 | `INVALID_KEY` | Private key format is invalid |
+| 400 | `INVALID_ADDRESS` | EVM address format is invalid |
 | 403 | `EXPORT_FORBIDDEN` | Export is not permitted without proper confirmation |
+| 403 | `TRADE_FORBIDDEN` | Trade permission denied |
 | 500 | `INSUFFICIENT_BALANCE` | Wallet balance is insufficient for the operation |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |

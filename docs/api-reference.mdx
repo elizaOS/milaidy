@@ -553,8 +553,11 @@ Conversations are scoped to the web-chat interface. Each conversation maps to an
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/custom-actions` | List all user-defined custom actions |
-| `POST` | `/api/custom-actions` | Create or update a custom action |
-| `POST` | `/api/custom-actions/generate` | AI-assisted custom action generation |
+| `POST` | `/api/custom-actions` | Create a new custom action |
+| `POST` | `/api/custom-actions/generate` | AI-generate an action definition from a prompt |
+| `PUT` | `/api/custom-actions/:id` | Update an existing custom action |
+| `DELETE` | `/api/custom-actions/:id` | Delete a custom action |
+| `POST` | `/api/custom-actions/:id/test` | Test-run a custom action |
 
 ---
 
@@ -624,6 +627,18 @@ Conversations are scoped to the web-chat interface. Each conversation maps to an
 | `POST` | `/api/wallet/import` | Import a private key for EVM or Solana |
 | `POST` | `/api/wallet/generate` | Generate new wallet(s) for EVM, Solana, or both |
 | `POST` | `/api/wallet/export` | Export private keys (requires confirmation) |
+| `POST` | `/api/wallet/production-defaults` | Apply production-ready wallet trading defaults |
+
+### Wallet Trading
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/wallet/trade/preflight` | Preflight check for BSC trading readiness |
+| `POST` | `/api/wallet/trade/quote` | Get a price quote for a token swap |
+| `POST` | `/api/wallet/trade/execute` | Execute a token trade (returns unsigned tx or executes on-chain) |
+| `GET` | `/api/wallet/trade/tx-status` | Check on-chain status of a trade transaction |
+| `GET` | `/api/wallet/trading/profile` | Get trading P&L profile from the local ledger |
+| `POST` | `/api/wallet/transfer/execute` | Transfer native or ERC-20 tokens on BSC |
 
 ---
 
