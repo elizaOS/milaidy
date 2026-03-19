@@ -82,6 +82,10 @@ report/
 
 # Agent learning docs & knowledge base
 knowledge/
+!src/knowledge/
+src/knowledge/*
+!src/knowledge/history.ts
+!src/knowledge/history.md
 scripts/knowledge-loop.mjs
 # Foundry build artifacts (keep source .sol, foundry.toml, lib/)
 test/contracts/out/

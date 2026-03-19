@@ -120,14 +120,15 @@ RUN set -e; \
       echo "$ANIMATION_POINTERS" | head -n 60; \
     fi
 
-# Install dependencies while skipping third-party postinstall hooks that
-# may fail in cloud builders. Then run our required local patch scripts.
-RUN bun install --ignore-scripts
+# Install dependencies with the committed lockfile while skipping third-party
+# postinstall hooks that may fail in cloud builders. Then run our required
+# local patch/link scripts before building.
+RUN bun install --frozen-lockfile --ignore-scripts
 RUN node ./scripts/link-browser-server.mjs && node ./scripts/patch-deps.mjs
 RUN bun run build
 
 # Re-install with production-only dependencies for the runtime image.
-RUN rm -rf node_modules && bun install --ignore-scripts --production
+RUN rm -rf node_modules && bun install --frozen-lockfile --ignore-scripts --production
 
 # ==============================================================================
 # Stage 2: Runtime — lean production image without dev deps, source, or build tools
