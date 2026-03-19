@@ -11,7 +11,7 @@
  */
 
 import type { Action, HandlerOptions } from "@elizaos/core";
-import { AGENT_EMOTE_BY_ID } from "../emotes/catalog";
+import { AGENT_EMOTE_BY_ID, AGENT_EMOTE_CATALOG } from "../emotes/catalog";
 
 /** API port for posting emote requests. */
 const API_PORT = process.env.API_PORT || process.env.SERVER_PORT || "2138";
@@ -93,9 +93,14 @@ export const emoteAction: Action = {
     {
       name: "emote",
       description:
-        "Required emote ID to play once silently before returning to idle",
+        "Required emote ID to play once silently before returning to idle. " +
+        "Common mappings: dance/vibe → dance-happy, wave/greet → wave, " +
+        "flip/backflip → flip, cry/sad → crying, fight/punch → punching, fish → fishing",
       required: true,
-      schema: { type: "string" as const },
+      schema: {
+        type: "string" as const,
+        enum: AGENT_EMOTE_CATALOG.map((e) => e.id),
+      },
     },
   ],
 };
