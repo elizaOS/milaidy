@@ -1,5 +1,8 @@
 import crypto from "node:crypto";
 import process from "node:process";
+
+/** Maximum accumulated streamed text before truncation (1MB). */
+const MAX_STREAMED_LENGTH = 1_000_000;
 import {
   type ActionEventPayload,
   type AgentRuntime,
@@ -714,6 +717,9 @@ export class ElizaTUIBridge {
 
         fullText = mergeStreamingText(fullText, chunk);
         this.streamedText = mergeStreamingText(this.streamedText, chunk);
+        if (this.streamedText.length > MAX_STREAMED_LENGTH) {
+          this.streamedText = this.streamedText.slice(0, MAX_STREAMED_LENGTH);
+        }
         this.ensureAssistantComponent();
         this.scheduleAssistantUpdate();
         return;
@@ -737,6 +743,9 @@ export class ElizaTUIBridge {
 
         fullText = mergeStreamingText(fullText, parsed.text);
         this.streamedText = mergeStreamingText(this.streamedText, parsed.text);
+        if (this.streamedText.length > MAX_STREAMED_LENGTH) {
+          this.streamedText = this.streamedText.slice(0, MAX_STREAMED_LENGTH);
+        }
         this.ensureAssistantComponent();
         this.scheduleAssistantUpdate();
       }
