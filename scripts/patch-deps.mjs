@@ -374,6 +374,68 @@ function patchAutonomousSameHostCors() {
 patchAutonomousSameHostCors();
 
 /**
+ * Patch @elizaos/autonomous update-status response currentVersion.
+ *
+ * Some runtime bundles resolve VERSION as "0.0.0" even when update-checker
+ * correctly infers the installed version (e.g. 2.0.0-alpha.xx). Prefer the
+ * checker version when VERSION is unresolved.
+ */
+function patchAutonomousUpdateStatusCurrentVersion() {
+  const searchDirs = [resolve(root, "node_modules/@elizaos/autonomous")];
+  const bunCacheDir = resolve(root, "node_modules/.bun");
+  if (existsSync(bunCacheDir)) {
+    try {
+      for (const entry of readdirSync(bunCacheDir)) {
+        if (entry.startsWith("@elizaos+autonomous@")) {
+          searchDirs.push(
+            resolve(bunCacheDir, entry, "node_modules/@elizaos/autonomous"),
+          );
+        }
+      }
+    } catch {}
+  }
+
+  const targets = [
+    {
+      relativePath: "packages/autonomous/src/api/server.js",
+      needle: "            currentVersion: VERSION,",
+      replacement:
+        '            currentVersion: VERSION === "0.0.0" ? check.currentVersion : VERSION,',
+    },
+    {
+      relativePath: "packages/autonomous/src/api/server.ts",
+      needle: "      currentVersion: VERSION,",
+      replacement:
+        '      currentVersion: VERSION === "0.0.0" ? check.currentVersion : VERSION,',
+    },
+  ];
+
+  let patched = 0;
+  for (const dir of searchDirs) {
+    for (const target of targets) {
+      const file = resolve(dir, target.relativePath);
+      if (!existsSync(file)) continue;
+      let src = readFileSync(file, "utf8");
+      if (src.includes(target.replacement)) continue;
+      if (!src.includes(target.needle)) continue;
+      src = src.replace(target.needle, target.replacement);
+      writeFileSync(file, src, "utf8");
+      patched++;
+      console.log(
+        `[patch-deps] Applied autonomous update-status version fallback patch: ${file}`,
+      );
+    }
+  }
+
+  if (patched > 0) {
+    console.log(
+      `[patch-deps] autonomous: fixed ${patched} update-status version response file(s).`,
+    );
+  }
+}
+patchAutonomousUpdateStatusCurrentVersion();
+
+/**
  * Patch @elizaos/app-core AvatarLoader to use a linear determinate progress bar
  * that fills from 0% to 100% before the world is shown, instead of the upstream
  * indeterminate sine-wave animation.
