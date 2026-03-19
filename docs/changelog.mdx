@@ -4,48 +4,39 @@ description: What's new in Milady — features, improvements, and fixes.
 ---
 
 <Update label="2026-05-14" description="Week of May 8–14" tags={["Feature", "Update"]}>
-## Chrome extension for browser automation
+## Sandbox live monitor
 
-Your agent can now control browser tabs directly using the Milady Browser Relay Chrome extension. The extension bridges Chrome's DevTools Protocol to the agent runtime, enabling page inspection, JavaScript execution, navigation, screenshot capture, and autonomous browsing workflows — all from a single-click toolbar toggle. Install it from source via `milady browser extension install`. See the [Chrome extension guide](/apps/chrome-extension) for details.
+The [sandbox](/guides/sandbox) now includes a live monitor panel alongside the interactive terminal. A noVNC desktop viewer lets you watch your sandboxed agent interact with a virtual desktop in real time — including browser activity, window management, and screen previews. Connection status and browser endpoints are visible at a glance so you always know what the sandbox is doing.
 
-## Autonomous mode
+## Custom chat commands
 
-Agents can now reason and act independently between conversations. When enabled, a continuous loop observes the environment, makes decisions, and executes actions without waiting for user input — useful for background monitoring, scheduled workflows, and proactive behavior. Toggle it from the dashboard or via the `GET /api/agent/autonomy` endpoint. See the [autonomous mode guide](/guides/autonomous-mode) for details.
+You can now select text in a [chat](/dashboard/chat) conversation and save it as a reusable `/command`. Give it a name and invoke it later by typing the command prefix. This makes it easy to turn frequently used prompts or instructions into one-tap shortcuts.
 
-## Event hooks
+## Provider switcher
 
-You can now extend your agent with event-driven handlers that respond to commands, sessions, agent lifecycle, and gateway events. Drop a `HOOK.md` file into a hook directory, define your handler, and the agent loads it at startup. Hooks enable custom logic on session creation, agent startup, or user commands — without writing a full plugin. See the [hooks guide](/guides/hooks) for details.
+A new provider management panel lets you browse all installed AI provider plugins, check configuration status, and switch between providers — including [Eliza Cloud](/guides/cloud), local models, and subscription-based access — without restarting your agent. See the [model providers](/model-providers) guide for details.
 
-## Skills marketplace
+## Runtime inspector
 
-Skills — markdown-based extensions that teach the agent how to perform specific tasks — can now be browsed, searched, installed, and managed from the dashboard. Each skill is a folder containing instructions that get injected into the agent's context at runtime. You can also write your own. See the [skills guide](/plugins/skills) for details.
+An advanced runtime debug view is now available in the dashboard. It displays a full snapshot of your agent's internal state split into tabbed sections — actions, providers, plugins, services, and evaluators — with explicit load order metadata. Useful for diagnosing why a plugin isn't loading or which actions are registered.
 
-## Media generation
+## Status bar
 
-Agents can now generate images, video, and audio, or analyze images using AI vision — all through built-in actions. Supported providers include FAL, OpenAI, Google, xAI, and Eliza Cloud (no API key required). Ask your agent to "draw a sunset" or "describe this image" and it handles provider selection automatically. See the [media generation guide](/guides/media-generation) for details.
+A compact status bar at the top of the dashboard shows your active AI provider icons (with per-provider dropdowns), cloud credit balance, and wallet summary. This gives you at-a-glance awareness of your agent's current configuration without opening Settings.
 
-## Triggers and scheduled tasks
+## Onboarding contextual help
 
-You can now schedule tasks that wake the agent at defined intervals, at specific times, or via cron expressions. Create triggers from the dashboard or via the REST API with three types: `interval` for recurring tasks, `once` for one-time future tasks, and `cron` for cron-scheduled operations. See the [triggers guide](/guides/triggers) for details.
+Each step of the onboarding wizard now includes contextual help panels that explain what the setting does, when to use it, what happens if you skip it, and the recommended default. New users can make informed decisions about provider selection, RPC configuration, permissions, and voice settings during first-run setup.
 
-## Custom actions editor
+## Three additional UI languages
 
-Define new agent capabilities directly from the dashboard without writing plugin code. Custom actions support HTTP, shell, and code handlers. Describe the action, set parameters, and the agent can invoke it during conversations. See the [custom actions guide](/guides/custom-actions) for details.
-
-## Plugin eject system
-
-You can now clone any plugin's source code locally, modify it, and have the runtime load your local copy instead of the npm package. The eject system supports syncing with upstream, contributing changes back via pull requests, and ejecting core packages for deep customization. See the [plugin eject guide](/plugins/plugin-eject) for details.
-
-## Mobile app
-
-Milady is now available on iOS and Android via a Capacitor-based native app. The full dashboard experience runs inside a native WebView with access to device hardware — camera, haptics, push notifications, and more. See the [mobile app guide](/apps/mobile) for setup and build instructions.
+The app interface is now available in Korean, Portuguese, and Spanish, in addition to the existing English and Simplified Chinese. Language selection applies across the full dashboard and companion view.
 
 ## Updates
 
-- **Themes and avatar customization** — Six built-in visual themes and eight 3D VRM avatars with 29 emotes are now configurable from Settings. Switch themes instantly and drag-and-drop custom VRM avatars. See the [themes guide](/guides/themes).
-- **Config includes** — Split agent configuration across multiple files using the `$include` directive. Compose modular configs for different environments or share base configs across agents. See the [config includes guide](/guides/config-includes).
-- **Local model support** — Run models locally via Ollama without sending data to external providers. See the [local models guide](/guides/local-models).
-- **Emote animations** — Agents can express emotions through 30 VRM emote animations across six categories, triggered automatically during conversations or manually from the emote picker. See the [emotes guide](/guides/emotes).
+- **Connector health monitoring** — A background health monitor now checks whether your configured connectors (Discord, Telegram, Twitter, Slack, Farcaster) still have their corresponding plugin loaded. If a connector goes down, a warning banner appears automatically via WebSocket so you can act before users notice.
+- **Credit exhaustion detection** — When a cloud provider returns a billing error (HTTP 402 or 429 with quota context), the dashboard now identifies the specific provider and shows targeted guidance instead of a generic failure message.
+- **Twitter and NFT verification** — Two new verification methods are available for whitelist eligibility: post a verification tweet containing your agent name and wallet address, or prove ownership of an OG Milady Maker NFT. Verified addresses feed into a Merkle tree for on-chain whitelist proofs. See the [wallet guide](/guides/wallet) for details.
 </Update>
 
 <Update label="2026-05-07" description="Week of May 1–7" tags={["Feature", "Update"]}>
@@ -55,11 +46,19 @@ You can now migrate your agent between machines with a single encrypted file. Ex
 
 ## Sandbox and computer use
 
-Agents can now run code, browse the web, take screenshots, record audio, and interact with desktop applications inside an isolated container sandbox. The sandbox supports configurable security modes, network policies, audit logging, and a remote signing service that keeps wallet keys on the host while sandboxed agents submit transactions. See the [sandbox guide](/guides/sandbox) for details.
+Agents can now run code, browse the web, take screenshots, record audio, and interact with desktop applications inside an isolated container sandbox. The sandbox supports four configurable security modes (off, light, standard, max), network policies, audit logging, and a remote signing service that keeps wallet keys on the host while sandboxed agents submit transactions. See the [sandbox guide](/guides/sandbox) for details.
 
 ## MCP marketplace
 
 You can now browse and install Model Context Protocol servers directly from the official MCP registry. Search for tools by name, view details, and install them in one step — the configuration is generated automatically. MCP servers extend your agent with external capabilities like file access, database queries, and API integrations. See the [MCP marketplace guide](/guides/mcp-marketplace) for details.
+
+## Custom actions editor
+
+A visual editor in the dashboard lets you create custom agent actions without writing plugin code. Define actions with HTTP, shell, or code handlers, configure parameters and headers, and test them — all from the UI. See the [custom actions guide](/guides/custom-actions) for details.
+
+## Plugin eject system
+
+You can now fork any plugin's source code locally, modify it, and have the runtime load your local copy instead of the npm package. Six new agent actions — eject, reinject, sync, and status for both plugins and core — make it easy to customize, test, and contribute changes back upstream. See the [plugin eject guide](/plugins/plugin-eject) for details.
 
 ## Stream overlay widgets
 
@@ -81,10 +80,13 @@ Install any connector with `milady plugins install <name>` and configure it in y
 
 ## Updates
 
+- **Secrets vault** — A new Secrets view in the dashboard organizes your API keys and credentials by category (AI providers, blockchain, connectors, auth). You can add, remove, and manage secrets with plugin-aware discovery that shows which plugins need which keys.
+- **Media gallery** — A new media gallery in the dashboard lets you browse photos, videos, and audio stored in your agent's database, with filtering by media type.
 - **Diagnostics and security audit API** — New endpoints expose filterable runtime logs, autonomy event replay with cursor-based pagination, and a security audit log with severity filtering and SSE streaming. See the [API reference](/api-reference) for details.
 - **Streaming permissions in onboarding** — Camera and microphone permissions are now requested during the onboarding wizard and manageable from Settings, so streaming works out of the box on both mobile and desktop.
 - **Dark theme button readability** — Accent-colored buttons now use dark text for better contrast, and hover effects highlight the border instead of changing text color.
 - **Onboarding layout improvements** — The connection step now shows a Quick Start / Advanced toggle, full-width provider cards, and an always-visible Continue button on the permissions step.
+- **Configuration templates** — Eight ready-to-use configuration templates for common deployment scenarios are now available. See the [config templates guide](/guides/config-templates).
 </Update>
 
 <Update label="2026-04-30" description="Week of April 24–30" tags={["Feature", "Update"]}>
