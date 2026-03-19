@@ -1276,7 +1276,7 @@ describe("Runtime Integration (with model provider)", () => {
       );
     }
     await runtime.initialize();
-    const autonomySvc = runtime.getService<AutonomyServiceLike>("AUTONOMY");
+    const autonomySvc = await runtime.getService<AutonomyServiceLike>("AUTONOMY");
     autonomySvc?.setLoopInterval(5 * 60_000);
     initialized = true;
 
