@@ -1,0 +1,59 @@
+---
+title: Changelog
+description: The latest updates and improvements to Milady.
+---
+
+<Update label="2026-03-19" description="Week of March 14–19">
+## Cloud dashboard and new distribution channels
+
+### New features
+
+- **Cloud control plane dashboard** — You can now manage your agents directly from the Milady homepage at `/#/dashboard`. View agent status, monitor heartbeats, and control your cloud-hosted agents without leaving the app. See the [dashboard guide](/apps/dashboard) for details.
+
+- **Game-style character editor** — The character editor has been redesigned with a notebook-style UI featuring a parchment-textured page layout and organized tabbed sections. Editing your agent's personality and behavior is now more visual and intuitive. Learn more in the [character interface docs](/agents/character-interface).
+
+- **VRM wave greeting** — Your 3D character now waves when the app launches or when you swap characters, with smooth loading transitions that prevent visual glitches.
+
+- **Eliza Cloud onboarding** — When you run `milady start` for the first time, you can now connect to Eliza Cloud as a hosted runtime. This simplifies setup for users who prefer a managed infrastructure.
+
+- **Redesigned settings and social panels** — The settings, social connectors, and plugins tabs now use a cleaner two-panel layout with a section list on the left and configuration details on the right. The apps tab features a phone-style preview UI.
+
+- **Homepage redesign** — The download experience has been streamlined with a macOS-style dock bar, platform-specific download icons, and a typewriter hero section.
+
+- **New distribution channels** — Milady is now available through additional package managers and app stores:
+  - [Homebrew](/installation) (`brew install milady`)
+  - Snap Store (Linux)
+  - Flatpak / Flathub (Linux)
+  - APT repository (Debian/Ubuntu)
+  - Google Play Store (Android)
+  - iOS and Mac App Store
+  - Windows MSIX packaging
+  - [Docker images via GHCR](/deployment)
+
+### Updates
+
+- **Companion mode polish** — Character save and customize buttons are now properly visible in companion mode with a frosted glass backdrop. The companion shell startup has been hardened for reliability.
+
+- **Character config persistence** — Your agent's username, topics, and other metadata now persist correctly across settings changes and runtime restarts.
+
+- **Wallet state unified** — Wallet RPC selection is now a single source of truth across onboarding, settings, and runtime, preventing configuration drift between flows.
+
+- **Performance improvements** — Redundant sorting and string allocations in hot paths have been eliminated, and Three.js is now lazy-loaded to reduce initial bundle size.
+
+### Bug fixes
+
+- Fixed 18 bugs from the 0.88 QA report, including critical issues with empty chat persistence and connector UI behavior.
+- Fixed character save returning HTTP 422 errors due to unsanitized payload fields.
+- Fixed topics not being preserved when editing and saving characters.
+- Fixed cloud dashboard not displaying agents after login.
+- Fixed Windows desktop crash caused by embedding model initialization.
+- Fixed schema validation bypass where invalid character data could pass validation.
+- Fixed connectors panel showing all connectors instead of only the selected one.
+- Fixed dark mode nav tab styling inconsistencies.
+- Fixed avatar index parsing errors and inconsistent voice defaults.
+
+### Security
+
+- Cloud API keys are now scrubbed from the process environment after use, preventing exposure to other modules.
+- Wallet key export now enforces rate limiting, audit logging, and a confirmation delay.
+</Update>
