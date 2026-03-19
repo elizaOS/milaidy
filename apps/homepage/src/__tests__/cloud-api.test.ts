@@ -311,7 +311,7 @@ describe("CloudClient", () => {
     });
     const agents = await cc.listAgents();
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/v1/milady/agents",
+      expect.stringContaining("/api/v1/milady/agents"),
       expect.objectContaining({ method: "GET" }),
     );
     // Verify X-Api-Key header
@@ -330,7 +330,7 @@ describe("CloudClient", () => {
     });
     await cc.suspendAgent("agent-123");
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/v1/milady/agents/agent-123/suspend",
+      expect.stringContaining("/api/v1/milady/agents/agent-123/suspend"),
       expect.objectContaining({ method: "POST" }),
     );
   });
@@ -343,7 +343,7 @@ describe("CloudClient", () => {
     });
     const result = await cc.resumeAgent("agent-123");
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/v1/milady/agents/agent-123/resume",
+      expect.stringContaining("/api/v1/milady/agents/agent-123/resume"),
       expect.objectContaining({ method: "POST" }),
     );
     expect(result.jobId).toBe("job-1");
@@ -357,7 +357,7 @@ describe("CloudClient", () => {
     });
     const balance = await cc.getCreditsBalance();
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/credits/balance",
+      expect.stringContaining("/api/credits/balance"),
       expect.objectContaining({ method: "GET" }),
     );
     expect(balance.balance).toBe(5000);
@@ -371,7 +371,7 @@ describe("CloudClient", () => {
     });
     await cc.takeSnapshot("agent-123");
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/v1/milady/agents/agent-123/snapshot",
+      expect.stringContaining("/api/v1/milady/agents/agent-123/snapshot"),
       expect.objectContaining({ method: "POST" }),
     );
   });

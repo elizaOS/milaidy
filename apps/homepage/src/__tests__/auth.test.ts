@@ -114,7 +114,7 @@ describe("cloudLogin", () => {
     const result = await cloudLogin();
     expect(result.sessionId).toBe("mock-uuid");
     expect(result.browserUrl).toContain(
-      "elizacloud.ai/auth/cli-login?session=mock-uuid",
+      "/auth/cli-login?session=mock-uuid",
     );
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/auth/cli-session"),

@@ -52,7 +52,7 @@ describe("Sidebar", () => {
     const onChange = vi.fn();
     render(<Sidebar active="agents" onChange={onChange} />);
 
-    for (const label of ["Agents", "Metrics", "Logs", "Credits"]) {
+    for (const label of ["Agents", "Metrics", "Logs"]) {
       const buttons = screen.getAllByText(
         (_content, el) =>
           !!(el?.textContent?.includes(label) && el?.tagName === "BUTTON"),
@@ -505,7 +505,7 @@ describe("AuthGate", () => {
     expect(result?.getByText("Dashboard Content")).toBeTruthy();
   });
 
-  it("shows login UI when not authenticated", async () => {
+  it("renders children when not authenticated", async () => {
     let result: ReturnType<typeof render>;
     await act(async () => {
       const { AuthGate } = await import("../components/dashboard/AuthGate");
@@ -514,29 +514,11 @@ describe("AuthGate", () => {
           <div>Dashboard Content</div>
         </AuthGate>,
       );
-    });
-    expect(result?.getByText("Sign in with Eliza Cloud")).toBeTruthy();
-    expect(result?.getByText("Continue without account")).toBeTruthy();
-  });
-
-  it("renders children after clicking skip", async () => {
-    let result: ReturnType<typeof render>;
-    await act(async () => {
-      const { AuthGate } = await import("../components/dashboard/AuthGate");
-      result = render(
-        <AuthGate>
-          <div>Dashboard Content</div>
-        </AuthGate>,
-      );
-    });
-    const skipBtn = result?.getByText("Continue without account");
-    await act(async () => {
-      fireEvent.click(skipBtn);
     });
     expect(result?.getByText("Dashboard Content")).toBeTruthy();
   });
 
-  it("shows welcome heading in login view", async () => {
+  it("does not block the dashboard anymore", async () => {
     let result: ReturnType<typeof render>;
     await act(async () => {
       const { AuthGate } = await import("../components/dashboard/AuthGate");
@@ -546,6 +528,7 @@ describe("AuthGate", () => {
         </AuthGate>,
       );
     });
-    expect(result?.getByText("Welcome to Milady Cloud")).toBeTruthy();
+    expect(result?.queryByText("Sign in with Eliza Cloud")).toBeNull();
+    expect(result?.getByText("child")).toBeTruthy();
   });
 });

@@ -3,7 +3,7 @@ const DEFAULT_CLOUD_BASE =
   (window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1")
     ? "http://localhost:3000"
-    : "https://www.elizacloud.ai";
+    : "https://www.dev.elizacloud.ai";
 const DEFAULT_LOCAL_AGENT_BASE = "http://localhost:2138";
 const DEFAULT_SANDBOX_DISCOVERY_URL = "https://sandboxes.waifu.fun/agents";
 

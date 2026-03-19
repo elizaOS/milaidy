@@ -6,6 +6,7 @@ import { CloudLoginBanner } from "./AuthGate";
 import { CreditsPanel } from "./CreditsPanel";
 import { LogsPanel } from "./LogsPanel";
 import { MetricsPanel } from "./MetricsPanel";
+import { BillingPanel } from "./BillingPanel";
 import { type DashboardSection, Sidebar } from "./Sidebar";
 import { SourceBar } from "./SourceBar";
 
@@ -50,5 +51,7 @@ function DashboardContent({ section }: { section: DashboardSection }) {
       return <LogsPanel />;
     case "credits":
       return <CreditsPanel />;
+    case "billing":
+      return <BillingPanel />;
   }
 }

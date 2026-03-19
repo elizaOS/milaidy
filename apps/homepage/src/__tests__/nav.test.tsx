@@ -56,13 +56,13 @@ describe("Nav", () => {
     expect(clockIdx).toBeGreaterThan(releasesIdx);
   });
 
-  it("Eliza Cloud link navigates to /dashboard (not external)", () => {
+  it("Dashboard link navigates to /dashboard (not external)", () => {
     const { container } = renderNav();
-    const cloudLink = Array.from(container.querySelectorAll("a")).find(
-      (a) => a.textContent?.trim() === "Eliza Cloud",
+    const dashboardLink = Array.from(container.querySelectorAll("a")).find(
+      (a) => a.textContent?.trim() === "Dashboard",
     );
-    expect(cloudLink).toBeTruthy();
-    expect(cloudLink?.getAttribute("href")).toBe("/dashboard");
-    expect(cloudLink?.getAttribute("target")).toBeNull();
+    expect(dashboardLink).toBeTruthy();
+    expect(dashboardLink?.getAttribute("href")).toBe("/dashboard");
+    expect(dashboardLink?.getAttribute("target")).toBeNull();
   });
 });
