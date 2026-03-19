@@ -274,6 +274,90 @@ export function resolveMatrixPluginImportSpecifier(): string | null {
   return null;
 }
 
+const MSTEAMS_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-msteams";
+const MSTEAMS_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-msteams/typescript/dist/index",
+  "../plugins/plugin-msteams/dist/index",
+] as const;
+
+/**
+ * Resolve the MS Teams plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveMSTeamsPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(MSTEAMS_PLUGIN_PACKAGE_NAME)) {
+    return MSTEAMS_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  for (const relativeEntryPath of MSTEAMS_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
+const GOOGLE_CHAT_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-google-chat";
+const GOOGLE_CHAT_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-google-chat/typescript/dist/index",
+  "../plugins/plugin-google-chat/dist/index",
+] as const;
+
+/**
+ * Resolve the Google Chat plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveGoogleChatPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(GOOGLE_CHAT_PLUGIN_PACKAGE_NAME)) {
+    return GOOGLE_CHAT_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  for (const relativeEntryPath of GOOGLE_CHAT_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
+const FEISHU_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-feishu";
+const FEISHU_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-feishu/typescript/dist/index",
+  "../plugins/plugin-feishu/dist/index",
+] as const;
+
+/**
+ * Resolve the Feishu plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveFeishuPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(FEISHU_PLUGIN_PACKAGE_NAME)) {
+    return FEISHU_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  for (const relativeEntryPath of FEISHU_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
 /** Build a mock update check result with deterministic defaults. */
 export function buildMockUpdateCheckResult(
   overrides: Partial<MockUpdateCheckResult> = {},
