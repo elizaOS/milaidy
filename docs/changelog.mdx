@@ -6,11 +6,11 @@ description: What's new in Milady — features, improvements, and fixes.
 <Update label="2026-03-19" description="Week of March 14–19" tags={["Feature", "Security", "Fix"]}>
 ## Cloud control plane dashboard
 
-You can now manage your cloud agents directly from the Milady homepage. The new dashboard at `/#/dashboard` includes agent lifecycle controls (provision, suspend, resume, delete), snapshots and backups, credits and billing, container metrics, and log streaming — all without leaving the app. Local and remote agents are auto-discovered alongside cloud agents. See [Cloud deployment](/deployment#cloud-agent-deployment) for details.
+You can now manage cloud agents directly from the Milady homepage. The new dashboard includes agent lifecycle controls (provision, suspend, resume, delete), snapshots and backups, credits and billing, container metrics, and log streaming — all without leaving the app. Local and remote agents are auto-discovered alongside cloud agents. See [Cloud deployment](/deployment#cloud-agent-deployment) for details.
 
 ## Cloud-first onboarding
 
-Running `milady start` for the first time now asks "Where should your agent live?" with [Eliza Cloud](/guides/cloud) as the recommended option. Choose cloud for a hosted runtime with no local setup, or local to run on your own machine. Cloud configuration is saved automatically so subsequent launches reconnect without prompting.
+Running `milady start` for the first time now asks "Where should your agent live?" with [Eliza Cloud](/guides/cloud) as the recommended option. Choose cloud for a hosted runtime with no local setup, or local to run on your own machine. Cloud configuration is saved automatically so subsequent launches reconnect without prompting. See the [cloud guide](/guides/cloud) for details.
 
 ## Game-style notebook character editor
 
@@ -36,7 +36,7 @@ The homepage now features platform download icons with hover labels that always 
 
 ## Official Docker images
 
-Pre-built Docker images are now published to GitHub Container Registry on every release. Pull `ghcr.io/milady-ai/agent` to deploy without building from source. See the [deployment guide](/deployment) for Docker Compose setup and environment variables.
+Pre-built Docker images are now published to GitHub Container Registry on every release, optimized at roughly half the size of a manual build. Pull `ghcr.io/milady-ai/agent` to deploy without building from source. See the [deployment guide](/deployment) for Docker Compose setup and environment variables.
 
 ## Electrobun desktop migration
 
@@ -46,21 +46,13 @@ The [desktop app](/apps/desktop) has fully migrated from Electron to Electrobun 
 
 Three.js and the 3D avatar stack (~1.7 MB) are now lazy-loaded — they only download when you open the companion view. The stream view is also lazy-loaded. Together, these changes cut the initial page load significantly.
 
-## Wallet key export security
-
-Wallet private key exports now require a 10-second confirmation delay, are rate-limited to one export per 10 minutes, and generate an audit log entry for every attempt. This protects against instant key extraction from compromised sessions.
-
-## Cloud onboarding during first-run setup
-
-When you run Milady for the first time, setup now asks "Where should your agent live?" with three options: Eliza Cloud (recommended), local, or decide later. Choosing cloud handles authentication and provisioning automatically — no local setup needed. See the [cloud guide](/guides/cloud) for details.
-
-## Official Docker images
-
-Pre-built Docker images are now published to GHCR on every release, so you can self-host with a single `docker pull` instead of building from source. Images are optimized at roughly half the size of a manual build. See the [deployment guide](/deployment) for details.
-
 ## Scratch workspace controls for coding agents
 
 Coding agent sessions now show keep, promote, and delete controls for scratch workspaces. When a coding session ends, you can decide whether to retain the temporary workspace, promote it to a permanent one, or clean it up — directly from the dashboard. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Wallet key export security
+
+Wallet private key exports now require a 10-second confirmation delay, are rate-limited to one export per 10 minutes, and generate an audit log entry for every attempt. This protects against instant key extraction from compromised sessions.
 
 ## Cloud API key protection
 
