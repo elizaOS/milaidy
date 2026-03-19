@@ -4,32 +4,41 @@ description: What's new in Milady — features, improvements, and fixes.
 ---
 
 <Update label="2026-05-14" description="Week of May 8–14" tags={["Feature", "Update"]}>
-## Custom actions editor
+## Media generation
 
-A visual editor in the dashboard lets you create custom agent actions without writing plugin code. Define actions with HTTP, shell, or code handlers, configure parameters, and test them in place — all from the UI. An AI generation endpoint can scaffold action definitions from a natural language prompt. Actions are hot-registered into the running agent with no restart needed. See the [custom actions guide](/guides/custom-actions) for details.
+Your agent can now generate images, videos, and audio — and analyze images with AI vision — all from chat. Four new actions are available: `GENERATE_IMAGE`, `GENERATE_VIDEO`, `GENERATE_AUDIO`, and `ANALYZE_IMAGE`. Each supports multiple provider backends so you can use cloud mode with no API key or bring your own key per media type. A media gallery in the dashboard lets you browse everything your agent has created. See the [media generation guide](/guides/media-generation) for details.
 
-## Plugin eject system
+## Event hooks
 
-You can now fork any plugin's source code locally, edit it, and have the runtime load your local copy instead of the npm package. Six agent actions — eject, sync, reinject, and status for both plugins and core — make it easy to customize behavior, test changes, and contribute fixes back upstream. See the [plugin eject guide](/plugins/plugin-eject) for details.
+You can now extend your agent with event-driven hooks that respond to commands, session events, agent lifecycle events, and gateway events. Hooks are loaded from disk at startup — each hook is a directory with a config file and a handler module. Use hooks to add custom behavior without modifying core code. See the [hooks guide](/guides/hooks) for details.
 
-## Secrets vault
+## Config includes
 
-A new Secrets view in the dashboard organizes your API keys and credentials by category — AI providers, blockchain, connectors, and authentication. The plugin encrypts secrets at rest with AES-256-GCM and resolves them through a priority chain (agent DB, character file, environment variables, global secrets). You can add, remove, and audit credentials without editing config files. See the [secrets manager plugin docs](/plugin-registry/secrets-manager) for details.
+Split your agent configuration across multiple files with the `$include` directive. Compose shared base configs, separate environment-specific settings, and keep large configurations organized. Local keys override included keys, so you can layer overrides cleanly. See the [config includes guide](/guides/config-includes) for details.
 
-## Media gallery
+## Skills marketplace with security review
 
-A new Media tab under the Database section in the dashboard lets you browse all photos, videos, and audio stored across your agent's database. Filter by media type, search by filename, and inspect entries in a lightbox detail view.
+The skills view now includes a marketplace where you can browse, search, and install skills directly from the dashboard. A built-in security review system scans installed skills and flags issues — quarantined skills are visually marked, and blocked skills cannot be enabled until reviewed. See the [skills guide](/plugins/skills) for details.
 
-## Configuration templates
+## Five new platform connectors
 
-Eight ready-to-use configuration templates are now available for common deployment scenarios — minimal setup, personal assistant, Discord bot, Telegram bot, trading bot, research agent, privacy-first local (Ollama), and production server. Each template is a complete, annotated config you can copy and customize. See the [config templates guide](/guides/config-templates) for details.
+Your agent can now connect to five additional platforms:
+
+- **Feishu / Lark** — enterprise messaging with bot, chat, and workflow notification support.
+- **Twilio** — voice calls and SMS messaging.
+- **Twitch** — live chat integration for streaming.
+- **Gmail Watch** — Pub/Sub email monitoring with auto-renewal.
+- **Zalo** — messaging on Vietnam's largest chat platform.
+
+Install any connector with `milady plugins install <name>` and configure it in your [social settings](/guides/connectors).
 
 ## Updates
 
-- **Database section reorganized** — The Advanced > Database view now has three sub-tabs: Tables (raw table browser), Media (media gallery), and Vectors (embedding explorer), making it easier to find what you need.
-- **Memory and context API** — Two new REST endpoints let you save free-text notes to your agent's persistent memory (`POST /api/memory/remember`) and search across saved notes (`GET /api/memory/search`). See the [Memory API reference](/rest/memory) for details.
-- **Media generation guide** — A new guide documents the media generation abstraction layer with support for five image providers, four video providers, and two audio providers — including FAL, OpenAI, Google, xAI, and Eliza Cloud. See the [media generation guide](/guides/media-generation) for details.
-- **Agent export size estimation** — Before downloading a full agent export, you can now call `GET /api/agent/export/estimate` to preview the archive size and record counts, preventing surprise large downloads.
+- **Voice wake word** — You can now configure a wake word (default: "milady") so your agent listens for a trigger phrase before responding. Adjust sensitivity and model settings from the voice settings panel.
+- **Install plugins from chat** — Ask your agent to install a plugin by name (e.g., "install the discord plugin") and it handles the download, installation, and restart automatically.
+- **Runtime log level** — Change your agent's log verbosity at runtime by asking it to "set log level to debug" (or trace, info, warn, error) without restarting.
+- **Dashboard themes** — Six visual themes are now available, controlling colors, typography, borders, and animations across the entire dashboard. See the [themes guide](/guides/themes).
+- **Built-in VRM avatars** — Eight 3D VRM avatars with 29 emotes across six categories are now available out of the box. See the [emotes guide](/guides/emotes).
 </Update>
 
 <Update label="2026-05-07" description="Week of May 1–7" tags={["Feature", "Update"]}>
@@ -39,11 +48,19 @@ You can now migrate your agent between machines with a single encrypted file. Ex
 
 ## Sandbox and computer use
 
-Agents can now run code, browse the web, take screenshots, record audio, and interact with desktop applications inside an isolated container sandbox. The sandbox supports configurable security modes, network policies, audit logging, and a remote signing service that keeps wallet keys on the host while sandboxed agents submit transactions. See the [sandbox guide](/guides/sandbox) for details.
+Agents can now run code, browse the web, take screenshots, record audio, and interact with desktop applications inside an isolated container sandbox. The sandbox supports four configurable security modes (off, light, standard, max), network policies, audit logging, and a remote signing service that keeps wallet keys on the host while sandboxed agents submit transactions. See the [sandbox guide](/guides/sandbox) for details.
 
 ## MCP marketplace
 
 You can now browse and install Model Context Protocol servers directly from the official MCP registry. Search for tools by name, view details, and install them in one step — the configuration is generated automatically. MCP servers extend your agent with external capabilities like file access, database queries, and API integrations. See the [MCP marketplace guide](/guides/mcp-marketplace) for details.
+
+## Custom actions editor
+
+A visual editor in the dashboard lets you create custom agent actions without writing plugin code. Define actions with HTTP, shell, or code handlers, configure parameters and headers, and test them — all from the UI. See the [custom actions guide](/guides/custom-actions) for details.
+
+## Plugin eject system
+
+You can now fork any plugin's source code locally, modify it, and have the runtime load your local copy instead of the npm package. Six new agent actions — eject, reinject, sync, and status for both plugins and core — make it easy to customize, test, and contribute changes back upstream. See the [plugin eject guide](/plugins/plugin-eject) for details.
 
 ## Stream overlay widgets
 
@@ -65,10 +82,13 @@ Install any connector with `milady plugins install <name>` and configure it in y
 
 ## Updates
 
+- **Secrets vault** — A new Secrets view in the dashboard organizes your API keys and credentials by category (AI providers, blockchain, connectors, auth). You can add, remove, and manage secrets with plugin-aware discovery that shows which plugins need which keys.
+- **Media gallery** — A new media gallery in the dashboard lets you browse photos, videos, and audio stored in your agent's database, with filtering by media type.
 - **Diagnostics and security audit API** — New endpoints expose filterable runtime logs, autonomy event replay with cursor-based pagination, and a security audit log with severity filtering and SSE streaming. See the [API reference](/api-reference) for details.
 - **Streaming permissions in onboarding** — Camera and microphone permissions are now requested during the onboarding wizard and manageable from Settings, so streaming works out of the box on both mobile and desktop.
 - **Dark theme button readability** — Accent-colored buttons now use dark text for better contrast, and hover effects highlight the border instead of changing text color.
 - **Onboarding layout improvements** — The connection step now shows a Quick Start / Advanced toggle, full-width provider cards, and an always-visible Continue button on the permissions step.
+- **Configuration templates** — Eight ready-to-use configuration templates for common deployment scenarios are now available. See the [config templates guide](/guides/config-templates).
 </Update>
 
 <Update label="2026-04-30" description="Week of April 24–30" tags={["Feature", "Update"]}>
