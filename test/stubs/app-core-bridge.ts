@@ -74,3 +74,7 @@ export function subscribeDesktopBridgeEvent(options: {
 export function initializeCapacitorBridge(): void {}
 
 export async function initializeStorageBridge(): Promise<void> {}
+
+export async function scanProviderCredentials(): Promise<unknown[]> {
+  return [];
+}

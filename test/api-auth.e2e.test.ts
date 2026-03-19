@@ -105,7 +105,14 @@ function connectWs(
     ws.on("unexpected-response", (_req, res) =>
       finish({ kind: "rejected", status: res.statusCode }),
     );
-    ws.on("error", () => finish({ kind: "rejected" }));
+    ws.on("error", (err: Error) => {
+      let status: number | undefined;
+      if (err?.message?.includes("Unexpected server response:")) {
+        const match = err.message.match(/Unexpected server response: (\d+)/);
+        if (match) status = parseInt(match[1], 10);
+      }
+      finish({ kind: "rejected", status });
+    });
   });
 }
 

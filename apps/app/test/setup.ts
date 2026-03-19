@@ -5,11 +5,13 @@
  * are created here with vi.fn() stubs so tests can vi.spyOn() them freely.
  */
 import { vi } from "vitest";
+import React from "react";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 }
 
+globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const originalConsoleError = console.error.bind(console);
