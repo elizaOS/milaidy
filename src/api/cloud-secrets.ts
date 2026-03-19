@@ -40,6 +40,16 @@ export function scrubCloudSecretsFromEnv(): void {
   }
 }
 
+/** Clear any sealed cloud secrets after an explicit disconnect. */
+export function clearCloudSecrets(): void {
+  for (const key of [
+    "ELIZAOS_CLOUD_API_KEY",
+    "ELIZAOS_CLOUD_ENABLED",
+  ] as const) {
+    delete _cloudSecrets[key];
+  }
+}
+
 /** Reset the sealed secret store. Test-only. */
 export function _resetCloudSecretsForTesting(): void {
   for (const key of Object.keys(_cloudSecrets)) {

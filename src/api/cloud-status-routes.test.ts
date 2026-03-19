@@ -216,6 +216,38 @@ describe("cloud status routes", () => {
     );
   });
 
+  test("falls back to api key credits when authenticated cloud auth has no client", async () => {
+    const runtime = runtimeWithCloudAuth({
+      isAuthenticated: () => true,
+      getClient: () => null,
+    });
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ balance: 3.25 }),
+    }));
+    vi.stubGlobal("fetch", fetchMock as typeof fetch);
+
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/cloud/credits",
+      runtime,
+      config: {
+        cloud: { apiKey: "abc123", baseUrl: "https://cloud.example" },
+      } as ElizaConfig,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.payload).toEqual({
+      connected: true,
+      balance: 3.25,
+      low: false,
+      critical: false,
+      topUpUrl: "https://www.elizacloud.ai/dashboard/settings?tab=billing",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   test("rejects unsafe cloud baseUrl before credit fetch", async () => {
     validateCloudBaseUrlMock.mockResolvedValueOnce(
       'Cloud base URL "http://127.0.0.1:1234/api/v1" points to a blocked address.',

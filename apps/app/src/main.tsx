@@ -40,6 +40,7 @@ import { Agent } from "@miladyai/capacitor-agent";
 import { Desktop } from "@miladyai/capacitor-desktop";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { installLocalProviderCloudPreferencePatch } from "./cloud-preference-patch";
 import { CharacterEditor } from "./components/CharacterEditor";
 import { DesktopOnboardingRuntime } from "./DesktopOnboardingRuntime";
 import { DesktopSurfaceNavigationRuntime } from "./DesktopSurfaceNavigationRuntime";
@@ -116,6 +117,7 @@ if (shouldInstallMainWindowOnboardingPatches(windowShellRoute)) {
   applyForceFreshOnboardingReset();
   installForceFreshOnboardingClientPatch(client);
 }
+installLocalProviderCloudPreferencePatch(client);
 installDesktopPermissionsClientPatch(client);
 
 // Register custom character editor for app-core's ViewRouter to pick up

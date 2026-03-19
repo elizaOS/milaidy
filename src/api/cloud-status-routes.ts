@@ -1,1 +1,65 @@
-export * from "@elizaos/autonomous/api/cloud-status-routes";
+import type {
+  CloudConfigLike,
+  CloudStatusRouteContext,
+} from "@elizaos/autonomous/api/cloud-status-routes";
+import type { ElizaConfig } from "../config/config";
+import {
+  CLOUD_BILLING_URL,
+  fetchUnifiedCloudCredits,
+  resolveCloudConnectionSnapshot,
+} from "./cloud-connection";
+
+export type { CloudConfigLike, CloudStatusRouteContext };
+
+export async function handleCloudStatusRoutes(
+  ctx: CloudStatusRouteContext,
+): Promise<boolean> {
+  const { res, method, pathname, config, runtime, json } = ctx;
+  const typedConfig = config as ElizaConfig;
+
+  if (method === "GET" && pathname === "/api/cloud/status") {
+    const snapshot = resolveCloudConnectionSnapshot(typedConfig, runtime);
+
+    if (snapshot.connected) {
+      json(res, {
+        connected: true,
+        enabled: snapshot.enabled,
+        hasApiKey: snapshot.hasApiKey,
+        userId: snapshot.userId,
+        organizationId: snapshot.organizationId,
+        topUpUrl: CLOUD_BILLING_URL,
+        reason: snapshot.authConnected
+          ? undefined
+          : runtime
+            ? "api_key_present_not_authenticated"
+            : "api_key_present_runtime_not_started",
+      });
+      return true;
+    }
+
+    if (!runtime) {
+      json(res, {
+        connected: false,
+        enabled: snapshot.enabled,
+        hasApiKey: snapshot.hasApiKey,
+        reason: "runtime_not_started",
+      });
+      return true;
+    }
+
+    json(res, {
+      connected: false,
+      enabled: snapshot.enabled,
+      hasApiKey: snapshot.hasApiKey,
+      reason: "not_authenticated",
+    });
+    return true;
+  }
+
+  if (method === "GET" && pathname === "/api/cloud/credits") {
+    json(res, await fetchUnifiedCloudCredits(typedConfig, runtime));
+    return true;
+  }
+
+  return false;
+}
