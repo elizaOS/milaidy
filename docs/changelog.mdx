@@ -34,6 +34,18 @@ The homepage now features platform download icons with hover labels that always 
 
 Wallet private key exports now require a 10-second confirmation delay, are rate-limited to one export per 10 minutes, and generate an audit log entry for every attempt. This protects against instant key extraction from compromised sessions.
 
+## Cloud onboarding during first-run setup
+
+When you run Milady for the first time, setup now asks "Where should your agent live?" with three options: Eliza Cloud (recommended), local, or decide later. Choosing cloud handles authentication and provisioning automatically — no local setup needed. See the [cloud guide](/guides/cloud) for details.
+
+## Official Docker images
+
+Pre-built Docker images are now published to GHCR on every release, so you can self-host with a single `docker pull` instead of building from source. Images are optimized at roughly half the size of a manual build. See the [deployment guide](/deployment) for details.
+
+## Scratch workspace controls for coding agents
+
+Coding agent sessions now show keep, promote, and delete controls for scratch workspaces. When a coding session ends, you can decide whether to retain the temporary workspace, promote it to a permanent one, or clean it up — directly from the dashboard. See the [coding swarms guide](/guides/coding-swarms) for details.
+
 ## Cloud API key protection
 
 Cloud API keys are no longer stored in `process.env` after login. They are scrubbed immediately and held in a sealed, non-enumerable store — preventing leakage through crash dumps, child processes, or environment inspection.
