@@ -4,7 +4,7 @@
  * Uses QR-authenticated device linking (created via the pairing service)
  * to send and receive Signal messages through the elizaOS runtime.
  *
- * Loaded as `@elizaai/plugin-signal` via CHANNEL_PLUGIN_MAP when
+ * Loaded as `@elizaos/plugin-signal` via CHANNEL_PLUGIN_MAP when
  * `config.connectors.signal` is present.
  *
  * ## Architecture

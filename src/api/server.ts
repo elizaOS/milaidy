@@ -12,8 +12,14 @@ export * from "@elizaos/autonomous/api/server";
 // that adds rate limiting, audit logging, and a forced confirmation delay.
 import {
   ensureApiTokenForBindHost as upstreamEnsureApiTokenForBindHost,
+  injectApiBaseIntoHtml as upstreamInjectApiBaseIntoHtml,
+  isSafeResetStateDir as upstreamIsSafeResetStateDir,
   resolveCorsOrigin as upstreamResolveCorsOrigin,
+  resolveMcpTerminalAuthorizationRejection as upstreamResolveMcpTerminalAuthorizationRejection,
+  resolveTerminalRunClientId as upstreamResolveTerminalRunClientId,
+  resolveTerminalRunRejection as upstreamResolveTerminalRunRejection,
   resolveWalletExportRejection as upstreamResolveWalletExportRejection,
+  resolveWebSocketUpgradeRejection as upstreamResolveWebSocketUpgradeRejection,
   startApiServer as upstreamStartApiServer,
 } from "@elizaos/autonomous/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
@@ -23,7 +29,7 @@ import { handleCloudStatusRoutes } from "./cloud-status-routes";
 import { createHardenedExportGuard } from "./wallet-export-guard";
 
 const hardenedGuard = createHardenedExportGuard(
-  upstreamResolveWalletExportRejection,
+  resolveCompatWalletExportRejection,
 );
 const require = createRequire(import.meta.url);
 
@@ -32,6 +38,10 @@ const BRAND_ENV_ALIASES = [
   ["MILADY_API_BIND", "ELIZA_API_BIND"],
   ["MILADY_PAIRING_DISABLED", "ELIZA_PAIRING_DISABLED"],
   ["MILADY_ALLOWED_ORIGINS", "ELIZA_ALLOWED_ORIGINS"],
+  ["MILADY_ALLOW_NULL_ORIGIN", "ELIZA_ALLOW_NULL_ORIGIN"],
+  ["MILADY_ALLOW_WS_QUERY_TOKEN", "ELIZA_ALLOW_WS_QUERY_TOKEN"],
+  ["MILADY_WALLET_EXPORT_TOKEN", "ELIZA_WALLET_EXPORT_TOKEN"],
+  ["MILADY_TERMINAL_RUN_TOKEN", "ELIZA_TERMINAL_RUN_TOKEN"],
   ["MILADY_USE_PI_AI", "ELIZA_USE_PI_AI"],
   ["MILADY_STATE_DIR", "ELIZA_STATE_DIR"],
   ["MILADY_CONFIG_PATH", "ELIZA_CONFIG_PATH"],
@@ -43,6 +53,7 @@ const HEADER_ALIASES = [
   ["x-milady-client-id", "x-eliza-client-id"],
   ["x-milady-terminal-token", "x-eliza-terminal-token"],
   ["x-milady-ui-language", "x-eliza-ui-language"],
+  ["x-milady-agent-action", "x-eliza-agent-action"],
 ] as const;
 
 const PACKAGE_ROOT_NAMES = new Set([
@@ -138,107 +149,6 @@ interface CompatPluginRecord {
 const DATABASE_UNAVAILABLE_MESSAGE =
   "Database not available. The agent may not be running or the database adapter is not initialized.";
 
-/** WeakSet to avoid double-patching the same messageService instance. */
-const patchedMessageServices = new WeakSet<object>();
-
-/**
- * Wraps `runtime.messageService.handleMessage` so that every message
- * automatically starts a trajectory (with a step ID), sets that ID on
- * `message.metadata.trajectoryStepId`, and ends the trajectory when the
- * handler completes or throws.
- *
- * Without this, the core runtime never calls `logLlmCall` because the
- * required `trajectoryStepId` is never present in the async-local context.
- */
-function patchMessageServiceForTrajectories(runtime: AgentRuntime): void {
-  const ms = runtime.messageService;
-  if (!ms || typeof ms.handleMessage !== "function") return;
-  if (patchedMessageServices.has(ms as object)) return;
-  patchedMessageServices.add(ms as object);
-
-  const original = ms.handleMessage.bind(ms);
-
-  ms.handleMessage = async (
-    rt: AgentRuntime,
-    message: Parameters<typeof original>[1],
-    callback?: Parameters<typeof original>[2],
-    options?: Parameters<typeof original>[3],
-  ) => {
-    // Resolve the trajectory logger service (may be registered under
-    // "trajectory_logger" service type).
-    const trajLogger = (rt as AgentRuntime).getService("trajectory_logger") as
-      | {
-          isEnabled?: () => boolean;
-          startTrajectory?: (
-            stepIdOrAgentId: string,
-            options?: {
-              agentId?: string;
-              source?: string;
-              metadata?: Record<string, unknown>;
-            },
-          ) => Promise<string>;
-          endTrajectory?: (
-            stepIdOrTrajectoryId: string,
-            status?: string,
-          ) => Promise<void>;
-        }
-      | null
-      | undefined;
-
-    const isEnabled =
-      trajLogger &&
-      (typeof trajLogger.isEnabled !== "function" || trajLogger.isEnabled());
-
-    let stepId: string | undefined;
-
-    if (isEnabled && typeof trajLogger.startTrajectory === "function") {
-      try {
-        const userText =
-          typeof (message as { content?: { text?: string } }).content?.text ===
-          "string"
-            ? (message as { content: { text: string } }).content.text.slice(
-                0,
-                200,
-              )
-            : "";
-        stepId = await trajLogger.startTrajectory(
-          (rt as AgentRuntime).agentId,
-          {
-            agentId: (rt as AgentRuntime).agentId,
-            source: "chat",
-            metadata: { trigger: userText },
-          },
-        );
-      } catch {
-        // Non-fatal — fall through without trajectory tracking.
-      }
-    }
-
-    // Stamp the step ID onto the message metadata so the core runtime's
-    // `handleMessage` → `runWithTrajectoryContext` picks it up.
-    if (stepId) {
-      const msg = message as { metadata?: Record<string, unknown> };
-      msg.metadata = msg.metadata ?? {};
-      msg.metadata.trajectoryStepId = stepId;
-    }
-
-    try {
-      return await original(rt, message, callback, options);
-    } finally {
-      if (
-        stepId &&
-        trajLogger &&
-        typeof trajLogger.endTrajectory === "function"
-      ) {
-        try {
-          await trajLogger.endTrajectory(stepId, "completed");
-        } catch {
-          // Best-effort cleanup.
-        }
-      }
-    }
-  };
-}
 const CAPABILITY_FEATURE_IDS = new Set([
   "vision",
   "browser",
@@ -285,6 +195,52 @@ function mirrorCompatHeaders(req: Pick<http.IncomingMessage, "headers">): void {
       req.headers[miladyHeader] = elizaValue;
     }
   }
+}
+
+function normalizeCompatReason(reason: string): string {
+  return reason
+    .replaceAll("MILADY_WALLET_EXPORT_TOKEN", "ELIZA_WALLET_EXPORT_TOKEN")
+    .replaceAll("MILADY_TERMINAL_RUN_TOKEN", "ELIZA_TERMINAL_RUN_TOKEN")
+    .replaceAll("X-Milady-Export-Token", "X-Eliza-Export-Token")
+    .replaceAll("X-Milady-Terminal-Token", "X-Eliza-Terminal-Token");
+}
+
+function normalizeCompatRejection(
+  rejection: { status: number; reason: string } | null,
+): { status: number; reason: string } | null {
+  if (!rejection) {
+    return rejection;
+  }
+
+  return {
+    ...rejection,
+    reason: normalizeCompatReason(rejection.reason),
+  };
+}
+
+function runWithCompatAuthContext<T>(
+  req: Pick<http.IncomingMessage, "headers">,
+  operation: () => T,
+): T {
+  syncElizaEnvToMilady();
+  syncMiladyEnvToEliza();
+  mirrorCompatHeaders(req);
+
+  try {
+    return operation();
+  } finally {
+    syncMiladyEnvToEliza();
+    syncElizaEnvToMilady();
+  }
+}
+
+function resolveCompatWalletExportRejection(
+  ...args: Parameters<typeof upstreamResolveWalletExportRejection>
+): { status: number; reason: string } | null {
+  const [req] = args;
+  return runWithCompatAuthContext(req, () =>
+    normalizeCompatRejection(upstreamResolveWalletExportRejection(...args)),
+  );
 }
 
 function extractHeaderValue(
@@ -447,6 +403,406 @@ function sendJsonErrorResponse(
   message: string,
 ): void {
   sendJsonResponse(res, status, { error: message });
+}
+
+const WORKBENCH_TODO_TAG = "workbench-todo";
+
+type WorkbenchTodoResponse = {
+  id: string;
+  name: string;
+  description: string;
+  priority: number | null;
+  isUrgent: boolean;
+  isCompleted: boolean;
+  type: string;
+};
+
+function asCompatObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function readCompatTaskMetadata(
+  task: Record<string, unknown>,
+): Record<string, unknown> {
+  return asCompatObject(task.metadata) ?? {};
+}
+
+function normalizeCompatStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function parseCompatNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  return null;
+}
+
+function readCompatTaskCompleted(task: Record<string, unknown>): boolean {
+  const metadata = readCompatTaskMetadata(task);
+
+  if (typeof metadata.isCompleted === "boolean") {
+    return metadata.isCompleted;
+  }
+
+  const todoMeta =
+    asCompatObject(metadata.workbenchTodo) ?? asCompatObject(metadata.todo);
+  if (todoMeta && typeof todoMeta.isCompleted === "boolean") {
+    return todoMeta.isCompleted;
+  }
+
+  return false;
+}
+
+function normalizeCompatTodoTags(value: unknown, defaults: string[]): string[] {
+  const tags = new Set(
+    defaults.map((entry) => entry.trim()).filter((entry) => entry.length > 0),
+  );
+
+  for (const tag of normalizeCompatStringArray(value)) {
+    tags.add(tag);
+  }
+
+  return [...tags];
+}
+
+function toTaskBackedWorkbenchTodo(
+  task: Record<string, unknown> | null | undefined,
+): WorkbenchTodoResponse | null {
+  if (!task) {
+    return null;
+  }
+
+  const id =
+    typeof task.id === "string" && task.id.trim().length > 0 ? task.id : null;
+  if (!id) {
+    return null;
+  }
+
+  const tags = new Set(normalizeCompatStringArray(task.tags));
+  const metadata = readCompatTaskMetadata(task);
+  const todoMeta =
+    asCompatObject(metadata.workbenchTodo) ?? asCompatObject(metadata.todo);
+
+  if (!tags.has(WORKBENCH_TODO_TAG) && !tags.has("todo") && !todoMeta) {
+    return null;
+  }
+
+  const name =
+    typeof task.name === "string" && task.name.trim().length > 0
+      ? task.name
+      : "Todo";
+
+  return {
+    id,
+    name,
+    description:
+      typeof todoMeta?.description === "string"
+        ? todoMeta.description
+        : typeof task.description === "string"
+          ? task.description
+          : "",
+    priority: parseCompatNullableNumber(todoMeta?.priority),
+    isUrgent: todoMeta?.isUrgent === true,
+    isCompleted: readCompatTaskCompleted(task),
+    type:
+      typeof todoMeta?.type === "string" && todoMeta.type.trim().length > 0
+        ? todoMeta.type
+        : "task",
+  };
+}
+
+function runtimeHasTodoDatabase(runtime: AgentRuntime | null): boolean {
+  const db = (runtime as { db?: unknown } | null)?.db;
+  return !!db && typeof db === "object";
+}
+
+function decodeCompatTodoId(
+  rawValue: string,
+  res: http.ServerResponse,
+): string | null {
+  try {
+    const decoded = decodeURIComponent(rawValue);
+    if (decoded.trim().length === 0) {
+      sendJsonErrorResponse(res, 400, "Invalid todo id");
+      return null;
+    }
+    return decoded;
+  } catch {
+    sendJsonErrorResponse(res, 400, "Invalid todo id");
+    return null;
+  }
+}
+
+async function handleTaskBackedWorkbenchTodoRoute(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  runtime: AgentRuntime | null,
+  pathname: string,
+  method: string,
+): Promise<boolean> {
+  if (!runtime) {
+    return false;
+  }
+
+  if (
+    pathname !== "/api/workbench/todos" &&
+    !pathname.startsWith("/api/workbench/todos/")
+  ) {
+    return false;
+  }
+
+  if (!ensureCompatApiAuthorized(req, res)) {
+    return true;
+  }
+
+  const getTaskList = async () =>
+    (
+      (await runtime.getTasks({})) as unknown as Array<Record<string, unknown>>
+    ).map((task) => task as Record<string, unknown>);
+
+  if (method === "GET" && pathname === "/api/workbench/todos") {
+    const todos = (await getTaskList())
+      .map((task) => toTaskBackedWorkbenchTodo(task))
+      .filter((todo): todo is WorkbenchTodoResponse => todo !== null)
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    sendJsonResponse(res, 200, { todos });
+    return true;
+  }
+
+  if (method === "POST" && pathname === "/api/workbench/todos") {
+    const body = await readCompatJsonBody(req, res);
+    if (body == null) {
+      return true;
+    }
+
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      sendJsonErrorResponse(res, 400, "name is required");
+      return true;
+    }
+
+    const description =
+      typeof body.description === "string" ? body.description : "";
+    const type =
+      typeof body.type === "string" && body.type.trim().length > 0
+        ? body.type.trim()
+        : "task";
+
+    const taskId = await runtime.createTask({
+      name,
+      description,
+      tags: normalizeCompatTodoTags(body.tags, [WORKBENCH_TODO_TAG, "todo"]),
+      metadata: {
+        isCompleted: false,
+        workbenchTodo: {
+          description,
+          priority: parseCompatNullableNumber(body.priority),
+          isUrgent: body.isUrgent === true,
+          isCompleted: false,
+          type,
+        },
+      },
+    });
+
+    const created = await runtime.getTask(taskId);
+    const todo = toTaskBackedWorkbenchTodo(
+      created as Record<string, unknown> | null,
+    );
+    if (!todo) {
+      sendJsonErrorResponse(res, 500, "Todo created but unavailable");
+      return true;
+    }
+
+    sendJsonResponse(res, 201, { todo });
+    return true;
+  }
+
+  const todoCompleteMatch = /^\/api\/workbench\/todos\/([^/]+)\/complete$/.exec(
+    pathname,
+  );
+  if (method === "POST" && todoCompleteMatch) {
+    const todoId = decodeCompatTodoId(todoCompleteMatch[1], res);
+    if (!todoId) {
+      return true;
+    }
+
+    const body = await readCompatJsonBody(req, res);
+    if (body == null) {
+      return true;
+    }
+
+    const todoTask = (await runtime.getTask(todoId)) as Record<
+      string,
+      unknown
+    > | null;
+    const todo = toTaskBackedWorkbenchTodo(todoTask);
+    if (!todoTask || !todo) {
+      sendJsonErrorResponse(res, 404, "Todo not found");
+      return true;
+    }
+
+    const metadata = readCompatTaskMetadata(todoTask);
+    const todoMeta =
+      asCompatObject(metadata.workbenchTodo) ?? asCompatObject(metadata.todo);
+    const isCompleted = body.isCompleted === true;
+
+    await runtime.updateTask(todoId, {
+      metadata: {
+        ...metadata,
+        isCompleted,
+        workbenchTodo: {
+          ...(todoMeta ?? {}),
+          isCompleted,
+        },
+      },
+    });
+
+    sendJsonResponse(res, 200, { ok: true });
+    return true;
+  }
+
+  const todoItemMatch = /^\/api\/workbench\/todos\/([^/]+)$/.exec(pathname);
+  if (!todoItemMatch) {
+    return false;
+  }
+
+  const todoId = decodeCompatTodoId(todoItemMatch[1], res);
+  if (!todoId) {
+    return true;
+  }
+
+  if (method === "GET") {
+    const todoTask = (await runtime.getTask(todoId)) as Record<
+      string,
+      unknown
+    > | null;
+    const todo = toTaskBackedWorkbenchTodo(todoTask);
+    if (!todoTask || !todo) {
+      sendJsonErrorResponse(res, 404, "Todo not found");
+      return true;
+    }
+
+    sendJsonResponse(res, 200, { todo });
+    return true;
+  }
+
+  if (method === "DELETE") {
+    const todoTask = (await runtime.getTask(todoId)) as Record<
+      string,
+      unknown
+    > | null;
+    if (!todoTask || !toTaskBackedWorkbenchTodo(todoTask)) {
+      sendJsonErrorResponse(res, 404, "Todo not found");
+      return true;
+    }
+
+    await runtime.deleteTask(todoId);
+    sendJsonResponse(res, 200, { ok: true });
+    return true;
+  }
+
+  if (method === "PUT") {
+    const body = await readCompatJsonBody(req, res);
+    if (body == null) {
+      return true;
+    }
+
+    const todoTask = (await runtime.getTask(todoId)) as Record<
+      string,
+      unknown
+    > | null;
+    const existingTodo = toTaskBackedWorkbenchTodo(todoTask);
+    if (!todoTask || !existingTodo) {
+      sendJsonErrorResponse(res, 404, "Todo not found");
+      return true;
+    }
+
+    if (typeof body.name === "string" && body.name.trim().length === 0) {
+      sendJsonErrorResponse(res, 400, "name cannot be empty");
+      return true;
+    }
+
+    const metadata = readCompatTaskMetadata(todoTask);
+    const todoMeta =
+      asCompatObject(metadata.workbenchTodo) ?? asCompatObject(metadata.todo);
+    const nextTodoMeta: Record<string, unknown> = {
+      ...(todoMeta ?? {}),
+    };
+    const update: Record<string, unknown> = {};
+
+    if (typeof body.name === "string") {
+      update.name = body.name.trim();
+    }
+    if (typeof body.description === "string") {
+      update.description = body.description;
+      nextTodoMeta.description = body.description;
+    }
+    if (body.priority !== undefined) {
+      nextTodoMeta.priority = parseCompatNullableNumber(body.priority);
+    }
+    if (typeof body.isUrgent === "boolean") {
+      nextTodoMeta.isUrgent = body.isUrgent;
+    }
+    if (typeof body.type === "string" && body.type.trim().length > 0) {
+      nextTodoMeta.type = body.type.trim();
+    }
+    if (body.tags !== undefined) {
+      update.tags = normalizeCompatTodoTags(body.tags, [
+        WORKBENCH_TODO_TAG,
+        "todo",
+      ]);
+    }
+
+    const isCompleted =
+      typeof body.isCompleted === "boolean"
+        ? body.isCompleted
+        : existingTodo.isCompleted;
+    nextTodoMeta.isCompleted = isCompleted;
+
+    update.metadata = {
+      ...metadata,
+      isCompleted,
+      workbenchTodo: nextTodoMeta,
+    };
+
+    await runtime.updateTask(todoId, update);
+
+    const refreshed = await runtime.getTask(todoId);
+    const todo = toTaskBackedWorkbenchTodo(
+      refreshed as Record<string, unknown> | null,
+    );
+    if (!todo) {
+      sendJsonErrorResponse(res, 500, "Todo updated but unavailable");
+      return true;
+    }
+
+    sendJsonResponse(res, 200, { todo });
+    return true;
+  }
+
+  return false;
 }
 
 async function executeRawSql(
@@ -1127,6 +1483,20 @@ async function handleMiladyCompatRoute(
 ): Promise<boolean> {
   const method = (req.method ?? "GET").toUpperCase();
   const url = new URL(req.url ?? "/", "http://localhost");
+
+  if (
+    !runtimeHasTodoDatabase(state.current) &&
+    (await handleTaskBackedWorkbenchTodoRoute(
+      req,
+      res,
+      state.current,
+      url.pathname,
+      method,
+    ))
+  ) {
+    return true;
+  }
+
   const cloudConfigPath =
     url.pathname === "/api/cloud/status" ||
     url.pathname === "/api/cloud/credits" ||
@@ -1281,6 +1651,100 @@ export function resolveWalletExportRejection(
   return hardenedGuard(...args);
 }
 
+export function resolveMcpTerminalAuthorizationRejection(
+  ...args: Parameters<typeof upstreamResolveMcpTerminalAuthorizationRejection>
+): ReturnType<typeof upstreamResolveMcpTerminalAuthorizationRejection> {
+  const [req] = args;
+  return runWithCompatAuthContext(req, () =>
+    normalizeCompatRejection(
+      upstreamResolveMcpTerminalAuthorizationRejection(...args),
+    ),
+  );
+}
+
+export function resolveTerminalRunRejection(
+  ...args: Parameters<typeof upstreamResolveTerminalRunRejection>
+): { status: number; reason: string } | null {
+  const [req] = args;
+  return runWithCompatAuthContext(req, () =>
+    normalizeCompatRejection(upstreamResolveTerminalRunRejection(...args)),
+  );
+}
+
+export function resolveWebSocketUpgradeRejection(
+  ...args: Parameters<typeof upstreamResolveWebSocketUpgradeRejection>
+): ReturnType<typeof upstreamResolveWebSocketUpgradeRejection> {
+  const [req] = args;
+  return runWithCompatAuthContext(req, () =>
+    upstreamResolveWebSocketUpgradeRejection(...args),
+  );
+}
+
+export function resolveTerminalRunClientId(
+  ...args: Parameters<typeof upstreamResolveTerminalRunClientId>
+): ReturnType<typeof upstreamResolveTerminalRunClientId> {
+  const [req] = args;
+  return runWithCompatAuthContext(req, () =>
+    upstreamResolveTerminalRunClientId(...args),
+  );
+}
+
+export function injectApiBaseIntoHtml(
+  ...args: Parameters<typeof upstreamInjectApiBaseIntoHtml>
+): ReturnType<typeof upstreamInjectApiBaseIntoHtml> {
+  const [, externalBase] = args;
+  const trimmedBase = externalBase?.trim();
+  const injected = upstreamInjectApiBaseIntoHtml(...args);
+
+  if (!trimmedBase) {
+    return injected;
+  }
+
+  const legacySnippet = `window.__MILADY_API_BASE__=${JSON.stringify(trimmedBase)};`;
+  const compatSnippet = `${legacySnippet}window.__ELIZA_API_BASE__=${JSON.stringify(trimmedBase)};`;
+  const text = injected.toString("utf8");
+
+  if (text.includes("window.__ELIZA_API_BASE__")) {
+    return injected;
+  }
+
+  if (!text.includes(legacySnippet)) {
+    return injected;
+  }
+
+  return Buffer.from(text.replace(legacySnippet, compatSnippet), "utf8");
+}
+
+export function isSafeResetStateDir(
+  ...args: Parameters<typeof upstreamIsSafeResetStateDir>
+): ReturnType<typeof upstreamIsSafeResetStateDir> {
+  if (upstreamIsSafeResetStateDir(...args)) {
+    return true;
+  }
+
+  const [resolvedState, homeDir] = args;
+  const normalizedState = path.resolve(resolvedState);
+  const normalizedHome = path.resolve(homeDir);
+  const parsedRoot = path.parse(normalizedState).root;
+
+  if (normalizedState === parsedRoot || normalizedState === normalizedHome) {
+    return false;
+  }
+
+  const relativeToHome = path.relative(normalizedHome, normalizedState);
+  const isUnderHome =
+    relativeToHome.length > 0 &&
+    !relativeToHome.startsWith("..") &&
+    !path.isAbsolute(relativeToHome);
+  if (!isUnderHome) {
+    return false;
+  }
+
+  return normalizedState
+    .split(path.sep)
+    .some((segment) => segment.trim().toLowerCase() === ".eliza");
+}
+
 export function findOwnPackageRoot(startDir: string): string {
   let dir = startDir;
 
@@ -1347,7 +1811,6 @@ export async function startApiServer(
   try {
     if (compatState.current) {
       await ensureRuntimeSqlCompatibility(compatState.current);
-      patchMessageServiceForTrajectories(compatState.current);
     }
 
     const server = await upstreamStartApiServer(...args);
@@ -1358,7 +1821,6 @@ export async function startApiServer(
     server.updateRuntime = (runtime: AgentRuntime) => {
       compatState.current = runtime;
       void ensureRuntimeSqlCompatibility(runtime);
-      patchMessageServiceForTrajectories(runtime);
       originalUpdateRuntime(runtime);
     };
 
