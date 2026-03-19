@@ -3,6 +3,25 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-05-21" description="Week of May 15–21" tags={["Feature", "Update"]}>
+## Wallet trading API
+
+You can now trade tokens on BNB Chain directly through the REST API. New endpoints let you run a preflight readiness check, get a price quote for a token swap, execute the trade (with client-side signing or on-chain execution), check transaction status, and transfer tokens — all without leaving your integration. A trading profile endpoint tracks realized and unrealized P&L over configurable time windows. One-click production defaults apply safe trading configuration for new deployments. See the [Wallet API reference](/rest/wallet) for details.
+
+## Custom actions management
+
+Custom actions now support full lifecycle management through the API. You can update existing actions, delete actions you no longer need, and test-run any action with sample parameters before going live. Shell and code handlers now require a terminal authorization token when `MILADY_TERMINAL_RUN_TOKEN` is configured, adding a security gate for potentially dangerous action types. See the [Custom Actions API reference](/rest/custom-actions) for details.
+
+## Plugin reinject
+
+Ejected plugins can now be restored to their original registry version with a single API call. The new reinject endpoint removes the local copy and schedules a runtime restart to reload the upstream package — useful when you're done customizing a plugin or want to return to a known-good state. See the [Plugins API reference](/rest/plugins) for details.
+
+## Updates
+
+- **Secrets filtering** — The secrets API now silently skips empty, whitespace-only, and blocked system variable names instead of writing them. The response includes an explicit list of which keys were actually updated, so you know exactly what changed. See the [Secrets API reference](/rest/secrets).
+- **Eject and sync response improvements** — The plugin eject and sync endpoints now return the plugin name, a restart indicator, and a human-readable status message, making it easier to build automation around the plugin development workflow.
+</Update>
+
 <Update label="2026-05-14" description="Week of May 8–14" tags={["Feature", "Update"]}>
 ## Media generation
 
