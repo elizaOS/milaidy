@@ -1,11 +1,11 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import signalPlugin, {
   signalPlugin as namedSignalPlugin,
 } from "@elizaos/plugin-signal";
 import { SignalNativeService } from "@elizaos/plugin-signal/service";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function createRuntime(overrides: Record<string, unknown> = {}) {
   return {

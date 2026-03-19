@@ -312,6 +312,35 @@ describe("AppProvider onboarding step resume", () => {
       });
       await flushEffects();
 
+      expect(api?.getSnapshot()).toEqual(
+        expect.objectContaining({
+          onboardingLoading: false,
+          onboardingRunMode: "",
+          onboardingCloudProvider: "",
+        }),
+      );
+
+      if (api?.getSnapshot().onboardingStep === "wakeUp") {
+        await act(async () => {
+          await api?.next();
+        });
+        await flushEffects();
+      }
+      expect(api?.getSnapshot()).toEqual(
+        expect.objectContaining({
+          onboardingLoading: false,
+          onboardingRunMode: "",
+          onboardingCloudProvider: "",
+        }),
+      );
+
+      if (api?.getSnapshot().onboardingStep === "wakeUp") {
+        await act(async () => {
+          await api?.next();
+        });
+        await flushEffects();
+      }
+
       expect(api?.getSnapshot()).toEqual({
         onboardingLoading: false,
         onboardingStep: "identity",

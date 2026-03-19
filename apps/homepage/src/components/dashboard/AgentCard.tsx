@@ -74,18 +74,6 @@ function stopProp(handler: () => void) {
   };
 }
 
-function handleCardKeyDown(
-  e: React.KeyboardEvent<HTMLDivElement>,
-  onSelect: () => void,
-) {
-  if (e.target !== e.currentTarget) return;
-
-  if (e.key === "Enter" || e.key === " ") {
-    e.preventDefault();
-    onSelect();
-  }
-}
-
 export function AgentCard({
   agent,
   source,
@@ -110,10 +98,6 @@ export function AgentCard({
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => handleCardKeyDown(e, onSelect)}
       className={`group relative rounded-2xl cursor-pointer transition-all duration-200 text-left w-full
         ${
           selected
@@ -170,50 +154,37 @@ export function AgentCard({
       )}
 
       <div className="p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-[15px] font-medium text-text-light truncate">
-                {agent.agentName}
-              </h3>
+        <button
+          type="button"
+          onClick={onSelect}
+          className="block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset rounded-xl"
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[15px] font-medium text-text-light truncate">
+                  {agent.agentName}
+                </h3>
+              </div>
+              {agent.model && (
+                <p className="text-xs text-text-muted mt-0.5 truncate">
+                  {agent.model}
+                </p>
+              )}
             </div>
-            {agent.model && (
-              <p className="text-xs text-text-muted mt-0.5 truncate">
-                {agent.model}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-            <span
-              className={`w-2 h-2 rounded-full ${stateConfig.bg} ${agent.state === "provisioning" ? "status-dot-pulse" : ""}`}
-            />
-            <span className={`text-xs ${stateConfig.color}`}>
-              {stateConfig.label}
-            </span>
-          </div>
-        </div>
-
-        {/* Stats row */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-text-muted mb-4">
-          <span className="flex items-center gap-1.5">
-            <svg
-              aria-hidden="true"
-              className="w-3.5 h-3.5 opacity-40"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+              <span
+                className={`w-2 h-2 rounded-full ${stateConfig.bg} ${agent.state === "provisioning" ? "status-dot-pulse" : ""}`}
               />
-            </svg>
-            {formatUptime(agent.uptime)}
-          </span>
-          {agent.memories !== undefined && (
+              <span className={`text-xs ${stateConfig.color}`}>
+                {stateConfig.label}
+              </span>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-text-muted mb-4">
             <span className="flex items-center gap-1.5">
               <svg
                 aria-hidden="true"
@@ -228,113 +199,136 @@ export function AgentCard({
                   strokeLinejoin="round"
                   d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
                 />
-              </svg>
-              {agent.memories}
-            </span>
-          )}
-          {nodeId && (
-            <span className="flex items-center gap-1.5" title="Node">
-              <svg
-                aria-hidden="true"
-                className="w-3.5 h-3.5 opacity-40"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              {nodeId}
+              {formatUptime(agent.uptime)}
             </span>
-          )}
-          {lastHeartbeat && (
+            {agent.memories !== undefined && (
+              <span className="flex items-center gap-1.5">
+                <svg
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 opacity-40"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                  />
+                </svg>
+                {agent.memories}
+              </span>
+            )}
+            {nodeId && (
+              <span className="flex items-center gap-1.5" title="Node">
+                <svg
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 opacity-40"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"
+                  />
+                </svg>
+                {nodeId}
+              </span>
+            )}
+            {lastHeartbeat && (
+              <span
+                className="flex items-center gap-1.5"
+                title={`Last heartbeat: ${new Date(lastHeartbeat).toLocaleString()}`}
+              >
+                <svg
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 opacity-40"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                {formatRelativeTime(lastHeartbeat)}
+              </span>
+            )}
+            {region && (
+              <span className="flex items-center gap-1.5" title="Region">
+                <svg
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 opacity-40"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {region}
+              </span>
+            )}
+            {createdAt && (
+              <span
+                className="flex items-center gap-1.5"
+                title={`Created: ${new Date(createdAt).toLocaleString()}`}
+              >
+                <svg
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 opacity-40"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                {formatRelativeTime(createdAt)}
+              </span>
+            )}
+            {billing?.costPerHour !== undefined && (
+              <span className="flex items-center gap-1.5" title="Cost per hour">
+                <svg
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 opacity-40"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                ${billing.costPerHour.toFixed(2)}/hr
+              </span>
+            )}
             <span
-              className="flex items-center gap-1.5"
-              title={`Last heartbeat: ${new Date(lastHeartbeat).toLocaleString()}`}
-            >
-              <svg
-                aria-hidden="true"
-                className="w-3.5 h-3.5 opacity-40"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
-              {formatRelativeTime(lastHeartbeat)}
-            </span>
-          )}
-          {region && (
-            <span className="flex items-center gap-1.5" title="Region">
-              <svg
-                aria-hidden="true"
-                className="w-3.5 h-3.5 opacity-40"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {region}
-            </span>
-          )}
-          {createdAt && (
-            <span
-              className="flex items-center gap-1.5"
-              title={`Created: ${new Date(createdAt).toLocaleString()}`}
-            >
-              <svg
-                aria-hidden="true"
-                className="w-3.5 h-3.5 opacity-40"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              {formatRelativeTime(createdAt)}
-            </span>
-          )}
-          {billing?.costPerHour !== undefined && (
-            <span className="flex items-center gap-1.5" title="Cost per hour">
-              <svg
-                aria-hidden="true"
-                className="w-3.5 h-3.5 opacity-40"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              ${billing.costPerHour.toFixed(2)}/hr
-            </span>
-          )}
-          <span
-            className={`ml-auto text-[11px] px-2 py-0.5 rounded-full
+              className={`ml-auto text-[11px] px-2 py-0.5 rounded-full
             ${
               source === "cloud"
                 ? "bg-brand/10 text-brand"
@@ -342,13 +336,14 @@ export function AgentCard({
                   ? "bg-emerald-500/10 text-emerald-400"
                   : "bg-accent/10 text-accent"
             }`}
-          >
-            {SOURCE_LABEL[source] ?? source}
-          </span>
-        </div>
+            >
+              {SOURCE_LABEL[source] ?? source}
+            </span>
+          </div>
+        </button>
 
         {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div className="mt-4 flex items-center gap-2">
           {agent.state === "stopped" && (
             <ActionButton onClick={stopProp(onPlay)} variant="success">
               Start

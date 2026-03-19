@@ -26,7 +26,10 @@ import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import { handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
-import { createHardenedExportGuard } from "./wallet-export-guard";
+import {
+  type WalletExportRejection as CompatWalletExportRejection,
+  createHardenedExportGuard,
+} from "./wallet-export-guard";
 
 const hardenedGuard = createHardenedExportGuard(
   resolveCompatWalletExportRejection,

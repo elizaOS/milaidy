@@ -428,10 +428,10 @@ describe("AgentCard regression", () => {
 
   it("calls onSelect when card is clicked", () => {
     const onSelect = vi.fn();
-    const { container } = render(
+    render(
       <AgentCard {...baseProps} onSelect={onSelect} agent={makeAgent()} />,
     );
-    fireEvent.click(container.firstChild as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: /testagent/i }));
     expect(onSelect).toHaveBeenCalled();
   });
 

@@ -531,9 +531,16 @@ export function CharacterEditor({
     setVoiceSaving(false);
     await handleSaveCharacter();
     // Mark the current selection as saved
-    setSavedCharacterId(selectedCharacterId ?? activeCharacterRosterEntry?.id ?? null);
+    setSavedCharacterId(
+      selectedCharacterId ?? activeCharacterRosterEntry?.id ?? null,
+    );
     setFieldsEdited(false);
-  }, [handleSaveCharacter, persistVoiceConfig, selectedCharacterId, activeCharacterRosterEntry]);
+  }, [
+    handleSaveCharacter,
+    persistVoiceConfig,
+    selectedCharacterId,
+    activeCharacterRosterEntry,
+  ]);
 
   /* ── Reset to defaults ──────────────────────────────────────────── */
   const handleResetToDefaults = useCallback(() => {
@@ -713,7 +720,9 @@ export function CharacterEditor({
         <div className="ce-roster-wrap">
           <CharacterRoster
             entries={characterRoster}
-            selectedId={selectedCharacterId ?? activeCharacterRosterEntry?.id ?? null}
+            selectedId={
+              selectedCharacterId ?? activeCharacterRosterEntry?.id ?? null
+            }
             onSelect={handleSelectCharacter}
           />
         </div>
