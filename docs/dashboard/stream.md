@@ -38,7 +38,7 @@ The runtime auto-detects the capture mode based on environment:
 
 | Mode | Environment | Method |
 |------|-------------|--------|
-| **pipe** | Electron | UI frames captured via `capturePage()` and piped to FFmpeg stdin |
+| **pipe** | Electrobun | UI frames captured via `capturePage()` and piped to FFmpeg stdin |
 | **x11grab** | Linux | Xvfb virtual display capture |
 | **avfoundation** | macOS | Native screen capture |
 | **file** | Headless | Puppeteer CDP screenshots piped to FFmpeg |

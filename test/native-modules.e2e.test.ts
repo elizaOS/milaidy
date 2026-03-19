@@ -10,7 +10,7 @@
  *   4. TensorFlow models (coco-ssd, mobilenet, pose-detection)
  *   5. Plugin-vision service availability
  *
- * These tests ensure Electron compatibility by verifying native modules
+ * These tests ensure desktop compatibility by verifying native modules
  * can be loaded and initialized correctly.
  */
 import fs from "node:fs";
@@ -93,7 +93,7 @@ describe("Native Module Installation Verification", () => {
           `[native-modules] tfjs-node import failed: ${result.error}`,
         );
       }
-      // We check installation, not necessarily successful import (may need rebuild for Electron)
+      // We check installation, not necessarily successful import (desktop builds may still require a rebuild)
       const packagePath = path.join(
         packageRoot,
         "node_modules",

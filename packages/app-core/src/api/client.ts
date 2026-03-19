@@ -1994,15 +1994,14 @@ export class MiladyClient {
     this._uiLanguage = lang || null;
   }
 
-  private static resolveElectronLocalFallbackBase(): string {
+  private static resolveDesktopLocalFallbackBase(): string {
     if (typeof window === "undefined") return "";
     const proto = window.location.protocol;
-    // In capacitor-electron mode the main process injects the live API base
+    // In the desktop shell the main process injects the live API base
     // once the embedded agent has bound a port. Avoid eager localhost probes
     // to prevent noisy ERR_CONNECTION_REFUSED logs during startup.
-    if (proto === "capacitor-electron:") return "";
-    // Legacy Electron file:// mode fallback.
-    if (proto === "file:" && /\bElectron\b/i.test(window.navigator.userAgent)) {
+    if (proto === "electrobun:") return "";
+    if (proto === "file:") {
       return "http://localhost:2138";
     }
     return "";
@@ -2028,33 +2027,33 @@ export class MiladyClient {
         : null;
     this._explicitBase = baseUrl != null || Boolean(storedBase?.trim());
     this._token = token?.trim() || stored || null;
-    // Priority: explicit arg > Capacitor/Electron injected global > same origin (Vite proxy)
+    // Priority: explicit arg > desktop-injected global > same origin (Vite proxy)
     const injectedBase =
       typeof window !== "undefined" ? window.__MILADY_API_BASE__ : undefined;
     this._baseUrl =
       baseUrl ??
       storedBase ??
       injectedBase ??
-      MiladyClient.resolveElectronLocalFallbackBase();
+      MiladyClient.resolveDesktopLocalFallbackBase();
   }
 
   /**
    * Resolve the API base URL lazily.
-   * In Electron the main process injects window.__MILADY_API_BASE__ after the
+   * In the desktop shell the main process injects window.__MILADY_API_BASE__ after the
    * page loads (once the agent runtime starts). Re-checking on every call
    * ensures we pick up the injected value even if it wasn't set at construction.
    */
   private get baseUrl(): string {
     if (!this._explicitBase && typeof window !== "undefined") {
       const injected = window.__MILADY_API_BASE__;
-      // In Electron the API base can be injected after initial render. Always
+      // In the desktop shell the API base can be injected after initial render. Always
       // prefer the injected value when present so the client can switch away
       // from the localhost fallback once the main process publishes the real
       // endpoint.
       if (injected && injected !== this._baseUrl) {
         this._baseUrl = injected;
       } else if (!this._baseUrl) {
-        this._baseUrl = MiladyClient.resolveElectronLocalFallbackBase();
+        this._baseUrl = MiladyClient.resolveDesktopLocalFallbackBase();
       }
     }
     return this._baseUrl;
@@ -4096,7 +4095,7 @@ export class MiladyClient {
     if (this.baseUrl) {
       host = new URL(this.baseUrl).host;
     } else {
-      // In non-HTTP environments (Electron capacitor-electron://, file://, etc.)
+      // In non-HTTP environments (electrobun://, file://, etc.)
       // window.location.host may be empty or a non-routable placeholder like "-".
       const loc = window.location;
       if (loc.protocol !== "http:" && loc.protocol !== "https:") return;

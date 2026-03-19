@@ -145,7 +145,7 @@ Keys `__proto__`, `constructor`, and `prototype` are silently blocked during mer
     "servers": {
       "filesystem": {
         "type": "stdio",
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
       }
     }

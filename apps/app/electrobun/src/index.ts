@@ -514,7 +514,7 @@ function wireRpcAndModules(
   // Create the sendToWebview callback that native modules use to push events.
   // Uses typed RPC push messages instead of JS evaluation.
   const sendToWebview = (message: string, payload?: unknown): void => {
-    // Resolve via map (Electron-style colon format) or use message directly
+    // Resolve via map (legacy colon-separated format) or use message directly
     // as the RPC method name (Electrobun camelCase format).
     const rpcMessage = PUSH_CHANNEL_TO_RPC_MESSAGE[message] ?? message;
     if (rpc?.send) {

@@ -41,6 +41,25 @@ export async function invokeDesktopBridgeRequest<T>(options: {
   return null;
 }
 
+export interface DetectedProvider {
+  id: string;
+  source: string;
+  apiKey?: string;
+  authMode?: string;
+  cliInstalled: boolean;
+}
+
+export async function scanProviderCredentials(): Promise<DetectedProvider[]> {
+  const result = await invokeDesktopBridgeRequest<{
+    providers: DetectedProvider[];
+  }>({
+    rpcMethod: "credentialsScanProviders",
+    ipcChannel: "credentials:scanProviders",
+    params: { context: "onboarding" },
+  });
+  return result?.providers ?? [];
+}
+
 export function subscribeDesktopBridgeEvent(options: {
   rpcMessage: string;
   ipcChannel: string;

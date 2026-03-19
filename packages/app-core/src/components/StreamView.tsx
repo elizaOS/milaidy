@@ -174,7 +174,7 @@ export function StreamView({ inModal }: { inModal?: boolean } = {}) {
           const base = window.location.origin || "";
           const sep =
             window.location.protocol === "file:" ||
-            window.location.protocol === "capacitor-electron:"
+            window.location.protocol === "electrobun:"
               ? "#"
               : "";
           const qs = apiBase

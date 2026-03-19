@@ -14,7 +14,7 @@ The dashboard runs as a web application served by the Milady agent runtime.
 |--------|---------|
 | **Default URL** | `http://localhost:2138` |
 | **CLI shortcut** | Run `milady dashboard` to open the dashboard in your default browser |
-| **Desktop app** | The Electron desktop app embeds the dashboard directly (no browser required) |
+| **Desktop app** | The Electrobun desktop app embeds the dashboard directly (no browser required) |
 
 On first launch you will see the **Onboarding Wizard**, which walks you through initial agent setup. If authentication is required you will see the **Pairing View** before reaching the main dashboard.
 
@@ -160,7 +160,7 @@ The `VoiceConfigView` component configures:
 
 #### 6. Permissions & Capabilities
 
-The `PermissionsSection` component manages system permission grants for native platforms (Electron desktop app). Controls access to features like file system, microphone, camera, and notifications.
+The `PermissionsSection` component manages system permission grants for native platforms (Electrobun desktop app). Controls access to features like file system, microphone, camera, and notifications.
 
 #### 7. Software Updates
 

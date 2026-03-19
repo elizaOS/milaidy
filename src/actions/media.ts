@@ -373,7 +373,7 @@ export const generateAudioAction: Action = {
     {
       name: "genre",
       description:
-        "Music genre (e.g., 'pop', 'rock', 'classical', 'electronic')",
+        "Music genre (e.g., 'pop', 'rock', 'classical', 'synthwave')",
       required: false,
       schema: { type: "string" as const },
     },

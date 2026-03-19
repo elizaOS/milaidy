@@ -117,11 +117,13 @@ export function ShellHeaderControls({
   return (
     <div
       className={`flex min-w-0 items-center gap-3 w-full ${className ?? ""}`}
+      data-no-camera-drag="true"
     >
       <div className="flex shrink-0 items-center">
         <fieldset
           className="inline-flex items-center gap-0.5 rounded-xl border border-border/60 bg-transparent p-0.5 shadow-sm dark:border-border dark:bg-transparent"
           data-testid="ui-shell-toggle"
+          data-no-camera-drag="true"
           aria-label="Switch shell view"
         >
           <legend className="sr-only">Switch shell view</legend>
@@ -138,7 +140,8 @@ export function ShellHeaderControls({
                 key={view}
                 type="button"
                 onClick={() => onShellViewChange(view)}
-                className={`inline-flex h-9 min-w-[44px] items-center justify-center px-3 transition-all duration-200 ${edgeClass} ${
+                onPointerDown={(event) => event.stopPropagation()}
+                className={`inline-flex h-11 min-h-[44px] min-w-[44px] items-center justify-center px-3 transition-all duration-200 ${edgeClass} ${
                   selected
                     ? "border border-[#d8a108]/30 bg-bg/55 text-[#8a6500] shadow-sm dark:border-accent/25 dark:bg-bg/85 dark:text-[#f0b232]"
                     : "border border-transparent bg-transparent text-muted-strong hover:border-border/70 hover:bg-bg/85 hover:text-txt dark:text-muted dark:hover:border-border/60 dark:hover:bg-bg-hover/80 dark:hover:text-txt"
@@ -160,23 +163,26 @@ export function ShellHeaderControls({
       <div
         className="flex shrink-0 items-center justify-end gap-2"
         data-testid="shell-header-right-controls"
+        data-no-camera-drag="true"
       >
         {rightExtras}
         <div
           className={`shrink-0 ${languageDropdownClassName ?? ""}`}
           data-testid={languageDropdownWrapperTestId}
+          data-no-camera-drag="true"
         >
           <LanguageDropdown
             uiLanguage={uiLanguage}
             setUiLanguage={setUiLanguage}
             t={t}
             variant={controlsVariant}
-            triggerClassName="!h-10 !min-h-10 !rounded-xl !px-3.5 sm:!px-3.5 leading-none"
+            triggerClassName="!h-11 !min-h-[44px] !min-w-[44px] !rounded-xl !px-3.5 sm:!px-3.5 leading-none"
           />
         </div>
         <div
           className={`shrink-0 ${themeToggleWrapperClassName ?? ""}`}
           data-testid={themeToggleWrapperTestId}
+          data-no-camera-drag="true"
         >
           <ThemeToggle
             uiTheme={uiTheme}

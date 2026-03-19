@@ -14,7 +14,7 @@ MCP servers run in three modes:
 
 | Mode | Transport | Example |
 |------|-----------|---------|
-| **stdio** | Local process (npx, node, docker) | `npx -y @modelcontextprotocol/server-filesystem` |
+| **stdio** | Local process (bunx, node, docker) | `bunx -y @modelcontextprotocol/server-filesystem` |
 | **streamable-http** | Remote HTTP endpoint | `https://mcp.example.com/sse` |
 | **sse** | Server-Sent Events | Legacy remote servers |
 
@@ -51,7 +51,7 @@ curl -X POST "http://localhost:2138/api/mcp/config/server" \
     "name": "filesystem",
     "config": {
       "type": "stdio",
-      "command": "npx",
+      "command": "bunx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
     }
   }'
@@ -90,14 +90,14 @@ MCP servers are configured in `milady.json` under the `mcp` key:
     "servers": {
       "filesystem": {
         "type": "stdio",
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/documents"],
         "env": {},
         "cwd": "/home/user"
       },
       "postgres": {
         "type": "stdio",
-        "command": "npx",
+        "command": "bunx",
         "args": ["-y", "@modelcontextprotocol/server-postgres"],
         "env": {
           "POSTGRES_URL": "postgresql://localhost:5432/mydb"

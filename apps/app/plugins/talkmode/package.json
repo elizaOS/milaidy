@@ -70,7 +70,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Support via Web Speech API for STT/TTS. No ElevenLabs streaming (CORS). System TTS fallback.",
-      "node": "Full support via Electron with ElevenLabs streaming TTS, native STT, and system TTS fallback",
+      "node": "Full support via Electrobun with ElevenLabs streaming TTS, native STT, and system TTS fallback",
       "ios": true,
       "android": true
     }

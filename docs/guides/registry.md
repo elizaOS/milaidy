@@ -83,10 +83,7 @@ Most plugins are npm packages:
 
 ```bash
 # Install the Telegram connector
-npm install @elizaos/plugin-telegram
-
-# Or with pnpm
-pnpm add @elizaos/plugin-telegram
+bun add @elizaos/plugin-telegram
 ```
 
 ### Configure in milady.json

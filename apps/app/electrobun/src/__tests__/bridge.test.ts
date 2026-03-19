@@ -221,7 +221,7 @@ describe("RPC_MESSAGE_TO_PUSH_CHANNEL (reverse mapping)", () => {
 
 describe("params extraction logic (bridge invoke)", () => {
   // This tests the logic: args.length === 0 ? undefined : args.length === 1 ? args[0] : args
-  // The bridge translates Electron-style invoke args to RPC params.
+  // The bridge translates legacy desktop invoke args to RPC params.
 
   function extractParams(...args: unknown[]): unknown {
     return args.length === 0 ? undefined : args.length === 1 ? args[0] : args;

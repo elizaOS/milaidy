@@ -399,7 +399,7 @@ describe("Permissions API E2E", () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   describe("PUT /api/permissions/state", () => {
-    it("updates permission states from Electron", async () => {
+    it("updates permission states from the desktop bridge", async () => {
       const mockPermissions = {
         microphone: {
           id: "microphone",

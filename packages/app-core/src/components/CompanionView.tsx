@@ -51,6 +51,7 @@ export const CompanionView = memo(function CompanionView() {
           <div
             className="inline-flex items-center gap-2"
             data-testid="companion-header-chat-controls"
+            data-no-camera-drag="true"
           >
             <Button
               type="button"
@@ -61,7 +62,7 @@ export const CompanionView = memo(function CompanionView() {
               }
               aria-pressed={!chatAgentVoiceMuted}
               title={chatAgentVoiceMuted ? "Agent voice off" : "Agent voice on"}
-              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-txt shadow-sm backdrop-blur-sm hover:bg-bg-hover"
+              className="h-11 min-h-[44px] min-w-[44px] rounded-full border border-border/50 bg-card/80 px-4 text-sm text-txt shadow-sm backdrop-blur-sm hover:bg-bg-hover"
               onClick={() =>
                 setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)
               }
@@ -79,7 +80,7 @@ export const CompanionView = memo(function CompanionView() {
               size="sm"
               aria-label="New Chat"
               title="New Chat"
-              className="h-8 rounded-full border border-border/50 bg-card/80 px-3 text-xs text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt hidden sm:inline-flex"
+              className="hidden h-11 min-h-[44px] min-w-[44px] rounded-full border border-border/50 bg-card/80 px-4 text-sm text-black shadow-sm backdrop-blur-sm hover:text-black dark:text-txt dark:hover:text-txt sm:inline-flex"
               onClick={() => void handleStartDraftConversation()}
             >
               <MessageCircle className="mr-1 h-3.5 w-3.5" />

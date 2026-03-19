@@ -56,6 +56,9 @@ function noteForAsset(name) {
   if (/\.msix$/i.test(name)) {
     return "MSIX package";
   }
+  if (/\.exe$/i.test(name)) {
+    return "Windows installer";
+  }
   if (/\.zip$/i.test(name)) {
     return "ZIP package";
   }

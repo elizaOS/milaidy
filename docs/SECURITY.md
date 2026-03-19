@@ -12,7 +12,7 @@ This document describes the security architecture and hardening measures impleme
 4. [Command Injection Defenses](#command-injection-defenses)
 5. [Prototype Pollution Prevention](#prototype-pollution-prevention)
 6. [Plugin Installation Safety](#plugin-installation-safety)
-7. [Electron IPC Validation](#electron-ipc-validation)
+7. [Electrobun RPC Validation](#electrobun-rpc-validation)
 8. [Auth & Token Model](#auth--token-model)
 9. [DNS Rebinding Protection](#dns-rebinding-protection)
 10. [Configuration Injection Prevention](#configuration-injection-prevention)
@@ -68,8 +68,7 @@ The `BLOCKED_ENV_KEYS` set prevents the API from writing to security-sensitive e
 - `LD_PRELOAD`, `LD_LIBRARY_PATH` — shared library injection (Linux)
 - `DYLD_INSERT_LIBRARIES`, `DYLD_LIBRARY_PATH` — dylib injection (macOS)
 - `NODE_OPTIONS` — arbitrary Node.js flags (e.g. `--require` for code injection)
-- `ELECTRON_RUN_AS_NODE` — escape Electron sandbox
-- `NODE_PATH` — module resolution override
+- - `NODE_PATH` — module resolution override
 
 ### TLS/Proxy Hijack (blocked)
 - `NODE_TLS_REJECT_UNAUTHORIZED` — setting to `"0"` disables **all** certificate verification, enabling MITM of API key traffic
@@ -156,9 +155,9 @@ All `npm install` and `bun install` calls include the `--ignore-scripts` flag to
 
 ---
 
-## Electron IPC Validation
+## Electrobun RPC Validation
 
-**File:** `apps/app/electron/src/native/desktop.ts`
+**File:** `apps/app/electrobun/src/native/desktop.ts`
 
 ### `shell.openExternal` Validation
 URLs passed to `shell.openExternal` are validated to only allow `http:` and `https:` schemes. This prevents:

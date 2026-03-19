@@ -3,7 +3,7 @@
  *
  * Supports multiple input modes:
  * - "pipe": Receives JPEG frames via writeFrame() → FFmpeg stdin (image2pipe).
- *   Used for streaming Electron window contents captured with capturePage().
+ *   Used for streaming desktop window contents captured by the host bridge.
  * - "avfoundation" / "screen": macOS native screen capture.
  * - "x11grab": Linux virtual display capture (Xvfb). Like Hyperscape's approach.
  * - "file": Reads a continuously-updated JPEG file (browser-capture).

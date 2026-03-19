@@ -6,7 +6,6 @@ const loadWeb = () => import("./web").then((m) => new m.CanvasWeb());
 
 export const Canvas = registerPlugin<CanvasPlugin>("MiladyCanvas", {
   web: loadWeb,
-  electron: loadWeb,
 });
 
 export * from "./definitions";

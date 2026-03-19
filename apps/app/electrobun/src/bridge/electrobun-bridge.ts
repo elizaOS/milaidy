@@ -19,7 +19,7 @@ import { Electroview } from "electrobun/view";
 // ============================================================================
 
 /**
- * Maps Electron-style colon-separated IPC channel names to camelCase RPC
+ * Maps legacy colon-separated desktop channel names to camelCase RPC
  * method names. Duplicated from rpc-schema.ts since we can't import
  * server-side code in the renderer context.
  */
@@ -224,7 +224,7 @@ const CHANNEL_TO_RPC: Record<string, string> = {
 };
 
 /**
- * Maps Electron push event channels to RPC message names.
+ * Maps legacy desktop push channels to RPC message names.
  * These are messages that flow Bun → webview.
  */
 const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
@@ -267,7 +267,7 @@ const PUSH_CHANNEL_TO_RPC: Record<string, string> = {
   "webgpu:browserStatus": "webGpuBrowserStatus",
 };
 
-// Reverse mapping: RPC message name → Electron push channel
+// Reverse mapping: RPC message name → legacy desktop push channel
 const RPC_TO_PUSH_CHANNEL: Record<string, string> = {};
 for (const [channel, rpcName] of Object.entries(PUSH_CHANNEL_TO_RPC)) {
   RPC_TO_PUSH_CHANNEL[rpcName] = channel;
@@ -281,7 +281,7 @@ type IpcListener = (...args: unknown[]) => void;
 
 // Listeners keyed by RPC message name (camelCase, e.g. "agentStatusUpdate")
 const listenersByRpcMessage: Record<string, Set<IpcListener>> = {};
-// Listeners keyed by Electron channel name (for removeListener lookup)
+// Listeners keyed by legacy channel name (for removeListener lookup)
 const listenersByChannel: Record<string, Set<IpcListener>> = {};
 
 // ============================================================================
@@ -324,7 +324,7 @@ function dispatchMessage(messageName: string, payload: any): void {
   if (listeners) {
     for (const listener of Array.from(listeners)) {
       try {
-        // Electron passes (event, ...args) — we use null for the event
+        // Legacy desktop listeners receive (event, ...args) — we use null for the event
         listener(null, payload);
       } catch (err) {
         console.error(
@@ -355,7 +355,7 @@ const rpc = Electroview.defineRPC<any>({
 new Electroview({ rpc });
 
 // ============================================================================
-// window.electron Compatibility Layer
+// window.electrobun Bridge Surface
 // ============================================================================
 
 // The RPC `request` proxy is dynamically typed — we cast to `any` here
@@ -366,7 +366,7 @@ const rpcRequest = (rpc as any).request as Record<
   (params: unknown) => Promise<unknown>
 >;
 
-const electronAPI = {
+const electrobunAPI = {
   ipcRenderer: {
     /**
      * invoke() — maps to rpc.request[method](params)
@@ -380,7 +380,7 @@ const electronAPI = {
         return null;
       }
 
-      // Electron invoke passes args as separate params.
+      // Legacy desktop invoke passes args as separate params.
       // Our RPC expects a single params object (or void).
       const params =
         args.length === 0 ? undefined : args.length === 1 ? args[0] : args;
@@ -400,7 +400,7 @@ const electronAPI = {
      * send() — fire-and-forget, same as invoke but discards result
      */
     send: (channel: string, ...args: unknown[]): void => {
-      electronAPI.ipcRenderer.invoke(channel, ...args).catch(() => {});
+      electrobunAPI.ipcRenderer.invoke(channel, ...args).catch(() => {});
     },
 
     /**
@@ -427,10 +427,10 @@ const electronAPI = {
      */
     once: (channel: string, listener: IpcListener): void => {
       const wrappedListener: IpcListener = (...args) => {
-        electronAPI.ipcRenderer.removeListener(channel, wrappedListener);
+        electrobunAPI.ipcRenderer.removeListener(channel, wrappedListener);
         listener(...args);
       };
-      electronAPI.ipcRenderer.on(channel, wrappedListener);
+      electrobunAPI.ipcRenderer.on(channel, wrappedListener);
     },
 
     /**
@@ -464,7 +464,7 @@ const electronAPI = {
       types: string[];
       thumbnailSize?: { width: number; height: number };
     }) => {
-      const result = await electronAPI.ipcRenderer.invoke(
+      const result = await electrobunAPI.ipcRenderer.invoke(
         "screencapture:getSources",
       );
       return (result as { sources?: unknown[] })?.sources ?? [];
@@ -512,7 +512,7 @@ const miladyElectrobunRpc = {
       listener(payload);
     };
     rpcListenerWrappers[messageName].set(listener, wrappedListener);
-    electronAPI.ipcRenderer.on(channel, wrappedListener);
+    electrobunAPI.ipcRenderer.on(channel, wrappedListener);
   },
   offMessage: (messageName: string, listener: RpcMessageListener): void => {
     const channel = RPC_TO_PUSH_CHANNEL[messageName];
@@ -521,7 +521,7 @@ const miladyElectrobunRpc = {
       return;
     }
 
-    electronAPI.ipcRenderer.removeListener(channel, wrappedListener);
+    electrobunAPI.ipcRenderer.removeListener(channel, wrappedListener);
     rpcListenerWrappers[messageName]?.delete(listener);
     if (rpcListenerWrappers[messageName]?.size === 0) {
       delete rpcListenerWrappers[messageName];
@@ -530,11 +530,11 @@ const miladyElectrobunRpc = {
 };
 
 // Initialize platform version asynchronously
-electronAPI.ipcRenderer
+electrobunAPI.ipcRenderer
   .invoke("desktop:getVersion")
   .then((info) => {
     if (info && typeof info === "object" && "version" in info) {
-      electronAPI.platform.version = (info as { version: string }).version;
+      electrobunAPI.platform.version = (info as { version: string }).version;
     }
   })
   .catch(() => {});
@@ -549,7 +549,9 @@ declare global {
     __MILADY_API_BASE__: string;
     __MILADY_API_TOKEN__: string;
     __MILADY_ELECTROBUN_RPC__: typeof miladyElectrobunRpc;
+    electrobun: typeof electrobunAPI;
   }
 }
 
+window.electrobun = electrobunAPI;
 window.__MILADY_ELECTROBUN_RPC__ = miladyElectrobunRpc;

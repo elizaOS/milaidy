@@ -25,6 +25,7 @@ export function ConnectionStep() {
     onboardingProvider,
     onboardingSubscriptionTab,
     onboardingApiKey,
+    onboardingDetectedProviders,
     onboardingRemoteApiBase,
     onboardingRemoteToken,
     onboardingRemoteConnecting,
@@ -228,6 +229,20 @@ export function ConnectionStep() {
     resetCloudSelection();
   };
 
+  const detectedByProviderId = new Map(
+    (onboardingDetectedProviders ?? []).map((d) => [d.id, d]),
+  );
+
+  const getDetectedLabel = (providerId: string): string | null => {
+    const d = detectedByProviderId.get(providerId);
+    if (!d) return null;
+    if (d.source === "codex-auth") return "Detected from Codex";
+    if (d.source === "claude-credentials") return "Detected from Claude Code";
+    if (d.source === "keychain") return "Detected from Keychain";
+    if (d.source === "env") return "Detected from env";
+    return "Auto-detected";
+  };
+
   const availableProviders = providers;
   const recommendedProviders = availableProviders.filter((p: ProviderOption) =>
     recommendedIds.has(p.id),
@@ -252,7 +267,9 @@ export function ConnectionStep() {
 
   const handleProviderSelect = (providerId: string) => {
     setState("onboardingProvider", providerId);
-    setState("onboardingApiKey", "");
+    // Auto-fill API key from detected credentials if available
+    const detected = detectedByProviderId.get(providerId);
+    setState("onboardingApiKey", detected?.apiKey ?? "");
     setState("onboardingPrimaryModel", "");
     if (providerId === "anthropic-subscription") {
       setState("onboardingSubscriptionTab", "token");
@@ -705,11 +722,12 @@ export function ConnectionStep() {
           {sortedProviders.map((p: ProviderOption) => {
             const display = getProviderDisplay(p);
             const isRecommended = recommendedIds.has(p.id);
+            const detectedLabel = getDetectedLabel(p.id);
             return (
               <button
                 type="button"
                 key={p.id}
-                className={`onboarding-provider-card${isRecommended ? " onboarding-provider-card--recommended" : ""}`}
+                className={`onboarding-provider-card${isRecommended ? " onboarding-provider-card--recommended" : ""}${detectedLabel ? " onboarding-provider-card--detected" : ""}`}
                 onClick={() => handleProviderSelect(p.id)}
               >
                 <img
@@ -725,7 +743,12 @@ export function ConnectionStep() {
                     </div>
                   )}
                 </div>
-                {isRecommended && (
+                {detectedLabel && (
+                  <span className="onboarding-provider-badge onboarding-provider-badge--detected">
+                    {detectedLabel}
+                  </span>
+                )}
+                {isRecommended && !detectedLabel && (
                   <span className="onboarding-provider-badge">
                     {t("onboarding.recommended") ?? "Recommended"}
                   </span>

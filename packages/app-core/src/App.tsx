@@ -25,6 +25,7 @@ import {
   ErrorBoundary,
   GameViewOverlay,
   Header,
+  MiladyBar,
   HeartbeatsView,
   InventoryView,
   KnowledgeView,
@@ -319,7 +320,7 @@ export function App() {
 
     // Disable the iOS WebView scroll only while the companion shell is active.
     void Keyboard.setScroll({ isDisabled: companionShellVisible }).catch(() => {
-      // Ignore bridge failures so web/electron shells keep working.
+      // Ignore bridge failures so web and desktop shells keep working.
     });
   }, [companionShellVisible]);
 
@@ -390,14 +391,16 @@ export function App() {
     <CompanionShell tab={effectiveTab} actionNotice={actionNotice} />
   ) : tab === "stream" ? (
     <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
-      <Header />
+      <Header hideCloudCredits />
+      <MiladyBar />
       <main className="flex-1 min-h-0 overflow-hidden">
         <StreamView />
       </main>
     </div>
   ) : isChat ? (
     <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
-      <Header mobileLeft={mobileChatControls} />
+      <Header mobileLeft={mobileChatControls} hideCloudCredits />
+      <MiladyBar />
       <div className="flex flex-1 min-h-0 relative">
         {isChatMobileLayout ? (
           <>
@@ -438,7 +441,8 @@ export function App() {
         characterSceneVisible ? "bg-transparent" : "bg-bg"
       }`}
     >
-      <Header transparent={characterSceneVisible} />
+      <Header transparent={characterSceneVisible} hideCloudCredits={!characterSceneVisible} />
+      {!characterSceneVisible && <MiladyBar />}
       <main
         className={`flex flex-1 min-h-0 min-w-0 overflow-hidden px-3 xl:px-5 ${
           characterSceneVisible ? "pb-4 pt-2 xl:pb-6" : "py-4 xl:py-6"

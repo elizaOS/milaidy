@@ -3992,7 +3992,7 @@ describe.skip("INTERACTIVE: Global keyboard shortcuts", () => {
   it.todo("unregisterAllShortcuts clears all registered shortcuts");
   it.todo("Shortcuts survive window focus changes");
   it.todo(
-    "Shortcut accelerator strings follow Electron format (CmdOrCtrl, Alt, Shift)",
+    "Shortcut accelerator strings follow the legacy desktop accelerator format (CmdOrCtrl, Alt, Shift)",
   );
 });
 

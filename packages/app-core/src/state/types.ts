@@ -443,6 +443,13 @@ export interface AppState {
   onboardingLargeModel: string;
   onboardingProvider: string;
   onboardingApiKey: string;
+  onboardingDetectedProviders: Array<{
+    id: string;
+    source: string;
+    apiKey?: string;
+    authMode?: string;
+    cliInstalled: boolean;
+  }>;
   onboardingRemoteApiBase: string;
   onboardingRemoteToken: string;
   onboardingRemoteConnecting: boolean;

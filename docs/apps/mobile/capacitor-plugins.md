@@ -272,7 +272,7 @@ Drawing primitives, layer management, embedded web view control, JavaScript eval
 
 ## @miladyai/capacitor-agent
 
-Agent lifecycle management. Communicates with the Milady agent process via IPC on Electron and via HTTP on iOS, Android, and web.
+Agent lifecycle management. Communicates with the Milady agent process via IPC on Electrobun and via HTTP on iOS, Android, and web.
 
 ### Methods
 
@@ -297,7 +297,7 @@ Agent lifecycle management. Communicates with the Milady agent process via IPC o
 
 ## @miladyai/capacitor-desktop
 
-Electron-only plugin for desktop integration. All methods are no-ops on iOS and Android. Check `isFeatureAvailable("desktop")` before calling any method.
+Electrobun-only plugin for desktop integration. All methods are no-ops on iOS and Android. Check `isFeatureAvailable("desktop")` before calling any method.
 
 ### Tray Methods
 
@@ -364,11 +364,11 @@ Electron-only plugin for desktop integration. All methods are no-ops on iOS and 
 
 | Method | Parameters | Description |
 |--------|-----------|-------------|
-| `quit` | — | Quit the Electron application |
-| `relaunch` | — | Relaunch the Electron application |
+| `quit` | — | Quit the Electrobun application |
+| `relaunch` | — | Relaunch the Electrobun application |
 | `getVersion` | — | Return the application version string |
 | `isPackaged` | — | Return whether the app is running from a packaged build |
-| `getPath` | `name: string` | Return an Electron app path (e.g., `userData`, `logs`) |
+| `getPath` | `name: string` | Return an Electrobun app path (e.g., `userData`, `logs`) |
 
 ### Clipboard Methods
 
@@ -408,4 +408,4 @@ await Haptics.selectionEnd();
 
 - [Mobile App](/apps/mobile) — platform configuration, build targets, and project structure
 - [Build Guide](/apps/mobile/build-guide) — how to compile plugins and produce signed iOS/Android builds
-- [Native Modules](/apps/desktop/native-modules) — equivalent capability system for the Electron desktop app
+- [Native Modules](/apps/desktop/native-modules) — equivalent capability system for the Electrobun desktop app

@@ -324,3 +324,14 @@ Toggle the completion state of a todo. This is a convenience endpoint that only 
   "ok": true
 }
 ```
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 404 | `TASK_NOT_FOUND` | Task with specified ID does not exist |
+| 400 | `EMPTY_NAME` | Task or todo name cannot be empty |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

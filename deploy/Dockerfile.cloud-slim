@@ -50,7 +50,7 @@ WORKDIR /build
 
 # Remove massive packages not needed for headless cloud agent:
 # - Local LLM/ML (use cloud inference instead)
-# - Desktop/mobile (Electron, Capacitor)
+# - Desktop/mobile (Electrobun, Capacitor)
 # - UI/3D/Graphics
 # - Dev tools
 # - Whisper/STT (not needed headless)

@@ -26,7 +26,7 @@
     "dist/",
     "ios/Sources/",
     "ios/Plugin.xcodeproj/",
-    "electron/",
+    "electrobun/",
     "*.podspec"
   ],
   "author": "Milady",
@@ -71,7 +71,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Full support via Screen Capture API (getDisplayMedia) for screenshots and screen recording with pause/resume",
-      "node": "Full support via Electron native screen capture APIs",
+      "node": "Full support via Electrobun native screen capture APIs",
       "ios": true,
       "android": true
     }

@@ -100,6 +100,25 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
+      - name: Install Inno Setup 6.7.1
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          winget install --exact --id JRSoftware.InnoSetup --version 6.7.1 --accept-package-agreements --accept-source-agreements --disable-interactivity
+
+          $iscc = @(
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $iscc) {
+            Write-Error "ISCC.exe not found after installing Inno Setup 6.7.1"
+            exit 1
+          }
+
+          Add-Content -Path $env:GITHUB_ENV -Value "MILADY_INNO_SETUP_COMPILER=$iscc"
+          Write-Host "Using ISCC compiler: $iscc"
+
       - name: Cache Bun install
         uses: actions/cache@v4
         with:
@@ -551,6 +570,51 @@ jobs:
           ELECTROBUN_SKIP_CODESIGN: ${{ steps.macos-keychain.outputs.skip_codesign }}
         run: bash apps/app/electrobun/scripts/stage-macos-release-artifacts.sh
 
+      - name: Sign Windows executables
+        if: matrix.platform.os == 'windows'
+        env:
+          WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
+          WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
+          WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
+        shell: pwsh
+        run: pwsh -File apps/app/electrobun/scripts/sign-windows.ps1 -ArtifactsDir (Join-Path $PWD "apps/app/electrobun/artifacts") -BuildDir (Join-Path $PWD "apps/app/electrobun/build")
+
+      - name: Build Inno Setup installer
+        if: matrix.platform.os == 'windows'
+        env:
+          WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
+          WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
+          WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
+        shell: pwsh
+        run: |
+          pwsh -File packaging/inno/build-inno.ps1 `
+            -BuildDir (Join-Path $PWD "apps/app/electrobun/build") `
+            -OutputDir (Join-Path $PWD "apps/app/electrobun/artifacts") `
+            -Version "${{ needs.prepare.outputs.version }}" `
+            -Channel "${{ needs.prepare.outputs.env }}"
+
+      - name: Verify Windows public installer looks complete
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path "apps/app/electrobun/artifacts" -File -Filter "Milady-Setup-*.exe" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if (-not $installer) {
+            Write-Error "No public Windows installer found in apps/app/electrobun/artifacts"
+            exit 1
+          }
+
+          $minimumBytes = 50MB
+          if ($installer.Length -lt $minimumBytes) {
+            Write-Error "Installer is too small to be a standalone Windows package: $($installer.FullName) ($($installer.Length) bytes)"
+            exit 1
+          }
+
+          Write-Host "Verified standalone Windows installer: $($installer.Name)"
+          Write-Host "Installer size: $([math]::Round($installer.Length / 1MB, 1)) MB"
+
       - name: Cache Windows embedding model
         if: matrix.platform.os == 'windows'
         uses: actions/cache@v4
@@ -588,9 +652,12 @@ jobs:
           # initialize — without it, startApiServer() can fail before
           # server.listen() and the health endpoint never becomes reachable.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"
+          MILADY_TEST_WINDOWS_INSTALL_DIR: ${{ runner.temp }}\milady-windows-installed
           MILADY_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\milady-windows-ui-launcher
           MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\milady-windows-ui-launcher.txt
         run: |
+          Remove-Item $env:MILADY_TEST_WINDOWS_INSTALL_DIR -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $env:MILADY_TEST_WINDOWS_LAUNCHER_DIR -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE -Force -ErrorAction SilentlyContinue
 
@@ -624,32 +691,6 @@ jobs:
           path: apps/app/test-results/**
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Stage Windows setup executables
-        if: matrix.platform.os == 'windows'
-        shell: pwsh
-        run: |
-          $artifactsDir = Join-Path $PWD "apps/app/electrobun/artifacts"
-          $setupExecutables = Get-ChildItem -Path "apps/app/electrobun/build" -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue
-          if (-not $setupExecutables) {
-            Write-Error "No Windows setup executable found under apps/app/electrobun/build"
-            exit 1
-          }
-          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
-          foreach ($setupExecutable in $setupExecutables) {
-            Copy-Item $setupExecutable.FullName -Destination $artifactsDir -Force
-            Write-Host "Staged Windows setup executable: $($setupExecutable.Name)"
-          }
-
-
-      - name: Sign Windows executables
-        if: matrix.platform.os == 'windows'
-        env:
-          WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
-          WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
-          WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
-        shell: pwsh
-        run: pwsh -File apps/app/electrobun/scripts/sign-windows.ps1 -ArtifactsDir (Join-Path $PWD "apps/app/electrobun/artifacts") -BuildDir (Join-Path $PWD "apps/app/electrobun/build")
 
       - name: Verify Windows code signature
         if: matrix.platform.os == 'windows' && env.WINDOWS_SIGN_CERT_BASE64 != ''
@@ -912,12 +953,12 @@ jobs:
         run: |
           mkdir -p release-files
           # Public GitHub releases should expose end-user installables, not the
-          # updater transport files or the bare Windows bootstrap wrapper.
+          # updater transport files. Windows publishes the standalone Inno Setup
+          # installer, not the raw Electrobun bootstrap stub.
           find release-artifacts -type f \( \
             -name "*.dmg" -o \
-            -name "*Setup*.zip" -o \
+            -name "Milady-Setup-*.exe.zip" -o \
             -name "*Setup*.tar.gz" -o \
-            -name "*.exe.zip" -o \
             -name "*.msix" \
           \) -exec cp {} release-files/ \; 2>/dev/null || true
 

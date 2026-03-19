@@ -4,7 +4,7 @@ sidebarTitle: "Permissions"
 description: "REST API endpoints for reading and managing system permission states, including shell access control."
 ---
 
-The permissions API manages OS-level permissions (microphone, camera, screen recording, etc.) and the shell access toggle. Permission states are tracked in server memory and updated via Electron IPC in desktop deployments. Shell access controls whether the agent can execute terminal commands.
+The permissions API manages OS-level permissions (microphone, camera, screen recording, etc.) and the shell access toggle. Permission states are tracked in server memory and updated via Electrobun RPC in desktop deployments. Shell access controls whether the agent can execute terminal commands.
 
 ## Endpoints
 
@@ -129,7 +129,7 @@ Toggle shell access on or off. When changed while the agent is running, schedule
 
 ### PUT /api/permissions/state
 
-Update permission states in bulk. Used by the Electron renderer after receiving updated permission states via IPC.
+Update permission states in bulk. Used by the Electrobun renderer after receiving updated permission states via IPC.
 
 **Request**
 
@@ -163,7 +163,7 @@ Update permission states in bulk. Used by the Electron renderer after receiving 
 
 ### POST /api/permissions/refresh
 
-Force refresh all permission states. In Electron deployments, this signals the renderer to re-check permissions via IPC.
+Force refresh all permission states. In desktop deployments, this signals the renderer to re-check permissions via IPC.
 
 **Response**
 
@@ -178,7 +178,7 @@ Force refresh all permission states. In Electron deployments, this signals the r
 
 ### POST /api/permissions/:id/request
 
-Request a specific system permission. In Electron deployments, this triggers a native system permission prompt.
+Request a specific system permission. In desktop deployments, this triggers a native system permission prompt.
 
 **Path Parameters**
 

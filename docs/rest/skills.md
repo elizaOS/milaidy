@@ -568,3 +568,15 @@ bunx vitest run --config vitest.e2e.config.ts test/api-server.e2e.test.ts
 
 bun run typecheck
 ```
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 500 | `SKILL_BLOCKED` | Skill is blocked due to security scan findings |
+| 500 | `SYNTAX_ERROR` | Skill source code contains syntax errors |
+| 500 | `ALREADY_INSTALLED` | Skill is already installed |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

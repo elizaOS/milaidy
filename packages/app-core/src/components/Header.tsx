@@ -26,9 +26,10 @@ const NAV_LABEL_I18N_KEY: Record<string, string> = {
 interface HeaderProps {
   mobileLeft?: ReactNode;
   transparent?: boolean;
+  hideCloudCredits?: boolean;
 }
 
-export function Header({ mobileLeft, transparent = false }: HeaderProps) {
+export function Header({ mobileLeft, transparent = false, hideCloudCredits = false }: HeaderProps) {
   const {
     elizaCloudEnabled,
     elizaCloudConnected,
@@ -107,7 +108,7 @@ export function Header({ mobileLeft, transparent = false }: HeaderProps) {
         : "desktop";
   const useMinimalHeaderChrome = transparent || activeShellView !== "desktop";
   const showNavigationMenu = activeShellView === "desktop";
-  const showCloudCredits = activeShellView === "desktop";
+  const showCloudCredits = activeShellView === "desktop" && !hideCloudCredits;
   const showCloudCreditsStatus =
     showCloudCredits && (elizaCloudEnabled || elizaCloudConnected);
   const cloudCreditsDisplay =

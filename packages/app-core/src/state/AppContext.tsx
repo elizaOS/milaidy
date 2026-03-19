@@ -83,6 +83,7 @@ import {
 import {
   getBackendStartupTimeoutMs,
   invokeDesktopBridgeRequest,
+  scanProviderCredentials,
 } from "../bridge";
 import {
   expandSavedCustomCommand,
@@ -805,6 +806,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const [onboardingProvider, setOnboardingProvider] = useState("");
   const [onboardingApiKey, setOnboardingApiKey] = useState("");
+  const [onboardingDetectedProviders, setOnboardingDetectedProviders] =
+    useState<
+      Array<{
+        id: string;
+        source: string;
+        apiKey?: string;
+        authMode?: string;
+        cliInstalled: boolean;
+      }>
+    >([]);
   const [onboardingRemoteApiBase, setOnboardingRemoteApiBase] =
     useState(loadSessionApiBase);
   const [onboardingRemoteToken, setOnboardingRemoteToken] = useState("");
@@ -1110,7 +1121,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const path = pathForTab(newTab);
       try {
-        // In Electron packaged builds (file:// URLs), use hash routing to avoid
+        // In packaged desktop builds (file:// URLs), use hash routing to avoid
         // "Not allowed to load local resource: file:///..." errors.
         if (window.location.protocol === "file:") {
           window.location.hash = path;
@@ -3935,7 +3946,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingFinishSavingRef.current = true;
 
     try {
-      const connection =
+      let connection =
         buildOnboardingConnectionConfig({
           onboardingRunMode,
           onboardingCloudProvider,
@@ -3949,8 +3960,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
           onboardingSmallModel,
           onboardingLargeModel,
         }) ?? onboardingResumeConnectionRef.current;
+
+      // If connection is still null (e.g. after a permissions restart wiped
+      // form state), try one more time by re-deriving from the server config.
       if (!connection) {
-        throw new Error("Onboarding connection is incomplete");
+        try {
+          const freshConfig = await client.getConfig();
+          connection = deriveOnboardingResumeConnection(freshConfig);
+          if (connection) {
+            onboardingResumeConnectionRef.current = connection;
+          }
+        } catch {
+          /* config fetch failed — fall through to the error below */
+        }
+      }
+
+      if (!connection) {
+        const startOver = await confirmDesktopAction({
+          title: "Setup Incomplete",
+          message:
+            "Your connection settings could not be restored after restart.",
+          detail: 'Choose "Start Over" to begin setup again.',
+          type: "warning",
+          confirmLabel: "Start Over",
+          cancelLabel: "Cancel",
+        });
+        if (startOver) {
+          clearPersistedOnboardingStep();
+          onboardingResumeConnectionRef.current = null;
+          setOnboardingStep("wakeUp");
+          setOnboardingName("Eliza");
+          setOnboardingStyle("");
+          setOnboardingRunMode("cloud");
+          setOnboardingCloudProvider("");
+          setOnboardingProvider("");
+          setOnboardingApiKey("");
+          setOnboardingPrimaryModel("");
+          setOnboardingOpenRouterModel("");
+          setOnboardingRemoteConnected(false);
+          setOnboardingRemoteApiBase("");
+          setOnboardingRemoteToken("");
+          setOnboardingSmallModel("");
+          setOnboardingLargeModel("");
+        }
+        return;
       }
       const rpcSel = onboardingRpcSelections as Record<string, string>;
       const rpcK = onboardingRpcKeys as Record<string, string>;
@@ -3989,16 +4042,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
       clearPersistedOnboardingStep();
       onboardingResumeConnectionRef.current = null;
       onboardingCompletionCommittedRef.current = true;
+      setOnboardingDetectedProviders((providers) =>
+        providers.map((provider) => {
+          const nextProvider = { ...provider };
+          delete nextProvider.apiKey;
+          return nextProvider;
+        }),
+      );
       setOnboardingComplete(true);
       setTab("character-select");
     } catch (err) {
-      await alertDesktopMessage({
+      const startOver = await confirmDesktopAction({
         title: "Setup Failed",
         message: `${
           err instanceof Error ? err.message : "network error"
-        }. Please try again.`,
-        type: "error",
+        }`,
+        detail:
+          'You can retry, or choose "Start Over" to begin setup from scratch.',
+        type: "warning",
+        confirmLabel: "Start Over",
+        cancelLabel: "Retry",
       });
+      if (startOver) {
+        clearPersistedOnboardingStep();
+        onboardingResumeConnectionRef.current = null;
+        setOnboardingStep("wakeUp");
+        setOnboardingName("Eliza");
+        setOnboardingStyle("");
+        setOnboardingRunMode("cloud");
+        setOnboardingCloudProvider("");
+        setOnboardingProvider("");
+        setOnboardingApiKey("");
+        setOnboardingPrimaryModel("");
+        setOnboardingOpenRouterModel("");
+        setOnboardingRemoteConnected(false);
+        setOnboardingRemoteApiBase("");
+        setOnboardingRemoteToken("");
+        setOnboardingSmallModel("");
+        setOnboardingLargeModel("");
+      }
     } finally {
       onboardingFinishSavingRef.current = false;
       onboardingFinishBusyRef.current = false;
@@ -4015,6 +4097,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
+    onboardingDetectedProviders,
     onboardingRemoteApiBase,
     onboardingRemoteConnected,
     onboardingRemoteToken,
@@ -4518,6 +4601,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         onboardingLargeModel: setOnboardingLargeModel,
         onboardingProvider: setOnboardingProvider,
         onboardingApiKey: setOnboardingApiKey,
+        onboardingDetectedProviders: setOnboardingDetectedProviders,
         onboardingRemoteApiBase: setOnboardingRemoteApiBase,
         onboardingRemoteToken: setOnboardingRemoteToken,
         onboardingRemoteConnecting: setOnboardingRemoteConnecting,
@@ -4808,6 +4892,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const resumeFields = deriveOnboardingResumeFields(resumeConnection);
             onboardingResumeConnectionRef.current = resumeConnection;
             setOnboardingOptions(options);
+
+            // Auto-detect AI provider credentials from local CLI installs.
+            // Only auto-fill if no existing connection config was found.
+            if (!resumeConnection) {
+              try {
+                const detected = await scanProviderCredentials();
+                if (detected.length > 0) {
+                  setOnboardingDetectedProviders(detected);
+                  // Auto-fill with the first detected provider
+                  const first = detected[0];
+                  if (first.apiKey) {
+                    setOnboardingRunMode("local");
+                    setOnboardingProvider(first.id);
+                    setOnboardingApiKey(first.apiKey);
+                  }
+                }
+              } catch {
+                // Non-fatal — credential scan is best-effort
+              }
+            }
+
             if (resumeFields.onboardingRunMode !== undefined) {
               setOnboardingRunMode(resumeFields.onboardingRunMode);
             }
@@ -5370,7 +5475,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      // Load tab from URL — use hash in file:// mode (Electron packaged builds)
+      // Load tab from URL — use hash in file:// mode (packaged desktop builds)
       const navPath =
         window.location.protocol === "file:"
           ? window.location.hash.replace(/^#/, "") || "/"
@@ -5412,7 +5517,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     void initApp();
 
-    // Navigation listener — use hashchange in file:// mode (Electron packaged builds)
+    // Navigation listener — use hashchange in file:// mode (packaged desktop builds)
     const isFileProtocol = window.location.protocol === "file:";
     const handleNavChange = () => {
       const navPath = isFileProtocol
@@ -5682,6 +5787,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
+    onboardingDetectedProviders,
     onboardingRemoteApiBase,
     onboardingRemoteToken,
     onboardingRemoteConnecting,

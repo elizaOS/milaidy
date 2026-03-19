@@ -1,7 +1,7 @@
 /**
  * Desktop Native Module for Electrobun
  *
- * Ports the Electron DesktopManager to use Electrobun APIs:
+ * Implements the desktop manager on top of Electrobun APIs:
  * - System tray management (Tray)
  * - Global keyboard shortcuts (GlobalShortcut)
  * - Window management (BrowserWindow)
@@ -11,7 +11,7 @@
  * - App lifecycle (Utils.quit)
  * - Path resolution (Utils.paths)
  *
- * Key differences from Electron version:
+ * Key differences from the prior desktop runtime:
  * - No ipcMain — methods are called directly from rpc-handlers.ts
  * - Uses sendToWebview callback instead of mainWindow.webContents.send()
  * - No powerMonitor — power state read via platform CLI tools
@@ -93,7 +93,7 @@ interface ElectrobunEventTarget {
 }
 
 // ============================================================================
-// Path name mapping: Electron path names → Utils.paths equivalents
+// Path name mapping: legacy desktop path names -> Utils.paths equivalents
 // ============================================================================
 
 const PATH_NAME_MAP: Record<string, string | (() => string)> = {
@@ -121,7 +121,7 @@ const PATH_NAME_MAP: Record<string, string | (() => string)> = {
 /**
  * Desktop Manager — handles all native desktop features for Electrobun.
  *
- * Unlike the Electron version, this does NOT register IPC handlers.
+ * This implementation does not register IPC handlers.
  * Methods are called directly from rpc-handlers.ts. Push events to the
  * webview are sent via the sendToWebview callback.
  */

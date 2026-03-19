@@ -127,7 +127,7 @@ export interface SwabblePermissionStatus {
  *
  * Provides voice wake word detection and speech-to-text capabilities.
  * Uses native Speech framework on iOS/macOS, SpeechRecognizer on Android,
- * and Whisper.cpp on desktop (Linux/Windows via Electron).
+ * and Whisper.cpp on desktop (Linux/Windows via Electrobun).
  */
 export interface SwabblePlugin {
   /**

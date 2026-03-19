@@ -541,9 +541,9 @@ describe("CORS origin restrictions", () => {
     expect(status).toBe(200);
   });
 
-  it("allows capacitor-electron origin", async () => {
+  it("allows electrobun origin", async () => {
     const { status } = await req(port, "GET", "/api/status", undefined, {
-      origin: "capacitor-electron://-",
+      origin: "electrobun://-",
     });
     expect(status).toBe(200);
   });

@@ -840,10 +840,9 @@ export function CharacterView({
       setVoiceSaveError(
         err instanceof Error ? err.message : "Failed to save voice settings.",
       );
+    } finally {
       setVoiceSaving(false);
-      return;
     }
-    setVoiceSaving(false);
     await handleSaveCharacter();
   }, [handleSaveCharacter, persistVoiceConfig]);
 

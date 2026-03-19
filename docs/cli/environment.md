@@ -39,7 +39,7 @@ These variables control the API server and network behavior.
 | `MILADY_ALLOW_WS_QUERY_TOKEN` | When set to `1`, allows the API token to be passed as a WebSocket query parameter (less secure; useful for some clients). | (unset) |
 | `MILADY_PAIRING_DISABLED` | When set to `1`, disables the pairing endpoint on the API server (requires `MILADY_API_TOKEN` to be set). | (unset) |
 | `MILADY_ALLOWED_ORIGINS` | Comma-separated list of additional CORS origins allowed by the API server. | (unset) |
-| `MILADY_ALLOW_NULL_ORIGIN` | When set to `1`, allows the `null` origin in CORS (useful for file:// or Electron clients). | (unset) |
+| `MILADY_ALLOW_NULL_ORIGIN` | When set to `1`, allows the `null` origin in CORS (useful for file:// or desktop clients). | (unset) |
 | `MILADY_WALLET_EXPORT_TOKEN` | Auth token for the wallet export API endpoint. When unset, wallet exports are disabled. | (unset) |
 | `API_PORT` / `SERVER_PORT` | Alternative port overrides used by some runtime actions. Prefer `MILADY_PORT`. | (unset) |
 

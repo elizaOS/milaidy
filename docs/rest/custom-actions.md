@@ -265,3 +265,15 @@ On failure:
 | Status | Condition |
 |--------|-----------|
 | 404 | Action not found |
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 400 | `INVALID_HANDLER` | Handler type or configuration is invalid |
+| 500 | `EXECUTION_FAILED` | Custom action execution failed |
+| 503 | `SERVICE_UNAVAILABLE` | Agent runtime or service is unavailable |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

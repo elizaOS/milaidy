@@ -118,7 +118,7 @@ Stops the active FFmpeg process and returns session uptime.
 POST /api/stream/frame
 ```
 
-Pipes a raw JPEG/image frame buffer to FFmpeg. Used in `pipe` capture mode (Electron `capturePage()`).
+Pipes a raw JPEG/image frame buffer to FFmpeg. Used in `pipe` capture mode (desktop runtime page capture).
 
 **Request:** Raw binary body (max 2 MB).
 

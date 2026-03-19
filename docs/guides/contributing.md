@@ -167,7 +167,7 @@ bun run build
 # TypeScript only
 bun run build:node
 
-# Desktop app (Electron)
+# Desktop app (Electrobun)
 bun run build:desktop
 
 # Mobile (Android)

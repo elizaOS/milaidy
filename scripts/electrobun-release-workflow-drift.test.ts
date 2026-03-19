@@ -192,7 +192,7 @@ describe("Electrobun release workflow drift", () => {
 
     expect(workflow).toContain("name: Collect public release files");
     expect(workflow).toContain(' -name "*.dmg" -o \\');
-    expect(workflow).toContain(' -name "*Setup*.zip" -o \\');
+    expect(workflow).toContain(' -name "Milady-Setup-*.exe.zip" -o \\');
     expect(workflow).toContain(' -name "*Setup*.tar.gz" -o \\');
     expect(workflow).toContain(' -name "*.msix" \\');
     expect(workflow).not.toContain(' -name "*.exe" -o \\');
@@ -203,6 +203,23 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(' -name "*-update.json" \\');
     expect(workflow).toContain("files: release-files/*");
     expect(workflow).toContain("update-channel/");
+  });
+
+  it("installs Inno Setup 6.7.1 and builds a standalone Windows installer", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("name: Install Inno Setup 6.7.1");
+    expect(workflow).toContain("JRSoftware.InnoSetup");
+    expect(workflow).toContain("--version 6.7.1");
+    expect(workflow).toContain("name: Build Inno Setup installer");
+    expect(workflow).toContain("packaging/inno/build-inno.ps1");
+    expect(workflow).toContain(
+      "name: Verify Windows public installer looks complete",
+    );
+    expect(workflow).toContain(
+      'Get-ChildItem -Path "apps/app/electrobun/artifacts" -File -Filter "Milady-Setup-*.exe"',
+    );
+    expect(workflow).toContain("$minimumBytes = 50MB");
   });
 
   it("treats the staged macOS app as an intermediate signed bundle, not a notarized final artifact", () => {
@@ -323,11 +340,17 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
-  it("prefers the live Windows build launcher and persists it for UI tests", () => {
+  it("can force installer-first Windows smoke validation and persists the launched binary for UI tests", () => {
     const smokeScript = fs.readFileSync(WINDOWS_SMOKE_PATH, "utf8");
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
     expect(smokeScript).toContain("Find-Launcher $resolvedBuildDir");
+    expect(smokeScript).toContain(
+      '$requireInstaller = $env:MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER -eq "1"',
+    );
+    expect(smokeScript).toContain("Installing via Inno Setup:");
+    expect(smokeScript).toContain("/VERYSILENT");
+    expect(smokeScript).toContain("installed Inno package");
     expect(smokeScript).toContain(
       'Write-Host "Using $launcherSource launcher:',
     );
@@ -342,6 +365,11 @@ describe("Electrobun release workflow drift", () => {
     // agent.ts sets MILADY_DISABLE_LOCAL_EMBEDDINGS=1 on Windows automatically;
     // the workflow also sets it so the entire process tree inherits it.
     expect(workflow).toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
+    expect(workflow).toContain('MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"');
+    expect(workflow).toContain(
+      "MILADY_TEST_WINDOWS_INSTALL_DIR: $" +
+        "{{ runner.temp }}\\milady-windows-installed",
+    );
     expect(workflow).toContain(
       'Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"',
     );

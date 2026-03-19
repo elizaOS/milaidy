@@ -57,7 +57,7 @@ bun run dev
 # Run UI development only
 bun run dev:ui
 
-# Desktop app (Electron) development
+# Desktop app (Electrobun) development
 bun run dev:desktop
 
 # Terminal UI
@@ -134,7 +134,7 @@ bun run build
 # Build using Node.js (instead of Bun runtime)
 bun run build:node
 
-# Desktop app (Electron)
+# Desktop app (Electrobun)
 bun run build:desktop
 
 # Mobile builds
@@ -313,7 +313,7 @@ Install the [Biome VS Code extension](https://marketplace.visualstudio.com/items
 milady/
 ├── apps/
 │   ├── app/                 # Desktop/mobile app (Capacitor + React)
-│   │   ├── electron/        # Electron desktop wrapper
+│   │   ├── electrobun/      # Electrobun desktop wrapper
 │   │   └── src/             # React UI components
 │   └── chrome-extension/    # Browser extension
 ├── deploy/                  # Docker deployment configs

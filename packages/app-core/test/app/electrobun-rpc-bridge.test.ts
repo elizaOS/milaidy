@@ -17,7 +17,7 @@ describe("electrobun rpc bridge", () => {
     vi.restoreAllMocks();
   });
 
-  it("prefers direct Electrobun RPC requests over Electron IPC", async () => {
+  it("prefers direct Electrobun RPC requests when available", async () => {
     const rpcRequest = vi.fn().mockResolvedValue({ ok: true });
     (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
       request: { desktopOpenExternal: rpcRequest },

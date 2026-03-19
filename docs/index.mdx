@@ -6,7 +6,7 @@ description: "Your personal AI assistant that runs on YOUR machine. Local-first,
 
 **Milady** is a local-first AI assistant built on [elizaOS](https://github.com/elizaOS). It runs entirely on your machine -- not in a datacenter, not in the cloud. It manages your sessions, tools, and agent personality through a Gateway control plane, connects to Telegram, Discord, and other platforms, and ships with a web dashboard for real-time interaction.
 
-It supports 11 model providers out of the box (including fully local inference via Ollama), has a growing plugin ecosystem powered by elizaOS, a skills marketplace via [ClawHub](https://clawhub.ai), and runs on every major platform: desktop, mobile, web, CLI, and Chrome extension.
+It supports 17 model providers out of the box (including fully local inference via Ollama), has a growing plugin ecosystem powered by elizaOS, a skills marketplace via [ClawHub](https://clawhub.ai), and runs on every major platform: desktop, mobile, web, CLI, and Chrome extension.
 
 <CardGroup cols={2}>
   <Card title="Installation" icon="download" href="/installation">
@@ -50,6 +50,12 @@ Connect to any of 11 supported AI providers -- or run fully offline with Ollama:
 | **DeepSeek** | Reasoning models |
 | **Mistral** | Open-weight European models |
 | **Together AI** | Open-source model hosting |
+| **Cohere** | Command R and embeddings |
+| **Perplexity** | Search-augmented generation |
+| **zAI** | Custom inference endpoints |
+| **Hyperbolic** | Decentralized GPU inference |
+| **Fireworks AI** | Fast open-model hosting |
+| **Cerebras** | Ultra-low-latency inference |
 | **Vercel AI Gateway** | Unified gateway access |
 | **Ollama** | Fully local, free, no API key |
 
@@ -77,7 +83,7 @@ Milady is a single codebase that targets every surface you need:
 
 <CardGroup cols={3}>
   <Card title="Desktop" icon="desktop">
-    Electron app for macOS, Windows, and Linux. Native system tray, auto-updates, and offline support.
+    Electrobun app for macOS, Windows, and Linux. Native system tray, auto-updates, and offline support.
   </Card>
   <Card title="Mobile" icon="mobile">
     Capacitor builds for Android and iOS. Same web dashboard, native container.
@@ -127,5 +133,5 @@ Milady is structured as a layered system:
 All configuration lives in `~/.milady/milady.json`. Secrets can go in `~/.milady/.env`.
 
 <Info>
-Milady is currently in alpha (`v2.0.0-alpha.26`). APIs and configuration may change between releases. Check the [GitHub releases](https://github.com/milady-ai/milady/releases) for the latest version.
+Milady is currently in alpha (`v2.0.0-alpha.87`). APIs and configuration may change between releases. Check the [GitHub releases](https://github.com/milady-ai/milady/releases) for the latest version.
 </Info>
