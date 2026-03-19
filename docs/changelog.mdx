@@ -3,6 +3,34 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-05-28" description="Week of May 22–28" tags={["Feature", "Update"]}>
+## Talk mode for desktop
+
+You can now have full voice conversations with your agent hands-free. Talk mode combines offline speech-to-text (Whisper.cpp), streaming text-to-speech (ElevenLabs or browser TTS), and voice activity detection into a seamless loop — you speak, the agent listens, processes, and speaks back. Configure STT model size, TTS provider, and voice presets from the dashboard. Talk mode is available in the Electrobun desktop app. See the [talk mode guide](/apps/dashboard/talk-mode) for details.
+
+## Triggers and heartbeats
+
+Your agent can now run tasks on a schedule without manual intervention. Create interval, one-time, or cron-based triggers that wake the agent and execute prompts or actions automatically. The dashboard shows triggers as "Heartbeats" with a two-panel UI — browse your triggers on the left, create or edit on the right with a friendly duration picker. You can also create triggers from chat by asking your agent to do something on a schedule. See the [triggers guide](/guides/triggers) for details.
+
+## Database browser
+
+A built-in database browser in the dashboard lets you inspect your agent's data directly. Browse relational tables in a paginated grid, filter and view uploaded media (images, audio, video) in a gallery, and explore vector store entries used for semantic search. See the [database guide](/advanced/database) for details.
+
+## Fine-tuning pipeline
+
+The training system now supports the full fine-tuning lifecycle from the dashboard. Build datasets from captured trajectories, start and monitor training jobs with real-time progress via SSE events, import finished models into Ollama, and activate them as your agent's default. The system auto-detects your hardware backend — MLX on Apple Silicon, CUDA on NVIDIA GPUs, or CPU. See the [training guide](/guides/training) for details.
+
+## OpenAI-compatible API
+
+Milady now exposes OpenAI-compatible endpoints at `/v1/models` and `/v1/chat/completions`, plus an Anthropic-compatible `/v1/messages` endpoint. External tools and scripts that work with the OpenAI API format can now talk to your agent directly without any adapter code. See the [API reference](/api-reference) for details.
+
+## Updates
+
+- **Wallet trading API** — New endpoints for BSC token trading are available: preflight checks, price quotes, trade execution, and transaction status tracking. Use the full trade flow programmatically via the REST API. See the [wallet API reference](/rest/wallet).
+- **Dashboard internationalization** — The dashboard is now available in five languages: English, Spanish, Korean, Portuguese, and Simplified Chinese. Language is auto-detected from your browser settings.
+- **Terminal authorization for custom actions** — Shell and code custom action handlers now require a dedicated `terminalToken` when `MILADY_TERMINAL_RUN_TOKEN` is set, adding a second layer of authorization beyond the main API token. See the [custom actions API reference](/rest/custom-actions).
+</Update>
+
 <Update label="2026-05-21" description="Week of May 15–21" tags={["Feature", "Update"]}>
 ## Autonomous mode
 
