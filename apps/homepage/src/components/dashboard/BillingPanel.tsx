@@ -22,63 +22,39 @@ export function BillingPanel() {
 
   if (!isAuthenticated()) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-3">
-        <div className="text-text-muted/30 text-4xl">{"\u25C8"}</div>
-        <div className="text-text-muted font-mono text-sm">
-          Not connected to cloud
-        </div>
-        <div className="text-text-muted/50 font-mono text-xs">
-          Log in with Eliza Cloud to view billing settings.
-        </div>
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-sm text-text-muted">
+          Sign in with Eliza Cloud to view billing.
+        </p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <div className="text-brand font-mono text-sm animate-pulse">
-          Loading billing...
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-3">
-        <div className="text-text-muted/30 text-4xl">{"\u25C8"}</div>
-        <div className="text-text-muted font-mono text-sm">
-          Billing data unavailable
-        </div>
-        <div className="text-text-muted/50 font-mono text-xs">{error}</div>
+      <div className="flex items-center justify-center py-20">
+        <div className="w-6 h-6 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <h3 className="font-mono text-xs uppercase tracking-widest text-brand">
-        Billing & Usage
-      </h3>
+    <div className="space-y-6 max-w-2xl animate-fade-up">
+      <h2 className="text-xl font-semibold text-text-light">Billing</h2>
 
-      {/* Cloud Agents Summary */}
-      <div className="bg-dark border border-white/10 rounded p-4">
-        <div className="text-text-muted font-mono text-[10px] uppercase tracking-wider">
-          Cloud Agents
-        </div>
-        <div className="text-text-light font-mono text-lg mt-1">
+      <div className="bg-surface rounded-2xl border border-border p-6">
+        <p className="text-sm text-text-muted mb-1">Cloud Agents</p>
+        <p className="text-2xl font-semibold text-text-light">
           {cloudAgents.length} active
-        </div>
+        </p>
       </div>
 
-      {/* Billing Settings */}
+      {error && <p className="text-sm text-text-muted">{error}</p>}
+
       {billingSettings && (
-        <div className="bg-dark border border-white/10 rounded p-4">
-          <div className="text-text-muted font-mono text-[10px] uppercase tracking-wider mb-2">
-            Settings
-          </div>
-          <pre className="font-mono text-xs text-text-muted overflow-auto">
+        <div className="bg-surface rounded-2xl border border-border p-6">
+          <p className="text-sm text-text-muted mb-3">Settings</p>
+          <pre className="font-mono text-xs text-text-muted/70 overflow-auto">
             {JSON.stringify(billingSettings, null, 2)}
           </pre>
         </div>

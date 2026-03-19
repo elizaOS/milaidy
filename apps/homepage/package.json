@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node ../../scripts/write-homepage-release-data.mjs",
     "dev": "vite",
     "prebuild": "node ../../scripts/write-homepage-release-data.mjs",
     "build": "vite build",

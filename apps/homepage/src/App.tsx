@@ -2,7 +2,7 @@ import { Comparison } from "./components/Comparison";
 import { DownloadIcons } from "./components/DownloadIcons";
 import { Features } from "./components/Features";
 import { Footer } from "./components/Footer";
-import { HeroBackground } from "./components/Hero";
+import { HeroBackground, HeroInstallDock } from "./components/Hero";
 import { Privacy } from "./components/Privacy";
 
 export function Homepage() {
@@ -21,10 +21,14 @@ export function Homepage() {
           <HeroBackground />
         </div>
 
-        {/* LAYER 2: Foreground UI (Download Icons) */}
-        <div className="absolute top-0 left-0 right-0 z-30 pointer-events-none">
-          <div className="w-full min-h-screen flex items-end justify-center pb-6 sm:pb-10 px-4 pointer-events-auto">
+        {/* LAYER 2: Foreground UI — Download dock pinned to hero bottom */}
+        <div
+          id="install"
+          className="absolute top-0 left-0 right-0 z-30 pointer-events-none"
+        >
+          <div className="w-full min-h-screen flex flex-col items-center justify-end pb-8 sm:pb-12 px-4 gap-6 pointer-events-auto">
             <DownloadIcons />
+            <HeroInstallDock />
           </div>
         </div>
 

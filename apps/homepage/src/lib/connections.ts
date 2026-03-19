@@ -7,6 +7,7 @@ export interface StoredConnection {
   name: string;
   url: string;
   type: ConnectionType;
+  authToken?: string; // MILADY_API_TOKEN or similar — sent as Authorization: Bearer {token}
 }
 
 export function getConnections(): StoredConnection[] {

@@ -1,5 +1,7 @@
 import { motion, type Variants } from "framer-motion";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { releaseData } from "../generated/release-data";
 
 export const PHRASES = [
   "LOCAL FIRST",
@@ -32,7 +34,6 @@ function TypewriterLoop() {
         }, TYPE_SPEED);
         return () => clearTimeout(timeout);
       }
-      // Finished typing — pause then start deleting
       const timeout = setTimeout(() => setIsDeleting(true), PAUSE_AFTER_TYPE);
       return () => clearTimeout(timeout);
     }
@@ -44,7 +45,6 @@ function TypewriterLoop() {
       return () => clearTimeout(timeout);
     }
 
-    // Finished deleting — pause then move to next phrase
     const timeout = setTimeout(() => {
       setIsDeleting(false);
       setPhraseIndex((i) => (i + 1) % PHRASES.length);
@@ -101,8 +101,7 @@ export function HeroBackground() {
         initial="hidden"
         animate="visible"
       >
-        {/* Massive clipping typography - Background Layer */}
-        {/* Restore white/yellow color scheme and solid readability */}
+        {/* Massive MILADY Title + Typewriter */}
         <motion.h1
           variants={itemVariants}
           className="text-[10vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.8] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-12"
@@ -114,5 +113,62 @@ export function HeroBackground() {
         </motion.h1>
       </motion.div>
     </section>
+  );
+}
+
+/* ── Hero Install Dock — version badge + nav links ──────────────── */
+
+export function HeroInstallDock() {
+  const tagName = releaseData.release.tagName;
+  const publishedAt = releaseData.release.publishedAtLabel;
+
+  const dockVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 80,
+        damping: 18,
+        delay: 0.6,
+      },
+    },
+  };
+
+  return (
+    <motion.div
+      className="flex flex-col items-center gap-5"
+      variants={dockVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Version badge */}
+      <div className="flex items-center gap-2 text-[10px] sm:text-[11px] tracking-wider uppercase font-mono">
+        <span className="text-brand/80 border border-brand/25 px-2 py-0.5 bg-brand/5">
+          {tagName}
+        </span>
+        <span className="text-text-muted/40">{publishedAt}</span>
+      </div>
+
+      {/* Subtle nav row */}
+      <div className="flex items-center gap-3 text-[10px] sm:text-[11px] tracking-widest uppercase text-text-muted/40">
+        <Link
+          to="/dashboard"
+          className="hover:text-brand/70 transition-colors duration-200"
+        >
+          dashboard
+        </Link>
+        <span className="text-white/10">·</span>
+        <a
+          href="https://github.com/milady-ai/milady"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-brand/70 transition-colors duration-200"
+        >
+          src
+        </a>
+      </div>
+    </motion.div>
   );
 }

@@ -4,10 +4,13 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const REPOSITORY = "milady-ai/milady";
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
 const OUTPUT_PATH = path.resolve(
-  process.cwd(),
+  REPO_ROOT,
   "apps/homepage/src/generated/release-data.ts",
 );
 const RELEASES_URL = `https://api.github.com/repos/${REPOSITORY}/releases?per_page=20`;
