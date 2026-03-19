@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import os from "node:os";
 import path from "node:path";
+import { describe, expect, it } from "vitest";
 import { validatePluginPath } from "../plugins-cli";
 
 describe("S5: validatePluginPath", () => {

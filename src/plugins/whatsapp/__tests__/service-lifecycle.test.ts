@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("S6: Phone number E.164 validation", () => {
   const E164_RE = /^\+?[1-9]\d{1,14}$/;
