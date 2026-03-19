@@ -831,7 +831,7 @@ export async function startBenchmarkServer() {
   };
 
   const sessions = new Map<string, BenchmarkSession>();
-  let activeSession: BenchmarkSession | null = null;
+  let lastSessionKey: string | null = null;
 
   // Session TTL eviction (R4)
   const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -877,7 +877,7 @@ export async function startBenchmarkServer() {
     const key = `${benchmark}:${taskId}`;
     const existing = sessions.get(key);
     if (existing) {
-      activeSession = existing;
+      lastSessionKey = key;
       return existing;
     }
     if (!createIfMissing) return null;
@@ -885,7 +885,7 @@ export async function startBenchmarkServer() {
     sessions.set(key, created);
     sessionCreatedAt.set(key, Date.now());
     registerSessionRefs(created);
-    activeSession = created;
+    lastSessionKey = key;
     return created;
   };
 
@@ -916,13 +916,18 @@ export async function startBenchmarkServer() {
           status: "ready",
           agent_name: runtime.character.name ?? "Milady",
           plugins: plugins.length,
-          active_session: activeSession
-            ? {
-                benchmark: activeSession.benchmark,
-                task_id: activeSession.taskId,
-                room_id: activeSession.roomId,
-              }
-            : null,
+          active_session: (() => {
+            const active = lastSessionKey
+              ? sessions.get(lastSessionKey)
+              : null;
+            return active
+              ? {
+                  benchmark: active.benchmark,
+                  task_id: active.taskId,
+                  room_id: active.roomId,
+                }
+              : null;
+          })(),
         }),
       );
       return;
@@ -1000,7 +1005,7 @@ export async function startBenchmarkServer() {
       const benchmark = extractBenchmarkName(context);
       const session =
         resolveSession(taskId, benchmark, false) ??
-        activeSession ??
+        (lastSessionKey ? sessions.get(lastSessionKey) : null) ??
         resolveSession("default-task", "unknown", false);
 
       if (!session) {
@@ -1035,7 +1040,7 @@ export async function startBenchmarkServer() {
       const benchmark = extractBenchmarkName(context);
       const session =
         resolveSession(taskId, benchmark, false) ??
-        activeSession ??
+        (lastSessionKey ? sessions.get(lastSessionKey) : null) ??
         resolveSession("default-task", "unknown", false);
 
       if (!session) {
@@ -1079,7 +1084,7 @@ export async function startBenchmarkServer() {
         const benchmark = extractBenchmarkName(context);
         const session =
           resolveSession(taskId, benchmark, false) ??
-          activeSession ??
+          (lastSessionKey ? sessions.get(lastSessionKey) : null) ??
           resolveSession("default-task", "unknown", false);
 
         if (!session) {
@@ -1138,7 +1143,7 @@ export async function startBenchmarkServer() {
           const benchmark = extractBenchmarkName(context);
           const session =
             resolveSession(taskId, benchmark, true) ??
-            activeSession ??
+            (lastSessionKey ? sessions.get(lastSessionKey) : null) ??
             resolveSession("default-task", "unknown", true);
           if (!session) {
             throw new Error("Failed to resolve benchmark session");
