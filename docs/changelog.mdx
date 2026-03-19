@@ -10,11 +10,19 @@ You can now migrate your agent between machines with a single encrypted file. Ex
 
 ## Sandbox and computer use
 
-Agents can now run code, browse the web, take screenshots, record audio, and interact with desktop applications inside an isolated container sandbox. The sandbox supports configurable security modes, network policies, audit logging, and a remote signing service that keeps wallet keys on the host while sandboxed agents submit transactions. See the [sandbox guide](/guides/sandbox) for details.
+Agents can now run code, browse the web, take screenshots, record audio, and interact with desktop applications inside an isolated container sandbox. The sandbox supports four configurable security modes (off, light, standard, max), network policies, audit logging, and a remote signing service that keeps wallet keys on the host while sandboxed agents submit transactions. See the [sandbox guide](/guides/sandbox) for details.
 
 ## MCP marketplace
 
 You can now browse and install Model Context Protocol servers directly from the official MCP registry. Search for tools by name, view details, and install them in one step — the configuration is generated automatically. MCP servers extend your agent with external capabilities like file access, database queries, and API integrations. See the [MCP marketplace guide](/guides/mcp-marketplace) for details.
+
+## Custom actions editor
+
+A visual editor in the dashboard lets you create custom agent actions without writing plugin code. Define actions with HTTP, shell, or code handlers, configure parameters and headers, and test them — all from the UI. See the [custom actions guide](/guides/custom-actions) for details.
+
+## Plugin eject system
+
+You can now fork any plugin's source code locally, modify it, and have the runtime load your local copy instead of the npm package. Six new agent actions — eject, reinject, sync, and status for both plugins and core — make it easy to customize, test, and contribute changes back upstream. See the [plugin eject guide](/plugins/plugin-eject) for details.
 
 ## Stream overlay widgets
 
@@ -36,10 +44,13 @@ Install any connector with `milady plugins install <name>` and configure it in y
 
 ## Updates
 
+- **Secrets vault** — A new Secrets view in the dashboard organizes your API keys and credentials by category (AI providers, blockchain, connectors, auth). You can add, remove, and manage secrets with plugin-aware discovery that shows which plugins need which keys.
+- **Media gallery** — A new media gallery in the dashboard lets you browse photos, videos, and audio stored in your agent's database, with filtering by media type.
 - **Diagnostics and security audit API** — New endpoints expose filterable runtime logs, autonomy event replay with cursor-based pagination, and a security audit log with severity filtering and SSE streaming. See the [API reference](/api-reference) for details.
 - **Streaming permissions in onboarding** — Camera and microphone permissions are now requested during the onboarding wizard and manageable from Settings, so streaming works out of the box on both mobile and desktop.
 - **Dark theme button readability** — Accent-colored buttons now use dark text for better contrast, and hover effects highlight the border instead of changing text color.
 - **Onboarding layout improvements** — The connection step now shows a Quick Start / Advanced toggle, full-width provider cards, and an always-visible Continue button on the permissions step.
+- **Configuration templates** — Eight ready-to-use configuration templates for common deployment scenarios are now available. See the [config templates guide](/guides/config-templates).
 </Update>
 
 <Update label="2026-04-30" description="Week of April 24–30" tags={["Feature", "Update"]}>
