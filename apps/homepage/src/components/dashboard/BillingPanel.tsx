@@ -155,7 +155,9 @@ export function BillingPanel() {
           label="Cloud Agents"
           value={String(cloudAgents.length)}
           hint={
-            totalHourly > 0 ? `$${totalHourly.toFixed(2)}/hr combined` : "no active hourly rate"
+            totalHourly > 0
+              ? `$${totalHourly.toFixed(2)}/hr combined`
+              : "no active hourly rate"
           }
         />
         <StatCard
@@ -215,7 +217,8 @@ export function BillingPanel() {
 
           {billingSettings?.settings?.limits && (
             <p className="text-xs text-text-muted mt-4">
-              Allowed top-up range: {formatMoney(billingSettings.settings.limits.minAmount)} to{" "}
+              Allowed top-up range:{" "}
+              {formatMoney(billingSettings.settings.limits.minAmount)} to{" "}
               {formatMoney(billingSettings.settings.limits.maxAmount)}
             </p>
           )}
@@ -271,7 +274,9 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs text-text-muted mb-1">{label}</p>
-      <p className="text-base font-medium text-text-light tabular-nums">{value}</p>
+      <p className="text-base font-medium text-text-light tabular-nums">
+        {value}
+      </p>
     </div>
   );
 }

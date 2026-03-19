@@ -1,4 +1,5 @@
 import type { CloudClient } from "./cloud-api";
+import { rewriteAgentUiUrl } from "./runtime-config";
 
 /**
  * Opens the Milady Web UI for a cloud agent via the pairing token flow.
@@ -45,7 +46,7 @@ export async function openWebUIWithPairing(
     }
 
     if (redirectUrl) {
-      popup.location.href = redirectUrl;
+      popup.location.href = rewriteAgentUiUrl(redirectUrl);
     } else {
       popup.close();
       showToast("No redirect URL returned from pairing token endpoint");
@@ -70,7 +71,7 @@ export async function openWebUIWithPairing(
  * Used for local and remote agents that don't require cloud auth handoff.
  */
 export function openWebUIDirect(url: string): void {
-  window.open(url, "_blank", "noopener,noreferrer");
+  window.open(rewriteAgentUiUrl(url), "_blank", "noopener,noreferrer");
 }
 
 /** Simple toast — uses sonner if available, falls back to console */

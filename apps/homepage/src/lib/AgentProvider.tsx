@@ -12,9 +12,11 @@ import { type CloudAgent, getToken } from "./auth";
 import { CloudApiClient, CloudClient } from "./cloud-api";
 import { addConnection, getConnections, removeConnection } from "./connections";
 import {
+  AGENT_UI_BASE_DOMAIN,
   CLOUD_BASE,
   getSandboxDiscoveryUrls,
   LOCAL_AGENT_BASE,
+  rewriteAgentUiUrl,
 } from "./runtime-config";
 
 export type AgentSource = "cloud" | "local" | "remote";
@@ -64,7 +66,6 @@ const AgentContext = createContext<AgentContextValue | null>(null);
 // Milady self-hosted agent discovery
 // Primary: the public sandbox index.
 // Fallback: a same-host discovery service on port 3456 for direct dashboard access.
-const MILADY_AGENT_BASE_DOMAIN = "milady.ai";
 
 /** Shallow-compare two agent lists to avoid unnecessary re-renders. */
 function agentsEqual(a: ManagedAgent[], b: ManagedAgent[]): boolean {
@@ -141,7 +142,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             cloudClient: cc,
             cloudAgentId: ca.id,
             sourceUrl: `${CLOUD_BASE}/api/v1/milady/agents/${ca.id}`,
-            webUiUrl: ca.webUiUrl,
+            webUiUrl: ca.webUiUrl ? rewriteAgentUiUrl(ca.webUiUrl) : undefined,
             billing: ca.billing,
             region: ca.region,
             createdAt: ca.createdAt,
@@ -223,7 +224,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       for (const sb of ownedSandboxes) {
         discoveredIds.add(sb.id);
         // Each sandbox is accessible at https://{uuid}.milady.ai
-        const url = `https://${sb.id}.${MILADY_AGENT_BASE_DOMAIN}`;
+        const url = `https://${sb.id}.${AGENT_UI_BASE_DOMAIN}`;
         const apiToken = sb.api_token;
         const client = new CloudApiClient({
           url,
@@ -358,7 +359,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     const remotes = getConnections().filter((c) => c.type === "remote");
     for (const remote of remotes) {
       // If this URL matches an auto-discovered milady agent, skip to avoid duplicates
-      const isMiladyDomain = remote.url.includes(MILADY_AGENT_BASE_DOMAIN);
+      const isMiladyDomain = remote.url.includes(AGENT_UI_BASE_DOMAIN);
       if (isMiladyDomain) {
         const uuidMatch = remote.url.match(
           /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,

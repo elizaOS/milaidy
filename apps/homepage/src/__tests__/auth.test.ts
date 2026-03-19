@@ -113,9 +113,7 @@ describe("cloudLogin", () => {
     vi.stubGlobal("crypto", { randomUUID: () => "mock-uuid" });
     const result = await cloudLogin();
     expect(result.sessionId).toBe("mock-uuid");
-    expect(result.browserUrl).toContain(
-      "/auth/cli-login?session=mock-uuid",
-    );
+    expect(result.browserUrl).toContain("/auth/cli-login?session=mock-uuid");
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/auth/cli-session"),
       expect.objectContaining({ method: "POST" }),

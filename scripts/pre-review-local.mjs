@@ -178,6 +178,21 @@ export function resolveRunnableTestFiles(testFiles, cwd = process.cwd()) {
   return testFiles.filter((file) => existsSync(path.resolve(cwd, file)));
 }
 
+export function splitRunnableTestFiles(testFiles) {
+  const repoTests = [];
+  const homepageTests = [];
+
+  for (const file of testFiles) {
+    if (file.startsWith("apps/homepage/")) {
+      homepageTests.push(path.relative("apps/homepage", file));
+    } else {
+      repoTests.push(file);
+    }
+  }
+
+  return { repoTests, homepageTests };
+}
+
 export function collectChangedFiles(base) {
   const result = runCommandArgs("git", [
     "diff",
@@ -306,17 +321,32 @@ export function runChecks() {
           "Run tests that validate the exact behavior change and check them in.",
         );
       } else {
-        const testRun = runCommand(
-          `bunx vitest run ${runnableTestFiles.join(" ")}`,
-        );
-        if (!testRun.ok) {
-          issues.push("Regression/new-behavior tests did not pass.");
-          missingTests.push(
-            "Fix failing tests or add missing assertions for changed paths.",
+        const { repoTests, homepageTests } =
+          splitRunnableTestFiles(runnableTestFiles);
+        const testCommands = [];
+
+        if (repoTests.length > 0) {
+          testCommands.push(`bunx vitest run ${repoTests.join(" ")}`);
+        }
+
+        if (homepageTests.length > 0) {
+          testCommands.push(
+            `cd apps/homepage && bunx vitest run ${homepageTests.join(" ")}`,
           );
-          checklist.push(
-            "Re-run targeted regression tests after behavioral fixes.",
-          );
+        }
+
+        for (const command of testCommands) {
+          const testRun = runCommand(command);
+          if (!testRun.ok) {
+            issues.push("Regression/new-behavior tests did not pass.");
+            missingTests.push(
+              "Fix failing tests or add missing assertions for changed paths.",
+            );
+            checklist.push(
+              "Re-run targeted regression tests after behavioral fixes.",
+            );
+            break;
+          }
         }
       }
     }
