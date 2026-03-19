@@ -1,14 +1,33 @@
+// @vitest-environment jsdom
 /**
- * Tests for @milady/capacitor-screencapture — feature detection, state, errors, events.
+ * Tests for @miladyai/capacitor-screencapture — feature detection, state, errors, events.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ScreenCaptureWeb } from "../../plugins/screencapture/src/web";
 
-describe("@milady/capacitor-screencapture", () => {
+describe("@miladyai/capacitor-screencapture", () => {
   let sc: ScreenCaptureWeb;
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    // jsdom doesn't provide getDisplayMedia; stub it for feature detection
+    if (!navigator.mediaDevices) {
+      Object.defineProperty(navigator, "mediaDevices", {
+        value: {},
+        writable: true,
+        configurable: true,
+      });
+    }
+    Object.defineProperty(navigator.mediaDevices, "getDisplayMedia", {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
+    // Stub AudioContext for system_audio feature detection
+    if (typeof globalThis.AudioContext === "undefined") {
+      (globalThis as unknown as Record<string, unknown>).AudioContext =
+        class {};
+    }
     sc = new ScreenCaptureWeb();
   });
 
@@ -72,7 +91,7 @@ describe("@milady/capacitor-screencapture", () => {
       await sc.addListener("error", err);
 
       (
-        sc as unknown as { notifyListeners: (n: string, d: unknown) => void }
+        sc as { notifyListeners: (n: string, d: unknown) => void }
       ).notifyListeners("recordingState", {
         isRecording: true,
         duration: 5,

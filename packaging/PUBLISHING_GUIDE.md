@@ -11,8 +11,11 @@ This guide covers the **human steps** required to publish Milady across all five
 3. [apt (Debian/Ubuntu)](#3-apt-debianubuntu)
 4. [Snap](#4-snap)
 5. [Flatpak](#5-flatpak)
-6. [CI/CD Automation](#6-cicd-automation)
-7. [Version Bumping Checklist](#7-version-bumping-checklist)
+6. [Google Play Store (Android)](#6-google-play-store-android)
+7. [CI/CD Automation](#7-cicd-automation)
+8. [iOS App Store](#8-ios-app-store)
+9. [Mac App Store](#9-mac-app-store)
+10. [Version Bumping Checklist](#10-version-bumping-checklist)
 
 ---
 
@@ -126,7 +129,7 @@ cp /path/to/milady/packaging/homebrew/milady.rb Formula/milady.rb
 
 ```bash
 # Download the tarball and compute hash
-curl -fsSL "https://registry.npmjs.org/milady/-/milady-2.0.0-alpha.7.tgz" -o milady.tgz
+curl -fsSL "https://registry.npmjs.org/miladyai/-/miladyai-2.0.0-alpha.7.tgz" -o milady.tgz
 shasum -a 256 milady.tgz
 # Replace PLACEHOLDER_SHA256 in milady.rb with the actual hash
 ```
@@ -167,7 +170,7 @@ brew install milady-ai/tap/milady
 
 ```bash
 # Compute new SHA256
-curl -fsSL "https://registry.npmjs.org/milady/-/milady-NEW_VERSION.tgz" -o milady.tgz
+curl -fsSL "https://registry.npmjs.org/miladyai/-/miladyai-NEW_VERSION.tgz" -o milady.tgz
 shasum -a 256 milady.tgz
 
 # Update the formula: change url and sha256
@@ -434,7 +437,117 @@ flatpak run ai.milady.Milady start
 
 ---
 
-## 6. CI/CD Automation
+
+## 6. Google Play Store (Android)
+
+### 6.1 Account Setup (one-time)
+
+1. **Create a Google Play Developer account** at https://play.google.com/console/signup
+   - One-time $25 registration fee
+   - Requires identity verification
+
+2. **Create the app listing**:
+   - Go to Google Play Console → "Create app"
+   - App name: "Milady"
+   - Default language: English (United States)
+   - App type: App
+   - Free / Paid: Free
+
+3. **Set up Google Play App Signing**:
+   - Go to Release → Setup → App signing
+   - Choose "Let Google manage and protect your app signing key" (recommended)
+   - Generate an **upload keystore** for CI:
+
+```bash
+keytool -genkeypair   -alias milady-upload   -keyalg RSA -keysize 2048   -validity 10000   -keystore milady-upload.jks   -storepass YOUR_STORE_PASSWORD   -dname "CN=Milady AI, O=milady-ai, L=Internet, C=US"
+```
+
+4. **Upload the upload key certificate** to Play Console:
+
+```bash
+keytool -export -alias milady-upload   -keystore milady-upload.jks   -rfc > milady-upload-cert.pem
+```
+
+Upload `milady-upload-cert.pem` in Play Console → App signing.
+
+5. **Create a service account for CI**:
+   - Go to Play Console → Setup → API access
+   - Link to Google Cloud project
+   - Create a service account with "Release manager" role
+   - Download the JSON key file
+
+### 6.2 Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 milady-upload.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | `milady-upload` |
+| `ANDROID_KEY_PASSWORD` | Key password |
+| `PLAY_STORE_SERVICE_ACCOUNT_JSON` | `base64 -w0 play-store-key.json` |
+
+### 6.3 Build the AAB Locally
+
+```bash
+cd apps/app
+
+# Build web assets
+bun run build
+
+# Sync to Android
+npx cap sync android
+
+# Build signed AAB
+cd android
+MILADY_KEYSTORE_PATH=/path/to/milady-upload.jks MILADY_KEYSTORE_PASSWORD=yourpass MILADY_KEY_ALIAS=milady-upload MILADY_KEY_PASSWORD=yourpass ./gradlew bundleRelease
+
+# AAB is at app/build/outputs/bundle/release/app-release.aab
+```
+
+### 6.4 Publish via Fastlane
+
+```bash
+cd apps/app/android
+
+# Install Fastlane
+bundle install
+
+# Upload to internal testing
+PLAY_STORE_JSON_KEY=/path/to/play-store-key.json MILADY_KEYSTORE_PATH=/path/to/milady-upload.jks MILADY_KEYSTORE_PASSWORD=yourpass MILADY_KEY_ALIAS=milady-upload MILADY_KEY_PASSWORD=yourpass bundle exec fastlane internal
+
+# Promote to beta
+bundle exec fastlane beta
+
+# Promote to production
+bundle exec fastlane production
+```
+
+### 6.5 Store Listing Checklist
+
+Complete these in Play Console before first release:
+
+- [ ] App name and description (`fastlane/metadata/android/en-US/`)
+- [ ] Feature graphic (1024x500px)
+- [ ] App icon (512x512px)
+- [ ] Phone screenshots (minimum 2, 16:9 or 9:16)
+- [ ] Privacy policy URL
+- [ ] Data safety section (declare: network access, API keys stored locally)
+- [ ] Content rating (IARC questionnaire)
+- [ ] Target audience declaration
+- [ ] App category: Tools → Productivity
+
+### 6.6 Data Safety Declarations
+
+| Question | Answer |
+|---|---|
+| Does the app collect data? | Yes (user-provided API keys, chat messages) |
+| Is data shared with third parties? | Yes (AI providers: Anthropic, OpenAI, etc. — user-selected) |
+| Is data encrypted in transit? | Yes (HTTPS to all AI providers) |
+| Can users request data deletion? | Yes (local data, users delete the app or clear data) |
+| Data stored on device | API keys, chat history, agent configuration |
+| Data sent to servers | Chat messages to user-selected AI provider |
+
+## 7. CI/CD Automation
 
 ### GitHub Actions Workflow
 
@@ -502,7 +615,7 @@ jobs:
         run: |
           VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
           VERSION="${VERSION#v}"
-          URL="https://registry.npmjs.org/milady/-/milady-${VERSION}.tgz"
+          URL="https://registry.npmjs.org/miladyai/-/miladyai-${VERSION}.tgz"
           SHA256=$(curl -fsSL "$URL" | shasum -a 256 | cut -d' ' -f1)
 
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/milady-ai/homebrew-tap.git"
@@ -526,6 +639,8 @@ jobs:
 | `SNAP_TOKEN` | `snapcraft export-login --snaps=milady --acls=package_push -` | Snap publishing |
 | `HOMEBREW_TAP_TOKEN` | GitHub PAT with `repo` scope for `milady-ai/homebrew-tap` | Homebrew formula updates |
 | `PYPI_API_TOKEN` | https://pypi.org/manage/account/token/ (or use trusted publishing) | PyPI uploads |
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 milady-upload.jks` | Android AAB signing |
+| `PLAY_STORE_SERVICE_ACCOUNT_JSON` | Google Cloud Console service account JSON (base64) | Play Store uploads |
 
 ### PyPI Trusted Publishing (recommended)
 
@@ -541,7 +656,60 @@ This eliminates the need for `PYPI_API_TOKEN` — GitHub Actions authenticates d
 
 ---
 
-## 7. Version Bumping Checklist
+## 8. iOS App Store
+
+### 8.1 Apple Developer Program (one-time)
+
+1. **Enroll** at https://developer.apple.com/programs/ ($99/year)
+2. **Create App ID**: Bundle ID `ai.milady.app`, enable Push Notifications
+3. **Create private certificates repo** `milady-ai/certificates` for Fastlane Match
+4. **Create App Store Connect app**: Platform iOS, Bundle ID `ai.milady.app`
+
+### 8.2 Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `APPLE_ID` | Apple ID email |
+| `APPLE_TEAM_ID` | 10-char Apple Developer Team ID |
+| `APPLE_APP_SPECIFIC_PASSWORD` | Generated at appleid.apple.com |
+| `ITC_TEAM_ID` | App Store Connect team ID |
+| `APP_STORE_APP_ID` | Numeric Apple ID from App Store Connect |
+| `MATCH_PASSWORD` | Encryption password for Match certificates |
+| `MATCH_GIT_URL` | URL to certificates repo |
+| `MATCH_GIT_BASIC_AUTHORIZATION` | base64(username:PAT) for certificates repo |
+
+### 8.3 App Privacy Nutrition Labels
+
+| Data Type | Collected | Linked to Identity | Tracking |
+|---|---|---|---|
+| Usage Data | Yes | No | No |
+| Location | Yes (optional) | No | No |
+| Photos | Yes (optional) | No | No |
+| User Content (chat) | Yes | No | No |
+
+Data is stored on-device only. Chat messages sent to user-selected AI provider.
+
+
+## 9. Mac App Store
+
+### 9.1 Additional Secrets
+
+| Secret | Description |
+|---|---|
+| `MAS_CSC_LINK` | base64-encoded Apple Distribution .p12 |
+| `MAS_CSC_KEY_PASSWORD` | Password for the .p12 |
+| `MAS_INSTALLER_CERT` | base64-encoded 3rd Party Mac Developer Installer .p12 |
+| `MAS_INSTALLER_KEY_PASSWORD` | Password for installer .p12 |
+| `APP_STORE_API_KEY_ID` | App Store Connect API key ID |
+| `APP_STORE_API_ISSUER_ID` | App Store Connect API issuer ID |
+
+### 9.2 Sandboxing
+
+Mac App Store requires App Sandbox. Entitlements at
+`apps/app/electrobun/entitlements/mas.entitlements` configure network,
+file access, camera, microphone, and JIT compilation for Bun runtime.
+
+## 10. Version Bumping Checklist
 
 When releasing a new version, update these files:
 
@@ -554,6 +722,7 @@ When releasing a new version, update these files:
 | `packaging/debian/changelog` | Add new entry at top |
 | `packaging/homebrew/milady.rb` | `url` + `sha256` (after npm publish) |
 | `packaging/flatpak/ai.milady.Milady.metainfo.xml` | Add new `<release>` entry |
+| `apps/app/android/app/build.gradle` | `versionCode` + `versionName` (via env vars in CI) |
 
 ### Version Format Mapping
 
@@ -572,11 +741,14 @@ When releasing a new version, update these files:
 
 | Platform | Command |
 |---|---|
-| **npm** | `npm install -g milady` |
+| **npm** | `npm install -g miladyai` |
 | **PyPI** | `pip install milady` |
 | **Homebrew** | `brew install milady-ai/tap/milady` |
 | **apt** | `sudo apt install milady` (after adding repo) |
 | **Snap** | `sudo snap install milady --classic` |
 | **Flatpak** | `flatpak install flathub ai.milady.Milady` |
-| **npx** | `npx milady` (no install) |
+| **Google Play** | Search "Milady" on Play Store |
+| **iOS App Store** | Search "Milady" on App Store |
+| **Mac App Store** | Search "Milady" on Mac App Store |
+| **npx** | `npx miladyai` (no install) |
 | **pipx** | `pipx install milady` |

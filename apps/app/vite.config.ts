@@ -1,25 +1,28 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react-swc";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
+import { MILADY_CHARACTER_ASSETS } from "./src/character-catalog";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const miladyRoot = path.resolve(here, "../..");
 
 // The dev script sets MILADY_API_PORT; default to 31337 for standalone vite dev.
 const apiPort = Number(process.env.MILADY_API_PORT) || 31337;
+const enableAppSourceMaps = process.env.MILADY_APP_SOURCEMAP === "1";
 
 /**
- * Dev-only middleware that handles CORS for Electron's custom-scheme origin
- * (capacitor-electron://-). Vite's proxy doesn't reliably forward CORS headers
+ * Dev-only middleware that handles CORS for the desktop custom-scheme origin
+ * (electrobun://-). Vite's proxy doesn't reliably forward CORS headers
  * for non-http origins, so we intercept preflight OPTIONS requests and tag
  * every /api response with the correct headers before the proxy layer.
  */
-function electronCorsPlugin(): Plugin {
+function desktopCorsPlugin(): Plugin {
   return {
-    name: "electron-cors",
+    name: "desktop-cors",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const origin = req.headers.origin;
@@ -32,7 +35,7 @@ function electronCorsPlugin(): Plugin {
         );
         res.setHeader(
           "Access-Control-Allow-Headers",
-          "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token",
+          "Content-Type, Authorization, X-Milady-Token, X-Api-Key, X-Milady-Export-Token, X-Milady-Client-Id, X-Milady-Terminal-Token, X-Milady-UI-Language",
         );
 
         if (req.method === "OPTIONS") {
@@ -47,41 +50,189 @@ function electronCorsPlugin(): Plugin {
   };
 }
 
+/**
+ * Serves raw VRM and animation files from public_src for the screenshotter.
+ * Public ships .vrm.gz and .glb.gz; the screenshotter needs uncompressed .vrm and .glb.
+ */
+function publicSrcPlugin(): Plugin {
+  const publicSrc = path.resolve(here, "public_src");
+  const charactersVrm = path.resolve(here, "characters", "vrm");
+  const assetById = new Map(
+    MILADY_CHARACTER_ASSETS.map((asset) => [asset.id, asset]),
+  );
+  return {
+    name: "public-src",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split("?")[0] ?? "";
+        const vrmMatch = url.match(/^\/vrms\/milady-(\d+)\.vrm$/);
+        if (vrmMatch) {
+          const index = Number(vrmMatch[1]);
+          const asset = assetById.get(index);
+          const charFile =
+            asset && path.join(charactersVrm, asset.sourceVrmFilename);
+          const publicSrcFile = path.join(
+            publicSrc,
+            "vrms",
+            `milady-${index}.vrm`,
+          );
+          const file =
+            charFile && fs.existsSync(charFile) ? charFile : publicSrcFile;
+          if (fs.existsSync(file)) {
+            res.setHeader("Content-Type", "model/gltf-binary");
+            fs.createReadStream(file).pipe(res);
+            return;
+          }
+        }
+        if (url.startsWith("/animations/") && url.endsWith(".glb")) {
+          const file = path.join(publicSrc, url.slice(1)); // url is /animations/..., slice(1) makes it animations/...
+          if (fs.existsSync(file)) {
+            res.setHeader("Content-Type", "model/gltf-binary");
+            fs.createReadStream(file).pipe(res);
+            return;
+          }
+        }
+        if (url.startsWith("/public_src/")) {
+          if (url === "/public_src/screenshotter.html") {
+            return next();
+          }
+          const file = path.join(publicSrc, url.slice("/public_src/".length));
+          if (fs.existsSync(file) && fs.statSync(file).isFile()) {
+            const ext = path.extname(file);
+            const types: Record<string, string> = {
+              ".html": "text/html",
+              ".png": "image/png",
+              ".jpg": "image/jpeg",
+            };
+            if (types[ext]) res.setHeader("Content-Type", types[ext]);
+            fs.createReadStream(file).pipe(res);
+            return;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
+/**
+ * Redirects the upstream @elizaos/app-core CharacterRoster to milady's
+ * version so CharacterView picks up the correct preset meta (catchphrases,
+ * avatar indices, character names).
+ */
+function characterOverridePlugin(): Plugin {
+  const miladyRoster = path.resolve(here, "src/components/CharacterRoster.tsx");
+  const miladyEditor = path.resolve(here, "src/components/CharacterEditor.tsx");
+  return {
+    name: "milady-character-override",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (!importer || !importer.includes("app-core")) return;
+      if (!importer.includes("components/") && !importer.includes("App.tsx"))
+        return;
+      if (source === "./CharacterRoster") return miladyRoster;
+      if (source === "./CharacterView") return miladyEditor;
+    },
+  };
+}
+
+function sparkWasmDataUrlPlugin(): Plugin {
+  return {
+    name: "spark-wasm-data-url",
+    enforce: "pre",
+    transform(code, id) {
+      if (!id.includes("@sparkjsdev/spark/dist/spark.module.js")) return null;
+      const patched = code.replace(
+        /new URL\(("(?:data:application\/wasm;base64,[^"]+)"),\s*import\.meta\.url\)/g,
+        "$1",
+      );
+      if (patched === code) return null;
+      return {
+        code: patched,
+        map: null,
+      };
+    },
+  };
+}
+
 export default defineConfig({
   root: here,
   base: "./",
   publicDir: path.resolve(here, "public"),
-  plugins: [tailwindcss(), react(), electronCorsPlugin()],
+  plugins: [
+    characterOverridePlugin(),
+    publicSrcPlugin(),
+    sparkWasmDataUrlPlugin(),
+    tailwindcss(),
+    react(),
+    desktopCorsPlugin(),
+  ],
+  esbuild: {
+    // Override tsconfig target — some extended configs use ES2024 which older
+    // esbuild does not recognize; this avoids "Unrecognized target environment"
+    // warnings regardless of tsconfig resolution.
+    target: "es2022",
+  },
   resolve: {
-    dedupe: ["react", "react-dom"],
+    dedupe: ["react", "react-dom", "three", "@sparkjsdev/spark"],
     alias: [
-      /**
-       * Map @milady/capacitor-* packages directly to their TS source.
-       * This bypasses resolution issues with local workspace symlinks and
-       * outdated bundle exports in the plugins' dist folders.
-       */
+      // Capacitor plugins — resolve to local plugin sources
       {
-        find: /^@milady\/capacitor-(.*)/,
-        replacement: path.resolve(here, "plugins/$1/src/index.ts"),
+        find: /^@miladyai\/capacitor-agent$/,
+        replacement: path.resolve(here, "plugins/agent/src/index.ts"),
       },
-      // Allow importing from the milady src (but NOT @milady/capacitor-* plugin packages)
       {
-        find: /^@milady(?!\/capacitor-)/,
-        replacement: path.resolve(miladyRoot, "src"),
+        find: /^@miladyai\/capacitor-camera$/,
+        replacement: path.resolve(here, "plugins/camera/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/capacitor-canvas$/,
+        replacement: path.resolve(here, "plugins/canvas/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/capacitor-desktop$/,
+        replacement: path.resolve(here, "plugins/desktop/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/capacitor-gateway$/,
+        replacement: path.resolve(here, "plugins/gateway/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/capacitor-location$/,
+        replacement: path.resolve(here, "plugins/location/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/capacitor-screencapture$/,
+        replacement: path.resolve(here, "plugins/screencapture/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/capacitor-swabble$/,
+        replacement: path.resolve(here, "plugins/swabble/src/index.ts"),
+      },
+      {
+        find: /^@miladyai\/capacitor-talkmode$/,
+        replacement: path.resolve(here, "plugins/talkmode/src/index.ts"),
       },
     ],
   },
   optimizeDeps: {
-    include: ["react", "react-dom"],
+    include: ["react", "react-dom", "three"],
+    exclude: ["@sparkjsdev/spark"],
   },
   build: {
     outDir: path.resolve(here, "dist"),
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: enableAppSourceMaps,
     target: "es2022",
     rollupOptions: {
       input: {
         main: path.resolve(here, "index.html"),
+        screenshotter: path.resolve(here, "public_src/screenshotter.html"),
+      },
+      output: {
+        manualChunks: {
+          "vendor-3d": ["three", "@pixiv/three-vrm", "@sparkjsdev/spark"],
+        },
       },
     },
     commonjsOptions: {
@@ -111,7 +262,8 @@ export default defineConfig({
       allow: [here, miladyRoot],
     },
     watch: {
-      usePolling: true,
+      // Polling is only needed in Docker/WSL where native fs events are unreliable
+      usePolling: process.env.MILADY_DEV_POLLING === "1",
     },
   },
 });

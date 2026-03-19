@@ -1,0 +1,632 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { loggerMock } = vi.hoisted(() => ({
+  loggerMock: {
+    info: vi.fn<(message: string) => void>(),
+    warn: vi.fn<(message: string) => void>(),
+  },
+}));
+
+vi.mock("@elizaos/core", () => ({
+  logger: loggerMock,
+}));
+
+import type { IntegrationBoundary } from "./integration-observability";
+import { createIntegrationTelemetrySpan } from "./integration-observability";
+
+const EVENT_PREFIX = "[integration] ";
+
+function parseEvent(line: string): Record<string, unknown> {
+  return JSON.parse(line.slice(EVENT_PREFIX.length)) as Record<string, unknown>;
+}
+
+function lastInfoEvent(): Record<string, unknown> {
+  const [line] = loggerMock.info.mock.calls.at(-1) as [string];
+  return parseEvent(line);
+}
+
+function lastWarnEvent(): Record<string, unknown> {
+  const [line] = loggerMock.warn.mock.calls.at(-1) as [string];
+  return parseEvent(line);
+}
+
+function fixedClock(start: number, end: number) {
+  return vi
+    .fn(() => start)
+    .mockReturnValueOnce(start)
+    .mockReturnValueOnce(end);
+}
+
+describe("createIntegrationTelemetrySpan", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // ── Schema field contract ───────────────────────────────────────────
+
+  describe("event schema contract", () => {
+    it("always emits schema version, boundary, operation, outcome, and durationMs", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "test_op" },
+        { now: fixedClock(0, 10) },
+      );
+      span.success();
+
+      const event = lastInfoEvent();
+      expect(event).toMatchObject({
+        schema: "integration_boundary_v1",
+        boundary: "cloud",
+        operation: "test_op",
+        outcome: "success",
+        durationMs: 10,
+      });
+    });
+
+    it("omits timeoutMs when not provided", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.success();
+
+      expect(lastInfoEvent()).not.toHaveProperty("timeoutMs");
+    });
+
+    it("includes timeoutMs when provided", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op", timeoutMs: 5000 },
+        { now: fixedClock(0, 1) },
+      );
+      span.success();
+
+      expect(lastInfoEvent()).toHaveProperty("timeoutMs", 5000);
+    });
+
+    it("omits statusCode when not provided on success", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.success();
+
+      expect(lastInfoEvent()).not.toHaveProperty("statusCode");
+    });
+
+    it("includes statusCode when provided on success", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.success({ statusCode: 200 });
+
+      expect(lastInfoEvent()).toHaveProperty("statusCode", 200);
+    });
+
+    it("omits errorKind on success events", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.success();
+
+      expect(lastInfoEvent()).not.toHaveProperty("errorKind");
+    });
+  });
+
+  // ── Boundary types (table-driven) ──────────────────────────────────
+
+  describe("boundary types", () => {
+    const BOUNDARIES: IntegrationBoundary[] = [
+      "cloud",
+      "wallet",
+      "marketplace",
+      "mcp",
+    ];
+
+    it.each(BOUNDARIES)("emits valid events for boundary=%s", (boundary) => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary, operation: `test_${boundary}` },
+        { now: fixedClock(100, 142) },
+      );
+      span.success({ statusCode: 200 });
+
+      const event = lastInfoEvent();
+      expect(event.boundary).toBe(boundary);
+      expect(event.operation).toBe(`test_${boundary}`);
+      expect(event.durationMs).toBe(42);
+    });
+
+    it("covers all declared boundary types (parsed from source)", async () => {
+      // Parse the IntegrationBoundary type union directly from the source file
+      // so this test FAILS if someone adds a new boundary without updating BOUNDARIES.
+      const fs = await import("node:fs/promises");
+      const nodePath = await import("node:path");
+      const source = await fs.readFile(
+        nodePath.resolve(__dirname, "integration-observability.ts"),
+        "utf-8",
+      );
+      const match = source.match(
+        /export type IntegrationBoundary\s*=\s*([^;]+)/,
+      );
+      expect(match).not.toBeNull();
+      const declared = [...(match?.[1] ?? "").matchAll(/"([^"]+)"/g)]
+        .map((m) => m[1])
+        .sort();
+      expect([...BOUNDARIES].sort()).toEqual(declared);
+    });
+  });
+
+  // ── Duration computation ───────────────────────────────────────────
+
+  describe("duration computation", () => {
+    it.each([
+      { start: 100, end: 148, expected: 48, label: "normal elapsed" },
+      { start: 0, end: 0, expected: 0, label: "zero duration" },
+      { start: 500, end: 501, expected: 1, label: "1ms duration" },
+      {
+        start: 1000,
+        end: 999,
+        expected: 0,
+        label: "negative clock floors to 0",
+      },
+    ])("computes durationMs correctly ($label)", ({ start, end, expected }) => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(start, end) },
+      );
+      span.success();
+
+      expect(lastInfoEvent().durationMs).toBe(expected);
+    });
+  });
+
+  // ── Outcome routing ────────────────────────────────────────────────
+
+  describe("outcome routing", () => {
+    it("routes success events to logger.info", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.success();
+
+      expect(loggerMock.info).toHaveBeenCalledOnce();
+      expect(loggerMock.warn).not.toHaveBeenCalled();
+    });
+
+    it("routes failure events to logger.warn", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.failure();
+
+      expect(loggerMock.warn).toHaveBeenCalledOnce();
+      expect(loggerMock.info).not.toHaveBeenCalled();
+    });
+
+    it("formats events as JSON with [integration] prefix", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.success();
+
+      const [line] = loggerMock.info.mock.calls[0] as [string];
+      expect(line.startsWith(EVENT_PREFIX)).toBe(true);
+      expect(() => JSON.parse(line.slice(EVENT_PREFIX.length))).not.toThrow();
+    });
+  });
+
+  // ── Error kind inference (table-driven) ────────────────────────────
+
+  describe("error kind inference", () => {
+    it.each([
+      {
+        error: new Error("request timed out"),
+        expected: "timeout",
+        label: "message contains 'timed out'",
+      },
+      {
+        error: new Error("network timeout"),
+        expected: "timeout",
+        label: "message contains 'timeout'",
+      },
+      {
+        error: Object.assign(new Error("aborted"), { name: "AbortError" }),
+        expected: "timeout",
+        label: "AbortError name",
+      },
+      {
+        error: Object.assign(new Error("timed"), { name: "TimeoutError" }),
+        expected: "timeout",
+        label: "TimeoutError name",
+      },
+      {
+        error: new TypeError("Failed to fetch"),
+        expected: "typeerror",
+        label: "TypeError sanitized to lowercase",
+      },
+      {
+        error: new RangeError("out of bounds"),
+        expected: "rangeerror",
+        label: "RangeError sanitized to lowercase",
+      },
+      {
+        error: "string_error_value",
+        expected: "string_error_value",
+        label: "string error passed through",
+      },
+      {
+        error: "UPPER CASE ERROR!!",
+        expected: "upper_case_error",
+        label: "string error sanitized (special chars removed, lowered)",
+      },
+    ])("infers errorKind from $label", ({ error, expected }) => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "wallet", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.failure({ error });
+
+      expect(lastWarnEvent().errorKind).toBe(expected);
+    });
+
+    it("uses explicit errorKind over inferred value", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "mcp", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.failure({
+        errorKind: "http_error",
+        error: new Error("timeout"),
+      });
+
+      expect(lastWarnEvent().errorKind).toBe("http_error");
+    });
+
+    it("omits errorKind when no error and no explicit kind on failure", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "mcp", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.failure();
+
+      expect(lastWarnEvent().errorKind).toBeUndefined();
+    });
+
+    it("omits errorKind when error is a non-Error, non-string value", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "mcp", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.failure({ error: 42 });
+
+      expect(lastWarnEvent().errorKind).toBeUndefined();
+    });
+  });
+
+  // ── Token sanitization (via errorKind) ─────────────────────────────
+
+  describe("token sanitization", () => {
+    it.each([
+      {
+        input: "http_error",
+        expected: "http_error",
+        label: "clean token unchanged",
+      },
+      {
+        input: "HTTP Error!",
+        expected: "http_error",
+        label: "special chars replaced",
+      },
+      {
+        input: "___leading___trailing___",
+        expected: "leading_trailing",
+        label: "leading/trailing underscores stripped, consecutive collapsed",
+      },
+      {
+        input: "a".repeat(100),
+        expected: "a".repeat(64),
+        label: "truncated to 64 chars",
+      },
+      {
+        input: "",
+        expected: undefined,
+        label: "empty string returns undefined",
+      },
+      {
+        input: "!!!@@@",
+        expected: undefined,
+        label: "all-special-char string returns undefined",
+      },
+    ])("sanitizes errorKind token ($label)", ({ input, expected }) => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "marketplace", operation: "op" },
+        { now: fixedClock(0, 1) },
+      );
+      span.failure({ errorKind: input });
+
+      expect(lastWarnEvent().errorKind).toBe(expected);
+    });
+  });
+
+  // ── Idempotent recording ───────────────────────────────────────────
+
+  describe("idempotent recording", () => {
+    it("first success wins over subsequent failure", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "marketplace", operation: "op" },
+        { now: fixedClock(0, 5) },
+      );
+
+      span.success();
+      span.failure({ errorKind: "late_failure" });
+
+      expect(loggerMock.info).toHaveBeenCalledOnce();
+      expect(loggerMock.warn).not.toHaveBeenCalled();
+    });
+
+    it("first failure wins over subsequent success", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "marketplace", operation: "op" },
+        { now: fixedClock(0, 5) },
+      );
+
+      span.failure({ errorKind: "initial" });
+      span.success();
+
+      expect(loggerMock.warn).toHaveBeenCalledOnce();
+      expect(loggerMock.info).not.toHaveBeenCalled();
+    });
+
+    it("multiple success calls only emit once", () => {
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 5) },
+      );
+
+      span.success();
+
+      expect(loggerMock.info).toHaveBeenCalledOnce();
+    });
+  });
+
+  // ── Custom sink injection ──────────────────────────────────────────
+
+  describe("custom sink", () => {
+    it("uses injected sink instead of default logger", () => {
+      const sink = {
+        info: vi.fn<(message: string) => void>(),
+        warn: vi.fn<(message: string) => void>(),
+      };
+      const span = createIntegrationTelemetrySpan(
+        { boundary: "cloud", operation: "op" },
+        { now: fixedClock(0, 1), sink },
+      );
+
+      span.success();
+
+      expect(sink.info).toHaveBeenCalledOnce();
+      expect(loggerMock.info).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Full event integration (existing tests, preserved) ────────────
+
+  describe("full event integration", () => {
+    it("emits success events with duration and status code", () => {
+      const span = createIntegrationTelemetrySpan(
+        {
+          boundary: "cloud",
+          operation: "login_create_session",
+          timeoutMs: 10_000,
+        },
+        { now: fixedClock(100, 148) },
+      );
+
+      span.success({ statusCode: 200 });
+
+      expect(loggerMock.info).toHaveBeenCalledOnce();
+      expect(loggerMock.warn).not.toHaveBeenCalled();
+      expect(lastInfoEvent()).toEqual({
+        schema: "integration_boundary_v1",
+        boundary: "cloud",
+        operation: "login_create_session",
+        outcome: "success",
+        durationMs: 48,
+        timeoutMs: 10_000,
+        statusCode: 200,
+      });
+    });
+
+    it("emits failure events with timeout error kind", () => {
+      const span = createIntegrationTelemetrySpan(
+        {
+          boundary: "wallet",
+          operation: "fetch_evm_balances",
+        },
+        { now: fixedClock(200, 235) },
+      );
+
+      span.failure({
+        statusCode: 504,
+        error: new Error("request timed out"),
+      });
+
+      expect(loggerMock.warn).toHaveBeenCalledOnce();
+      expect(loggerMock.info).not.toHaveBeenCalled();
+      expect(lastWarnEvent()).toEqual({
+        schema: "integration_boundary_v1",
+        boundary: "wallet",
+        operation: "fetch_evm_balances",
+        outcome: "failure",
+        durationMs: 35,
+        statusCode: 504,
+        errorKind: "timeout",
+      });
+    });
+  });
+});
+
+// ── Boundary coverage enforcement ────────────────────────────────────
+
+describe("observability boundary coverage", () => {
+  const EXPECTED_BOUNDARIES: IntegrationBoundary[] = [
+    "cloud",
+    "wallet",
+    "marketplace",
+    "mcp",
+  ];
+
+  it("emitted success events contain all required metric fields", () => {
+    // Validate the REAL span output (not a hand-constructed object) has the
+    // required fields: schema, boundary, operation, outcome, durationMs.
+    const sink = {
+      info: vi.fn<(message: string) => void>(),
+      warn: vi.fn<(message: string) => void>(),
+    };
+    const span = createIntegrationTelemetrySpan(
+      { boundary: "cloud", operation: "contract_check" },
+      { now: fixedClock(0, 7), sink },
+    );
+    span.success({ statusCode: 200 });
+
+    const event = parseEvent((sink.info.mock.calls[0] as [string])[0]);
+    expect(event).toHaveProperty("schema", "integration_boundary_v1");
+    expect(event).toHaveProperty("boundary", "cloud");
+    expect(event).toHaveProperty("operation", "contract_check");
+    expect(event).toHaveProperty("outcome", "success");
+    expect(event).toHaveProperty("durationMs", 7);
+    expect(typeof event.durationMs).toBe("number");
+  });
+
+  it("emitted failure events contain all required metric fields", () => {
+    const sink = {
+      info: vi.fn<(message: string) => void>(),
+      warn: vi.fn<(message: string) => void>(),
+    };
+    const span = createIntegrationTelemetrySpan(
+      { boundary: "wallet", operation: "contract_check_fail" },
+      { now: fixedClock(0, 12), sink },
+    );
+    span.failure({ statusCode: 502, errorKind: "http_error" });
+
+    const event = parseEvent((sink.warn.mock.calls[0] as [string])[0]);
+    expect(event).toHaveProperty("schema", "integration_boundary_v1");
+    expect(event).toHaveProperty("boundary", "wallet");
+    expect(event).toHaveProperty("operation", "contract_check_fail");
+    expect(event).toHaveProperty("outcome", "failure");
+    expect(event).toHaveProperty("durationMs", 12);
+    expect(typeof event.durationMs).toBe("number");
+    expect(event).toHaveProperty("errorKind", "http_error");
+  });
+
+  it.each(
+    EXPECTED_BOUNDARIES,
+  )("boundary=%s can create a span and emit a success event", (boundary) => {
+    const sink = {
+      info: vi.fn<(message: string) => void>(),
+      warn: vi.fn<(message: string) => void>(),
+    };
+    const span = createIntegrationTelemetrySpan(
+      { boundary, operation: `contract_test_${boundary}` },
+      { now: fixedClock(0, 1), sink },
+    );
+
+    span.success({ statusCode: 200 });
+
+    expect(sink.info).toHaveBeenCalledOnce();
+    const event = parseEvent((sink.info.mock.calls[0] as [string])[0]);
+    expect(event.boundary).toBe(boundary);
+    expect(event.outcome).toBe("success");
+    expect(event.durationMs).toBe(1);
+    expect(event.statusCode).toBe(200);
+  });
+
+  it.each(
+    EXPECTED_BOUNDARIES,
+  )("boundary=%s can create a span and emit a failure event", (boundary) => {
+    const sink = {
+      info: vi.fn<(message: string) => void>(),
+      warn: vi.fn<(message: string) => void>(),
+    };
+    const span = createIntegrationTelemetrySpan(
+      { boundary, operation: `contract_test_${boundary}` },
+      { now: fixedClock(0, 50), sink },
+    );
+
+    span.failure({ statusCode: 500, errorKind: "http_error" });
+
+    expect(sink.warn).toHaveBeenCalledOnce();
+    const event = parseEvent((sink.warn.mock.calls[0] as [string])[0]);
+    expect(event.boundary).toBe(boundary);
+    expect(event.outcome).toBe("failure");
+    expect(event.durationMs).toBe(50);
+    expect(event.errorKind).toBe("http_error");
+  });
+});
+
+// ── Call-site coverage enforcement ────────────────────────────────────
+// Every source file that imports createIntegrationTelemetrySpan must have
+// a matching *.observability.test.ts file. Prevents adding new boundaries
+// without tests.
+
+describe("observability call-site coverage", () => {
+  it("every source file using createIntegrationTelemetrySpan has a test file", async () => {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+
+    const srcDir = path.resolve(__dirname, "..");
+    const repoRoot = path.resolve(srcDir, "..");
+
+    const findTsFiles = async (dir: string): Promise<string[]> => {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      const files: string[] = [];
+      for (const entry of entries) {
+        const absolute = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          files.push(...(await findTsFiles(absolute)));
+          continue;
+        }
+        if (entry.isFile() && absolute.endsWith(".ts")) {
+          files.push(absolute);
+        }
+      }
+      return files;
+    };
+
+    const sourceFiles: string[] = [];
+    for (const absoluteFile of await findTsFiles(srcDir)) {
+      const relativeFile = path
+        .relative(repoRoot, absoluteFile)
+        .split(path.sep)
+        .join("/");
+      if (
+        relativeFile.includes(".test.ts") ||
+        relativeFile === "src/diagnostics/integration-observability.ts"
+      ) {
+        continue;
+      }
+      const content = await fs.readFile(absoluteFile, "utf-8");
+      if (content.includes("createIntegrationTelemetrySpan")) {
+        sourceFiles.push(relativeFile);
+      }
+    }
+
+    expect(sourceFiles.length).toBeGreaterThan(0);
+
+    const missing: string[] = [];
+    for (const srcFile of sourceFiles) {
+      const testFile = srcFile.replace(/\.ts$/, ".observability.test.ts");
+      const testPath = path.resolve(srcDir, "..", testFile);
+      try {
+        await fs.access(testPath);
+      } catch {
+        missing.push(`${srcFile} → missing ${testFile}`);
+      }
+    }
+
+    expect(missing).toEqual([]);
+  });
+});

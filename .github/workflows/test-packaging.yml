@@ -15,7 +15,7 @@ on:
 jobs:
   validate:
     name: Validate Packaging Configs
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +29,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          check-latest: false
 
       - name: Install validation dependencies
         run: pip install pyyaml build twine
@@ -38,7 +39,7 @@ jobs:
 
   build-pypi:
     name: Build & Test PyPI Package
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,6 +53,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          check-latest: false
 
       - name: Build
         working-directory: packaging/pypi
@@ -116,11 +118,10 @@ jobs:
 
           # CLI entry point exists
           which milady
-          which milady
 
   build-pypi-matrix:
     name: PyPI on Python ${{ matrix.python }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     strategy:
       matrix:
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
@@ -137,6 +138,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          check-latest: false
 
       - name: Build and test
         working-directory: packaging/pypi

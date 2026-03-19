@@ -43,7 +43,7 @@ jobs:
   # ── Prepare version info ───────────────────────────────────────────────
   prepare:
     name: Prepare
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       version: ${{ steps.ver.outputs.version }}
       npm_version: ${{ steps.ver.outputs.npm_version }}
@@ -91,7 +91,7 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.pypi)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       id-token: write  # OIDC trusted publishing
     environment:
@@ -145,6 +145,9 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: packaging/pypi/dist/
+          # Falls back to API token when OIDC trusted publishing is not
+          # configured (e.g. first publish before the project exists on PyPI).
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
   # ── Homebrew ───────────────────────────────────────────────────────────
   update-homebrew:
@@ -153,7 +156,7 @@ jobs:
     if: |
       (github.event_name == 'release' && needs.prepare.outputs.is_prerelease == 'false') ||
       (github.event_name == 'workflow_dispatch' && inputs.homebrew)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -163,7 +166,7 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ needs.prepare.outputs.npm_version }}"
-          URL="https://registry.npmjs.org/milady/-/milady-${VERSION}.tgz"
+          URL="https://registry.npmjs.org/miladyai/-/miladyai-${VERSION}.tgz"
 
           echo "Fetching tarball SHA256 for $URL ..."
           SHA256=$(curl -fsSL "$URL" | sha256sum | cut -d' ' -f1)
@@ -201,7 +204,7 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.snap)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -230,7 +233,7 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.snapcraft.outputs.snap }}
-          release: ${{ needs.prepare.outputs.is_prerelease == 'true' && 'edge' || 'stable' }}
+          release: ${{ needs.prepare.outputs.is_prerelease == 'true' && 'edge,beta' || 'stable,candidate' }}
 
   # ── Debian / apt ───────────────────────────────────────────────────────
   build-deb:
@@ -239,7 +242,9 @@ jobs:
     if: |
       (github.event_name == 'release') ||
       (github.event_name == 'workflow_dispatch' && inputs.apt)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write  # gh release upload
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -254,7 +259,7 @@ jobs:
 
       - name: Setup Bun
         run: |
-          curl -fsSL https://bun.sh/install | bash
+          curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.10"
           echo "$HOME/.bun/bin" >> $GITHUB_PATH
           export PATH="$HOME/.bun/bin:$PATH"
           bun --version
@@ -274,8 +279,12 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y debhelper devscripts fakeroot
+          for attempt in 1 2 3; do
+            sudo apt-get update && \
+            sudo apt-get install -y debhelper devscripts fakeroot && break
+            echo "apt-get attempt $attempt failed, retrying in 10s..."
+            sleep 10
+          done
 
       - name: Build .deb package
         run: |
@@ -310,15 +319,31 @@ jobs:
           done
 
       - name: Trigger APT repository update
-        if: github.event_name == 'release'
+        if: success()
         env:
           GH_TOKEN: ${{ secrets.APT_REPO_TOKEN }}
         run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          DEB_VERSION="${{ needs.prepare.outputs.deb_version }}"
+
+          # Find the actual .deb filename
+          DEB_FILE=$(ls deb-output/*.deb | head -1)
+          DEB_BASENAME=$(basename "$DEB_FILE")
+
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="v${VERSION}"
+          fi
+
+          DEB_URL="https://github.com/milady-ai/milady/releases/download/${TAG}/${DEB_BASENAME}"
+
+          echo "Dispatching APT update: version=$VERSION, deb_url=$DEB_URL"
           gh api repos/milady-ai/apt/dispatches \
             --method POST \
             -f event_type=update-apt \
-            -f "client_payload[version]=${{ needs.prepare.outputs.version }}" \
-            -f "client_payload[deb_url]=https://github.com/milady-ai/milady/releases/download/${{ github.event.release.tag_name }}/milady_${{ needs.prepare.outputs.deb_version }}_all.deb"
+            -f "client_payload[version]=$VERSION" \
+            -f "client_payload[deb_url]=$DEB_URL"
 
   # ── Flatpak ────────────────────────────────────────────────────────────
   build-flatpak:
@@ -327,7 +352,9 @@ jobs:
     if: |
       (github.event_name == 'release' && needs.prepare.outputs.is_prerelease == 'false') ||
       (github.event_name == 'workflow_dispatch' && inputs.flatpak)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write  # gh release upload
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -337,8 +364,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --user flathub org.freedesktop.Platform//23.08
-          flatpak install -y --user flathub org.freedesktop.Sdk//23.08
+          flatpak install -y --user flathub org.freedesktop.Platform//24.08
+          flatpak install -y --user flathub org.freedesktop.Sdk//24.08
 
       - name: Build Flatpak
         working-directory: packaging/flatpak
@@ -372,7 +399,7 @@ jobs:
     name: Publish Summary
     needs: [prepare, publish-pypi, update-homebrew, publish-snap, build-deb, build-flatpak]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Summary
         run: |

@@ -1,4 +1,4 @@
-import { defineConfig } from "tsdown";
+// tsdown config — no import needed, defineConfig is a type-only identity fn
 
 const env = {
   NODE_ENV: "production",
@@ -17,7 +17,13 @@ const nativeExternals = [
   "fsevents",
 ];
 
-export default defineConfig([
+// @elizaos/plugin-* are loaded at runtime via dynamic import(); every entry that
+// transitively includes eliza.ts needs the plugin regex so rolldown treats them
+// as external and doesn't emit UNRESOLVED_IMPORT warnings.
+const pluginExternal = /^@elizaos\/plugin-/;
+const allExternals = [...nativeExternals, pluginExternal];
+
+export default [
   {
     entry: "src/index.ts",
     env,
@@ -32,19 +38,33 @@ export default defineConfig([
     platform: "node",
     unbundle: true,
     inlineOnly: false,
-    external: nativeExternals,
+    external: allExternals,
   },
   {
     entry: "src/runtime/eliza.ts",
     env,
     fixedExtension: false,
     platform: "node",
-    unbundle: true,
     inlineOnly: false,
-    external: nativeExternals,
+    external: allExternals,
+    outputOptions: { codeSplitting: false },
   },
   {
     entry: "src/api/server.ts",
+    env,
+    fixedExtension: false,
+    platform: "node",
+    inlineOnly: false,
+    external: allExternals,
+    // Disable code splitting to prevent circular chunk dependencies.
+    // Without this, rolldown places the __exportAll runtime helper in the
+    // entry chunk and shared chunks import it back, creating a circular
+    // import that fails when the desktop runtime loads server.js via dynamic import().
+    outputOptions: { codeSplitting: false },
+  },
+  {
+    entry: "src/plugins/whatsapp/index.ts",
+    outDir: "dist/plugins/whatsapp",
     env,
     fixedExtension: false,
     platform: "node",
@@ -52,4 +72,4 @@ export default defineConfig([
     inlineOnly: false,
     external: nativeExternals,
   },
-]);
+];

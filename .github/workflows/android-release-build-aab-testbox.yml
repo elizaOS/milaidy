@@ -1,0 +1,66 @@
+name: Blacksmith Testbox (Android Release Build)
+on:
+  workflow_dispatch:
+    inputs:
+      testbox_id:
+        type: string
+        description: "Testbox session ID"
+        required: true
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "22"
+
+jobs:
+  build-aab:
+    name: Build Signed AAB (Testbox Warmup)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Begin Testbox
+        uses: useblacksmith/begin-testbox@d0e04585c26905fdd92c94a09c159544c7ee1b67 # v2
+        with:
+          testbox_id: ${{ inputs.testbox_id }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Determine version
+        id: version
+        run: |
+          VERSION_NAME=$(node -p "require('./package.json').version")
+          MAJOR=$(echo "$VERSION_NAME" | cut -d. -f1)
+          MINOR=$(echo "$VERSION_NAME" | cut -d. -f2 | cut -d- -f1)
+          PATCH=$(echo "$VERSION_NAME" | cut -d. -f3 | cut -d- -f1)
+          PRE=$(echo "$VERSION_NAME" | grep -oP '(?<=\.)\d+$' || echo "0")
+          VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 10000 + PATCH * 100 + PRE ))
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION_NAME (code: $VERSION_CODE)"
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run Testbox
+        uses: ./.github/actions/run-testbox-quiet
+        if: always()
+        env:
+          MILADY_VERSION_NAME: ${{ steps.version.outputs.name }}
+          MILADY_VERSION_CODE: ${{ steps.version.outputs.code }}
+
+      - name: Clean up temporary keystore material
+        if: always()
+        run: rm -f /tmp/milady-upload.jks

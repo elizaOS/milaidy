@@ -1,6 +1,11 @@
+---
+title: Contributing Guide
+description: How to set up a development environment, follow code conventions, and submit pull requests to the Milady project.
+---
+
 # Contributing Guide
 
-Welcome to Milaidy! This guide will help you set up your development environment and contribute effectively.
+Welcome to Milady! This guide will help you set up your development environment and contribute effectively.
 
 ## Table of Contents
 
@@ -18,25 +23,29 @@ Welcome to Milaidy! This guide will help you set up your development environment
 
 ### Prerequisites
 
-- **Node.js 22+** — Required runtime
-- **pnpm** — Package manager (recommended)
+- **Node.js 22 LTS** — Required runtime (`.nvmrc` is pinned)
+- **Bun** — Package manager/runtime used by repo scripts
 - **Git** — Version control
 
 ### Quick Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/milady-ai/milaidy.git
-cd milaidy
+git clone https://github.com/milady-ai/milady.git
+cd milady
+
+# Match repository Node version
+nvm use || nvm install
+node -v  # expected: v22.22.0
 
 # Install dependencies
-pnpm install
+bun install
 
 # Build the project
-pnpm build
+bun run build
 
 # Run in development mode
-pnpm dev
+bun run dev
 ```
 
 ---
@@ -47,15 +56,15 @@ pnpm dev
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Node.js | ≥22.12.0 | Runtime |
-| pnpm | Latest | Package management |
+| Node.js | 22.x LTS | Runtime |
+| Bun | Latest | Package management + script runner |
 | Git | Latest | Version control |
 
 ### Optional Tools
 
 | Tool | Purpose |
 |------|---------|
-| Bun | Alternative runtime (faster) |
+| pnpm | Optional package manager for non-repo workflows |
 | Docker | Container testing |
 | VS Code | Recommended editor |
 
@@ -78,50 +87,61 @@ pnpm dev
 
 ---
 
-## Project Structure
+## Monorepo Structure
+
+Milady is a monorepo managed with Turborepo and Bun workspaces.
 
 ```
-milaidy/
+milady/
+├── packages/                # Shared packages
+│   ├── typescript/          # @elizaos/core — Core TypeScript SDK
+│   ├── elizaos/             # CLI tool (milady command)
+│   ├── skills/              # Skills system and bundled skills
+│   ├── docs/                # Documentation site (Mintlify)
+│   ├── schemas/             # Protobuf schemas
+│   └── tui/                 # Terminal UI
+├── plugins/                 # Official plugins (100+)
+│   ├── plugin-anthropic/    # Anthropic model provider
+│   ├── plugin-telegram/     # Telegram connector
+│   ├── plugin-discord/      # Discord connector
+│   └── ...
 ├── apps/
 │   ├── app/                 # Desktop/mobile app (Capacitor + React)
-│   │   ├── electron/        # Electron desktop wrapper
-│   │   ├── src/             # React UI components
-│   │   └── test/            # App tests
 │   └── chrome-extension/    # Browser extension
-├── deploy/                  # Docker deployment configs
-├── docs/                    # Documentation
-│   └── guides/              # Developer guides (you are here)
-├── packages/
-│   ├── mldy/                # MLDY package
-│   ├── plugin-ui/           # UI plugin system
-│   └── psyop/               # PSYOP package
-├── scripts/                 # Build and dev tooling
-├── skills/                  # Skill cache
-├── src/                     # Core source code
-│   ├── actions/             # Agent actions
-│   ├── api/                 # HTTP API routes
-│   ├── cli/                 # CLI commands
-│   ├── config/              # Configuration handling
-│   ├── emotes/              # Avatar emote system
-│   ├── hooks/               # Runtime hooks
-│   ├── permissions/         # Permission system
-│   ├── plugins/             # Built-in plugins
-│   ├── providers/           # Context providers
-│   ├── runtime/             # ElizaOS runtime wrapper
-│   ├── security/            # Security utilities
-│   ├── services/            # Background services
-│   ├── shared/              # Shared utilities
-│   ├── terminal/            # Terminal integration
-│   ├── triggers/            # Trigger system
-│   ├── tui/                 # Terminal UI
-│   └── utils/               # Helper utilities
+├── src/                     # Milady runtime
+│   ├── runtime/             # ElizaOS runtime bootstrap
+│   ├── plugins/             # Built-in Milady plugins
+│   ├── config/              # Configuration loading
+│   ├── services/            # Registry client, plugin manager
+│   └── api/                 # REST API server
+├── skills/                  # Workspace skills
+├── docs/                    # Documentation (this site)
+├── scripts/                 # Build and utility scripts
 ├── test/                    # Test setup, helpers, e2e
 ├── AGENTS.md                # Repository guidelines
-├── README.md                # Project overview
-├── package.json             # Root package config
 ├── plugins.json             # Plugin registry manifest
-├── tsconfig.json            # TypeScript config
 └── tsdown.config.ts         # Build config
+```
+
+### Turbo Build System
+
+Turborepo orchestrates builds across all packages with dependency-aware caching:
+
+```bash
+# Build everything (with caching)
+turbo run build
+
+# Build a specific package
+turbo run build --filter=@elizaos/core
+
+# Build a package and all its dependencies
+turbo run build --filter=@elizaos/plugin-telegram...
+
+# Run tests across all packages
+turbo run test
+
+# Lint all packages
+turbo run lint
 ```
 
 ### Key Entry Points
@@ -130,9 +150,9 @@ milaidy/
 |------|---------|
 | `src/entry.ts` | CLI entry point |
 | `src/index.ts` | Library exports |
-| `src/runtime/eliza.ts` | ElizaOS runtime initialization |
-| `src/runtime/milaidy-plugin.ts` | Main Milaidy plugin |
-| `milaidy.mjs` | npm bin entry |
+| `src/runtime/eliza.ts` | elizaOS runtime initialization |
+| `src/runtime/milady-plugin.ts` | Main Milady plugin |
+| `milady.mjs` | npm bin entry |
 
 ---
 
@@ -142,60 +162,70 @@ milaidy/
 
 ```bash
 # Full build (TypeScript + UI)
-pnpm build
+bun run build
 
 # TypeScript only
-pnpm build:node
+bun run build:node
 
-# Desktop app (Electron)
-pnpm build:desktop
+# Desktop app (Electrobun)
+bun run build:desktop
 
 # Mobile (Android)
-pnpm build:android
+bun run build:android
 
 # Mobile (iOS)
-pnpm build:ios
+bun run build:ios
 ```
 
 ### Development Mode
 
 ```bash
 # Run with auto-reload on changes
-pnpm dev
+bun run dev
 
 # Run CLI directly (via tsx)
-pnpm milaidy start
+bun run milady start
 
 # UI development only
-pnpm dev:ui
+bun run dev:ui
 
 # Desktop app development
-pnpm dev:desktop
+bun run dev:desktop
 
 # Terminal UI
-pnpm tui
+bun run tui
 ```
 
 ### Testing
 
+Coverage thresholds are enforced in `vitest.config.ts`: 25% lines/functions/statements, 15% branches. CI fails when coverage falls below these floors.
+
 ```bash
 # Run all tests (parallel)
-pnpm test
+bun run test
 
-# Run with coverage
-pnpm test:coverage
+# Run with coverage (enforces thresholds)
+bun run test:coverage
 
 # Watch mode
-pnpm test:watch
+bun run test:watch
 
 # End-to-end tests
-pnpm test:e2e
+bun run test:e2e
 
 # Live tests (requires API keys)
-MILADY_LIVE_TEST=1 pnpm test:live
+MILADY_LIVE_TEST=1 bun run test:live
 
 # Docker-based tests
-pnpm test:docker:all
+bun run test:docker:all
+```
+
+### Runtime fallback for Bun crashes
+
+If Bun segfaults on your platform during long-running sessions, run Milady on Node runtime:
+
+```bash
+MILADY_RUNTIME=node bun run milady start
 ```
 
 ### Test File Conventions
@@ -231,8 +261,8 @@ pnpm test:docker:all
 
 ### Product vs Code Naming
 
-- **Milaidy** — Product name, headings, docs
-- **milaidy** — CLI command, package name, paths, config keys
+- **Milady** — Product name, headings, docs
+- **milady** — CLI command, package name, paths, config keys
 
 ### Formatting
 
@@ -240,13 +270,13 @@ The project uses **Biome** for formatting and linting:
 
 ```bash
 # Check formatting and lint
-pnpm check
+bun run check
 
 # Fix formatting issues
-pnpm format:fix
+bun run format:fix
 
 # Fix lint issues
-pnpm lint:fix
+bun run lint:fix
 ```
 
 ### File Size
@@ -294,10 +324,11 @@ try {
 
 ### Branch Strategy
 
-| Branch | Purpose | Deploys to |
-|--------|---------|------------|
-| `main` | Stable releases | Production (npm) |
-| `develop` | Integration branch | Alpha/staging |
+| Branch | Purpose | Publishes to |
+|--------|---------|-------------|
+| `develop` | Active development, PRs merge here | Alpha releases |
+| `main` | Stable releases | Beta releases |
+| GitHub Releases | Tagged versions | Production (npm, PyPI, Snap, APT, Homebrew) |
 | `feature/*` | New features | — |
 | `fix/*` | Bug fixes | — |
 
@@ -318,8 +349,8 @@ try {
 
 3. **Run checks before pushing**
    ```bash
-   pnpm check
-   pnpm test
+   bun run check
+   bun run test
    ```
 
 4. **Push and create PR**
@@ -365,9 +396,9 @@ chore: update @elizaos/core to 2.0.0-alpha.4
 
 Before submitting:
 
-- [ ] Code builds without errors (`pnpm build`)
-- [ ] Tests pass (`pnpm test`)
-- [ ] Linting passes (`pnpm check`)
+- [ ] Code builds without errors (`bun run build`)
+- [ ] Tests pass (`bun run test`)
+- [ ] Linting passes (`bun run check`)
 - [ ] New code has tests (if applicable)
 - [ ] Documentation updated (if applicable)
 - [ ] Commit messages follow conventions
@@ -396,7 +427,7 @@ Join the community Discord for help, discussions, and announcements:
 **[discord.gg/ai16z](https://discord.gg/ai16z)**
 
 Channels:
-- `#milaidy` — Milaidy-specific discussion
+- `#milady` — Milady-specific discussion
 - `#dev` — Development help
 - `#showcase` — Share what you've built
 
@@ -414,7 +445,7 @@ When filing an issue:
 2. **Use templates** — Fill out the provided template
 3. **Include reproduction** — Steps to reproduce
 4. **Share logs** — Relevant error output
-5. **Environment** — OS, Node version, Milaidy version
+5. **Environment** — OS, Node version, Milady version
 
 ```markdown
 ## Bug Report
@@ -423,7 +454,7 @@ When filing an issue:
 Brief description
 
 **To reproduce:**
-1. Run `milaidy start`
+1. Run `milady start`
 2. Send message "..."
 3. Error occurs
 
@@ -433,7 +464,7 @@ What should happen
 **Environment:**
 - OS: macOS 14.2
 - Node: 22.12.0
-- Milaidy: 2.0.0-alpha.8
+- Milady: 2.0.0-alpha.8
 
 **Logs:**
 ```
@@ -454,7 +485,7 @@ What should happen
 
 ## Next Steps
 
-- [Plugin Development Guide](./plugin-development.md) — Build plugins
-- [Skills Documentation](./skills.md) — Create skills
-- [Local Plugin Development](./local-plugins.md) — Develop locally
-- Browse the codebase: start with `src/runtime/milaidy-plugin.ts`
+- [Plugin Development Guide](/plugins/development) — Build plugins
+- [Skills Documentation](/plugins/skills) — Create skills
+- [Local Plugin Development](/plugins/local-plugins) — Develop locally
+- Browse the codebase: start with `src/runtime/milady-plugin.ts`

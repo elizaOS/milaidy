@@ -3,7 +3,7 @@
  * to stderr if a newer version is available (like npm's update-notifier).
  */
 
-import { loadMiladyConfig } from "../config/config";
+import { loadElizaConfig } from "../config/config";
 import { theme } from "../terminal/theme";
 import { checkForUpdate, resolveChannel } from "./update-checker";
 
@@ -13,9 +13,9 @@ export function scheduleUpdateNotification(): void {
   if (notified) return;
   notified = true;
 
-  let config: Partial<ReturnType<typeof loadMiladyConfig>> = {};
+  let config: Partial<ReturnType<typeof loadElizaConfig>> = {};
   try {
-    config = loadMiladyConfig();
+    config = loadElizaConfig();
   } catch {
     // Keep behavior resilient to malformed config files: continue with defaults.
   }
@@ -31,7 +31,7 @@ export function scheduleUpdateNotification(): void {
 
       process.stderr.write(
         `\n${theme.accent("Update available:")} ${theme.muted(result.currentVersion)} -> ${theme.success(result.latestVersion)}${theme.muted(suffix)}\n` +
-          `${theme.muted("Run")} ${theme.command("milady update")} ${theme.muted("to install")}\n\n`,
+          `${theme.muted("Run")} ${theme.command("eliza update")} ${theme.muted("to install")}\n\n`,
       );
     })
     .catch(() => {});

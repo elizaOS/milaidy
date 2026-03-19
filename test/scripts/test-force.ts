@@ -1,10 +1,87 @@
 #!/usr/bin/env -S node --import tsx
-import { spawnSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { forceFreePort, type PortProcess } from "../src/cli/ports";
 
 const DEFAULT_PORT = 18789;
+
+export interface PortProcess {
+  pid: string;
+  command: string;
+}
+
+function forceFreePort(port: number): PortProcess[] {
+  if (process.platform === "win32") {
+    try {
+      const out = execSync(
+        `netstat -ano | findstr :${port} | findstr LISTENING`,
+        {
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "ignore"],
+        },
+      );
+      const processes = Array.from(
+        new Set(
+          out
+            .split("\n")
+            .map((line) => line.trim().split(/\s+/).pop())
+            .filter((pid): pid is string => Boolean(pid)),
+        ),
+      ).map((pid) => ({ pid, command: "LISTENING" }));
+
+      for (const processInfo of processes) {
+        try {
+          execSync(`taskkill /F /PID ${processInfo.pid}`, { stdio: "ignore" });
+        } catch {
+          // Ignore races where the process exits between discovery and kill.
+        }
+      }
+
+      return processes;
+    } catch {
+      return [];
+    }
+  }
+
+  try {
+    const pidOutput = execSync(`lsof -ti :${port} -sTCP:LISTEN`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+    const pids = Array.from(
+      new Set(
+        pidOutput
+          .split("\n")
+          .map((pid) => pid.trim())
+          .filter((pid) => pid.length > 0),
+      ),
+    );
+    const processes = pids.map((pid) => {
+      let command = "unknown";
+      try {
+        command = execSync(`ps -o comm= -p ${pid}`, {
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "ignore"],
+        }).trim();
+      } catch {
+        // Fall back to the default command label if ps lookup fails.
+      }
+      return { pid, command };
+    });
+
+    for (const processInfo of processes) {
+      try {
+        execSync(`kill -9 ${processInfo.pid}`, { stdio: "ignore" });
+      } catch {
+        // Ignore races where the process exits between discovery and kill.
+      }
+    }
+
+    return processes;
+  } catch {
+    return [];
+  }
+}
 
 function killGatewayListeners(port: number): PortProcess[] {
   try {

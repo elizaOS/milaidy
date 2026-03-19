@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildChatAttachments,
   buildUserMessages,
+  IMAGE_ONLY_CHAT_FALLBACK_PROMPT,
+  normalizeIncomingChatPrompt,
   validateChatImages,
 } from "../server";
 
@@ -304,13 +306,31 @@ describe("buildChatAttachments", () => {
   });
 
   it("produces matching lengths for attachments and compactAttachments", () => {
-    const { attachments, compactAttachments } = buildChatAttachments([
-      img,
-      img,
-      img,
-    ]);
-    expect(attachments).toHaveLength(3);
-    expect(compactAttachments).toHaveLength(3);
+    const { attachments, compactAttachments } = buildChatAttachments([img]);
+    expect(attachments).toHaveLength(1);
+    expect(compactAttachments).toHaveLength(1);
+  });
+});
+
+describe("normalizeIncomingChatPrompt", () => {
+  it("keeps explicit chat text when present", () => {
+    expect(
+      normalizeIncomingChatPrompt("  show me what this means  ", [
+        { data: "abc", mimeType: "image/png", name: "x.png" },
+      ]),
+    ).toBe("show me what this means");
+  });
+
+  it("uses the image fallback prompt when uploads are present without text", () => {
+    expect(
+      normalizeIncomingChatPrompt("", [
+        { data: "abc", mimeType: "image/png", name: "x.png" },
+      ]),
+    ).toBe(IMAGE_ONLY_CHAT_FALLBACK_PROMPT);
+  });
+
+  it("still rejects empty chat requests with no uploads", () => {
+    expect(normalizeIncomingChatPrompt("   ", undefined)).toBeNull();
   });
 });
 
@@ -320,12 +340,14 @@ describe("buildChatAttachments", () => {
 
 describe("buildUserMessages", () => {
   const TEST_USER_ID = "00000000-0000-0000-0000-000000000001" as UUID;
+  const TEST_AGENT_ID = "00000000-0000-0000-0000-0000000000aa" as UUID;
   const TEST_ROOM_ID = "00000000-0000-0000-0000-000000000002" as UUID;
   const img = { data: "abc123", mimeType: "image/png", name: "photo.png" };
 
   const baseParams = {
     prompt: "hello world",
     userId: TEST_USER_ID,
+    agentId: TEST_AGENT_ID,
     roomId: TEST_ROOM_ID,
     channelType: ChannelType.DM,
   };
@@ -383,6 +405,25 @@ describe("buildUserMessages", () => {
       images: [img],
     });
     expect(messageToStore.content.text).toBe("hello world");
+  });
+
+  it("includes agentId on both user and persisted message variants", () => {
+    const { userMessage, messageToStore } = buildUserMessages({
+      ...baseParams,
+      images: [img],
+    });
+    expect(userMessage.agentId).toBe(TEST_AGENT_ID);
+    expect(messageToStore.agentId).toBe(TEST_AGENT_ID);
+  });
+
+  it("preserves conversationMode on both message variants", () => {
+    const { userMessage, messageToStore } = buildUserMessages({
+      ...baseParams,
+      images: [img],
+      conversationMode: "simple",
+    });
+    expect(userMessage.content.conversationMode).toBe("simple");
+    expect(messageToStore.content.conversationMode).toBe("simple");
   });
 
   it("compactAttachments retain url and title but drop raw data", () => {

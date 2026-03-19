@@ -1,7 +1,7 @@
 /**
  * Credential storage and token refresh for subscription providers.
  *
- * Stores OAuth credentials in ~/.milady/auth/ as JSON files.
+ * Stores OAuth credentials in ~/.eliza/auth/ as JSON files.
  */
 
 import fs from "node:fs";
@@ -10,18 +10,18 @@ import path from "node:path";
 import { logger } from "@elizaos/core";
 import { refreshAnthropicToken } from "./anthropic";
 import { refreshCodexToken } from "./openai-codex";
-import type {
-  OAuthCredentials,
-  StoredCredentials,
-  SubscriptionProvider,
+import {
+  type OAuthCredentials,
+  type StoredCredentials,
+  SUBSCRIPTION_PROVIDER_MAP,
+  type SubscriptionProvider,
 } from "./types";
 
 const AUTH_DIR = path.join(
-  process.env.MILADY_HOME || path.join(os.homedir(), ".milady"),
+  process.env.ELIZA_HOME || path.join(os.homedir(), ".eliza"),
   "auth",
 );
 
-/** Buffer before expiry to trigger refresh (5 minutes) */
 const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
 function ensureAuthDir(): void {
@@ -34,9 +34,6 @@ function credentialPath(provider: SubscriptionProvider): string {
   return path.join(AUTH_DIR, `${provider}.json`);
 }
 
-/**
- * Save credentials for a provider.
- */
 export function saveCredentials(
   provider: SubscriptionProvider,
   credentials: OAuthCredentials,
@@ -55,9 +52,6 @@ export function saveCredentials(
   logger.info(`[auth] Saved ${provider} credentials`);
 }
 
-/**
- * Load stored credentials for a provider.
- */
 export function loadCredentials(
   provider: SubscriptionProvider,
 ): StoredCredentials | null {
@@ -73,9 +67,6 @@ export function loadCredentials(
   }
 }
 
-/**
- * Delete stored credentials for a provider.
- */
 export function deleteCredentials(provider: SubscriptionProvider): void {
   const filePath = credentialPath(provider);
   try {
@@ -88,19 +79,12 @@ export function deleteCredentials(provider: SubscriptionProvider): void {
   }
 }
 
-/**
- * Check if credentials exist and are not expired.
- */
 export function hasValidCredentials(provider: SubscriptionProvider): boolean {
   const stored = loadCredentials(provider);
   if (!stored) return false;
   return stored.credentials.expires > Date.now();
 }
 
-/**
- * Get a valid access token, refreshing if needed.
- * Returns null if no credentials stored or refresh fails.
- */
 export async function getAccessToken(
   provider: SubscriptionProvider,
 ): Promise<string | null> {
@@ -109,12 +93,10 @@ export async function getAccessToken(
 
   const { credentials } = stored;
 
-  // Token still valid
   if (credentials.expires > Date.now() + REFRESH_BUFFER_MS) {
     return credentials.access;
   }
 
-  // Need to refresh
   logger.info(`[auth] Refreshing ${provider} token...`);
   try {
     let refreshed: OAuthCredentials;
@@ -127,7 +109,6 @@ export async function getAccessToken(
       return null;
     }
 
-    // Save refreshed credentials
     saveCredentials(provider, refreshed);
     return refreshed.access;
   } catch (err) {
@@ -136,9 +117,6 @@ export async function getAccessToken(
   }
 }
 
-/**
- * Get all configured subscription providers and their status.
- */
 export function getSubscriptionStatus(): Array<{
   provider: SubscriptionProvider;
   configured: boolean;
@@ -160,26 +138,54 @@ export function getSubscriptionStatus(): Array<{
   });
 }
 
-/**
- * Apply subscription credentials to the environment.
- * Called at startup to make credentials available to ElizaOS plugins.
- */
-export async function applySubscriptionCredentials(): Promise<void> {
-  // Anthropic subscription → set ANTHROPIC_API_KEY
+export async function applySubscriptionCredentials(config?: {
+  agents?: {
+    defaults?: { subscriptionProvider?: string; model?: { primary?: string } };
+  };
+}): Promise<void> {
   const anthropicToken = await getAccessToken("anthropic-subscription");
   if (anthropicToken) {
     process.env.ANTHROPIC_API_KEY = anthropicToken;
     logger.info(
       "[auth] Applied Anthropic subscription credentials to environment",
     );
+    try {
+      const { applyClaudeCodeStealth } = await import("./apply-stealth");
+      applyClaudeCodeStealth();
+    } catch (err) {
+      logger.warn(
+        `[auth] Failed to apply Claude stealth: ${
+          err instanceof Error ? err.message : err
+        }`,
+      );
+    }
   }
 
-  // OpenAI Codex subscription → set OPENAI_API_KEY
   const codexToken = await getAccessToken("openai-codex");
   if (codexToken) {
     process.env.OPENAI_API_KEY = codexToken;
     logger.info(
       "[auth] Applied OpenAI Codex subscription credentials to environment",
     );
+  }
+
+  if (config?.agents?.defaults) {
+    const defaults = config.agents.defaults;
+    const provider =
+      defaults.subscriptionProvider as keyof typeof SUBSCRIPTION_PROVIDER_MAP;
+    const modelId = provider ? SUBSCRIPTION_PROVIDER_MAP[provider] : undefined;
+    if (modelId) {
+      if (!defaults.model) {
+        defaults.model = { primary: modelId };
+        logger.info(
+          `[auth] Auto-set model.primary to "${modelId}" from subscription provider`,
+        );
+      } else if (!defaults.model.primary) {
+        defaults.model.primary = modelId;
+        logger.info(
+          `[auth] Auto-set model.primary to "${modelId}" from subscription provider`,
+        );
+      }
+    }
   }
 }

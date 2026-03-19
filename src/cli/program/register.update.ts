@@ -1,15 +1,15 @@
 /**
- * `milady update` — check for and install updates.
+ * `eliza update` — check for and install updates.
  *
- *   milady update                   # Check & update on current channel
- *   milady update --channel beta    # Switch to beta and update
- *   milady update --check           # Check only, don't install
- *   milady update status            # Show versions across all channels
- *   milady update channel [name]    # View or change release channel
+ *   eliza update                   # Check & update on current channel
+ *   eliza update --channel beta    # Switch to beta and update
+ *   eliza update --check           # Check only, don't install
+ *   eliza update status            # Show versions across all channels
+ *   eliza update channel [name]    # View or change release channel
  */
 
 import type { Command } from "commander";
-import type { ReleaseChannel } from "../../config/types.milady";
+import type { ReleaseChannel } from "../../config/types.eliza";
 import { theme } from "../../terminal/theme";
 import { CLI_VERSION } from "../version";
 
@@ -48,7 +48,7 @@ async function updateAction(opts: {
   check?: boolean;
   force?: boolean;
 }): Promise<void> {
-  const { loadMiladyConfig, saveMiladyConfig } = await import(
+  const { loadElizaConfig, saveElizaConfig } = await import(
     "../../config/config"
   );
   const { checkForUpdate, resolveChannel } = await import(
@@ -57,7 +57,7 @@ async function updateAction(opts: {
   const { detectInstallMethod, performUpdate } = await import(
     "../../services/self-updater"
   );
-  const config = loadMiladyConfig();
+  const config = loadElizaConfig();
   let newChannel: ReleaseChannel | undefined;
 
   if (opts.channel) {
@@ -65,7 +65,7 @@ async function updateAction(opts: {
     const oldChannel = resolveChannel(config.update);
 
     if (newChannel !== oldChannel) {
-      saveMiladyConfig({
+      saveElizaConfig({
         ...config,
         update: {
           ...config.update,
@@ -84,7 +84,7 @@ async function updateAction(opts: {
   const effectiveChannel = newChannel ?? resolveChannel(config.update);
 
   console.log(
-    `\n${theme.heading("Milady Update")}  ${theme.muted(`(channel: ${effectiveChannel})`)}`,
+    `\n${theme.heading("Eliza Update")}  ${theme.muted(`(channel: ${effectiveChannel})`)}`,
   );
   console.log(theme.muted(`Current version: ${CLI_VERSION}\n`));
   console.log("Checking for updates...\n");
@@ -116,7 +116,7 @@ async function updateAction(opts: {
   );
 
   if (opts.check) {
-    console.log(theme.muted("  Run `milady update` to install the update.\n"));
+    console.log(theme.muted("  Run `eliza update` to install the update.\n"));
     return;
   }
 
@@ -164,19 +164,19 @@ async function updateAction(opts: {
     );
   }
   console.log(
-    theme.muted("  Restart milady for the new version to take effect.\n"),
+    theme.muted("  Restart eliza for the new version to take effect.\n"),
   );
 }
 
 async function statusAction(): Promise<void> {
-  const { loadMiladyConfig } = await import("../../config/config");
+  const { loadElizaConfig } = await import("../../config/config");
   const { resolveChannel, fetchAllChannelVersions } = await import(
     "../../services/update-checker"
   );
   const { detectInstallMethod } = await import("../../services/self-updater");
   console.log(`\n${theme.heading("Version Status")}\n`);
 
-  const config = loadMiladyConfig();
+  const config = loadElizaConfig();
   const channel = resolveChannel(config.update);
 
   console.log(`  Installed:  ${theme.accent(CLI_VERSION)}`);
@@ -203,11 +203,11 @@ async function statusAction(): Promise<void> {
 }
 
 async function channelAction(channelArg: string | undefined): Promise<void> {
-  const { loadMiladyConfig, saveMiladyConfig } = await import(
+  const { loadElizaConfig, saveElizaConfig } = await import(
     "../../config/config"
   );
   const { resolveChannel } = await import("../../services/update-checker");
-  const config = loadMiladyConfig();
+  const config = loadElizaConfig();
   const current = resolveChannel(config.update);
 
   if (!channelArg) {
@@ -222,7 +222,7 @@ async function channelAction(channelArg: string | undefined): Promise<void> {
       );
     }
     console.log(
-      `\n  ${theme.muted("Switch with: milady update channel <stable|beta|nightly>")}\n`,
+      `\n  ${theme.muted("Switch with: eliza update channel <stable|beta|nightly>")}\n`,
     );
     return;
   }
@@ -236,7 +236,7 @@ async function channelAction(channelArg: string | undefined): Promise<void> {
     return;
   }
 
-  saveMiladyConfig({
+  saveElizaConfig({
     ...config,
     update: {
       ...config.update,
@@ -251,7 +251,7 @@ async function channelAction(channelArg: string | undefined): Promise<void> {
   );
   console.log(theme.muted(`  ${CHANNEL_DESCRIPTIONS[newChannel]}`));
   console.log(
-    `\n  ${theme.muted("Run `milady update` to fetch the latest version from this channel.")}\n`,
+    `\n  ${theme.muted("Run `eliza update` to fetch the latest version from this channel.")}\n`,
   );
 }
 

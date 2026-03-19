@@ -1,5 +1,6 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { ElizaConfig } from "../config/types";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
   type CharacterRouteState,
@@ -8,30 +9,45 @@ import {
 
 function createRuntimeStub(): AgentRuntime {
   const character: Record<string, unknown> = {
-    name: "Milady",
+    name: "Eliza",
     bio: ["Initial bio"],
     system: "System prompt",
     adjectives: ["curious"],
-    topics: ["ai"],
+    topics: ["fashion", "ai"],
     style: { all: ["be concise"], chat: [], post: [] },
+    messageExamples: [
+      {
+        examples: [
+          { name: "{{user1}}", content: { text: "hello" } },
+          { name: "Eliza", content: { text: "hi" } },
+        ],
+      },
+    ],
     postExamples: ["post one"],
   };
 
   return {
     character,
     useModel: vi.fn(async () => "generated output"),
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("character routes", () => {
   let state: CharacterRouteState;
   let pickRandomNames: ReturnType<typeof vi.fn>;
+  let saveConfig: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     pickRandomNames = vi.fn(() => ["Reimu"]);
+    saveConfig = vi.fn();
     state = {
       runtime: createRuntimeStub(),
-      agentName: "Milady",
+      agentName: "Eliza",
+      config: {
+        agents: {
+          list: [{ id: "main", default: true, name: "Eliza" }],
+        },
+      } as ElizaConfig,
     };
   });
 
@@ -47,6 +63,7 @@ describe("character routes", () => {
         method: ctx.method,
         pathname: ctx.pathname,
         state: ctx.runtime,
+        saveConfig,
         readJsonBody: async () => ctx.readJsonBody(),
         json: (res, data, status) => ctx.json(res, data, status),
         error: (res, message, status) => ctx.error(res, message, status),
@@ -72,10 +89,12 @@ describe("character routes", () => {
 
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({
-      agentName: "Milady",
+      agentName: "Eliza",
       character: {
-        name: "Milady",
+        name: "Eliza",
         bio: ["Initial bio"],
+        topics: ["fashion", "ai"],
+        messageExamples: expect.any(Array),
       },
     });
   });
@@ -94,12 +113,127 @@ describe("character routes", () => {
     expect(result.status).toBe(200);
     expect(state.agentName).toBe("Sakuya");
     expect(
-      (state.runtime as unknown as { character: Record<string, unknown> })
-        .character.name,
+      (state.runtime as { character: Record<string, unknown> }).character.name,
     ).toBe("Sakuya");
     expect(result.payload).toMatchObject({
       ok: true,
       agentName: "Sakuya",
+    });
+  });
+
+  test("updates message examples", async () => {
+    const messageExamples = [
+      {
+        examples: [
+          { name: "{{user1}}", content: { text: "question" } },
+          { name: "Sakuya", content: { text: "answer" } },
+        ],
+      },
+    ];
+
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/character",
+      body: {
+        messageExamples,
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(
+      (state.runtime as { character: Record<string, unknown> }).character
+        .messageExamples,
+    ).toEqual(messageExamples);
+  });
+
+  test("persists the full character payload including username across save and reload", async () => {
+    const fullCharacter = {
+      name: "Sakuya",
+      username: "Sakuya",
+      bio: ["new bio", "second line"],
+      system: "new system",
+      adjectives: ["precise", "calm"],
+      topics: ["timekeeping", "discipline"],
+      style: {
+        all: ["Be exact"],
+        chat: ["Stay calm"],
+        post: ["Be clear"],
+      },
+      messageExamples: [
+        {
+          examples: [
+            { name: "{{user1}}", content: { text: "status?" } },
+            { name: "Sakuya", content: { text: "On track." } },
+          ],
+        },
+      ],
+      postExamples: ["Mission remains on schedule."],
+    };
+
+    const putResult = await invoke({
+      method: "PUT",
+      pathname: "/api/character",
+      body: fullCharacter,
+    });
+
+    expect(putResult.status).toBe(200);
+    expect(putResult.payload).toMatchObject({
+      ok: true,
+      agentName: "Sakuya",
+      character: fullCharacter,
+    });
+    expect(state.agentName).toBe("Sakuya");
+    expect(
+      (state.runtime as { character: Record<string, unknown> }).character,
+    ).toMatchObject(fullCharacter);
+
+    const getResult = await invoke({
+      method: "GET",
+      pathname: "/api/character",
+    });
+
+    expect(getResult.status).toBe(200);
+    expect(getResult.payload).toMatchObject({
+      agentName: "Sakuya",
+      character: fullCharacter,
+    });
+  });
+
+  test("syncs character post examples into config so they survive restart", async () => {
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/character",
+      body: {
+        name: "Reimu",
+        topics: ["shrines", "danmaku"],
+        postExamples: ["default fallback post"],
+        messageExamples: [
+          {
+            examples: [
+              { name: "{{user1}}", content: { text: "hi" } },
+              { name: "Reimu", content: { text: "hello" } },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(saveConfig).toHaveBeenCalledTimes(1);
+    expect(state.config?.agents?.list?.[0]).toMatchObject({
+      id: "main",
+      default: true,
+      name: "Reimu",
+      topics: ["shrines", "danmaku"],
+      postExamples: ["default fallback post"],
+      messageExamples: [
+        {
+          examples: [
+            { name: "{{user1}}", content: { text: "hi" } },
+            { name: "Reimu", content: { text: "hello" } },
+          ],
+        },
+      ],
     });
   });
 
@@ -130,14 +264,14 @@ describe("character routes", () => {
     expect(pickRandomNames).toHaveBeenCalledWith(1);
   });
 
-  test("generates character content with model", async () => {
+  test("generates character content with model (bio)", async () => {
     const result = await invoke({
       method: "POST",
       pathname: "/api/character/generate",
       body: {
         field: "bio",
         context: {
-          name: "Milady",
+          name: "Eliza",
           system: "agent system",
           bio: "bio text",
         },
@@ -147,9 +281,55 @@ describe("character routes", () => {
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({ generated: "generated output" });
     expect(
-      (state.runtime as unknown as { useModel: ReturnType<typeof vi.fn> })
-        .useModel,
+      (state.runtime as { useModel: ReturnType<typeof vi.fn> }).useModel,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  test("generates character content with model (system)", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/character/generate",
+      body: {
+        field: "system",
+        context: {
+          name: "Eliza",
+          system: "agent system",
+          bio: "bio text",
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({ generated: "generated output" });
+    expect(
+      (state.runtime as { useModel: ReturnType<typeof vi.fn> }).useModel,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  test("requests chat examples in the saved messageExamples schema", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/character/generate",
+      body: {
+        field: "chatExamples",
+        context: {
+          name: "Milady",
+          system: "agent system",
+          bio: "bio text",
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    const useModel = (
+      state.runtime as unknown as {
+        useModel: ReturnType<typeof vi.fn>;
+      }
+    ).useModel;
+    const call = useModel.mock.calls[0];
+    expect(call?.[1]?.prompt).toContain('"examples"');
+    expect(call?.[1]?.prompt).toContain('"name"');
+    expect(call?.[1]?.prompt).toContain('Use the "name" field');
   });
 
   test("returns error when generation field is unknown", async () => {
@@ -159,7 +339,7 @@ describe("character routes", () => {
       body: {
         field: "not-real",
         context: {},
-      } as unknown as Record<string, unknown>,
+      } as Record<string, unknown>,
     });
 
     expect(result.status).toBe(400);

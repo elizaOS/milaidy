@@ -346,7 +346,7 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
             lastTranscript = trimmed
         }
 
-        notifyListeners("transcript", [
+        notifyListeners("transcript", data: [
             "transcript": trimmed,
             "isFinal": isFinal
         ])
@@ -402,7 +402,7 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
         setState("processing", "Processing")
         stopRecognition()
 
-        notifyListeners("transcript", [
+        notifyListeners("transcript", data: [
             "transcript": transcript,
             "isFinal": true
         ])
@@ -449,7 +449,7 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
             && !(effectiveApiKey ?? "").isEmpty
             && !(effectiveVoiceId ?? "").isEmpty
 
-        notifyListeners("speaking", [
+        notifyListeners("speaking", data: [
             "text": text,
             "isSystemTts": !canUseElevenLabs
         ])
@@ -513,7 +513,7 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         call.resolve(result)
 
-        notifyListeners("speakComplete", [
+        notifyListeners("speakComplete", data: [
             "completed": !interrupted
         ])
 
@@ -785,7 +785,7 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
         if let language, let voice = AVSpeechSynthesisVoice(language: language) {
             utterance.voice = voice
         } else {
-            let lang = Locale.current.language.languageCode?.identifier ?? "en"
+            let lang = Locale.current.languageCode ?? "en"
             utterance.voice = AVSpeechSynthesisVoice(language: lang)
         }
 
@@ -871,8 +871,14 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func requestMicrophonePermission() async -> Bool {
         await withCheckedContinuation { continuation in
-            AVAudioApplication.requestRecordPermission { granted in
-                continuation.resume(returning: granted)
+            if #available(iOS 17.0, *) {
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            } else {
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
             }
         }
     }
@@ -929,7 +935,7 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
         state = newState
         statusText = newStatusText
 
-        notifyListeners("stateChange", [
+        notifyListeners("stateChange", data: [
             "state": newState,
             "previousState": previousState,
             "statusText": newStatusText,
@@ -938,7 +944,7 @@ public class TalkModePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func emitError(code: String, message: String, recoverable: Bool) {
-        notifyListeners("error", [
+        notifyListeners("error", data: [
             "code": code,
             "message": message,
             "recoverable": recoverable

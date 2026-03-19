@@ -74,11 +74,15 @@ If you are a coding agent submitting work:
 - **TypeScript strict mode.** No `any` unless you explain why.
 - **Biome lint/format.** Run `bun run check` before submitting.
 - **Tests required.** Bug fixes need regression tests. Features need unit tests.
-- **Coverage floor:** 70% lines/branches/functions/statements.
+- **Database changes:** Run `bun run db:check` after any database-related work. Migrations are auto-applied by `@elizaos/plugin-sql` — there are no manual migration files.
+- **Coverage floor:** 25% for lines, functions, and statements, and 15% for branches (enforced in `vitest.config.ts`).
 - **Files under ~500 LOC.** Split when it improves clarity.
 - **No secrets.** No real credentials, phone numbers, or live config in code.
 - **Minimal dependencies.** Don't add packages unless `src/` directly imports them.
 - **Commit messages:** concise, action-oriented (e.g., `milady: fix telegram reconnect on rate limit`)
+- **Desktop agent startup:** Do not remove try/catch or `.catch()` in `apps/app/electrobun/src/native/agent.ts` as "excess" exception handling. Those guards keep the desktop app window usable when the runtime fails to load; see `docs/electrobun-startup.md`.
+- **NODE_PATH setup:** Do not remove the `NODE_PATH` code in `src/runtime/eliza.ts`, `scripts/run-node.mjs`, or `apps/app/electrobun/src/native/agent.ts`. It ensures dynamic plugin imports resolve correctly; see `docs/plugin-resolution-and-node-path.md`.
+- **Bun exports patch:** Do not remove the `patchBunExports` logic in `scripts/patch-deps.mjs`. It fixes plugin load failures under Bun when a published package's `exports["."].bun` points to a missing `src/` path; see "Bun and published package exports" in `docs/plugin-resolution-and-node-path.md`.
 
 ## Security
 

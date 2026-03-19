@@ -5,22 +5,62 @@
  * features, and mounts the React application.
  */
 
-import "./styles.css";
+import "@elizaos/app-core/styles/styles.css";
+import "./onboarding-overrides.css";
+import "./native-plugin-entrypoints";
 
 import { App as CapacitorApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { App } from "@elizaos/app-core";
+import { client } from "@elizaos/app-core/api";
+// Import Capacitor bridge utilities
+import {
+  initializeCapacitorBridge,
+  initializeStorageBridge,
+  isElectrobunRuntime,
+} from "@elizaos/app-core/bridge";
+import type { BrandingConfig } from "@elizaos/app-core/config";
+import {
+  AGENT_READY_EVENT,
+  APP_PAUSE_EVENT,
+  APP_RESUME_EVENT,
+  COMMAND_PALETTE_EVENT,
+  CONNECT_EVENT,
+  dispatchElizaEvent as dispatchMiladyEvent,
+  SHARE_TARGET_EVENT,
+  TRAY_ACTION_EVENT,
+} from "@elizaos/app-core/events";
+import { applyLaunchConnectionFromUrl } from "@elizaos/app-core/platform";
+import { AppProvider } from "@elizaos/app-core/state";
 // Import the agent plugin
-import { Agent } from "@milady/capacitor-agent";
-import { Desktop } from "@milady/capacitor-desktop";
+import { Agent } from "@miladyai/capacitor-agent";
+import { Desktop } from "@miladyai/capacitor-desktop";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
-import { AppProvider } from "./AppContext";
-// Import Capacitor bridge utilities
-import { initializeCapacitorBridge } from "./bridge/capacitor-bridge";
-import { initializeStorageBridge } from "./bridge/storage-bridge";
+import { CharacterEditor } from "./components/CharacterEditor";
+import { DesktopOnboardingRuntime } from "./DesktopOnboardingRuntime";
+import { installDesktopPermissionsClientPatch } from "./desktop-permissions-client";
+import {
+  applyForceFreshOnboardingReset,
+  installForceFreshOnboardingClientPatch,
+} from "./onboarding-reset";
+
+const MILADY_BRANDING: Partial<BrandingConfig> = {
+  appName: "Milady",
+  orgName: "milady-ai",
+  repoName: "milady",
+  docsUrl: "https://docs.milady.ai",
+  appUrl: "https://app.milady.ai",
+  bugReportUrl:
+    "https://github.com/milady-ai/milady/issues/new?template=bug_report.yml",
+  hashtag: "#MiladyAgent",
+  fileExtension: ".milady-agent",
+  packageScope: "miladyai",
+  // Cloud-only in production; local dev mode allows running a local backend.
+  cloudOnly: !import.meta.env.DEV,
+};
 
 /**
  * Platform detection utilities
@@ -29,8 +69,21 @@ const platform = Capacitor.getPlatform();
 const isNative = Capacitor.isNativePlatform();
 const isIOS = platform === "ios";
 const isAndroid = platform === "android";
-const isElectron = platform === "electron";
-const isWeb = platform === "web";
+
+function isDesktopPlatform(): boolean {
+  return isElectrobunRuntime();
+}
+
+function isSettingsShell(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    new URLSearchParams(window.location.search).get("shell") === "settings"
+  );
+}
+
+function isWebPlatform(): boolean {
+  return platform === "web" && !isElectrobunRuntime();
+}
 
 interface ShareTargetFile {
   name: string;
@@ -48,19 +101,49 @@ interface ShareTargetPayload {
 declare global {
   interface Window {
     __MILADY_SHARE_QUEUE__?: ShareTargetPayload[];
+    __MILADY_CHARACTER_EDITOR__?: typeof CharacterEditor;
+    __MILADY_API_BASE__?: string;
   }
 }
+
+// Dev escape hatch: ?reset forces a truly fresh onboarding session by clearing
+// persisted state and temporarily suppressing stale backend resume config.
+applyForceFreshOnboardingReset();
+installForceFreshOnboardingClientPatch(client);
+installDesktopPermissionsClientPatch(client);
+
+// Register custom character editor for app-core's ViewRouter to pick up
+window.__MILADY_CHARACTER_EDITOR__ = CharacterEditor;
+
+// Point Eliza Cloud API to the correct base URL.
+(window as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ =
+  import.meta.env.VITE_CLOUD_BASE ?? "https://www.elizacloud.ai";
+
+// Inject onboarding style presets so the frontend-only onboarding flow
+// can populate character data without an API call.
+import { STYLE_PRESETS } from "../../../src/onboarding-presets";
+
+(window as Record<string, unknown>).__APP_ONBOARDING_STYLES__ = STYLE_PRESETS;
+
+// Override the VRM asset roster with Milady characters so avatar URLs
+// resolve to milady-*.vrm.gz instead of the upstream eliza-*.vrm.gz.
+window.__APP_VRM_ASSETS__ = [
+  { title: "Chen", slug: "milady-1" },
+  { title: "Jin", slug: "milady-2" },
+  { title: "Kei", slug: "milady-3" },
+  { title: "Momo", slug: "milady-4" },
+  { title: "Rin", slug: "milady-5" },
+  { title: "Ryu", slug: "milady-6" },
+  { title: "Satoshi", slug: "milady-7" },
+  { title: "Yuki", slug: "milady-8" },
+];
 
 function dispatchShareTarget(payload: ShareTargetPayload): void {
   if (!window.__MILADY_SHARE_QUEUE__) {
     window.__MILADY_SHARE_QUEUE__ = [];
   }
   window.__MILADY_SHARE_QUEUE__.push(payload);
-  document.dispatchEvent(
-    new CustomEvent("milady:share-target", {
-      detail: payload,
-    }),
-  );
+  dispatchMiladyEvent(SHARE_TARGET_EVENT, payload);
 }
 
 /**
@@ -77,9 +160,7 @@ async function initializeAgent(): Promise<void> {
     );
 
     // Dispatch event so the UI knows the agent is available
-    document.dispatchEvent(
-      new CustomEvent("milady:agent-ready", { detail: status }),
-    );
+    dispatchMiladyEvent(AGENT_READY_EVENT, status);
   } catch (err) {
     console.warn(
       "[Milady] Agent not available:",
@@ -99,7 +180,7 @@ async function initializePlatform(): Promise<void> {
   initializeCapacitorBridge();
 
   if (isIOS || isAndroid) {
-    // Configure status bar for mobile platforms (not available on Electron)
+    // Configure status bar for mobile platforms (not available on desktop)
     await initializeStatusBar();
 
     // Configure keyboard behavior
@@ -109,11 +190,11 @@ async function initializePlatform(): Promise<void> {
     initializeAppLifecycle();
   }
 
-  if (isElectron) {
-    // Electron-specific initialization
-    await initializeElectron();
+  if (isDesktopPlatform()) {
+    // Electrobun-specific initialization
+    await initializeDesktopShell();
   } else {
-    // On Electron the main process owns runtime startup; avoid an extra early
+    // On desktop the main process owns runtime startup; avoid an extra early
     // plugin status probe that can race backend boot and spam fetch errors.
     await initializeAgent();
   }
@@ -138,10 +219,7 @@ async function initializeStatusBar(): Promise<void> {
  */
 async function initializeKeyboard(): Promise<void> {
   if (isIOS) {
-    // Disable auto-scroll on iOS when keyboard appears
-    await Keyboard.setScroll({ isDisabled: true });
-
-    // Set keyboard accessory bar visibility
+    // Keep the accessory bar visible; shell mode now owns WebView scroll lock.
     await Keyboard.setAccessoryBarVisible({ isVisible: true });
   }
 
@@ -168,10 +246,10 @@ function initializeAppLifecycle(): void {
   CapacitorApp.addListener("appStateChange", ({ isActive }) => {
     if (isActive) {
       // App came to foreground - refresh data if needed
-      document.dispatchEvent(new CustomEvent("milady:app-resume"));
+      dispatchMiladyEvent(APP_RESUME_EVENT);
     } else {
       // App went to background
-      document.dispatchEvent(new CustomEvent("milady:app-pause"));
+      dispatchMiladyEvent(APP_PAUSE_EVENT);
     }
   });
 
@@ -236,11 +314,9 @@ function handleDeepLink(url: string): void {
               );
               break;
             }
-            document.dispatchEvent(
-              new CustomEvent("milady:connect", {
-                detail: { gatewayUrl: validatedUrl.href },
-              }),
-            );
+            dispatchMiladyEvent(CONNECT_EVENT, {
+              gatewayUrl: validatedUrl.href,
+            });
           } catch {
             console.error("[Milady] Invalid gateway URL format");
           }
@@ -280,17 +356,17 @@ function handleDeepLink(url: string): void {
 }
 
 /**
- * Initialize Electron-specific features
+ * Initialize desktop shell-specific features
  */
-async function initializeElectron(): Promise<void> {
-  document.body.classList.add("electron");
+async function initializeDesktopShell(): Promise<void> {
+  document.body.classList.add("desktop");
 
   try {
     const version = await Desktop.getVersion();
     const desktopNativeReady =
-      typeof version.electron === "string" &&
-      version.electron !== "N/A" &&
-      version.electron !== "unknown";
+      typeof version.runtime === "string" &&
+      version.runtime !== "N/A" &&
+      version.runtime !== "unknown";
     if (!desktopNativeReady) {
       return;
     }
@@ -301,18 +377,9 @@ async function initializeElectron(): Promise<void> {
       accelerator: "CommandOrControl+K",
     });
 
-    // Emote picker shortcut
-    await Desktop.registerShortcut({
-      id: "emote-picker",
-      accelerator: "CommandOrControl+E",
-    });
-
     await Desktop.addListener("shortcutPressed", (event: { id: string }) => {
       if (event.id === "command-palette") {
-        document.dispatchEvent(new CustomEvent("milady:command-palette"));
-      }
-      if (event.id === "emote-picker") {
-        document.dispatchEvent(new CustomEvent("milady:emote-picker"));
+        dispatchMiladyEvent(COMMAND_PALETTE_EVENT);
       }
     });
 
@@ -333,11 +400,7 @@ async function initializeElectron(): Promise<void> {
     await Desktop.addListener(
       "trayMenuClick",
       (event: { itemId: string; checked?: boolean }) => {
-        document.dispatchEvent(
-          new CustomEvent("milady:tray-action", {
-            detail: event,
-          }),
-        );
+        dispatchMiladyEvent(TRAY_ACTION_EVENT, event);
       },
     );
   } catch {}
@@ -381,11 +444,68 @@ function mountReactApp(): void {
 
   createRoot(rootEl).render(
     <StrictMode>
-      <AppProvider>
+      <AppProvider branding={MILADY_BRANDING}>
+        <DesktopOnboardingRuntime />
         <App />
       </AppProvider>
     </StrictMode>,
   );
+}
+
+/** Detect popout mode from URL params. */
+function isPopoutWindow(): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(
+    window.location.search || window.location.hash.split("?")[1] || "",
+  );
+  return params.has("popout");
+}
+
+/**
+ * In popout mode, inject the API base from the URL query string so the
+ * client can connect without the desktop main-process injection.
+ */
+function injectPopoutApiBase(): void {
+  const params = new URLSearchParams(
+    window.location.search || window.location.hash.split("?")[1] || "",
+  );
+  const apiBase = params.get("apiBase");
+  if (apiBase) {
+    // Allow secure remote backends and private-network development hosts.
+    try {
+      const parsed = new URL(apiBase);
+      const host = parsed.hostname;
+      const allowPrivateHttp =
+        /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+        /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+        /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host) ||
+        /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}$/.test(
+          host,
+        ) ||
+        host.endsWith(".local") ||
+        host.endsWith(".internal") ||
+        host.endsWith(".ts.net");
+      if (
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host === "::1" ||
+        host === window.location.hostname ||
+        parsed.protocol === "https:" ||
+        (parsed.protocol === "http:" && allowPrivateHttp)
+      ) {
+        window.__MILADY_API_BASE__ = apiBase;
+      } else {
+        console.warn("[Milady] Rejected non-local apiBase:", host);
+      }
+    } catch {
+      // Relative URL — only allow paths starting with "/" but not "//" (protocol-relative)
+      if (apiBase.startsWith("/") && !apiBase.startsWith("//")) {
+        window.__MILADY_API_BASE__ = apiBase;
+      } else {
+        console.warn("[Milady] Rejected invalid relative apiBase:", apiBase);
+      }
+    }
+  }
 }
 
 /**
@@ -394,6 +514,48 @@ function mountReactApp(): void {
 async function main(): Promise<void> {
   // Set up platform-specific styles first
   setupPlatformStyles();
+
+  try {
+    await applyLaunchConnectionFromUrl();
+  } catch (err) {
+    console.error(
+      "[Milady] Failed to apply managed cloud launch session:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  if (isPopoutWindow()) {
+    // Popout mode — skip platform init (agent lifecycle, Capacitor bridges,
+    // shortcuts, tray). Just inject the API base and mount the React app.
+    injectPopoutApiBase();
+    mountReactApp();
+    return;
+  }
+
+  if (isSettingsShell()) {
+    // Settings shell — inject the API base from URL params so the client
+    // connects to the same agent backend as the main window.
+    const settingsParams = new URLSearchParams(window.location.search);
+    const settingsApiBase = settingsParams.get("apiBase");
+    if (settingsApiBase) {
+      window.__MILADY_API_BASE__ = settingsApiBase;
+    }
+    // Apply stored theme (default to dark)
+    try {
+      const stored = localStorage.getItem("milady:ui-theme");
+      const theme = stored === "light" ? "light" : "dark";
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch {
+      document.documentElement.classList.add("dark");
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+    // Initialize storage and bridge so AppProvider can read cached auth state.
+    await initializeStorageBridge();
+    initializeCapacitorBridge();
+    mountReactApp();
+    return;
+  }
 
   // Mount the React app
   mountReactApp();
@@ -410,4 +572,11 @@ if (document.readyState === "loading") {
 }
 
 // Export platform utilities for use by other modules
-export { isAndroid, isElectron, isIOS, isNative, isWeb, platform };
+export {
+  isAndroid,
+  isDesktopPlatform as isDesktop,
+  isIOS,
+  isNative,
+  isWebPlatform as isWeb,
+  platform,
+};

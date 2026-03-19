@@ -1,6 +1,11 @@
+---
+title: Plugin Registry Guide
+description: How to discover, configure, submit, and maintain plugins in the Milady/elizaOS plugin registry.
+---
+
 # Plugin Registry Guide
 
-The plugin registry is the central index of available ElizaOS plugins. This guide covers discovering, using, and submitting plugins to the registry.
+The plugin registry is the central index of available elizaOS plugins. This guide covers discovering, using, and submitting plugins to the registry.
 
 ## Table of Contents
 
@@ -22,7 +27,7 @@ The plugin registry is:
 - **Metadata** including name, description, category, and configuration
 - **Discovery system** for finding and loading plugins
 
-Milaidy ships with a bundled `plugins.json` containing 90+ plugins from the ElizaOS ecosystem.
+Milady ships with a bundled `plugins.json` containing 90+ plugins from the elizaOS ecosystem.
 
 ---
 
@@ -31,33 +36,33 @@ Milaidy ships with a bundled `plugins.json` containing 90+ plugins from the Eliz
 ### List Available Plugins
 
 ```bash
-milaidy plugins list
+milady plugins list
 ```
 
 ### Search Plugins
 
 ```bash
-milaidy plugins list --search telegram
+milady plugins list --search telegram
 ```
 
 ### View Plugin Details
 
 ```bash
-milaidy plugins info telegram
+milady plugins info telegram
 ```
 
 ### Browse by Category
 
 ```bash
-milaidy plugins list --category connector
-milaidy plugins list --category model
-milaidy plugins list --category tool
+milady plugins list --category connector
+milady plugins list --category model
+milady plugins list --category tool
 ```
 
 ### Programmatic Access
 
 ```typescript
-import pluginIndex from "milaidy/plugins.json";
+import pluginIndex from "miladyai/plugins.json";
 
 // List all plugins
 for (const plugin of pluginIndex.plugins) {
@@ -78,13 +83,10 @@ Most plugins are npm packages:
 
 ```bash
 # Install the Telegram connector
-npm install @elizaos/plugin-telegram
-
-# Or with pnpm
-pnpm add @elizaos/plugin-telegram
+bun add @elizaos/plugin-telegram
 ```
 
-### Configure in milaidy.json
+### Configure in milady.json
 
 ```json
 {
@@ -109,7 +111,7 @@ OPENAI_API_KEY=sk-...
 
 ### Auto-Enable Based on Credentials
 
-Milaidy can auto-enable plugins when their required credentials are present:
+Milady can auto-enable plugins when their required credentials are present:
 
 ```json
 {
@@ -133,7 +135,7 @@ Each plugin in the registry has a manifest entry:
   "dirName": "plugin-telegram",
   "name": "Telegram",
   "npmName": "@elizaos/plugin-telegram",
-  "description": "Telegram bot connector for ElizaOS agents",
+  "description": "Telegram bot connector for elizaOS agents",
   "category": "connector",
   "envKey": "TELEGRAM_BOT_TOKEN",
   "configKeys": [
@@ -267,6 +269,7 @@ Utilities and capabilities.
 | `browser` | Web browsing |
 | `shell` | Shell command execution |
 | `code` | Code generation/execution |
+| `repoprompt` | RepoPrompt CLI orchestration |
 | `vision` | Image analysis |
 | `knowledge` | RAG/knowledge base |
 | `mcp` | Model Context Protocol |
@@ -409,10 +412,10 @@ This scans `node_modules/@elizaos/plugin-*` and generates an updated index.
 
 ```bash
 # List model plugins
-milaidy plugins list --category model
+milady plugins list --category model
 
 # Check OpenAI plugin info
-milaidy plugins info openai
+milady plugins info openai
 
 # Install and configure
 pnpm add @elizaos/plugin-openai
@@ -422,7 +425,7 @@ echo "OPENAI_API_KEY=sk-..." >> .env
 ### Adding Multiple Connectors
 
 ```json
-// milaidy.json
+// milady.json
 {
   "plugins": [
     "@elizaos/plugin-telegram",
@@ -446,7 +449,7 @@ SLACK_BOT_TOKEN=...
 pnpm add elizaos-plugin-custom-feature
 
 # Add to config
-# milaidy.json
+# milady.json
 {
   "plugins": [
     "@elizaos/plugin-openai",
@@ -459,6 +462,71 @@ pnpm add elizaos-plugin-custom-feature
 
 ## Next Steps
 
-- [Plugin Development Guide](./plugin-development.md) — Create your own plugins
-- [Local Plugin Development](./local-plugins.md) — Develop without publishing
+- [Plugin Development Guide](/plugins/development) — Create your own plugins
+- [Local Plugin Development](/plugins/local-plugins) — Develop without publishing
 - [Contributing Guide](./contributing.md) — Submit plugins upstream
+
+---
+
+## Registry Runbook
+
+### Setup Checklist
+
+1. Ensure plugin metadata exists and is valid in `plugins.json`.
+2. Ensure installable packages resolve from npm or your internal registry.
+3. Ensure required env keys for each plugin are documented in the manifest.
+4. For on-chain registry operations, set `EVM_PRIVATE_KEY` and configure `mainnetRpc`, `registryAddress`, and `collectionAddress` in agent config.
+5. Verify the plugin install directory is writable: `ls -ld ~/.milady/plugins/installed/`.
+
+### Failure Modes
+
+**Plugin registry lookup:**
+
+- Registry lookup returns no results:
+  Confirm `plugins.json` is current and plugin IDs are spelled correctly.
+- Install succeeds but plugin does not load:
+  Confirm required env keys are set and plugin is enabled in `plugins.allow` or `plugins.entries`.
+- Version drift between manifest and package:
+  Regenerate registry metadata and commit updated manifest.
+
+**NPM resolution and install:**
+
+- `npm pack` or `bun install` fails during plugin install:
+  Check network connectivity to the npm registry. The installer falls back from npm to direct git clone — if both fail, the package spec is likely invalid.
+- Entry point not found after install:
+  The installer checks for `package.json` in the target directory. Confirm the package has a valid `main` or `module` field, or that `index.js`/`index.ts` exists at the package root.
+- Concurrent install corruption:
+  The installer uses a serialisation lock. If a previous install crashed, stale lock state may block new installs. Restart the agent to clear in-memory locks.
+
+**On-chain registry/drop operations:**
+
+- Transaction reverts or times out:
+  Check that `EVM_PRIVATE_KEY` has sufficient gas balance. Verify `mainnetRpc` is reachable and not rate-limited. The tx-service retries with escalating gas — if all retries fail, the error includes the revert reason.
+- Registry contract call returns empty data:
+  Confirm `registryAddress` and `collectionAddress` point to deployed contracts on the correct chain. Use a block explorer to verify contract state.
+- Nonce conflict on rapid sequential transactions:
+  The tx-service manages nonce locally. If an external wallet transaction changes the nonce, restart the agent to re-sync.
+
+### Recovery Procedures
+
+1. **Stale plugin state:** Delete `~/.milady/plugins/installed/<plugin-name>/` and remove the entry from `milady.json` under `plugins.installs`, then re-install.
+2. **Registry metadata out of sync:** Run `milady plugin sync` or manually update `plugins.json` from the upstream registry.
+3. **On-chain tx stuck:** Check the pending transaction on a block explorer. If stuck, the agent will retry with higher gas on next attempt. Manual speed-up via wallet is safe — the agent re-reads nonce on next call.
+
+### Verification Commands
+
+```bash
+# Plugin registry and installer tests
+bunx vitest run src/services/plugin-installer.test.ts src/services/skill-marketplace.test.ts src/services/mcp-marketplace.test.ts
+
+# Plugin install e2e lifecycle
+bunx vitest run --config vitest.e2e.config.ts test/plugin-install.e2e.test.ts test/skills-marketplace-api.e2e.test.ts test/skills-marketplace-services.e2e.test.ts
+
+# On-chain service tests
+bunx vitest run src/api/tx-service.test.ts src/api/registry-service.test.ts src/api/drop-service.test.ts
+
+# API server e2e (includes registry routes)
+bunx vitest run --config vitest.e2e.config.ts test/api-server.e2e.test.ts
+
+bun run typecheck
+```

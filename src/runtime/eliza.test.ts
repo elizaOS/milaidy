@@ -9,27 +9,92 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { logger } from "@elizaos/core";
+import { pathToFileURL } from "node:url";
+import { logger, type Plugin } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock all static plugin star-imports in eliza.ts to avoid ESM resolution
+// failures from heavy transitive dependencies at static-analysis time.
+vi.mock("@elizaos/plugin-agent-orchestrator", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-agent-skills", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-anthropic", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-browser", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-cli", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-coding-agent", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-computeruse", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-cron", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-discord", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-edge-tts", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-elevenlabs", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-elizacloud", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-experience", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-form", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-google-genai", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-groq", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-knowledge", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-local-embedding", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-ollama", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-openai", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-openrouter", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-pdf", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-personality", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-plugin-manager", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-rolodex", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-secrets-manager", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-shell", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-sql", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-telegram", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-trajectory-logger", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-trust", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-twitch", () => ({ default: {} }));
+
 import { findPluginExport } from "../cli/plugins-cli";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
+import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
+import { CONNECTOR_IDS } from "../config/schema";
+// Import the plugin import specifier resolver by whichever name is exported.
+// The eliza workspace exports resolveElizaPluginImportSpecifier while the
+// npm-published @elizaos/autonomous package exports
+// resolveElizaPluginImportSpecifier.
+import * as _elizaExports from "./eliza";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
   applyDatabaseConfigToEnv,
+  applyX402ConfigToEnv,
   autoResolveDiscordAppId,
   buildCharacterFromConfig,
+  CHANNEL_PLUGIN_MAP,
   CORE_PLUGINS,
   CUSTOM_PLUGINS_DIRNAME,
+  cleanStalePglitePid,
   collectPluginNames,
+  configureLocalEmbeddingPlugin,
+  deduplicatePluginActions,
   findRuntimePluginExport,
+  getPgliteRecoveryAction,
+  isEnvKeyAllowedForForwarding,
   isRecoverablePgliteInitError,
   mergeDropInPlugins,
   repairBrokenInstallRecord,
   resolvePackageEntry,
   resolvePrimaryModel,
+  resolveVisionModeSetting,
   scanDropInPlugins,
+  shouldIgnoreMissingPluginExport,
+  shutdownRuntime,
 } from "./eliza";
+import { detectEmbeddingPreset } from "./embedding-presets";
+
+const resolvePluginImportSpecifier:
+  | ((name: string, url?: string) => string)
+  | undefined =
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic export name
+  ((_elizaExports as any).resolveElizaPluginImportSpecifier ??
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic export name
+    (_elizaExports as any).resolveElizaPluginImportSpecifier) as
+    | ((name: string, url?: string) => string)
+    | undefined;
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -71,6 +136,21 @@ describe("collectPluginNames", () => {
     "OLLAMA_BASE_URL",
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
+    "ELIZA_USE_PI_AI",
+    "ELIZA_DISABLE_LOCAL_EMBEDDINGS",
+    "OBSIDIAN_VAULT_PATH",
+    "OBSIDAN_VAULT_PATH",
+    // Include MILADY_* brand aliases that syncMiladyEnvToEliza/syncElizaEnvToMilady may set
+    "MILADY_USE_PI_AI",
+    "MILADY_CLOUD_TTS_DISABLED",
+    "MILADY_CLOUD_MEDIA_DISABLED",
+    "MILADY_CLOUD_EMBEDDINGS_DISABLED",
+    "MILADY_CLOUD_RPC_DISABLED",
+    "MILADY_DISABLE_LOCAL_EMBEDDINGS",
+    "ELIZA_CLOUD_TTS_DISABLED",
+    "ELIZA_CLOUD_MEDIA_DISABLED",
+    "ELIZA_CLOUD_EMBEDDINGS_DISABLED",
+    "ELIZA_CLOUD_RPC_DISABLED",
   ];
   const snap = envSnapshot(envKeys);
   beforeEach(() => {
@@ -79,22 +159,23 @@ describe("collectPluginNames", () => {
   });
 
   describe("remote provider precedence", () => {
-    const originalEnv = process.env;
+    const envKeys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OLLAMA_BASE_URL"];
+    const precSnap = envSnapshot(envKeys);
 
     beforeEach(() => {
-      vi.resetModules();
-      process.env = { ...originalEnv };
+      precSnap.save();
+      for (const k of envKeys) delete process.env[k];
     });
 
     afterEach(() => {
-      process.env = originalEnv;
+      precSnap.restore();
     });
 
     it("should keep @elizaos/plugin-local-embedding even when a remote provider env var is present", async () => {
       // Set a remote provider env var (e.g., OPENAI_API_KEY)
       process.env.OPENAI_API_KEY = "test-api-key";
 
-      const plugins = collectPluginNames({} as MiladyConfig);
+      const plugins = collectPluginNames({} as ElizaConfig);
 
       // local-embedding provides the TEXT_EMBEDDING delegate which remote
       // providers do NOT supply, so it must always stay loaded (see #10).
@@ -107,17 +188,55 @@ describe("collectPluginNames", () => {
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.OLLAMA_BASE_URL;
 
-      const plugins = collectPluginNames({} as MiladyConfig);
+      const plugins = collectPluginNames({} as ElizaConfig);
 
       // Verify local-embedding IS in the set for offline/zero-config setups
       expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(true);
     });
+
+    it("should omit @elizaos/plugin-local-embedding when explicitly disabled via env", async () => {
+      process.env.ELIZA_DISABLE_LOCAL_EMBEDDINGS = "1";
+
+      const plugins = collectPluginNames({} as ElizaConfig);
+
+      expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(false);
+    });
   });
   afterEach(() => snap.restore());
 
+  it("uses the hardware-adaptive embedding preset defaults when no embedding config is set", () => {
+    const detectedPreset = detectEmbeddingPreset();
+
+    delete process.env.LOCAL_EMBEDDING_MODEL;
+    delete process.env.LOCAL_EMBEDDING_MODEL_REPO;
+    delete process.env.LOCAL_EMBEDDING_DIMENSIONS;
+    delete process.env.LOCAL_EMBEDDING_CONTEXT_SIZE;
+    delete process.env.LOCAL_EMBEDDING_GPU_LAYERS;
+    delete process.env.LOCAL_EMBEDDING_USE_MMAP;
+
+    configureLocalEmbeddingPlugin({} as Plugin, {} as ElizaConfig);
+
+    expect(process.env.LOCAL_EMBEDDING_MODEL).toBe(detectedPreset.model);
+    expect(process.env.LOCAL_EMBEDDING_MODEL_REPO).toBe(
+      detectedPreset.modelRepo,
+    );
+    expect(process.env.LOCAL_EMBEDDING_DIMENSIONS).toBe(
+      String(detectedPreset.dimensions),
+    );
+    expect(process.env.LOCAL_EMBEDDING_CONTEXT_SIZE).toBe(
+      String(detectedPreset.contextSize),
+    );
+    expect(process.env.LOCAL_EMBEDDING_GPU_LAYERS).toBe(
+      String(detectedPreset.gpuLayers),
+    );
+    expect(process.env.LOCAL_EMBEDDING_USE_MMAP).toBe(
+      detectedPreset.gpuLayers === "auto" ? "false" : "true",
+    );
+  });
+
   it("includes all core plugins for an empty config", () => {
     // Guard against accidental removal from CORE_PLUGINS array
-    expect(CORE_PLUGINS).toHaveLength(13);
+    expect(CORE_PLUGINS).toHaveLength(16);
 
     const expectedCorePlugins = [
       "@elizaos/plugin-sql",
@@ -131,10 +250,13 @@ describe("collectPluginNames", () => {
       "@elizaos/plugin-shell",
       "@elizaos/plugin-plugin-manager",
       "@elizaos/plugin-agent-skills",
-      "@elizaos/plugin-pdf",
       "@elizaos/plugin-secrets-manager",
+      "@elizaos/plugin-trust",
+      "@elizaos/plugin-todo",
+      "@elizaos/plugin-personality",
+      "@elizaos/plugin-experience",
     ];
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     for (const plugin of expectedCorePlugins) {
       expect(names.has(plugin)).toBe(true);
     }
@@ -143,7 +265,7 @@ describe("collectPluginNames", () => {
   it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {
     const config = {
       features: { shellEnabled: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-shell")).toBe(false);
   });
@@ -152,7 +274,7 @@ describe("collectPluginNames", () => {
     const config = {
       plugins: { allow: ["@elizaos/plugin-shell"] },
       features: { shellEnabled: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-shell")).toBe(false);
   });
@@ -161,11 +283,49 @@ describe("collectPluginNames", () => {
     process.env.ANTHROPIC_API_KEY = "sk-test";
     process.env.OPENAI_API_KEY = "sk-test";
     process.env.AI_GATEWAY_API_KEY = "aigw-test";
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
     expect(names.has("@elizaos/plugin-openai")).toBe(true);
     expect(names.has("@elizaos/plugin-vercel-ai-gateway")).toBe(true);
     expect(names.has("@elizaos/plugin-groq")).toBe(false);
+  });
+
+  it("adds pi-ai provider plugin when ELIZA_USE_PI_AI is enabled", () => {
+    process.env.ELIZA_USE_PI_AI = "1";
+    const names = collectPluginNames({} as ElizaConfig);
+
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
+    // pi-ai mode should suppress direct provider plugins.
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
+    expect(names.has("@elizaos/plugin-openai")).toBe(false);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
+  });
+
+  it("cloud mode takes precedence over pi-ai mode", () => {
+    process.env.ELIZA_USE_PI_AI = "1";
+    const config = {
+      cloud: { enabled: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(false);
+  });
+
+  it("pi-ai mode overrides explicit direct-provider entries", () => {
+    process.env.ELIZA_USE_PI_AI = "1";
+    const config = {
+      plugins: {
+        entries: {
+          openai: { enabled: true },
+        },
+      },
+    } as Partial<ElizaConfig> as ElizaConfig;
+
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
+    expect(names.has("@elizaos/plugin-openai")).toBe(false);
   });
 
   it("does not auto-enable a provider from env when explicitly disabled in plugins.entries", () => {
@@ -176,7 +336,7 @@ describe("collectPluginNames", () => {
           openai: { enabled: false },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-openai")).toBe(false);
   });
@@ -190,7 +350,7 @@ describe("collectPluginNames", () => {
           groq: { enabled: true },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-groq")).toBe(true);
     expect(names.has("@elizaos/plugin-openai")).toBe(false);
@@ -199,7 +359,7 @@ describe("collectPluginNames", () => {
   it("adds connector plugins when config.connectors is populated", () => {
     const config = {
       connectors: { telegram: { botToken: "tok" }, discord: { token: "tok" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const names = collectPluginNames(config);
     // Telegram maps to the local enhanced plugin, not the upstream one
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
@@ -211,16 +371,112 @@ describe("collectPluginNames", () => {
     const config = {
       plugins: { allow: ["browser"] },
       connectors: { discord: { token: "tok" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(true);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
   });
 
+  it("normalizes repoprompt short IDs in plugins.allow", () => {
+    const config = {
+      plugins: { allow: ["repoprompt", "repoPrompt"] },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-repoprompt")).toBe(true);
+  });
+
+  it("normalizes streaming-base short IDs in plugins.allow", () => {
+    const config = {
+      plugins: { allow: ["streaming-base"] },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-streaming-base")).toBe(true);
+  });
+
+  it("normalizes cua short IDs in plugins.allow", () => {
+    const config = {
+      plugins: { allow: ["cua"] },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-cua")).toBe(true);
+  });
+
+  it("loads CUA plugin when features.cua is enabled", () => {
+    const config = {
+      features: { cua: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-cua")).toBe(true);
+  });
+
+  it("does not load CUA plugin when features.cua.enabled is false", () => {
+    const config = {
+      features: { cua: { enabled: false } },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-cua")).toBe(false);
+  });
+
+  it("loads x402 plugin when config.x402.enabled is true", () => {
+    const config = {
+      x402: { enabled: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(true);
+  });
+
+  it("does not load x402 plugin when config.x402.enabled is false", () => {
+    const config = {
+      x402: { enabled: false },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(false);
+  });
+
+  it("normalizes x402 short IDs in plugins.allow", () => {
+    const config = {
+      plugins: { allow: ["x402"] },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(true);
+  });
+
+  it("loads x402 plugin via features.x402 flag", () => {
+    const config = {
+      features: { x402: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(true);
+  });
+
+  it("does not load x402 when features.x402.enabled is false", () => {
+    const config = {
+      features: { x402: { enabled: false } },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(false);
+  });
+
+  it("does not load x402 plugin when x402 config section is absent", () => {
+    const names = collectPluginNames({} as ElizaConfig);
+
+    expect(names.has("@elizaos/plugin-x402")).toBe(false);
+  });
+
   it("normalizes short plugin IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["discord"] },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
   });
@@ -230,9 +486,31 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: true } },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
+  });
+
+  it("uses the Eliza streaming-base package when enabled via plugins.entries", () => {
+    const config = {
+      plugins: {
+        entries: { "streaming-base": { enabled: true } },
+      },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-streaming-base")).toBe(true);
+  });
+
+  it("uses the Eliza x-streaming package when enabled via plugins.entries", () => {
+    const config = {
+      plugins: {
+        entries: { "x-streaming": { enabled: true } },
+      },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-x-streaming")).toBe(true);
   });
 
   it("uses @elizaos/plugin-telegram from CHANNEL_PLUGIN_MAP for connectors with plugins.entries", () => {
@@ -243,7 +521,7 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: true } },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
   });
@@ -253,45 +531,60 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: false } },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-telegram")).toBe(false);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
   it("does not add connector plugins for empty connector configs", () => {
     const config = {
       connectors: { telegram: null },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
   it("adds ElizaCloud plugin when cloud is enabled in config", () => {
-    const config = { cloud: { enabled: true } } as MiladyConfig;
+    const config = { cloud: { enabled: true } } as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("removes ElizaCloud plugin when cloud is explicitly disabled", () => {
-    const config = { cloud: { enabled: false } } as MiladyConfig;
+    const config = { cloud: { enabled: false } } as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
   });
 
   it("adds ElizaCloud plugin when env key is present", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("respects feature flags in config.features", () => {
-    // OPTIONAL_PLUGIN_MAP is empty, so features won't add anything currently.
-    // But the function should not crash on arbitrary features.
     const config = {
       features: { someFeature: true, another: { enabled: false } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(() => collectPluginNames(config)).not.toThrow();
+  });
+
+  it("adds @elizaos/plugin-repoprompt when features.repoprompt = true", () => {
+    const config = {
+      features: { repoprompt: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-repoprompt")).toBe(true);
+  });
+
+  it("does not add @elizaos/plugin-repoprompt when features.repoprompt = false", () => {
+    const config = {
+      features: { repoprompt: false },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+
+    expect(names.has("@elizaos/plugin-repoprompt")).toBe(false);
   });
 
   // --- plugins.installs (user-installed from registry) ---
@@ -303,32 +596,34 @@ describe("collectPluginNames", () => {
           "@elizaos/plugin-weather": {
             source: "npm",
             installPath:
-              "/home/user/.milady/plugins/installed/_elizaos_plugin-weather",
+              "/home/user/.eliza/plugins/installed/_elizaos_plugin-weather",
             version: "1.0.0",
             installedAt: "2026-02-07T00:00:00Z",
           },
           "@elizaos/plugin-custom": {
             source: "npm",
             installPath:
-              "/home/user/.milady/plugins/installed/_elizaos_plugin-custom",
+              "/home/user/.eliza/plugins/installed/_elizaos_plugin-custom",
             version: "2.0.0",
             installedAt: "2026-02-07T00:00:00Z",
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-weather")).toBe(true);
     expect(names.has("@elizaos/plugin-custom")).toBe(true);
   });
 
   it("includes plugin-plugin-manager in core plugins", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
   });
 
   it("handles empty plugins.installs gracefully", () => {
-    const config = { plugins: { installs: {} } } as unknown as MiladyConfig;
+    const config = {
+      plugins: { installs: {} },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     // Should still have all core plugins, no crash
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
@@ -336,7 +631,7 @@ describe("collectPluginNames", () => {
   });
 
   it("handles undefined plugins.installs gracefully", () => {
-    const config = { plugins: {} } as unknown as MiladyConfig;
+    const config = { plugins: {} } as Partial<ElizaConfig> as ElizaConfig;
     expect(() => collectPluginNames(config)).not.toThrow();
   });
 
@@ -347,7 +642,7 @@ describe("collectPluginNames", () => {
           "@elizaos/plugin-bad": null,
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     // null records should be skipped (the typeof check catches this)
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-bad")).toBe(false);
@@ -366,7 +661,7 @@ describe("collectPluginNames", () => {
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     // Core
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
@@ -384,7 +679,7 @@ describe("collectPluginNames", () => {
   it("adds @elizaos/plugin-vision when features.vision = true", () => {
     const config = {
       features: { vision: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(true);
   });
@@ -392,25 +687,100 @@ describe("collectPluginNames", () => {
   it("does NOT add @elizaos/plugin-vision when features.vision = false", () => {
     const config = {
       features: { vision: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
   });
 
   it("does NOT add @elizaos/plugin-vision when features.vision is absent", () => {
-    const config = {} as MiladyConfig;
+    const config = {} as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
+  });
+
+  it("defaults runtime vision mode to OFF when vision is enabled but unset", () => {
+    const config = {
+      features: { vision: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    expect(resolveVisionModeSetting(config, {} as NodeJS.ProcessEnv)).toBe(
+      "OFF",
+    );
+  });
+
+  it("preserves an explicit VISION_MODE when vision is enabled", () => {
+    const config = {
+      features: { vision: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    expect(
+      resolveVisionModeSetting(config, {
+        VISION_MODE: "SCREEN",
+      } as NodeJS.ProcessEnv),
+    ).toBe("SCREEN");
   });
 
   it("cloud plugin is loaded independently of vision toggle", () => {
     const config = {
       cloud: { enabled: true },
       features: { vision: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
+  });
+
+  it("adds @elizaos/plugin-obsidian when features.obsidian = true", () => {
+    const config = {
+      features: { obsidian: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-obsidian")).toBe(true);
+  });
+
+  it("adds @elizaos/plugin-obsidian when plugins.allow includes obsidian", () => {
+    const config = {
+      plugins: { allow: ["obsidian"] },
+    } as Partial<ElizaConfig> as ElizaConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-obsidian")).toBe(true);
+  });
+
+  it("preserves fully-qualified optional plugin package names from plugins.allow", () => {
+    const optionalPlugins = [
+      "@elizaos/plugin-cua",
+      "@elizaos/plugin-code",
+      "@elizaos/plugin-xai",
+      "@elizaos/plugin-deepseek",
+      "@elizaos/plugin-mistral",
+      "@elizaos/plugin-together",
+      "@elizaos/plugin-claude-code-workbench",
+    ];
+    const config = {
+      plugins: { allow: optionalPlugins },
+    } as Partial<ElizaConfig> as ElizaConfig;
+
+    const names = collectPluginNames(config);
+
+    for (const pluginName of optionalPlugins) {
+      expect(names.has(pluginName)).toBe(true);
+    }
+  });
+
+  it("CHANNEL_PLUGIN_MAP keys match CONNECTOR_IDS from schema", () => {
+    expect([...Object.keys(CHANNEL_PLUGIN_MAP)].sort()).toEqual(
+      [...CONNECTOR_IDS].sort(),
+    );
+  });
+
+  it("CHANNEL_PLUGIN_MAP values match CONNECTOR_PLUGINS for every connector", () => {
+    const internalConnectorOverrides: Record<string, string> = {
+      signal: "@miladyai/plugin-signal",
+      whatsapp: "@miladyai/plugin-whatsapp",
+    };
+    for (const id of Object.keys(CHANNEL_PLUGIN_MAP)) {
+      expect(CHANNEL_PLUGIN_MAP[id]).toBe(
+        internalConnectorOverrides[id] ?? CONNECTOR_PLUGINS[id],
+      );
+    }
   });
 });
 
@@ -430,7 +800,7 @@ describe("repairBrokenInstallRecord", () => {
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     const changed = repairBrokenInstallRecord(
       config,
@@ -447,7 +817,9 @@ describe("repairBrokenInstallRecord", () => {
   });
 
   it("returns false when no install record exists", () => {
-    const config = { plugins: { installs: {} } } as unknown as MiladyConfig;
+    const config = {
+      plugins: { installs: {} },
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
       false,
     );
@@ -463,7 +835,7 @@ describe("repairBrokenInstallRecord", () => {
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
       false,
@@ -483,7 +855,9 @@ describe("applyConnectorSecretsToEnv", () => {
     "SLACK_BOT_TOKEN",
     "SLACK_APP_TOKEN",
     "SLACK_USER_TOKEN",
-    "SIGNAL_ACCOUNT",
+    "SIGNAL_ACCOUNT_NUMBER",
+    "SIGNAL_HTTP_URL",
+    "SIGNAL_CLI_PATH",
     "MSTEAMS_APP_ID",
     "MSTEAMS_APP_PASSWORD",
     "MATTERMOST_BOT_TOKEN",
@@ -500,7 +874,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies Discord token from config to env", () => {
     const config = {
       connectors: { discord: { token: "discord-tok-123" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_API_TOKEN).toBe("discord-tok-123");
     expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-tok-123");
@@ -509,7 +883,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies legacy Discord botToken from config to env", () => {
     const config = {
       connectors: { discord: { botToken: "discord-tok-legacy" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_API_TOKEN).toBe("discord-tok-legacy");
     expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-tok-legacy");
@@ -518,7 +892,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies Telegram botToken from config to env", () => {
     const config = {
       connectors: { telegram: { botToken: "tg-tok-456" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("tg-tok-456");
   });
@@ -528,7 +902,7 @@ describe("applyConnectorSecretsToEnv", () => {
       connectors: {
         slack: { botToken: "xoxb-1", appToken: "xapp-1", userToken: "xoxp-1" },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.SLACK_BOT_TOKEN).toBe("xoxb-1");
     expect(process.env.SLACK_APP_TOKEN).toBe("xapp-1");
@@ -539,7 +913,7 @@ describe("applyConnectorSecretsToEnv", () => {
     process.env.TELEGRAM_BOT_TOKEN = "already-set";
     const config = {
       connectors: { telegram: { botToken: "new-tok" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("already-set");
   });
@@ -547,28 +921,44 @@ describe("applyConnectorSecretsToEnv", () => {
   it("skips empty or whitespace-only values", () => {
     const config = {
       connectors: { discord: { token: "  " } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_BOT_TOKEN).toBeUndefined();
   });
 
   it("handles missing connectors gracefully", () => {
-    expect(() => applyConnectorSecretsToEnv({} as MiladyConfig)).not.toThrow();
+    expect(() => applyConnectorSecretsToEnv({} as ElizaConfig)).not.toThrow();
   });
 
   it("handles unknown connector names gracefully", () => {
     const config = {
       connectors: { unknownConnector: { token: "tok" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(() => applyConnectorSecretsToEnv(config)).not.toThrow();
   });
 
   it("supports legacy channels key for backward compat", () => {
     const config = {
       channels: { telegram: { botToken: "legacy-tg-tok" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("legacy-tg-tok");
+  });
+
+  it("copies Signal account, httpUrl, and cliPath from config to env", () => {
+    const config = {
+      connectors: {
+        signal: {
+          account: "+14155551234",
+          httpUrl: "http://localhost:8080",
+          cliPath: "/usr/bin/signal-cli",
+        },
+      },
+    } as ElizaConfig;
+    applyConnectorSecretsToEnv(config);
+    expect(process.env.SIGNAL_ACCOUNT_NUMBER).toBe("+14155551234");
+    expect(process.env.SIGNAL_HTTP_URL).toBe("http://localhost:8080");
+    expect(process.env.SIGNAL_CLI_PATH).toBe("/usr/bin/signal-cli");
   });
 });
 
@@ -583,6 +973,7 @@ describe("autoResolveDiscordAppId", () => {
     "DISCORD_BOT_TOKEN",
   ];
   const snap = envSnapshot(envKeys);
+  const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     snap.save();
@@ -592,7 +983,7 @@ describe("autoResolveDiscordAppId", () => {
   afterEach(() => {
     snap.restore();
     vi.restoreAllMocks();
-    vi.unstubAllGlobals();
+    globalThis.fetch = originalFetch;
   });
 
   it("no-ops when DISCORD_APPLICATION_ID is already set", async () => {
@@ -600,7 +991,7 @@ describe("autoResolveDiscordAppId", () => {
     process.env.DISCORD_API_TOKEN = "tok";
 
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    globalThis.fetch = fetchMock as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -610,7 +1001,7 @@ describe("autoResolveDiscordAppId", () => {
 
   it("no-ops when no Discord token exists", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    globalThis.fetch = fetchMock as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -628,7 +1019,7 @@ describe("autoResolveDiscordAppId", () => {
       status: 200,
       json: async () => ({ id: "app-123" }),
     }));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    globalThis.fetch = fetchMock as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -642,7 +1033,7 @@ describe("autoResolveDiscordAppId", () => {
     );
     expect(process.env.DISCORD_APPLICATION_ID).toBe("app-123");
     expect(infoSpy).toHaveBeenCalledWith(
-      "[milady] Auto-resolved Discord Application ID: app-123",
+      expect.stringContaining("Auto-resolved Discord Application ID: app-123"),
     );
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -651,19 +1042,18 @@ describe("autoResolveDiscordAppId", () => {
     process.env.DISCORD_API_TOKEN = "tok";
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: false,
-        status: 401,
-      })) as unknown as typeof fetch,
-    );
+    globalThis.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 401,
+    })) as typeof fetch;
 
     await autoResolveDiscordAppId();
 
     expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
     expect(warnSpy).toHaveBeenCalledWith(
-      "[milady] Failed to auto-resolve Discord Application ID: 401",
+      expect.stringContaining(
+        "Failed to auto-resolve Discord Application ID: 401",
+      ),
     );
   });
 
@@ -671,12 +1061,9 @@ describe("autoResolveDiscordAppId", () => {
     process.env.DISCORD_API_TOKEN = "tok";
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new Error("network down");
-      }) as unknown as typeof fetch,
-    );
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("network down");
+    }) as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -707,7 +1094,7 @@ describe("applyCloudConfigToEnv", () => {
   it("sets cloud env vars from config", () => {
     const config = {
       cloud: { enabled: true, apiKey: "ck-123", baseUrl: "https://cloud.test" },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-123");
@@ -716,13 +1103,138 @@ describe("applyCloudConfigToEnv", () => {
 
   it("overwrites stale env values with fresh config (hot-reload safety)", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "old-key";
-    const config = { cloud: { apiKey: "new-key" } } as MiladyConfig;
+    const config = { cloud: { apiKey: "new-key" } } as ElizaConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("new-key");
   });
 
+  it("does NOT enable cloud when apiKey present but enabled is not explicitly true", () => {
+    const config = { cloud: { apiKey: "ck-123" } } as ElizaConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-123");
+  });
+
+  it("clears ELIZAOS_CLOUD_ENABLED when enabled is explicitly false", () => {
+    process.env.ELIZAOS_CLOUD_ENABLED = "true";
+    const config = {
+      cloud: { enabled: false, apiKey: "ck-123" },
+    } as ElizaConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+  });
+
   it("handles missing cloud config gracefully", () => {
-    expect(() => applyCloudConfigToEnv({} as MiladyConfig)).not.toThrow();
+    expect(() => applyCloudConfigToEnv({} as ElizaConfig)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyX402ConfigToEnv
+// ---------------------------------------------------------------------------
+
+describe("applyX402ConfigToEnv", () => {
+  const envKeys = ["X402_ENABLED", "X402_API_KEY", "X402_BASE_URL"];
+  const snap = envSnapshot(envKeys);
+
+  beforeEach(() => {
+    snap.save();
+    for (const key of envKeys) delete process.env[key];
+  });
+
+  afterEach(() => snap.restore());
+
+  it("propagates x402 config to env when enabled", () => {
+    const config = {
+      x402: {
+        enabled: true,
+        apiKey: "x402-key",
+        baseUrl: "https://x402.example",
+      },
+    } as Partial<ElizaConfig> as ElizaConfig;
+
+    applyX402ConfigToEnv(config);
+
+    expect(process.env.X402_ENABLED).toBe("true");
+    expect(process.env.X402_API_KEY).toBe("x402-key");
+    expect(process.env.X402_BASE_URL).toBe("https://x402.example");
+  });
+
+  it("does not override existing x402 env values", () => {
+    process.env.X402_ENABLED = "existing-enabled";
+    process.env.X402_API_KEY = "existing-key";
+    process.env.X402_BASE_URL = "https://existing.example";
+
+    const config = {
+      x402: {
+        enabled: true,
+        apiKey: "new-key",
+        baseUrl: "https://new.example",
+      },
+    } as Partial<ElizaConfig> as ElizaConfig;
+
+    applyX402ConfigToEnv(config);
+
+    expect(process.env.X402_ENABLED).toBe("existing-enabled");
+    expect(process.env.X402_API_KEY).toBe("existing-key");
+    expect(process.env.X402_BASE_URL).toBe("https://existing.example");
+  });
+
+  it("does nothing when x402 is disabled", () => {
+    const config = {
+      x402: {
+        enabled: false,
+        apiKey: "x402-key",
+        baseUrl: "https://x402.example",
+      },
+    } as Partial<ElizaConfig> as ElizaConfig;
+
+    applyX402ConfigToEnv(config);
+
+    expect(process.env.X402_ENABLED).toBeUndefined();
+    expect(process.env.X402_API_KEY).toBeUndefined();
+    expect(process.env.X402_BASE_URL).toBeUndefined();
+  });
+
+  it("does nothing when x402 config section is absent", () => {
+    applyX402ConfigToEnv({} as ElizaConfig);
+
+    expect(process.env.X402_ENABLED).toBeUndefined();
+    expect(process.env.X402_API_KEY).toBeUndefined();
+    expect(process.env.X402_BASE_URL).toBeUndefined();
+  });
+
+  it("sets only X402_ENABLED when apiKey and baseUrl are absent", () => {
+    const config = {
+      x402: { enabled: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
+
+    applyX402ConfigToEnv(config);
+
+    expect(process.env.X402_ENABLED).toBe("true");
+    expect(process.env.X402_API_KEY).toBeUndefined();
+    expect(process.env.X402_BASE_URL).toBeUndefined();
+  });
+
+  it("does not propagate privateKey to environment", () => {
+    const privateKeyValue = "0xdeadbeef1234567890abcdef";
+    const config = {
+      x402: {
+        enabled: true,
+        apiKey: "x402-key",
+        baseUrl: "https://x402.example",
+        privateKey: privateKeyValue,
+      },
+    } as Partial<ElizaConfig> as ElizaConfig;
+
+    applyX402ConfigToEnv(config);
+
+    // Verify standard fields are set
+    expect(process.env.X402_ENABLED).toBe("true");
+    expect(process.env.X402_API_KEY).toBe("x402-key");
+    // Verify privateKey is NOT leaked into any env var
+    const envValues = Object.values(process.env);
+    expect(envValues).not.toContain(privateKeyValue);
   });
 });
 
@@ -731,7 +1243,7 @@ describe("applyCloudConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "ELIZA_PROFILE"];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -742,10 +1254,12 @@ describe("applyDatabaseConfigToEnv", () => {
   afterEach(() => snap.restore());
 
   it("defaults PGLITE_DATA_DIR to the agent workspace when database config is missing", () => {
-    applyDatabaseConfigToEnv({} as MiladyConfig);
+    applyDatabaseConfigToEnv({} as ElizaConfig);
     expect(process.env.POSTGRES_URL).toBeUndefined();
-    expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.join(os.homedir(), ".milady", "workspace", ".eliza", ".elizadb"),
+    // The state dir name depends on the @elizaos/autonomous build
+    // (either .eliza in workspace or .eliza in the published npm package).
+    expect(process.env.PGLITE_DATA_DIR).toMatch(
+      /\.(eliza|eliza)[/\\]workspace[/\\]\.eliza[/\\]\.elizadb$/,
     );
   });
 
@@ -753,14 +1267,14 @@ describe("applyDatabaseConfigToEnv", () => {
     const config = {
       agents: {
         defaults: {
-          workspace: "/tmp/milady-workspace",
+          workspace: "/tmp/eliza-workspace",
         },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.resolve("/tmp/milady-workspace", ".eliza", ".elizadb"),
+      path.resolve("/tmp/eliza-workspace", ".eliza", ".elizadb"),
     );
   });
 
@@ -769,20 +1283,20 @@ describe("applyDatabaseConfigToEnv", () => {
     const config = {
       database: {
         provider: "pglite",
-        pglite: { dataDir: "~/milady-pglite" },
+        pglite: { dataDir: "~/eliza-pglite" },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.POSTGRES_URL).toBeUndefined();
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.resolve(path.join(os.homedir(), "milady-pglite")),
+      path.resolve(path.join(os.homedir(), "eliza-pglite")),
     );
   });
 
   it("does not overwrite externally provided PGLITE_DATA_DIR when config has no override", () => {
     process.env.PGLITE_DATA_DIR = "/tmp/external-pglite";
-    applyDatabaseConfigToEnv({} as MiladyConfig);
+    applyDatabaseConfigToEnv({} as ElizaConfig);
     expect(process.env.PGLITE_DATA_DIR).toBe("/tmp/external-pglite");
   });
 
@@ -794,18 +1308,18 @@ describe("applyDatabaseConfigToEnv", () => {
         postgres: {
           host: "db.example.test",
           port: 5433,
-          database: "milady",
+          database: "eliza",
           user: "admin",
           password: "secret",
           ssl: true,
         },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.PGLITE_DATA_DIR).toBeUndefined();
     expect(process.env.POSTGRES_URL).toBe(
-      "postgresql://admin:secret@db.example.test:5433/milady?sslmode=require",
+      "postgresql://admin:secret@db.example.test:5433/eliza?sslmode=require",
     );
   });
 });
@@ -815,7 +1329,7 @@ describe("applyDatabaseConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv — directory creation", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "ELIZA_PROFILE"];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -834,7 +1348,7 @@ describe("applyDatabaseConfigToEnv — directory creation", () => {
         provider: "pglite",
         pglite: { dataDir },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyDatabaseConfigToEnv(config);
 
@@ -856,7 +1370,7 @@ describe("applyDatabaseConfigToEnv — directory creation", () => {
         provider: "pglite",
         pglite: { dataDir },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     // Should not throw
     applyDatabaseConfigToEnv(config);
@@ -903,6 +1417,60 @@ describe("isRecoverablePgliteInitError", () => {
   });
 });
 
+describe("shutdownRuntime", () => {
+  it("stops the runtime and then closes the database adapter", async () => {
+    const calls: string[] = [];
+    const runtime = {
+      adapter: {
+        close: vi.fn(async () => {
+          calls.push("close");
+        }),
+      },
+      stop: vi.fn(async () => {
+        calls.push("stop");
+      }),
+    } as import("@elizaos/core").AgentRuntime;
+
+    await shutdownRuntime(runtime, "test");
+
+    expect(calls).toEqual(["stop", "close"]);
+  });
+
+  it("still closes the adapter when runtime.stop throws", async () => {
+    const stopError = new Error("stop failed");
+    const close = vi.fn(async () => {});
+    const runtime = {
+      adapter: { close },
+      stop: vi.fn(async () => {
+        throw stopError;
+      }),
+    } as import("@elizaos/core").AgentRuntime;
+
+    await expect(shutdownRuntime(runtime, "test")).rejects.toThrow(
+      "stop failed",
+    );
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates adapter close failures after attempting shutdown", async () => {
+    const closeError = new Error("close failed");
+    const stop = vi.fn(async () => {});
+    const runtime = {
+      adapter: {
+        close: vi.fn(async () => {
+          throw closeError;
+        }),
+      },
+      stop,
+    } as import("@elizaos/core").AgentRuntime;
+
+    await expect(shutdownRuntime(runtime, "test")).rejects.toThrow(
+      "close failed",
+    );
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // buildCharacterFromConfig
 // ---------------------------------------------------------------------------
@@ -924,7 +1492,7 @@ describe("buildCharacterFromConfig", () => {
   it("uses agent name from agents.list", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.name).toBe("Sakuya");
   });
@@ -932,13 +1500,13 @@ describe("buildCharacterFromConfig", () => {
   it("falls back to config.ui.assistant.name", () => {
     const config = {
       ui: { assistant: { name: "Reimu" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.name).toBe("Reimu");
   });
 
   it("defaults to 'Milady' when no name is configured", () => {
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     expect(char.name).toBe("Milady");
   });
 
@@ -947,7 +1515,7 @@ describe("buildCharacterFromConfig", () => {
     process.env.OPENAI_API_KEY = "sk-oai-test";
     process.env.DISCORD_API_TOKEN = "discord-api-test";
     process.env.DISCORD_APPLICATION_ID = "discord-app-123";
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     expect(char.secrets?.ANTHROPIC_API_KEY).toBe("sk-ant-test");
     expect(char.secrets?.OPENAI_API_KEY).toBe("sk-oai-test");
     expect(char.secrets?.DISCORD_API_TOKEN).toBe("discord-api-test");
@@ -956,14 +1524,14 @@ describe("buildCharacterFromConfig", () => {
 
   it("excludes empty or whitespace-only env values from secrets", () => {
     process.env.ANTHROPIC_API_KEY = "  ";
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     expect(char.secrets?.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
   it("uses default bio and system prompt (character data lives in DB)", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Test" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     const bioText = Array.isArray(char.bio) ? char.bio.join(" ") : char.bio;
     expect(bioText).toContain("AI assistant");
@@ -975,7 +1543,7 @@ describe("buildCharacterFromConfig", () => {
   it("uses default bio with {{name}} placeholder", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     expect(Array.isArray(char.bio)).toBe(true);
     const bioArr = char.bio as string[];
@@ -985,39 +1553,76 @@ describe("buildCharacterFromConfig", () => {
   it("uses default system prompt with {{name}} placeholder", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.system).toContain("{{name}}");
   });
 
   it("defaults bio to {{name}} placeholder when not configured", () => {
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     const bioArr = char.bio as string[];
     expect(bioArr.some((b: string) => b.includes("{{name}}"))).toBe(true);
   });
 
   it("defaults system to {{name}} placeholder when not configured", () => {
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     expect(char.system).toContain("{{name}}");
   });
 
+  it("does not inject implicit knowledge sources", () => {
+    const char = buildCharacterFromConfig({} as ElizaConfig);
+    expect(char.knowledge ?? []).toHaveLength(0);
+  });
+
   it("does not throw when agents.list is empty", () => {
-    const config = { agents: { list: [] } } as MiladyConfig;
+    const config = { agents: { list: [] } } as ElizaConfig;
     expect(() => buildCharacterFromConfig(config)).not.toThrow();
     expect(buildCharacterFromConfig(config).name).toBe("Milady");
   });
 
   it("builds a character with name from agents.list and default personality", () => {
     const config = {
-      agents: { list: [{ id: "main", name: "Reimu" }] },
-    } as MiladyConfig;
+      agents: { list: [{ id: "main", name: "Chen" }] },
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
 
-    expect(char.name).toBe("Reimu");
-    // Bio and system use defaults with {{name}} placeholders
+    expect(char.name).toBe("Chen");
     expect(Array.isArray(char.bio)).toBe(true);
     expect((char.bio as string[])[0]).toContain("{{name}}");
     expect(char.system).toContain("{{name}}");
+    expect(char.postExamples.length).toBeGreaterThan(0);
+  });
+
+  it("backfills bundled preset posts for default named characters", () => {
+    const config = {
+      agents: { list: [{ id: "main", name: "Momo" }] },
+    } as ElizaConfig;
+    const char = buildCharacterFromConfig(config);
+
+    expect(char.name).toBe("Momo");
+    expect(char.postExamples.length).toBeGreaterThan(0);
+    expect(char.messageExamples.length).toBeGreaterThan(0);
+  });
+
+  it("hydrates username and topics from agent config", () => {
+    const config = {
+      agents: {
+        list: [
+          {
+            id: "main",
+            name: "Marisa",
+            username: "marisa-labs",
+            topics: ["magic", "research"],
+          },
+        ],
+      },
+    } as ElizaConfig;
+
+    const char = buildCharacterFromConfig(config);
+
+    expect(char.name).toBe("Marisa");
+    expect(char.username).toBe("marisa-labs");
+    expect(char.topics).toEqual(["magic", "research"]);
   });
 });
 
@@ -1027,25 +1632,25 @@ describe("buildCharacterFromConfig", () => {
 
 describe("resolvePrimaryModel", () => {
   it("returns undefined when no model config exists", () => {
-    expect(resolvePrimaryModel({} as MiladyConfig)).toBeUndefined();
+    expect(resolvePrimaryModel({} as ElizaConfig)).toBeUndefined();
   });
 
   it("returns undefined when agents.defaults.model is missing", () => {
-    const config = { agents: { defaults: {} } } as MiladyConfig;
+    const config = { agents: { defaults: {} } } as ElizaConfig;
     expect(resolvePrimaryModel(config)).toBeUndefined();
   });
 
   it("returns the primary model when configured", () => {
     const config = {
       agents: { defaults: { model: { primary: "gpt-5" } } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     expect(resolvePrimaryModel(config)).toBe("gpt-5");
   });
 
   it("returns undefined when model has no primary", () => {
     const config = {
       agents: { defaults: { model: { fallbacks: ["gpt-5-mini"] } } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(resolvePrimaryModel(config)).toBeUndefined();
   });
 });
@@ -1485,6 +2090,70 @@ describe("mergeDropInPlugins", () => {
 });
 
 // ---------------------------------------------------------------------------
+// resolvePluginImportSpecifier (resolveElizaPluginImportSpecifier or
+// resolveElizaPluginImportSpecifier depending on the resolved source)
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!resolvePluginImportSpecifier)(
+  "resolvePluginImportSpecifier",
+  () => {
+    it("prefers a bundled local plugin wrapper when one exists", async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-plugin-"));
+      const runtimeDir = path.join(tmpDir, "runtime");
+      const pluginIndex = path.join(tmpDir, "plugins", "retake", "index.js");
+
+      await fs.mkdir(runtimeDir, { recursive: true });
+      await fs.mkdir(path.dirname(pluginIndex), { recursive: true });
+      await fs.writeFile(pluginIndex, "export default {};\n");
+
+      const specifier = resolvePluginImportSpecifier?.(
+        "@elizaos/plugin-retake",
+        pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
+      );
+
+      expect(specifier).toBe(pathToFileURL(pluginIndex).href);
+
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
+
+    it("falls back to the bundled package when no local wrapper exists", async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-plugin-"));
+      const runtimeDir = path.join(tmpDir, "runtime");
+      await fs.mkdir(runtimeDir, { recursive: true });
+
+      const specifier = resolvePluginImportSpecifier?.(
+        "@elizaos/plugin-x-streaming",
+        pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
+      );
+
+      expect(specifier).toBe("@elizaos/plugin-x-streaming");
+
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
+
+    it("leaves non-project plugins unchanged", () => {
+      expect(resolvePluginImportSpecifier?.("@elizaos/plugin-discord")).toBe(
+        "@elizaos/plugin-discord",
+      );
+    });
+  },
+);
+
+describe("shouldIgnoreMissingPluginExport", () => {
+  it("ignores helper-only streaming-base package exports", () => {
+    expect(
+      shouldIgnoreMissingPluginExport("@elizaos/plugin-streaming-base"),
+    ).toBe(true);
+  });
+
+  it("does not ignore real plugins", () => {
+    expect(shouldIgnoreMissingPluginExport("@elizaos/plugin-x-streaming")).toBe(
+      false,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // findPluginExport
 // ---------------------------------------------------------------------------
 
@@ -1750,5 +2419,471 @@ describe("end-to-end import chain", () => {
     const { pathToFileURL } = await import("node:url");
 
     await expect(import(pathToFileURL(entry).href)).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isEnvKeyAllowedForForwarding — env var security denylist
+// ---------------------------------------------------------------------------
+
+describe("isEnvKeyAllowedForForwarding", () => {
+  // API keys should be allowed (plugins need them via runtime.getSetting)
+  it.each([
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    "GROQ_API_KEY",
+    "MY_CUSTOM_API_KEY",
+    "MODEL_PROVIDER",
+    "GOOGLE_SMALL_MODEL",
+  ])("allows %s", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(true);
+  });
+
+  // Blockchain private keys
+  it.each([
+    "EVM_PRIVATE_KEY",
+    "SOLANA_PRIVATE_KEY",
+    "X402_PRIVATE_KEY",
+    "MY_PRIVATE_KEY",
+    "EVM_WALLET_ADDRESS",
+    "SOLANA_RPC_URL",
+  ])("blocks %s", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
+  });
+
+  // Secrets and passwords
+  it.each([
+    "GITHUB_CLIENT_SECRET",
+    "API_SECRET_KEY",
+    "MY_SECRET",
+    "DB_PASSWORD",
+    "ADMIN_PASSWORD",
+    "OAUTH_CREDENTIAL",
+  ])("blocks %s (secret/password/credential)", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
+  });
+
+  // Token variants
+  it.each([
+    "AUTH_TOKEN",
+    "ACCESS_TOKEN",
+    "REFRESH_TOKEN",
+    "SESSION_TOKEN",
+    "GITHUB_AUTH_TOKEN",
+    "OAUTH_ACCESS_TOKEN",
+  ])("blocks %s (token)", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
+  });
+
+  // Mnemonics and seed phrases
+  it.each([
+    "WALLET_MNEMONIC",
+    "MY_MNEMONIC",
+    "SEED_PHRASE",
+    "HD_SEED_PHRASE",
+  ])("blocks %s (mnemonic/seed)", (key) => {
+    expect(isEnvKeyAllowedForForwarding(key)).toBe(false);
+  });
+
+  // SECRET mid-string (not just end-of-string)
+  it("blocks SECRET appearing anywhere in the key", () => {
+    expect(isEnvKeyAllowedForForwarding("API_SECRET_KEY")).toBe(false);
+    expect(isEnvKeyAllowedForForwarding("SECRET_VALUE")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gemini API key normalization
+// ---------------------------------------------------------------------------
+
+describe("Gemini API key normalization", () => {
+  const geminiEnvKeys = [
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    // Include brand alias env vars to prevent contamination
+    "ELIZA_USE_PI_AI",
+    "MILADY_USE_PI_AI",
+  ];
+  const snap = envSnapshot(geminiEnvKeys);
+
+  beforeEach(() => {
+    snap.save();
+    for (const k of geminiEnvKeys) delete process.env[k];
+  });
+  afterEach(() => snap.restore());
+
+  it("collectPluginNames detects Gemini via GEMINI_API_KEY alias", () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    // Simulate what the runtime does: normalize before collectPluginNames
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
+        process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+    }
+    const names = collectPluginNames({} as ElizaConfig);
+    expect(names.has("@elizaos/plugin-google-genai")).toBe(true);
+  });
+
+  it("collectPluginNames detects Gemini via GOOGLE_API_KEY alias", () => {
+    process.env.GOOGLE_API_KEY = "test-key";
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
+        process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+    }
+    const names = collectPluginNames({} as ElizaConfig);
+    expect(names.has("@elizaos/plugin-google-genai")).toBe(true);
+  });
+
+  it("does not overwrite GOOGLE_GENERATIVE_AI_API_KEY if already set", () => {
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = "canonical-key";
+    process.env.GEMINI_API_KEY = "alias-key";
+    // setEnvIfMissing logic: skip if already set
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY =
+        process.env.GEMINI_API_KEY || "";
+    }
+    expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe("canonical-key");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSetting null fallback — default model names
+// ---------------------------------------------------------------------------
+
+describe("getSetting null fallback — default Google model names", () => {
+  const modelKeys = ["GOOGLE_SMALL_MODEL", "GOOGLE_LARGE_MODEL"];
+  const snap = envSnapshot(modelKeys);
+
+  beforeEach(() => {
+    snap.save();
+    for (const k of modelKeys) delete process.env[k];
+  });
+  afterEach(() => snap.restore());
+
+  it("sets GOOGLE_SMALL_MODEL default when not present", () => {
+    // Simulate runtime normalization
+    if (!process.env.GOOGLE_SMALL_MODEL) {
+      process.env.GOOGLE_SMALL_MODEL = "gemini-3-flash-preview";
+    }
+    expect(process.env.GOOGLE_SMALL_MODEL).toBe("gemini-3-flash-preview");
+    expect(process.env.GOOGLE_SMALL_MODEL).not.toBe("null");
+  });
+
+  it("sets GOOGLE_LARGE_MODEL default when not present", () => {
+    if (!process.env.GOOGLE_LARGE_MODEL) {
+      process.env.GOOGLE_LARGE_MODEL = "gemini-3.1-pro-preview";
+    }
+    expect(process.env.GOOGLE_LARGE_MODEL).toBe("gemini-3.1-pro-preview");
+    expect(process.env.GOOGLE_LARGE_MODEL).not.toBe("null");
+  });
+
+  it("does not overwrite user-configured model names", () => {
+    process.env.GOOGLE_SMALL_MODEL = "gemini-custom";
+    // setEnvIfMissing logic: skip if already set
+    if (!process.env.GOOGLE_SMALL_MODEL) {
+      process.env.GOOGLE_SMALL_MODEL = "gemini-3-flash-preview";
+    }
+    expect(process.env.GOOGLE_SMALL_MODEL).toBe("gemini-custom");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// collectPluginNames — whitespace-only env keys
+// ---------------------------------------------------------------------------
+
+describe("collectPluginNames — whitespace env keys", () => {
+  const envKeys = [
+    "GROQ_API_KEY",
+    "ANTHROPIC_API_KEY",
+    // Include brand alias env vars to prevent contamination
+    "ELIZA_USE_PI_AI",
+    "MILADY_USE_PI_AI",
+  ];
+  const snap = envSnapshot(envKeys);
+  beforeEach(() => {
+    snap.save();
+    for (const k of envKeys) delete process.env[k];
+  });
+  afterEach(() => snap.restore());
+
+  it("does not load a provider plugin when its env key is whitespace-only", () => {
+    process.env.GROQ_API_KEY = "   ";
+    const names = collectPluginNames({} as ElizaConfig);
+    expect(names.has("@elizaos/plugin-groq")).toBe(false);
+  });
+
+  it("does not load a provider plugin when its env key is an empty string", () => {
+    process.env.GROQ_API_KEY = "";
+    const names = collectPluginNames({} as ElizaConfig);
+    expect(names.has("@elizaos/plugin-groq")).toBe(false);
+  });
+
+  it("still loads a provider plugin when its env key has a real value", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-real-key";
+    const names = collectPluginNames({} as ElizaConfig);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deduplicatePluginActions
+// ---------------------------------------------------------------------------
+
+describe("deduplicatePluginActions", () => {
+  function makePlugin(name: string, actionNames: string[]): Plugin {
+    return {
+      name,
+      description: `test plugin ${name}`,
+      actions: actionNames.map((n) => ({
+        name: n,
+        description: `action ${n}`,
+        similes: [],
+        handler: async () => {},
+        validate: async () => true,
+        examples: [],
+      })),
+    };
+  }
+
+  it("keeps first occurrence and removes duplicates from later plugins", () => {
+    const pluginA = makePlugin("plugin-a", ["SEND_MESSAGE", "GET_TRADES"]);
+    const pluginB = makePlugin("plugin-b", ["SEND_MESSAGE", "REGISTER_AGENT"]);
+
+    deduplicatePluginActions([pluginA, pluginB]);
+
+    expect(pluginA.actions?.map((a) => a.name)).toEqual([
+      "SEND_MESSAGE",
+      "GET_TRADES",
+    ]);
+    expect(pluginB.actions?.map((a) => a.name)).toEqual(["REGISTER_AGENT"]);
+  });
+
+  it("does not modify plugins with no overlapping actions", () => {
+    const pluginA = makePlugin("plugin-a", ["ACTION_A"]);
+    const pluginB = makePlugin("plugin-b", ["ACTION_B"]);
+
+    deduplicatePluginActions([pluginA, pluginB]);
+
+    expect(pluginA.actions).toHaveLength(1);
+    expect(pluginB.actions).toHaveLength(1);
+  });
+
+  it("handles plugins with no actions array", () => {
+    const pluginA = makePlugin("plugin-a", ["FOO"]);
+    const pluginB: Plugin = {
+      name: "plugin-b",
+      description: "no actions",
+    };
+
+    deduplicatePluginActions([pluginA, pluginB]);
+
+    expect(pluginA.actions?.map((a) => a.name)).toEqual(["FOO"]);
+    expect(pluginB.actions).toBeUndefined();
+  });
+
+  it("removes all duplicates when three plugins share the same action", () => {
+    const p1 = makePlugin("p1", ["SHARED"]);
+    const p2 = makePlugin("p2", ["SHARED", "UNIQUE_2"]);
+    const p3 = makePlugin("p3", ["SHARED", "UNIQUE_3"]);
+
+    deduplicatePluginActions([p1, p2, p3]);
+
+    expect(p1.actions?.map((a) => a.name)).toEqual(["SHARED"]);
+    expect(p2.actions?.map((a) => a.name)).toEqual(["UNIQUE_2"]);
+    expect(p3.actions?.map((a) => a.name)).toEqual(["UNIQUE_3"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cleanStalePglitePid
+// ---------------------------------------------------------------------------
+
+describe("cleanStalePglitePid", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pglite-pid-test-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("does nothing when postmaster.pid does not exist", () => {
+    // Should not throw
+    cleanStalePglitePid(tmpDir);
+    // No pid file to check
+  });
+
+  it("removes a stale pid file when the process is not running", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    // Use a PID that is extremely unlikely to be running
+    await fs.writeFile(pidPath, "999999999\n/tmp/pglite\n5432\n");
+
+    cleanStalePglitePid(tmpDir);
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
+  });
+
+  it("leaves the pid file intact when the process is still running", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    // Use our own PID — guaranteed to be running
+    await fs.writeFile(pidPath, `${process.pid}\n/tmp/pglite\n5432\n`);
+
+    cleanStalePglitePid(tmpDir);
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(true);
+  });
+
+  it("leaves the pid file intact on EPERM (process exists under different user)", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "12345\n/tmp/pglite\n5432\n");
+
+    // Mock process.kill to throw EPERM (process exists but different owner)
+    const origKill = process.kill;
+    process.kill = ((pid: number, signal?: number) => {
+      if (signal === 0) {
+        const err = new Error("EPERM") as NodeJS.ErrnoException;
+        err.code = "EPERM";
+        throw err;
+      }
+      return origKill.call(process, pid, signal);
+    }) as typeof process.kill;
+
+    try {
+      cleanStalePglitePid(tmpDir);
+    } finally {
+      process.kill = origKill;
+    }
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(true);
+  });
+
+  it("removes a malformed pid file (non-numeric)", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "not-a-number\n");
+
+    cleanStalePglitePid(tmpDir);
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
+  });
+
+  it("removes a malformed pid file (empty)", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "");
+
+    cleanStalePglitePid(tmpDir);
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
+  });
+});
+
+describe("getPgliteRecoveryAction", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pglite-recovery-test-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("retries without reset when a lock error comes from a stale pid file", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "999999999\n/tmp/pglite\n5432\n");
+
+    const action = getPgliteRecoveryAction(
+      new Error("PGlite adapter crashed: database is locked"),
+      tmpDir,
+    );
+
+    const exists = await fs
+      .access(pidPath)
+      .then(() => true)
+      .catch(() => false);
+
+    expect(action).toBe("retry-without-reset");
+    expect(exists).toBe(false);
+  });
+
+  it("fails fast when a lock error points at a live owner process", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, `${process.pid}\n/tmp/pglite\n5432\n`);
+
+    const action = getPgliteRecoveryAction(
+      new Error("PGlite adapter crashed: lock file already exists"),
+      tmpDir,
+    );
+
+    expect(action).toBe("fail-active-lock");
+  });
+
+  it("fails fast when pid ownership cannot be confirmed", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, "12345\n/tmp/pglite\n5432\n");
+
+    const origKill = process.kill;
+    process.kill = ((pid: number, signal?: number) => {
+      if (signal === 0) {
+        const err = new Error("EPERM") as NodeJS.ErrnoException;
+        err.code = "EPERM";
+        throw err;
+      }
+      return origKill.call(process, pid, signal);
+    }) as typeof process.kill;
+
+    try {
+      const action = getPgliteRecoveryAction(
+        new Error("PGlite adapter crashed: database is locked"),
+        tmpDir,
+      );
+      expect(action).toBe("fail-active-lock");
+    } finally {
+      process.kill = origKill;
+    }
+  });
+
+  it("still resets for corruption errors even when a pid file exists", async () => {
+    const pidPath = path.join(tmpDir, "postmaster.pid");
+    await fs.writeFile(pidPath, `${process.pid}\n/tmp/pglite\n5432\n`);
+
+    const action = getPgliteRecoveryAction(
+      new Error("PGlite adapter crashed: database disk image is malformed"),
+      tmpDir,
+    );
+
+    expect(action).toBe("reset-data-dir");
+  });
+
+  it("returns none for unrelated startup errors", () => {
+    const action = getPgliteRecoveryAction(
+      new Error("Connection refused"),
+      tmpDir,
+    );
+
+    expect(action).toBe("none");
   });
 });

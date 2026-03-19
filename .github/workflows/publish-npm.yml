@@ -36,23 +36,15 @@ env:
   CI: "true"
 
 jobs:
-  publish:
-    name: Publish to npm
-    runs-on: ubuntu-latest
+  detect-meta:
+    name: Determine version and dist-tag
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      dist_tag: ${{ steps.meta.outputs.dist_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 
       - name: Determine version and dist-tag
         id: meta
@@ -85,66 +77,29 @@ jobs:
           echo "Version: $VERSION"
           echo "Dist-tag: $DIST_TAG"
 
-      - name: Install dependencies
-        run: |
-          # Use --ignore-scripts to skip postinstall (submodule init) since we don't need plugins for npm publish
-          # Retry up to 3 times to handle flaky network issues
-          for attempt in 1 2 3; do
-            echo "Attempt $attempt of 3..."
-            if bun install --frozen-lockfile --ignore-scripts; then
-              echo "Dependencies installed successfully"
-              exit 0
-            fi
-            echo "Attempt $attempt failed, waiting 10s before retry..."
-            sleep 10
-          done
-          echo "All attempts failed"
-          exit 1
+  publish:
+    name: Publish
+    needs: detect-meta
+    uses: ./.github/workflows/reusable-npm-publish.yml
+    with:
+      version: ${{ needs.detect-meta.outputs.version }}
+      dist_tag: ${{ needs.detect-meta.outputs.dist_tag }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Set version in package.json
-        run: |
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '${{ steps.meta.outputs.version }}';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-          echo "Publishing version: $(node -p "require('./package.json').version")"
-
-      - name: Build
-        run: |
-          bunx tsdown
-          node --import tsx scripts/write-build-info.ts
-          echo '{"type":"module"}' > dist/package.json
-
-      - name: Validate package
-        run: |
-          PACK_OUTPUT=$(npm pack --dry-run 2>&1)
-          echo "$PACK_OUTPUT"
-
-          # Verify critical files are included in the package
-          for required in "milady.mjs" "dist/index.js" "package.json"; do
-            if ! echo "$PACK_OUTPUT" | grep -q "$required"; then
-              echo "::error::Required file '$required' missing from package contents"
-              exit 1
-            fi
-          done
-
-          echo "Package validation passed — all required files present"
-
-      - name: Publish to npm
-        run: npm publish --tag ${{ steps.meta.outputs.dist_tag }} --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
+  verify:
+    name: Verify publish
+    needs: [detect-meta, publish]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
       - name: Verify publish
         run: |
           sleep 5  # Give the registry a moment to propagate
-          PUBLISHED=$(npm view milady@${{ steps.meta.outputs.dist_tag }} version 2>/dev/null || echo "")
-          EXPECTED="${{ steps.meta.outputs.version }}"
+          PUBLISHED=$(npm view miladyai@${{ needs.detect-meta.outputs.dist_tag }} version 2>/dev/null || echo "")
+          EXPECTED="${{ needs.detect-meta.outputs.version }}"
 
           if [[ "$PUBLISHED" == "$EXPECTED" ]]; then
-            echo "Verified: milady@${{ steps.meta.outputs.dist_tag }} → $PUBLISHED"
+            echo "Verified: miladyai@${{ needs.detect-meta.outputs.dist_tag }} → $PUBLISHED"
           else
             echo "::warning::Published version ($PUBLISHED) does not match expected ($EXPECTED). Registry may still be propagating."
           fi
@@ -156,10 +111,10 @@ jobs:
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Package | milady |" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | \`${{ steps.meta.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Dist-tag | \`${{ steps.meta.outputs.dist_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ needs.detect-meta.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dist-tag | \`${{ needs.detect-meta.outputs.dist_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Install" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g milady@${{ steps.meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g miladyai@${{ needs.detect-meta.outputs.dist_tag }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

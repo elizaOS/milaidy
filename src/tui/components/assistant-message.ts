@@ -1,23 +1,43 @@
 import {
   type Component,
+  Image,
+  type ImageTheme,
   Markdown,
   type MarkdownTheme,
-  visibleWidth,
-} from "@elizaos/tui";
-import chalk from "chalk";
+} from "@mariozechner/pi-tui";
+import { elizaMarkdownTheme, tuiTheme } from "../theme.js";
 
+const imageTheme: ImageTheme = {
+  fallbackColor: (s) => tuiTheme.dim(s),
+};
+
+interface ImageAttachment {
+  base64: string;
+  mimeType: string;
+  filename?: string;
+}
+
+/**
+ * Assistant message — clean markdown, no prefix.
+ * Renders exactly: 1 blank line + markdown content.
+ * Thinking traces shown as italic/muted when enabled.
+ * Supports inline image attachments.
+ */
 export class AssistantMessageComponent implements Component {
   private markdown: Markdown;
+  private thinkingMarkdown: Markdown | null = null;
+  private images: Image[] = [];
+
   private thinkingText = "";
   private responseText = "";
   private isStreaming = true;
 
   constructor(
     private showThinking = false,
-    markdownTheme: MarkdownTheme,
+    private markdownTheme: MarkdownTheme = elizaMarkdownTheme,
+    _agentName?: string,
   ) {
-    // paddingX=0, paddingY=0
-    this.markdown = new Markdown("", 0, 0, markdownTheme);
+    this.markdown = new Markdown("", 1, 0, markdownTheme);
   }
 
   updateContent(text: string): void {
@@ -32,43 +52,84 @@ export class AssistantMessageComponent implements Component {
     }
   }
 
+  /** Attach an inline image to render below the message text. */
+  addImage(attachment: ImageAttachment): void {
+    this.images.push(
+      new Image(attachment.base64, attachment.mimeType, imageTheme, {
+        maxWidthCells: 60,
+        maxHeightCells: 20,
+        filename: attachment.filename,
+      }),
+    );
+  }
+
   finalize(): void {
     this.isStreaming = false;
     this.rebuildMarkdown();
   }
 
-  private rebuildMarkdown(): void {
-    const parts: string[] = [];
-
-    if (this.showThinking && this.thinkingText.trim().length > 0) {
-      const quoted = this.thinkingText
-        .split("\n")
-        .map((l) => `> ${l}`)
-        .join("\n");
-      parts.push(quoted, "");
-    }
-
-    parts.push(this.responseText);
-
-    // Streaming cursor indicator
-    if (this.isStreaming && this.responseText.length > 0) {
-      parts.push(" ▊");
-    }
-
-    this.markdown.setText(parts.join("\n").trimEnd());
-  }
-
   render(width: number): string[] {
-    const prefix = chalk.bold.magenta("✨ ");
-    const prefixWidth = visibleWidth(prefix);
-    const mdLines = this.markdown.render(Math.max(1, width - prefixWidth));
+    const thinkingLines =
+      this.showThinking && this.thinkingMarkdown
+        ? this.thinkingMarkdown.render(width)
+        : [];
 
-    return mdLines.map((line, i) =>
-      i === 0 ? `${prefix}${line}` : `${" ".repeat(prefixWidth)}${line}`,
-    );
+    const contentLines = this.markdown.render(width);
+
+    // Nothing to show yet
+    if (
+      thinkingLines.length === 0 &&
+      contentLines.length === 0 &&
+      this.images.length === 0
+    ) {
+      return [];
+    }
+
+    const lines: string[] = [""];
+
+    if (thinkingLines.length > 0) {
+      lines.push(...thinkingLines);
+      if (contentLines.length > 0) {
+        lines.push(""); // gap between thinking and response
+      }
+    }
+
+    lines.push(...contentLines);
+
+    // Render inline images after text
+    for (const img of this.images) {
+      lines.push(""); // spacer before image
+      lines.push(...img.render(width));
+    }
+
+    return lines;
   }
 
   invalidate(): void {
     this.markdown.invalidate();
+    this.thinkingMarkdown?.invalidate();
+    for (const img of this.images) {
+      img.invalidate();
+    }
+  }
+
+  private rebuildMarkdown(): void {
+    // Thinking
+    if (this.showThinking && this.thinkingText.trim()) {
+      this.thinkingMarkdown = new Markdown(
+        this.thinkingText.trim(),
+        1,
+        0,
+        this.markdownTheme,
+        { color: (t) => tuiTheme.muted(t), italic: true },
+      );
+    } else {
+      this.thinkingMarkdown = null;
+    }
+
+    // Response
+    const display =
+      this.responseText + (this.isStreaming && this.responseText ? " ▊" : "");
+    this.markdown.setText(display.trimEnd());
   }
 }

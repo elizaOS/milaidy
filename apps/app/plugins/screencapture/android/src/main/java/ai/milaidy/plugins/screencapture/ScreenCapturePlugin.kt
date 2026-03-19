@@ -296,7 +296,7 @@ class ScreenCapturePlugin : Plugin() {
     }
 
     @PluginMethod
-    fun checkPermissions(call: PluginCall) {
+    override fun checkPermissions(call: PluginCall) {
         val micStatus = getPermissionState("microphone")
         call.resolve(JSObject().apply {
             put("screenCapture", "prompt") // Always prompt for MediaProjection
@@ -305,7 +305,7 @@ class ScreenCapturePlugin : Plugin() {
     }
 
     @PluginMethod
-    fun requestPermissions(call: PluginCall) {
+    override fun requestPermissions(call: PluginCall) {
         requestPermissionForAlias("microphone", call, "handlePermissionsResult")
     }
 
@@ -506,7 +506,7 @@ class ScreenCapturePlugin : Plugin() {
                 // Auto-stop callback when max file size or max duration is hit
                 setOnInfoListener { _, what, _ ->
                     if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED ||
-                        what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_MS_REACHED
+                        what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED
                     ) {
                         Log.d(TAG, "Recording auto-stopped (limit reached)")
                         scope.launch { stopRecordingInternal() }

@@ -1,5 +1,9 @@
-import { type Component, visibleWidth } from "@elizaos/tui";
-import chalk from "chalk";
+import {
+  type Component,
+  truncateToWidth,
+  visibleWidth,
+} from "@mariozechner/pi-tui";
+import { tuiTheme } from "../theme.js";
 
 export interface StatusBarData {
   modelId: string;
@@ -10,6 +14,22 @@ export interface StatusBarData {
   agentName: string;
 }
 
+/**
+ * Format token counts compactly (similar to Pi TUI).
+ */
+function formatTokens(count: number): string {
+  if (count < 1000) return count.toString();
+  if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
+  if (count < 1000000) return `${Math.round(count / 1000)}k`;
+  return `${(count / 1000000).toFixed(1)}M`;
+}
+
+/**
+ * Status bar showing pwd, token stats, and model info (Pi-style footer).
+ *
+ * Line 1: cwd (with ~ substitution)
+ * Line 2: token stats (left) + model (right)
+ */
 export class StatusBar implements Component {
   private data: StatusBarData = {
     modelId: "",
@@ -17,7 +37,7 @@ export class StatusBar implements Component {
     inputTokens: 0,
     outputTokens: 0,
     isStreaming: false,
-    agentName: "milady",
+    agentName: "eliza",
   };
 
   update(partial: Partial<StatusBarData>): void {
@@ -25,29 +45,53 @@ export class StatusBar implements Component {
   }
 
   render(width: number): string[] {
+    const safeWidth = Math.max(1, width);
     const d = this.data;
 
-    const model = d.modelId
-      ? chalk.cyan(`${d.modelProvider}/${d.modelId}`)
-      : chalk.dim("no model");
+    // ── Line 1: cwd ──────────────────────────────────────────────────
+    let pwd = process.cwd();
+    const home = process.env.HOME || process.env.USERPROFILE;
+    if (home && pwd.startsWith(home)) {
+      pwd = `~${pwd.slice(home.length)}`;
+    }
+    const pwdLine = tuiTheme.dim(truncateToWidth(pwd, safeWidth, "..."));
 
-    const streaming = d.isStreaming ? chalk.yellow("● streaming") : "";
+    // ── Line 2: stats left │ model right ─────────────────────────────
+    const statsParts: string[] = [];
 
-    const tokens =
-      d.inputTokens || d.outputTokens
-        ? chalk.dim(`↑${d.inputTokens} ↓${d.outputTokens}`)
-        : "";
+    if (d.inputTokens) statsParts.push(`↑${formatTokens(d.inputTokens)}`);
+    if (d.outputTokens) statsParts.push(`↓${formatTokens(d.outputTokens)}`);
+    if (d.isStreaming) statsParts.push(tuiTheme.warning("● streaming"));
 
-    const left = ` ${model}${streaming ? ` ${streaming}` : ""}`;
-    const right = tokens ? `${tokens} ` : "";
+    const statsLeft = statsParts.length > 0 ? statsParts.join(" ") : "";
 
-    const leftW = visibleWidth(left);
-    const rightW = visibleWidth(right);
-    const gap = Math.max(1, width - leftW - rightW);
+    const modelName = d.modelId
+      ? `${d.modelProvider}/${d.modelId}`
+      : "no model";
 
-    const line = `${left}${" ".repeat(gap)}${right}`;
+    // Dim everything
+    const dimLeft = tuiTheme.dim(statsLeft);
+    const dimRight = tuiTheme.dim(modelName);
 
-    return [chalk.dim("─".repeat(width)), line];
+    const leftWidth = visibleWidth(dimLeft);
+    const rightWidth = visibleWidth(dimRight);
+    const minPad = 2;
+
+    let statsLine: string;
+    if (leftWidth + minPad + rightWidth <= safeWidth) {
+      const gap = " ".repeat(safeWidth - leftWidth - rightWidth);
+      statsLine = dimLeft + gap + dimRight;
+    } else if (leftWidth + minPad < safeWidth) {
+      const availRight = safeWidth - leftWidth - minPad;
+      statsLine =
+        dimLeft +
+        " ".repeat(minPad) +
+        truncateToWidth(dimRight, availRight, "");
+    } else {
+      statsLine = truncateToWidth(dimLeft, safeWidth, "");
+    }
+
+    return [pwdLine, statsLine];
   }
 
   invalidate(): void {

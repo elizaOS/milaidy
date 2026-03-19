@@ -1,0 +1,34 @@
+# CI-specific dockerignore for Dockerfile.ci
+# Unlike .dockerignore, this allows dist/ and apps/app/dist/ in the build context
+# because they are pre-built by GitHub Actions before the docker build step.
+
+.git
+.github
+.claude
+.devin
+.vscode
+.idea
+.env
+.env.local
+.env.*.local
+node_modules/.cache
+apps/app/android
+apps/app/electrobun
+apps/homepage
+apps/home
+apps/landing
+apps/chrome-extension
+apps/ui
+docs/
+coverage/
+dev.log
+install.sh
+install.ps1
+packaging/
+artifacts/
+deploy/
+Dockerfile
+Dockerfile.alpha89
+Dockerfile.fixed
+Dockerfile.slim
+!Dockerfile.ci

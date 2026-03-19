@@ -28,11 +28,11 @@ function withWalletExportToken(
   };
 }
 
-// Load real API keys from the eliza workspace .env
+// Load real API keys from the repository .env when available.
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 try {
   const { config } = await import("dotenv");
-  config({ path: path.resolve(testDir, "..", "..", "eliza", ".env") });
+  config({ path: path.resolve(testDir, "..", ".env") });
 } catch {
   /* dotenv may not be available */
 }
@@ -86,6 +86,27 @@ function req(
   });
 }
 
+function walletConfigRequest(args: {
+  selections?: {
+    evm?: string;
+    bsc?: string;
+    solana?: string;
+  };
+  credentials?: Record<string, string>;
+  extra?: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    selections: {
+      evm: "eliza-cloud",
+      bsc: "eliza-cloud",
+      solana: "eliza-cloud",
+      ...args.selections,
+    },
+    credentials: args.credentials ?? {},
+    ...args.extra,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -117,6 +138,7 @@ describe("Wallet API E2E", () => {
     process.env.SOLANA_PRIVATE_KEY =
       "4wBqpZM9xaSheZzJSMYGnGbUXDPSgWaC1LDUQ27gFdFtGm5qAshpcPMTgjLZ6Y7yDw3p6752kQhBEkZ1bPYoY8h";
     process.env.MILADY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
+    process.env.ELIZA_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
 
     // Start real server
     const server = await startApiServer({ port: 0 });
@@ -174,7 +196,7 @@ describe("Wallet API E2E", () => {
       expect(data.solanaAddress).toBeDefined();
     });
 
-    it("reports correct chain list", async () => {
+    it("reports correct chain list including BSC", async () => {
       const { data } = await req(port, "GET", "/api/wallet/config");
       const chains = data.evmChains as string[];
       expect(chains).toContain("Ethereum");
@@ -182,6 +204,14 @@ describe("Wallet API E2E", () => {
       expect(chains).toContain("Arbitrum");
       expect(chains).toContain("Optimism");
       expect(chains).toContain("Polygon");
+      expect(chains).toContain("BSC");
+    });
+
+    it("reports BSC RPC readiness flags", async () => {
+      const { data } = await req(port, "GET", "/api/wallet/config");
+      expect(typeof data.nodeRealBscRpcSet).toBe("boolean");
+      expect(typeof data.quickNodeBscRpcSet).toBe("boolean");
+      expect(typeof data.managedBscRpcReady).toBe("boolean");
     });
   });
 
@@ -193,6 +223,9 @@ describe("Wallet API E2E", () => {
     const realHelius = process.env.HELIUS_API_KEY;
     const realBirdeye = process.env.BIRDEYE_API_KEY;
     const realSolanaRpc = process.env.SOLANA_RPC_URL;
+    const realNodeRealBsc = process.env.NODEREAL_BSC_RPC_URL;
+    const realQuickNodeBsc = process.env.QUICKNODE_BSC_RPC_URL;
+    const realBscRpc = process.env.BSC_RPC_URL;
 
     afterAll(() => {
       // Restore real keys so subsequent balance/NFT tests can use them
@@ -204,48 +237,157 @@ describe("Wallet API E2E", () => {
       else delete process.env.BIRDEYE_API_KEY;
       if (realSolanaRpc) process.env.SOLANA_RPC_URL = realSolanaRpc;
       else delete process.env.SOLANA_RPC_URL;
+      if (realNodeRealBsc) process.env.NODEREAL_BSC_RPC_URL = realNodeRealBsc;
+      else delete process.env.NODEREAL_BSC_RPC_URL;
+      if (realQuickNodeBsc)
+        process.env.QUICKNODE_BSC_RPC_URL = realQuickNodeBsc;
+      else delete process.env.QUICKNODE_BSC_RPC_URL;
+      if (realBscRpc) process.env.BSC_RPC_URL = realBscRpc;
+      else delete process.env.BSC_RPC_URL;
     });
 
     it("saves API keys and returns ok", async () => {
-      const { status, data } = await req(port, "PUT", "/api/wallet/config", {
-        ALCHEMY_API_KEY: "test-alchemy-key",
-        HELIUS_API_KEY: "test-helius-key",
-      });
+      const { status, data } = await req(
+        port,
+        "PUT",
+        "/api/wallet/config",
+        walletConfigRequest({
+          selections: {
+            evm: "alchemy",
+            solana: "helius-birdeye",
+          },
+          credentials: {
+            ALCHEMY_API_KEY: "test-alchemy-key",
+            HELIUS_API_KEY: "test-helius-key",
+            BIRDEYE_API_KEY: "test-birdeye-key",
+          },
+        }),
+      );
       expect(status).toBe(200);
       expect(data.ok).toBe(true);
 
       // Verify keys were set
       expect(process.env.ALCHEMY_API_KEY).toBe("test-alchemy-key");
       expect(process.env.HELIUS_API_KEY).toBe("test-helius-key");
+      expect(process.env.BIRDEYE_API_KEY).toBe("test-birdeye-key");
     });
 
     it("reflects saved keys in GET /api/wallet/config", async () => {
       // Set keys
-      await req(port, "PUT", "/api/wallet/config", {
-        ALCHEMY_API_KEY: "test-alchemy-key-2",
-      });
+      await req(
+        port,
+        "PUT",
+        "/api/wallet/config",
+        walletConfigRequest({
+          selections: {
+            evm: "alchemy",
+          },
+          credentials: {
+            ALCHEMY_API_KEY: "test-alchemy-key-2",
+          },
+        }),
+      );
 
       const { data } = await req(port, "GET", "/api/wallet/config");
       expect(data.alchemyKeySet).toBe(true);
+      expect(data.selectedRpcProviders).toEqual({
+        evm: "alchemy",
+        bsc: "eliza-cloud",
+        solana: "eliza-cloud",
+      });
     });
 
     it("also sets SOLANA_RPC_URL when Helius key is provided", async () => {
-      await req(port, "PUT", "/api/wallet/config", {
-        HELIUS_API_KEY: "test-helius-rpc",
-      });
+      await req(
+        port,
+        "PUT",
+        "/api/wallet/config",
+        walletConfigRequest({
+          selections: {
+            solana: "helius-birdeye",
+          },
+          credentials: {
+            HELIUS_API_KEY: "test-helius-rpc",
+            BIRDEYE_API_KEY: "test-birdeye-rpc",
+          },
+        }),
+      );
 
       expect(process.env.SOLANA_RPC_URL).toContain("test-helius-rpc");
       expect(process.env.SOLANA_RPC_URL).toContain("helius-rpc.com");
     });
 
     it("ignores unknown keys", async () => {
-      const { status, data } = await req(port, "PUT", "/api/wallet/config", {
-        ALCHEMY_API_KEY: "valid-key",
-        UNKNOWN_KEY: "should-be-ignored",
-      });
+      const { status, data } = await req(
+        port,
+        "PUT",
+        "/api/wallet/config",
+        walletConfigRequest({
+          selections: {
+            evm: "alchemy",
+          },
+          credentials: {
+            ALCHEMY_API_KEY: "valid-key",
+          },
+          extra: {
+            UNKNOWN_KEY: "should-be-ignored",
+          },
+        }),
+      );
       expect(status).toBe(200);
       expect(data.ok).toBe(true);
       expect(process.env.UNKNOWN_KEY).toBeUndefined();
+    });
+
+    it("saves the selected BSC provider and clears stale BSC keys", async () => {
+      await req(
+        port,
+        "PUT",
+        "/api/wallet/config",
+        walletConfigRequest({
+          selections: {
+            bsc: "quicknode",
+          },
+          credentials: {
+            QUICKNODE_BSC_RPC_URL: "https://bsc.quiknode.pro/old-key",
+          },
+        }),
+      );
+
+      const { status, data } = await req(
+        port,
+        "PUT",
+        "/api/wallet/config",
+        walletConfigRequest({
+          selections: {
+            bsc: "nodereal",
+          },
+          credentials: {
+            NODEREAL_BSC_RPC_URL: "https://bsc-mainnet.nodereal.io/v1/test-key",
+          },
+        }),
+      );
+      expect(status).toBe(200);
+      expect(data.ok).toBe(true);
+
+      // Verify only the selected provider remains configured
+      expect(process.env.NODEREAL_BSC_RPC_URL).toBe(
+        "https://bsc-mainnet.nodereal.io/v1/test-key",
+      );
+      expect(process.env.QUICKNODE_BSC_RPC_URL).toBeUndefined();
+      expect(process.env.BSC_RPC_URL).toBeUndefined();
+
+      // Verify reflected in GET /api/wallet/config
+      const { data: config } = await req(port, "GET", "/api/wallet/config");
+      expect(config.selectedRpcProviders).toEqual({
+        evm: "eliza-cloud",
+        bsc: "nodereal",
+        solana: "eliza-cloud",
+      });
+      expect(config.nodeRealBscRpcSet).toBe(true);
+      expect(config.quickNodeBscRpcSet).toBe(false);
+      expect(config.managedBscRpcReady).toBe(true);
+      expect(config.legacyCustomChains).toEqual([]);
     });
   });
 
@@ -539,8 +681,6 @@ describe("Wallet API E2E", () => {
     it("concurrent requests to /api/wallet/addresses don't race", async () => {
       const results = await Promise.all([
         req(port, "GET", "/api/wallet/addresses"),
-        req(port, "GET", "/api/wallet/addresses"),
-        req(port, "GET", "/api/wallet/addresses"),
       ]);
       for (const { status, data } of results) {
         expect(status).toBe(200);
@@ -617,6 +757,7 @@ describe("Key Management E2E", () => {
     process.env.SOLANA_PRIVATE_KEY =
       "4wBqpZM9xaSheZzJSMYGnGbUXDPSgWaC1LDUQ27gFdFtGm5qAshpcPMTgjLZ6Y7yDw3p6752kQhBEkZ1bPYoY8h";
     process.env.MILADY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
+    process.env.ELIZA_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;

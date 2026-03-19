@@ -27,7 +27,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         // When the activity is fully destroyed (user swipe-kills the app),
         // tear down the foreground service to avoid an orphaned notification.
         // START_STICKY will restart the service if the system killed it, but

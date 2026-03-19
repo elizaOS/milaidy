@@ -1,4 +1,4 @@
-require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+require_relative '../../../../node_modules/.bun/@capacitor+ios@8.2.0+1a4bec108d739029/node_modules/@capacitor/ios/scripts/pods_helpers'
 
 platform :ios, '15.0'
 use_frameworks!
@@ -9,21 +9,21 @@ use_frameworks!
 install! 'cocoapods', :disable_input_output_paths => true
 
 def capacitor_pods
-  pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
-  pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-  pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
-  pod 'CapacitorHaptics', :path => '../../node_modules/@capacitor/haptics'
-  pod 'CapacitorKeyboard', :path => '../../node_modules/@capacitor/keyboard'
-  pod 'CapacitorPreferences', :path => '../../node_modules/@capacitor/preferences'
-  pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
-  pod 'MiladyCapacitorCamera', :path => '../../plugins/camera'
-  pod 'MiladyCapacitorCanvas', :path => '../../plugins/canvas'
-  pod 'MiladyCapacitorGateway', :path => '../../plugins/gateway'
-  pod 'MiladyCapacitorLocation', :path => '../../plugins/location'
-  pod 'MiladyCapacitorScreencapture', :path => '../../plugins/screencapture'
-  pod 'MiladyCapacitorSwabble', :path => '../../plugins/swabble'
-  pod 'MiladyCapacitorAgent', :path => '../../plugins/agent'
-  pod 'MiladyCapacitorTalkmode', :path => '../../plugins/talkmode'
+  pod 'Capacitor', :path => '../../../../node_modules/.bun/@capacitor+ios@8.2.0+1a4bec108d739029/node_modules/@capacitor/ios'
+  pod 'CapacitorCordova', :path => '../../../../node_modules/.bun/@capacitor+ios@8.2.0+1a4bec108d739029/node_modules/@capacitor/ios'
+  pod 'CapacitorApp', :path => '../../../../node_modules/.bun/@capacitor+app@8.0.1+1a4bec108d739029/node_modules/@capacitor/app'
+  pod 'CapacitorHaptics', :path => '../../../../node_modules/.bun/@capacitor+haptics@8.0.0+1a4bec108d739029/node_modules/@capacitor/haptics'
+  pod 'CapacitorKeyboard', :path => '../../../../node_modules/.bun/@capacitor+keyboard@8.0.0+1a4bec108d739029/node_modules/@capacitor/keyboard'
+  pod 'CapacitorPreferences', :path => '../../../../node_modules/.bun/@capacitor+preferences@8.0.1+1a4bec108d739029/node_modules/@capacitor/preferences'
+  pod 'CapacitorStatusBar', :path => '../../../../node_modules/.bun/@capacitor+status-bar@8.0.1+1a4bec108d739029/node_modules/@capacitor/status-bar'
+  pod 'MiladyaiCapacitorAgent', :path => '../../plugins/agent'
+  pod 'MiladyaiCapacitorCamera', :path => '../../plugins/camera'
+  pod 'MiladyaiCapacitorCanvas', :path => '../../plugins/canvas'
+  pod 'MiladyaiCapacitorGateway', :path => '../../plugins/gateway'
+  pod 'MiladyaiCapacitorLocation', :path => '../../plugins/location'
+  pod 'MiladyaiCapacitorScreencapture', :path => '../../plugins/screencapture'
+  pod 'MiladyaiCapacitorSwabble', :path => '../../plugins/swabble'
+  pod 'MiladyaiCapacitorTalkmode', :path => '../../plugins/talkmode'
 end
 
 target 'App' do

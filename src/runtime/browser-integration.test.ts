@@ -12,7 +12,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { tryOptionalDynamicImport } from "../test-support/test-helpers";
 import {
   CORE_PLUGINS,
@@ -69,7 +69,7 @@ describe("Browser plugin classification", () => {
   it("@elizaos/plugin-browser is added via features.browser config", () => {
     const config = {
       features: { browser: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(true);
   });
@@ -81,20 +81,20 @@ describe("Browser plugin classification", () => {
           browser: { enabled: true },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(true);
   });
 
   it("@elizaos/plugin-browser is NOT loaded with empty config", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-browser")).toBe(false);
   });
 
   it("@elizaos/plugin-browser is NOT loaded when features.browser is false", () => {
     const config = {
       features: { browser: { enabled: false } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(false);
   });
@@ -159,12 +159,20 @@ describe("link-browser-server.mjs script", () => {
 // ---------------------------------------------------------------------------
 
 describe("package.json postinstall hook", () => {
-  it("includes postinstall script referencing link-browser-server", async () => {
+  it("delegates postinstall to repo setup, which includes browser linking", async () => {
     const pkgPath = path.resolve(process.cwd(), "package.json");
     const pkg = JSON.parse(await fs.readFile(pkgPath, "utf-8")) as {
       scripts?: Record<string, string>;
     };
     expect(pkg.scripts?.postinstall).toBeDefined();
-    expect(pkg.scripts?.postinstall).toContain("link-browser-server");
+    expect(pkg.scripts?.postinstall).toContain("run-repo-setup");
+
+    const repoSetupPath = path.resolve(
+      process.cwd(),
+      "scripts",
+      "run-repo-setup.mjs",
+    );
+    const repoSetup = await fs.readFile(repoSetupPath, "utf-8");
+    expect(repoSetup).toContain("scripts/link-browser-server.mjs");
   });
 });

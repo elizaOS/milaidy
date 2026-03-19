@@ -21,7 +21,7 @@ export function createMockRes(): ServerResponse & {
   _body: string;
 } {
   const { res } = createMockHttpResponse();
-  return res as unknown as ServerResponse & {
+  return res as ServerResponse & {
     _status: number;
     _body: string;
   };

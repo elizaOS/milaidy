@@ -1,4 +1,5 @@
 import { execFileSync, execSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +12,14 @@ const SECRET_LIKE_TOKEN_PATTERNS = [
   /gh[pousr]_[A-Za-z0-9_]{36,}/i,
   /(?:^|[^A-Za-z0-9_])(password|secret|api[_-]?key|access[_-]?token|client[_-]?secret|private[_-]?key)\s*[:=]\s*["'][^"']{8,}/i,
 ];
+
+function extractAddedDiffLines(diffChunks) {
+  return diffChunks
+    .split("\n")
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .map((line) => line.slice(1))
+    .join("\n");
+}
 
 function normalizeExecError(error) {
   return {
@@ -105,23 +114,30 @@ export function scopeVerdictFor(classification) {
   return "in scope";
 }
 
+export function decisionFromFindings({ classification, issues }) {
+  return classification === "aesthetic" || issues.length > 0
+    ? "REQUEST CHANGES"
+    : "APPROVE";
+}
+
 export function scanDiffTextForBlockedPatterns(diffChunks) {
   const issues = [];
+  const addedLines = extractAddedDiffLines(diffChunks);
 
-  if (ANY_TYPE_PATTERN.test(diffChunks)) {
+  if (ANY_TYPE_PATTERN.test(addedLines)) {
     issues.push(
       "Potential `any` usage introduced or modified. Verify strict typing is necessary.",
     );
   }
 
-  if (/@ts-ignore/.test(diffChunks)) {
+  if (/@ts-ignore/.test(addedLines)) {
     issues.push(
       "`@ts-ignore` usage detected. Prefer explicit narrowing or guards.",
     );
   }
 
   for (const pattern of SECRET_LIKE_TOKEN_PATTERNS) {
-    if (pattern.test(diffChunks)) {
+    if (pattern.test(addedLines)) {
       issues.push(
         "Potential secret-like string in diff; verify no credentials or secrets were added.",
       );
@@ -156,6 +172,25 @@ export function scanForBlockedDiffPatterns(base, changedFiles) {
 
   const diffChunks = readDiffForFiles(base, sourceFiles);
   return scanDiffTextForBlockedPatterns(diffChunks);
+}
+
+export function resolveRunnableTestFiles(testFiles, cwd = process.cwd()) {
+  return testFiles.filter((file) => existsSync(path.resolve(cwd, file)));
+}
+
+export function splitRunnableTestFiles(testFiles) {
+  const repoTests = [];
+  const homepageTests = [];
+
+  for (const file of testFiles) {
+    if (file.startsWith("apps/homepage/")) {
+      homepageTests.push(path.relative("apps/homepage", file));
+    } else {
+      repoTests.push(file);
+    }
+  }
+
+  return { repoTests, homepageTests };
 }
 
 export function collectChangedFiles(base) {
@@ -224,6 +259,21 @@ export function runChecks() {
     };
   }
 
+  if (changed.files.length === 0) {
+    return {
+      classification: "other",
+      scopeVerdict: "in scope",
+      codeQuality: "pass",
+      security: "clear",
+      tests: "not applicable: no files changed compared to base branch.",
+      decision: "APPROVE",
+      checklist: [],
+      details: [],
+      changedFiles: [],
+      exitCode: 0,
+    };
+  }
+
   const issues = scanForBlockedDiffPatterns(base, changed.files);
 
   const checks = [
@@ -259,29 +309,50 @@ export function runChecks() {
         "Run tests that validate the exact behavior change and check them in.",
       );
     } else {
-      const testRun = runCommand(`bunx vitest run ${testFiles.join(" ")}`);
-      if (!testRun.ok) {
-        issues.push("Regression/new-behavior tests did not pass.");
+      const runnableTestFiles = resolveRunnableTestFiles(testFiles);
+      if (runnableTestFiles.length === 0) {
+        issues.push(
+          "No runnable changed test files found for a behavioral change.",
+        );
         missingTests.push(
-          "Fix failing tests or add missing assertions for changed paths.",
+          "Add or update regression tests for changed runtime behavior.",
         );
         checklist.push(
-          "Re-run targeted regression tests after behavioral fixes.",
+          "Run tests that validate the exact behavior change and check them in.",
         );
+      } else {
+        const { repoTests, homepageTests } =
+          splitRunnableTestFiles(runnableTestFiles);
+        const testCommands = [];
+
+        if (repoTests.length > 0) {
+          testCommands.push(`bunx vitest run ${repoTests.join(" ")}`);
+        }
+
+        if (homepageTests.length > 0) {
+          testCommands.push(
+            `cd apps/homepage && bunx vitest run ${homepageTests.join(" ")}`,
+          );
+        }
+
+        for (const command of testCommands) {
+          const testRun = runCommand(command);
+          if (!testRun.ok) {
+            issues.push("Regression/new-behavior tests did not pass.");
+            missingTests.push(
+              "Fix failing tests or add missing assertions for changed paths.",
+            );
+            checklist.push(
+              "Re-run targeted regression tests after behavioral fixes.",
+            );
+            break;
+          }
+        }
       }
     }
   }
 
-  if (classification === "feature") {
-    issues.push(
-      "Feature work generally needs deeper review and explicit test expectations.",
-    );
-  }
-
-  const decision =
-    classification === "aesthetic" || issues.length
-      ? "REQUEST CHANGES"
-      : "APPROVE";
+  const decision = decisionFromFindings({ classification, issues });
 
   if (classification === "aesthetic") {
     checklist.push(

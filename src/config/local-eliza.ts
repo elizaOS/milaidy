@@ -1,8 +1,8 @@
 /**
- * Local ElizaOS installation utilities.
+ * Local elizaOS installation utilities.
  *
- * Provides functions to detect and resolve the local ElizaOS monorepo
- * at ~/.milady/eliza for development purposes.
+ * Provides functions to detect and resolve the local elizaOS monorepo
+ * at ~/.eliza/eliza for development purposes.
  *
  * @module config/local-eliza
  */
@@ -22,21 +22,21 @@ export interface LocalElizaSetup {
   branch?: string;
 }
 
-const MILADY_DIR = join(homedir(), ".milady");
-const ELIZA_DIR = join(MILADY_DIR, "eliza");
-const PLUGINS_DIR = join(MILADY_DIR, "plugins");
+const ELIZA_HOME = join(homedir(), ".eliza");
+const ELIZA_DIR = join(ELIZA_HOME, "eliza");
+const PLUGINS_DIR = join(ELIZA_DIR, "plugins");
 const CORE_PACKAGE_PATH = join(ELIZA_DIR, "packages", "typescript");
-const SETUP_MARKER_PATH = join(MILADY_DIR, ".local-eliza-setup");
+const SETUP_MARKER_PATH = join(ELIZA_DIR, ".local-eliza-setup");
 
 /**
- * Check if local ElizaOS is set up at ~/.milady/eliza.
+ * Check if local elizaOS is set up at ~/.eliza/eliza.
  */
 export function hasLocalEliza(): boolean {
   return existsSync(SETUP_MARKER_PATH) && existsSync(CORE_PACKAGE_PATH);
 }
 
 /**
- * Get the path to the local ElizaOS monorepo.
+ * Get the path to the local elizaOS monorepo.
  * Returns null if not set up.
  */
 export function getLocalElizaPath(): string | null {
@@ -73,7 +73,7 @@ export function getLocalCoreDistPath(): string | null {
 }
 
 /**
- * Check if local plugins are set up at ~/.milady/plugins.
+ * Check if local plugins are set up at ~/.eliza/plugins.
  */
 export function hasLocalPlugins(): boolean {
   return existsSync(SETUP_MARKER_PATH) && existsSync(PLUGINS_DIR);
@@ -196,16 +196,16 @@ export function getLocalPackagePath(packageName: string): string | null {
  */
 export const LOCAL_ELIZA_ENV = {
   /** Skip local eliza setup during postinstall */
-  SKIP_SETUP: "MILADY_SKIP_LOCAL_ELIZA",
+  SKIP_SETUP: "ELIZA_SKIP_LOCAL_ELIZA",
   /** Override the eliza directory path */
-  ELIZA_PATH: "MILADY_LOCAL_ELIZA_PATH",
+  ELIZA_PATH: "ELIZA_LOCAL_ELIZA_PATH",
   /** Use npm packages instead of local source */
-  USE_NPM: "MILADY_USE_NPM_CORE",
+  USE_NPM: "ELIZA_USE_NPM_CORE",
 } as const;
 
 /**
  * Check if we should use npm packages instead of local source.
- * Set MILADY_USE_NPM_CORE=1 to force npm resolution.
+ * Set ELIZA_USE_NPM_CORE=1 to force npm resolution.
  */
 export function shouldUseNpmCore(): boolean {
   return process.env[LOCAL_ELIZA_ENV.USE_NPM] === "1";

@@ -10,7 +10,7 @@ on:
 jobs:
   claude:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: write
       pull-requests: write
@@ -23,11 +23,22 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Setup Node.js (npm registry)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          check-latest: false
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@v1.0.60
+        env:
+          NPM_CONFIG_REGISTRY: 'https://registry.npmjs.org'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
 
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |

@@ -10,36 +10,80 @@ import {
   stringToUuid,
   type UUID,
 } from "@elizaos/core";
-import { Loader, Spacer, Text } from "@elizaos/tui";
-
-/** Stream event shape (TUI disabled). */
-type StreamEvent = {
-  type: "token" | "thinking" | "done" | "error" | "usage";
-  text?: string;
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
-  error?: string;
-  reason?: string;
-};
-
+import type { StreamEvent } from "@elizaos/plugin-pi-ai";
+import {
+  CancellableLoader,
+  type TUI as PiTUI,
+  Spacer,
+  Text,
+} from "@mariozechner/pi-tui";
 import {
   AssistantMessageComponent,
   ToolExecutionComponent,
   UserMessageComponent,
-} from "./components/index";
-import { miladyMarkdownTheme, tuiTheme } from "./theme";
-import type { MiladyTUI } from "./tui-app";
+} from "./components/index.js";
+import {
+  drainSseEvents,
+  extractSseDataPayloads,
+  mergeStreamingText,
+  parseConversationStreamPayload,
+} from "./sse-parser.js";
+import { elizaMarkdownTheme, tuiTheme } from "./theme.js";
+import type { ElizaTUI } from "./tui-app.js";
+import { ApiModeWsClient } from "./ws-client.js";
 
 // NOTE: Room + world IDs are derived from the agentId so that switching
 // characters (which changes agentId) does not reuse the same persisted
 // conversation history / metadata.
-const TUI_USER_ID = stringToUuid("milady-tui-user") as UUID;
+const TUI_USER_ID = stringToUuid("eliza-tui-user") as UUID;
+
+interface ElizaTUIBridgeOptions {
+  /** API base URL (enables API transport mode for chat). */
+  apiBaseUrl?: string;
+  /**
+   * Optional API auth token override.
+   * - undefined: use ELIZA_API_TOKEN from environment
+   * - null/empty: suppress auth header forwarding
+   */
+  apiToken?: string | null;
+  /** Title used when creating a new conversation for TUI. */
+  conversationTitle?: string;
+}
+
+interface ConversationRecord {
+  id: string;
+  updatedAt: string;
+  title?: string;
+  roomId?: string;
+}
+
+interface ConversationListResponse {
+  conversations: ConversationRecord[];
+}
+
+interface ConversationCreateResponse {
+  conversation: {
+    id: string;
+    title?: string;
+    roomId?: string;
+  };
+}
+
+interface ActionRouteDecision {
+  shouldHandle: boolean;
+  reason: string;
+  payloadRoomId: string;
+  activeRoomId: string;
+}
 
 export class ElizaTUIBridge {
   private isProcessing = false;
 
-  private showThinking = process.env.MILADY_TUI_SHOW_THINKING === "1";
+  private showThinking = process.env.ELIZA_TUI_SHOW_THINKING === "1";
   private showStructuredResponse =
-    process.env.MILADY_TUI_SHOW_STRUCTURED_RESPONSE === "1";
+    process.env.ELIZA_TUI_SHOW_STRUCTURED_RESPONSE === "1";
+  private debugActionRouting =
+    process.env.ELIZA_TUI_DEBUG_ACTION_ROUTING === "1";
 
   private abortController: AbortController | null = null;
 
@@ -50,7 +94,6 @@ export class ElizaTUIBridge {
   private currentAssistant: AssistantMessageComponent | null = null;
   private lastAssistantForTurn: AssistantMessageComponent | null = null;
   private assistantFinalizedForTurn = false;
-  private spacerAddedForTurn = false;
 
   private pendingRender: NodeJS.Timeout | null = null;
 
@@ -61,14 +104,37 @@ export class ElizaTUIBridge {
   private readonly roomId: UUID;
   private readonly channelId: string;
 
+  private readonly apiBaseUrl: string | null;
+  private readonly apiTokenOverride: string | null | undefined;
+  private readonly conversationTitle: string;
+  private conversationId: string | null = null;
+  private conversationRoomId: string | null = null;
+  private conversationInitPromise: Promise<string> | null = null;
+  private apiWsClient: ApiModeWsClient | null = null;
+
+  private pendingProactiveMessages: string[] = [];
+  private lastCompletedAssistantText = "";
+  private lastCompletedAssistantAt = 0;
+
+  private seenProactiveMessageIds = new Set<string>();
+  private seenProactiveMessageOrder: string[] = [];
+  private readonly proactiveMessageIdLimit = 128;
+
+  private disposed = false;
+
   constructor(
     private runtime: AgentRuntime,
-    private tui: MiladyTUI,
+    private tui: ElizaTUI,
+    opts: ElizaTUIBridgeOptions = {},
   ) {
     const agentScope = String(this.runtime.agentId);
-    this.worldId = stringToUuid(`milady-tui-world:${agentScope}`) as UUID;
-    this.roomId = stringToUuid(`milady-tui-room:${agentScope}`) as UUID;
-    this.channelId = `milady-tui:${agentScope}`;
+    this.worldId = stringToUuid(`eliza-tui-world:${agentScope}`) as UUID;
+    this.roomId = stringToUuid(`eliza-tui-room:${agentScope}`) as UUID;
+    this.channelId = `eliza-tui:${agentScope}`;
+
+    this.apiBaseUrl = opts.apiBaseUrl?.trim().replace(/\/+$/, "") || null;
+    this.apiTokenOverride = opts.apiToken;
+    this.conversationTitle = opts.conversationTitle?.trim() || "TUI Chat";
   }
 
   getAbortSignal(): AbortSignal | undefined {
@@ -79,40 +145,154 @@ export class ElizaTUIBridge {
     return this.isProcessing;
   }
 
+  private getPiTuiCompat(): PiTUI {
+    return this.tui.getTUI() as PiTUI;
+  }
+
+  private getActionEventRouteDecision(
+    payload: ActionEventPayload,
+  ): ActionRouteDecision {
+    const payloadRoomId = payload.roomId ? String(payload.roomId) : "";
+    const activeRoomId = this.apiBaseUrl
+      ? (this.conversationRoomId ?? "")
+      : String(this.roomId);
+
+    if (!payloadRoomId) {
+      return {
+        shouldHandle: false,
+        reason: "missing_payload_room",
+        payloadRoomId,
+        activeRoomId,
+      };
+    }
+
+    if (!this.apiBaseUrl) {
+      const shouldHandle = payloadRoomId === activeRoomId;
+      return {
+        shouldHandle,
+        reason: shouldHandle ? "runtime_room_match" : "runtime_room_mismatch",
+        payloadRoomId,
+        activeRoomId,
+      };
+    }
+
+    if (!activeRoomId) {
+      return {
+        shouldHandle: false,
+        reason: "conversation_room_unresolved",
+        payloadRoomId,
+        activeRoomId,
+      };
+    }
+
+    const shouldHandle = payloadRoomId === activeRoomId;
+    return {
+      shouldHandle,
+      reason: shouldHandle
+        ? "conversation_room_match"
+        : "conversation_room_mismatch",
+      payloadRoomId,
+      activeRoomId,
+    };
+  }
+
+  private logActionRoute(
+    eventType: "ACTION_STARTED" | "ACTION_COMPLETED",
+    actionName: string,
+    decision: ActionRouteDecision,
+  ): void {
+    if (!this.debugActionRouting) return;
+
+    const mode = this.apiBaseUrl ? "api" : "runtime";
+    const payloadRoom = decision.payloadRoomId || "(none)";
+    const activeRoom = decision.activeRoomId || "(unset)";
+
+    process.stderr.write(
+      `[eliza-tui] ${eventType} action=${actionName} mode=${mode} payloadRoom=${payloadRoom} activeRoom=${activeRoom} handled=${decision.shouldHandle} reason=${decision.reason}\n`,
+    );
+  }
+
   async initialize(): Promise<void> {
-    await this.runtime.ensureWorldExists({
-      id: this.worldId,
-      name: "Milady TUI",
-      agentId: this.runtime.agentId,
-    });
+    if (this.disposed) return;
 
-    await this.runtime.ensureRoomExists({
-      id: this.roomId,
-      name: "Milady TUI",
-      type: ChannelType.DM,
-      source: "milady-tui",
-      worldId: this.worldId,
-      channelId: this.channelId,
-      metadata: { ownership: { ownerId: TUI_USER_ID } },
-    });
+    // Runtime-direct mode keeps a dedicated TUI room. In API mode chat
+    // identity/rooms are managed by /api/conversations.
+    if (!this.apiBaseUrl) {
+      await this.runtime.ensureWorldExists({
+        id: this.worldId,
+        name: "Eliza TUI",
+        agentId: this.runtime.agentId,
+      });
 
-    await this.runtime.ensureConnection({
-      entityId: TUI_USER_ID,
-      roomId: this.roomId,
-      worldId: this.worldId,
-      worldName: "Milady TUI",
-      userName: "User",
-      name: "User",
-      source: "milady-tui",
-      type: ChannelType.DM,
-      channelId: this.channelId,
-      metadata: { ownership: { ownerId: TUI_USER_ID } },
-    });
+      await this.runtime.ensureRoomExists({
+        id: this.roomId,
+        name: "Eliza TUI",
+        type: ChannelType.DM,
+        source: "eliza-tui",
+        worldId: this.worldId,
+        channelId: this.channelId,
+        metadata: { ownership: { ownerId: TUI_USER_ID } },
+      });
+
+      await this.runtime.ensureConnection({
+        entityId: TUI_USER_ID,
+        roomId: this.roomId,
+        worldId: this.worldId,
+        worldName: "Eliza TUI",
+        userName: "User",
+        name: "User",
+        source: "eliza-tui",
+        type: ChannelType.DM,
+        channelId: this.channelId,
+        metadata: { ownership: { ownerId: TUI_USER_ID } },
+      });
+    } else {
+      this.apiWsClient = new ApiModeWsClient({
+        apiBaseUrl: this.apiBaseUrl,
+        getAuthToken: () => this.getApiToken(),
+        onMessage: (data) => this.handleApiWsMessage(data),
+        onError: (error) => {
+          process.stderr.write(
+            `[eliza-tui] websocket error: ${error.message}\n`,
+          );
+        },
+      });
+      this.apiWsClient.connect();
+    }
 
     // Action/tool execution hooks.
+    // Skip internal response actions — only show real tool calls.
+    const SKIP_ACTIONS = new Set([
+      "reply",
+      "respond",
+      "continue",
+      "ignore",
+      "none",
+      "wait",
+      "action",
+    ]);
+
     this.runtime.registerEvent(EventType.ACTION_STARTED, async (payload) => {
       const p = payload as ActionEventPayload;
       const actionName = p.content.actions?.[0] ?? "action";
+
+      const route = this.getActionEventRouteDecision(p);
+      if (!route.shouldHandle) {
+        this.logActionRoute("ACTION_STARTED", actionName, route);
+        return;
+      }
+
+      if (SKIP_ACTIONS.has(actionName.toLowerCase())) {
+        this.logActionRoute("ACTION_STARTED", actionName, {
+          ...route,
+          shouldHandle: false,
+          reason: "internal_action_skipped",
+        });
+        return;
+      }
+
+      this.logActionRoute("ACTION_STARTED", actionName, route);
+
       const actionId =
         ((p.content as Record<string, unknown>).actionId as
           | string
@@ -123,7 +303,7 @@ export class ElizaTUIBridge {
       const component = new ToolExecutionComponent(
         actionName,
         {},
-        this.tui.getTUI(),
+        this.getPiTuiCompat(),
       );
       component.setExpanded(this.tui.getToolOutputExpanded());
 
@@ -131,13 +311,30 @@ export class ElizaTUIBridge {
       this.allToolComponents.add(component);
 
       this.tui.addToChatContainer(component);
-      this.tui.addToChatContainer(new Spacer(1));
       this.tui.requestRender();
     });
 
     this.runtime.registerEvent(EventType.ACTION_COMPLETED, async (payload) => {
       const p = payload as ActionEventPayload;
       const actionName = p.content.actions?.[0] ?? "action";
+
+      const route = this.getActionEventRouteDecision(p);
+      if (!route.shouldHandle) {
+        this.logActionRoute("ACTION_COMPLETED", actionName, route);
+        return;
+      }
+
+      if (SKIP_ACTIONS.has(actionName.toLowerCase())) {
+        this.logActionRoute("ACTION_COMPLETED", actionName, {
+          ...route,
+          shouldHandle: false,
+          reason: "internal_action_skipped",
+        });
+        return;
+      }
+
+      this.logActionRoute("ACTION_COMPLETED", actionName, route);
+
       const actionId =
         ((p.content as Record<string, unknown>).actionId as
           | string
@@ -184,10 +381,30 @@ export class ElizaTUIBridge {
     });
   }
 
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+
+    this.abortInFlight();
+    this.pendingProactiveMessages = [];
+
+    if (this.pendingRender) {
+      clearTimeout(this.pendingRender);
+      this.pendingRender = null;
+    }
+
+    this.apiWsClient?.close();
+    this.apiWsClient = null;
+  }
+
   abortInFlight(): void {
     if (this.abortController) {
       this.abortController.abort();
     }
+  }
+
+  setShowThinking(enabled: boolean): void {
+    this.showThinking = enabled;
   }
 
   setToolOutputExpanded(expanded: boolean): void {
@@ -200,6 +417,7 @@ export class ElizaTUIBridge {
   async handleUserInput(text: string): Promise<void> {
     if (this.isProcessing) return;
     this.isProcessing = true;
+    this.tui.setBusy(true);
 
     this.abortController = new AbortController();
     this.streamedText = "";
@@ -208,66 +426,30 @@ export class ElizaTUIBridge {
     this.currentAssistant = null;
     this.lastAssistantForTurn = null;
     this.assistantFinalizedForTurn = false;
-    this.spacerAddedForTurn = false;
 
     try {
-      // Render the user message
+      // Render the user message (component owns its own top spacing)
       this.tui.addToChatContainer(new UserMessageComponent(text));
-      this.tui.addToChatContainer(new Spacer(1));
 
       // Status spinner while waiting for the first token.
-      const loader = new Loader(
-        this.tui.getTUI(),
+      // CancellableLoader provides an AbortSignal + Escape key handling.
+      const loader = new CancellableLoader(
+        this.getPiTuiCompat(),
         (spinner) => tuiTheme.info(spinner),
         (msg) => tuiTheme.muted(msg),
-        "Thinking...",
+        "Thinking… (Esc to cancel)",
       );
+      loader.onAbort = () => {
+        this.abortInFlight();
+      };
       this.tui.setEphemeralStatus(loader);
       this.tui.getStatusBar().update({ isStreaming: true });
 
-      const message = createMessageMemory({
-        id: crypto.randomUUID() as UUID,
-        entityId: TUI_USER_ID,
-        agentId: this.runtime.agentId,
-        roomId: this.roomId,
-        content: {
-          text,
-          source: "milady-tui",
-          channelType: ChannelType.DM,
-        },
-      });
-
-      if (!this.runtime.messageService) {
-        throw new Error("runtime.messageService is not available");
+      if (this.apiBaseUrl) {
+        await this.handleUserInputViaApi(text);
+      } else {
+        await this.handleUserInputViaRuntime(text);
       }
-
-      await this.runtime.messageService.handleMessage(
-        this.runtime,
-        message,
-        async (response: Content) => {
-          // Final response callback.
-          // When streaming is enabled, this is typically the *parsed* final text.
-          // We use it to replace any structured wrapper the model may have emitted
-          // during streaming, and to avoid duplicating messages.
-          if (response.text) {
-            this.streamedText = response.text;
-
-            const component =
-              this.currentAssistant ?? this.lastAssistantForTurn ?? null;
-
-            if (!component) {
-              this.ensureAssistantComponent();
-            }
-
-            this.updateAssistantFromText();
-            this.finalizeAssistantForTurn();
-          }
-          return [];
-        },
-        {
-          abortSignal: this.abortController.signal,
-        },
-      );
     } catch (error) {
       // User-initiated cancellation should keep the partial response without
       // showing an error banner.
@@ -283,12 +465,20 @@ export class ElizaTUIBridge {
     } finally {
       this.tui.clearEphemeralStatus();
       this.tui.getStatusBar().update({ isStreaming: false });
+      this.tui.setBusy(false);
       this.abortController = null;
       this.isProcessing = false;
+      this.flushPendingProactiveMessages();
     }
   }
 
   onStreamEvent(event: StreamEvent): void {
+    // In API transport mode, tokens come from the SSE endpoint and handling
+    // these runtime-level callbacks would duplicate output.
+    if (this.apiBaseUrl) {
+      return;
+    }
+
     switch (event.type) {
       case "token": {
         if (!event.text) return;
@@ -349,12 +539,413 @@ export class ElizaTUIBridge {
     }
   }
 
+  private async handleUserInputViaRuntime(text: string): Promise<void> {
+    const message = createMessageMemory({
+      id: crypto.randomUUID() as UUID,
+      entityId: TUI_USER_ID,
+      agentId: this.runtime.agentId,
+      roomId: this.roomId,
+      content: {
+        text,
+        source: "eliza-tui",
+        channelType: ChannelType.DM,
+      },
+    });
+
+    if (!this.runtime.messageService) {
+      throw new Error("runtime.messageService is not available");
+    }
+
+    await this.runtime.messageService.handleMessage(
+      this.runtime,
+      message,
+      async (response: Content) => {
+        // Final response callback.
+        // When streaming is enabled, this is typically the *parsed* final text.
+        // We use it to replace any structured wrapper the model may have emitted
+        // during streaming, and to avoid duplicating messages.
+        if (response.text) {
+          this.streamedText = response.text;
+
+          const component =
+            this.currentAssistant ?? this.lastAssistantForTurn ?? null;
+
+          if (!component) {
+            this.ensureAssistantComponent();
+          }
+
+          this.updateAssistantFromText();
+          this.finalizeAssistantForTurn();
+        }
+        return [];
+      },
+      {
+        abortSignal: this.abortController?.signal,
+      },
+    );
+  }
+
+  private async handleUserInputViaApi(text: string): Promise<void> {
+    const conversationId = await this.ensureConversationId();
+    await this.streamConversationMessage(
+      conversationId,
+      text,
+      this.abortController?.signal,
+    );
+
+    if (
+      !this.currentAssistant &&
+      !this.lastAssistantForTurn &&
+      this.streamedText.trim().length > 0
+    ) {
+      this.ensureAssistantComponent();
+    }
+
+    this.updateAssistantFromText();
+    this.finalizeAssistantForTurn();
+    this.tui.requestRender();
+  }
+
+  private async ensureConversationId(): Promise<string> {
+    if (this.conversationId) {
+      this.apiWsClient?.setActiveConversationId(this.conversationId);
+      return this.conversationId;
+    }
+
+    if (!this.conversationInitPromise) {
+      this.conversationInitPromise = this.resolveConversationId().finally(
+        () => {
+          this.conversationInitPromise = null;
+        },
+      );
+    }
+
+    const resolved = await this.conversationInitPromise;
+    this.conversationId = resolved;
+    this.apiWsClient?.setActiveConversationId(resolved);
+    return resolved;
+  }
+
+  private async resolveConversationId(): Promise<string> {
+    const list =
+      await this.apiFetchJson<ConversationListResponse>("/api/conversations");
+
+    const title = this.conversationTitle.trim().toLowerCase();
+    const existing = [...(list.conversations ?? [])]
+      .filter((c) => typeof c?.id === "string" && c.id.trim().length > 0)
+      .filter(
+        (c) =>
+          c.title?.trim().toLowerCase() === title &&
+          typeof c.roomId === "string" &&
+          c.roomId.trim().length > 0,
+      )
+      .sort(
+        (a, b) =>
+          this.parseTimestamp(b.updatedAt) - this.parseTimestamp(a.updatedAt),
+      )[0];
+
+    if (existing?.id) {
+      this.conversationRoomId = existing.roomId?.trim() || null;
+      return existing.id;
+    }
+
+    const created = await this.apiFetchJson<ConversationCreateResponse>(
+      "/api/conversations",
+      {
+        method: "POST",
+        body: JSON.stringify({ title: this.conversationTitle }),
+      },
+    );
+
+    const createdId = created.conversation?.id?.trim();
+    if (!createdId) {
+      throw new Error("Failed to create TUI conversation");
+    }
+
+    this.conversationRoomId = created.conversation?.roomId?.trim() || null;
+    return createdId;
+  }
+
+  private parseTimestamp(value: string): number {
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : 0;
+  }
+
+  private async streamConversationMessage(
+    conversationId: string,
+    text: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const res = await this.apiFetch(
+      `/api/conversations/${encodeURIComponent(conversationId)}/messages/stream`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ text }),
+        signal,
+      },
+    );
+
+    if (!res.body) {
+      throw new Error("Streaming not supported by this runtime");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    let buffer = "";
+    let fullText = "";
+    let doneText: string | null = null;
+
+    const parsePayload = (payload: string): void => {
+      const parsed = parseConversationStreamPayload(payload);
+      if (!parsed) return;
+
+      if (parsed.type === "token") {
+        const chunk = parsed.text ?? "";
+        if (!chunk) return;
+
+        this.tui.clearEphemeralStatus();
+        this.tui.getStatusBar().update({ isStreaming: true });
+
+        fullText = mergeStreamingText(fullText, chunk);
+        this.streamedText = mergeStreamingText(this.streamedText, chunk);
+        this.ensureAssistantComponent();
+        this.scheduleAssistantUpdate();
+        return;
+      }
+
+      if (parsed.type === "done") {
+        if (typeof parsed.fullText === "string") {
+          doneText = parsed.fullText;
+        }
+        return;
+      }
+
+      if (parsed.type === "error") {
+        throw new Error(parsed.message ?? "generation failed");
+      }
+
+      // Backward compatibility with legacy stream payloads: { text: "..." }
+      if (parsed.text) {
+        this.tui.clearEphemeralStatus();
+        this.tui.getStatusBar().update({ isStreaming: true });
+
+        fullText = mergeStreamingText(fullText, parsed.text);
+        this.streamedText = mergeStreamingText(this.streamedText, parsed.text);
+        this.ensureAssistantComponent();
+        this.scheduleAssistantUpdate();
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const drained = drainSseEvents(buffer);
+      buffer = drained.remaining;
+
+      for (const rawEvent of drained.events) {
+        for (const payload of extractSseDataPayloads(rawEvent)) {
+          parsePayload(payload);
+        }
+      }
+    }
+
+    if (buffer.trim()) {
+      for (const payload of extractSseDataPayloads(buffer)) {
+        parsePayload(payload);
+      }
+    }
+
+    if (typeof doneText === "string") {
+      this.streamedText = doneText;
+    } else if (!this.streamedText && fullText) {
+      this.streamedText = fullText;
+    }
+  }
+
+  private getApiToken(): string | null {
+    if (this.apiTokenOverride !== undefined) {
+      const override = this.apiTokenOverride?.trim();
+      return override || null;
+    }
+
+    const token = process.env.ELIZA_API_TOKEN?.trim();
+    return token || null;
+  }
+
+  private handleApiWsMessage(data: Record<string, unknown>): void {
+    if (this.disposed) return;
+    if (data.type !== "proactive-message") return;
+
+    const conversationId =
+      typeof data.conversationId === "string" ? data.conversationId.trim() : "";
+    if (!conversationId || !this.conversationId) return;
+    if (conversationId !== this.conversationId) return;
+
+    const rawMessage = data.message;
+    if (
+      !rawMessage ||
+      typeof rawMessage !== "object" ||
+      Array.isArray(rawMessage)
+    ) {
+      return;
+    }
+
+    const message = rawMessage as Record<string, unknown>;
+    const messageId = typeof message.id === "string" ? message.id.trim() : "";
+    if (messageId) {
+      if (this.seenProactiveMessageIds.has(messageId)) return;
+      this.rememberProactiveMessageId(messageId);
+    }
+
+    const text = typeof message.text === "string" ? message.text.trim() : "";
+    if (!text) return;
+
+    if (this.isLikelyDuplicateAssistantText(text)) return;
+
+    if (this.isProcessing) {
+      this.queuePendingProactiveMessage(text);
+      return;
+    }
+
+    this.renderProactiveAssistantMessage(text);
+  }
+
+  private rememberProactiveMessageId(id: string): void {
+    this.seenProactiveMessageIds.add(id);
+    this.seenProactiveMessageOrder.push(id);
+
+    if (this.seenProactiveMessageOrder.length <= this.proactiveMessageIdLimit) {
+      return;
+    }
+
+    const oldest = this.seenProactiveMessageOrder.shift();
+    if (oldest) {
+      this.seenProactiveMessageIds.delete(oldest);
+    }
+  }
+
+  private queuePendingProactiveMessage(text: string): void {
+    this.pendingProactiveMessages.push(text);
+    if (this.pendingProactiveMessages.length > 32) {
+      this.pendingProactiveMessages.shift();
+    }
+  }
+
+  private flushPendingProactiveMessages(): void {
+    if (this.disposed) return;
+    if (this.pendingProactiveMessages.length < 1) return;
+
+    const pending = this.pendingProactiveMessages;
+    this.pendingProactiveMessages = [];
+
+    for (const text of pending) {
+      if (this.isLikelyDuplicateAssistantText(text)) continue;
+      this.renderProactiveAssistantMessage(text);
+    }
+  }
+
+  private isLikelyDuplicateAssistantText(text: string): boolean {
+    const normalized = text.trim();
+    if (!normalized) return true;
+
+    if (this.isProcessing && this.streamedText.trim() === normalized) {
+      return true;
+    }
+
+    if (
+      this.lastCompletedAssistantText === normalized &&
+      Date.now() - this.lastCompletedAssistantAt < 1_500
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private renderProactiveAssistantMessage(text: string): void {
+    if (this.disposed) return;
+
+    const component = new AssistantMessageComponent(
+      this.showThinking,
+      elizaMarkdownTheme,
+      this.runtime.character?.name ?? "eliza",
+    );
+    component.updateContent(text);
+    component.finalize();
+
+    this.tui.addToChatContainer(component);
+    this.tui.requestRender();
+
+    this.lastCompletedAssistantText = text.trim();
+    this.lastCompletedAssistantAt = Date.now();
+  }
+
+  private async apiFetch(path: string, init?: RequestInit): Promise<Response> {
+    if (!this.apiBaseUrl) {
+      throw new Error("API transport is not configured");
+    }
+
+    const headers = new Headers(init?.headers);
+    if (init?.body != null && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+
+    const token = this.getApiToken();
+    if (token && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+
+    const res = await fetch(`${this.apiBaseUrl}${path}`, {
+      ...init,
+      headers,
+    });
+
+    if (!res.ok) {
+      const message = await this.readApiError(res);
+      throw new Error(message);
+    }
+
+    return res;
+  }
+
+  private async apiFetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+    const res = await this.apiFetch(path, init);
+    return res.json() as Promise<T>;
+  }
+
+  private async readApiError(res: Response): Promise<string> {
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (typeof body.error === "string" && body.error.trim()) {
+        return body.error;
+      }
+    } catch {
+      // ignore JSON parse failures
+    }
+
+    try {
+      const text = await res.text();
+      if (text.trim()) return text.trim();
+    } catch {
+      // ignore text parse failures
+    }
+
+    return `HTTP ${res.status}`;
+  }
+
   private ensureAssistantComponent(): void {
     if (this.currentAssistant) return;
 
     this.currentAssistant = new AssistantMessageComponent(
       this.showThinking,
-      miladyMarkdownTheme,
+      elizaMarkdownTheme,
+      this.runtime.character?.name ?? "eliza",
     );
     this.lastAssistantForTurn = this.currentAssistant;
     this.tui.addToChatContainer(this.currentAssistant);
@@ -377,14 +968,24 @@ export class ElizaTUIBridge {
     const component = this.currentAssistant ?? this.lastAssistantForTurn;
     if (!component) return;
 
+    if (this.pendingRender) {
+      clearTimeout(this.pendingRender);
+      this.pendingRender = null;
+    }
+
     component.finalize();
+
+    const completedText = this.normalizeAssistantText(
+      this.streamedText,
+    ).text.trim();
+    if (completedText) {
+      this.lastCompletedAssistantText = completedText;
+      this.lastCompletedAssistantAt = Date.now();
+    }
+
+    this.streamedText = "";
     this.currentAssistant = null;
     this.assistantFinalizedForTurn = true;
-
-    if (!this.spacerAddedForTurn) {
-      this.tui.addToChatContainer(new Spacer(1));
-      this.spacerAddedForTurn = true;
-    }
   }
 
   private updateAssistantFromText(): void {

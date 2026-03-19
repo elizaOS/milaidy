@@ -33,6 +33,127 @@ console.error = (...args: unknown[]) => {
 };
 
 // ---------------------------------------------------------------------------
+// Mock @elizaos/app-core bridge modules — the real electrobun RPC module
+// relies on native Electrobun bindings that are unavailable in the test
+// environment.
+// ---------------------------------------------------------------------------
+
+type RpcMessageHandler = (
+  message: string,
+  listener: (payload: unknown) => void,
+) => void;
+type RpcRequestMap = Record<string, (params?: unknown) => unknown>;
+
+function isInjectedElectrobunRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as Record<string, unknown>;
+  return (
+    typeof w.__electrobunWindowId === "number" ||
+    typeof w.__electrobunWebviewId === "number"
+  );
+}
+
+vi.mock("@elizaos/app-core/bridge/electrobun-rpc", () => {
+  function getElectrobunRendererRpc() {
+    if (typeof window === "undefined") return null;
+    const w = window as unknown as Record<string, unknown>;
+    return (
+      (w.__ELIZA_ELECTROBUN_RPC__ as unknown) ??
+      (w.__MILADY_ELECTROBUN_RPC__ as unknown) ??
+      null
+    );
+  }
+
+  return {
+    getElectrobunRendererRpc,
+    isElectrobunRuntime: isInjectedElectrobunRuntime,
+    getBackendStartupTimeoutMs: () =>
+      isInjectedElectrobunRuntime() ? 180_000 : 30_000,
+    invokeDesktopBridgeRequest: async (options: {
+      rpcMethod: string;
+      params?: unknown;
+    }) => {
+      const rpc = getElectrobunRendererRpc() as Record<string, unknown> | null;
+      const request = (rpc?.request as RpcRequestMap)?.[options.rpcMethod];
+      if (request) return await request(options.params);
+      return null;
+    },
+    subscribeDesktopBridgeEvent: (options: {
+      rpcMessage: string;
+      listener: (payload: unknown) => void;
+    }) => {
+      const rpc = getElectrobunRendererRpc() as Record<string, unknown> | null;
+      if (rpc) {
+        (rpc.onMessage as RpcMessageHandler)(
+          options.rpcMessage,
+          options.listener,
+        );
+        return () => {
+          (rpc.offMessage as RpcMessageHandler)(
+            options.rpcMessage,
+            options.listener,
+          );
+        };
+      }
+      return () => {};
+    },
+    initializeCapacitorBridge: () => {},
+    initializeStorageBridge: async () => {},
+    ElectrobunRendererRpc: {},
+  };
+});
+
+vi.mock("@elizaos/app-core/bridge", () => {
+  function getElectrobunRendererRpc() {
+    if (typeof window === "undefined") return null;
+    const w = window as unknown as Record<string, unknown>;
+    return (
+      (w.__ELIZA_ELECTROBUN_RPC__ as unknown) ??
+      (w.__MILADY_ELECTROBUN_RPC__ as unknown) ??
+      null
+    );
+  }
+
+  return {
+    getElectrobunRendererRpc,
+    isElectrobunRuntime: isInjectedElectrobunRuntime,
+    getBackendStartupTimeoutMs: () =>
+      isInjectedElectrobunRuntime() ? 180_000 : 30_000,
+    invokeDesktopBridgeRequest: async (options: {
+      rpcMethod: string;
+      params?: unknown;
+    }) => {
+      const rpc = getElectrobunRendererRpc() as Record<string, unknown> | null;
+      const request = (rpc?.request as RpcRequestMap)?.[options.rpcMethod];
+      if (request) return await request(options.params);
+      return null;
+    },
+    subscribeDesktopBridgeEvent: (options: {
+      rpcMessage: string;
+      listener: (payload: unknown) => void;
+    }) => {
+      const rpc = getElectrobunRendererRpc() as Record<string, unknown> | null;
+      if (rpc) {
+        (rpc.onMessage as RpcMessageHandler)(
+          options.rpcMessage,
+          options.listener,
+        );
+        return () => {
+          (rpc.offMessage as RpcMessageHandler)(
+            options.rpcMessage,
+            options.listener,
+          );
+        };
+      }
+      return () => {};
+    },
+    initializeCapacitorBridge: () => {},
+    initializeStorageBridge: async () => {},
+    ElectrobunRendererRpc: {},
+  };
+});
+
+// ---------------------------------------------------------------------------
 // Mock @capacitor/core
 // ---------------------------------------------------------------------------
 
@@ -93,7 +214,7 @@ function ensureObj(
 
 const nav: Record<string, unknown> =
   typeof globalThis.navigator !== "undefined"
-    ? (globalThis.navigator as unknown as Record<string, unknown>)
+    ? (globalThis.navigator as Record<string, unknown>)
     : {};
 
 if (typeof globalThis.navigator === "undefined") {
@@ -142,6 +263,7 @@ if (!nav.userAgent) {
 // ---------------------------------------------------------------------------
 
 if (typeof globalThis.document === "undefined") {
+  const mockHead = { appendChild: vi.fn(), removeChild: vi.fn() };
   Object.defineProperty(globalThis, "document", {
     value: {
       createElement: vi.fn(() => ({
@@ -156,6 +278,11 @@ if (typeof globalThis.document === "undefined") {
         videoWidth: 1920,
         videoHeight: 1080,
       })),
+      createTextNode: vi.fn((text: string) => ({ textContent: text })),
+      getElementsByTagName: vi.fn((tagName: string) =>
+        tagName?.toLowerCase() === "head" ? [mockHead] : [],
+      ),
+      head: mockHead,
       hidden: false,
       hasFocus: vi.fn(() => true),
       documentElement: { requestFullscreen: vi.fn() },
@@ -187,14 +314,25 @@ function createMockStorage(): Storage {
   } as Storage;
 }
 
-if (typeof globalThis.localStorage === "undefined") {
+function hasStorageApi(value: unknown): value is Storage {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      typeof (value as Storage).getItem === "function" &&
+      typeof (value as Storage).setItem === "function" &&
+      typeof (value as Storage).removeItem === "function" &&
+      typeof (value as Storage).clear === "function",
+  );
+}
+
+if (!hasStorageApi(globalThis.localStorage)) {
   Object.defineProperty(globalThis, "localStorage", {
     value: createMockStorage(),
     writable: true,
     configurable: true,
   });
 }
-if (typeof globalThis.sessionStorage === "undefined") {
+if (!hasStorageApi(globalThis.sessionStorage)) {
   Object.defineProperty(globalThis, "sessionStorage", {
     value: createMockStorage(),
     writable: true,
@@ -224,16 +362,16 @@ if (typeof globalThis.window === "undefined") {
   });
 } else {
   const win = globalThis.window as unknown as Record<string, unknown>;
-  if (!win.sessionStorage) {
+  if (!hasStorageApi(win.sessionStorage)) {
     Object.defineProperty(win, "sessionStorage", {
-      value: createMockStorage(),
+      value: globalThis.sessionStorage,
       writable: true,
       configurable: true,
     });
   }
-  if (!win.localStorage) {
+  if (!hasStorageApi(win.localStorage)) {
     Object.defineProperty(win, "localStorage", {
-      value: createMockStorage(),
+      value: globalThis.localStorage,
       writable: true,
       configurable: true,
     });
@@ -245,6 +383,62 @@ if (typeof globalThis.window === "undefined") {
       configurable: true,
     });
   }
+}
+
+if (typeof globalThis.HTMLCanvasElement !== "undefined") {
+  const createCanvas2DContext = (): CanvasRenderingContext2D =>
+    ({
+      fillRect: vi.fn(),
+      clearRect: vi.fn(),
+      getImageData: vi.fn(() => ({
+        data: new Uint8ClampedArray(0),
+        width: 0,
+        height: 0,
+      })),
+      putImageData: vi.fn(),
+      drawImage: vi.fn(),
+      beginPath: vi.fn(),
+      closePath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      fill: vi.fn(),
+      arc: vi.fn(),
+      rect: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      scale: vi.fn(),
+      transform: vi.fn(),
+      setTransform: vi.fn(),
+      resetTransform: vi.fn(),
+      fillText: vi.fn(),
+      strokeText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 0 })),
+      createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+      createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+      createPattern: vi.fn(() => null),
+      canvas: document.createElement("canvas"),
+      lineWidth: 1,
+      globalAlpha: 1,
+      fillStyle: "#000",
+      strokeStyle: "#000",
+    }) as CanvasRenderingContext2D;
+
+  Object.defineProperty(globalThis.HTMLCanvasElement.prototype, "getContext", {
+    value: vi.fn((contextType: string) =>
+      contextType === "2d" ? createCanvas2DContext() : null,
+    ),
+    writable: true,
+    configurable: true,
+  });
+
+  Object.defineProperty(globalThis.HTMLCanvasElement.prototype, "toDataURL", {
+    value: vi.fn(() => "data:image/png;base64,dGVzdA=="),
+    writable: true,
+    configurable: true,
+  });
 }
 
 if (typeof globalThis.WebSocket === "undefined") {

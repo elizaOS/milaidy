@@ -1,16 +1,23 @@
 {
-  "name": "@milady/capacitor-gateway",
+  "name": "@miladyai/capacitor-gateway",
   "version": "1.0.0",
-  "description": "Milady Gateway Plugin for Capacitor - WebSocket connection to Milady Gateway",
+  "description": "Connects the app to a Milady Gateway with discovery, RPC, and realtime events.",
+  "keywords": [
+    "gateway",
+    "realtime",
+    "rpc",
+    "networking"
+  ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./src/index.ts",
-  "types": "./dist/plugin.d.ts",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/plugin.d.ts",
-      "import": "./dist/plugin.js",
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
       "require": "./dist/plugin.cjs.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "unpkg": "dist/plugin.js",
   "files": [
@@ -62,9 +69,13 @@
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "capacitor": {
     "ios": {
-      "src": "ios"
+      "src": "ios",
+      "podName": "MiladyCapacitorGateway"
     },
     "android": {
       "src": "android"
@@ -78,7 +89,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Full WebSocket connectivity, RPC request/response, event streaming. No Bonjour/mDNS discovery on web.",
-      "node": "Full support via Electron with native Bonjour/mDNS discovery and WebSocket connectivity",
+      "node": "Full support via Electrobun with native Bonjour/mDNS discovery and WebSocket connectivity",
       "ios": true,
       "android": true
     }

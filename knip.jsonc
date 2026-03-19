@@ -6,61 +6,92 @@
         "src/index.ts",
         "src/runtime/eliza.ts",
         "src/entry.ts",
-        "milaidy.mjs",
+        "milady.mjs",
         "scripts/**/*.ts",
         "scripts/**/*.mjs",
         "scripts/**/*.js"
       ],
-      "project": [
-        "src/**/*.ts",
-        "scripts/**/*.ts"
-      ],
-      "ignore": [
-        "dist/**",
-        "build/**",
-        "coverage/**",
-        "**/*.test.ts"
-      ]
+      "project": ["src/**/*.ts", "scripts/**/*.ts"],
+      "ignore": ["dist/**", "build/**", "coverage/**", "**/*.test.ts"]
     },
     "apps/app": {
       "entry": [
         "src/main.tsx",
-        "electron/main.ts",
-        "electron/preload.ts",
-        "vite.config.ts",
-        "vitest.config.ts",
-        "index.html",
-        "src/main.tsx",
-        "electron/main.ts",
-        "electron/preload.ts",
         "vite.config.ts",
         "vitest.config.ts",
         "index.html",
         "capacitor.config.ts"
       ],
-      "project": [
-        "src/**/*.{ts,tsx}",
-        "electron/**/*.{ts,tsx}"
-      ],
+      "project": ["src/**/*.{ts,tsx}"],
       "ignore": [
         "dist/**",
         "build/**",
         "coverage/**",
         "**/*.test.ts",
         "public/**",
-        "playwright.electron.config.ts",
-        "playwright.electron.packaged.config.ts",
+        "test/**",
+        ".storybook/**",
+        "src/stories/**",
+        "playwright.electrobun.packaged.config.ts",
         "cypress.config.ts",
         "**/*.cy.ts",
         "**/cypress/**",
         "tsdown.config.ts"
       ]
+    },
+    "apps/app/electrobun": {
+      "entry": [
+        "src/index.ts",
+        "src/bridge/electrobun-preload.ts",
+        "electrobun.config.ts",
+        "vitest.config.ts"
+      ],
+      "project": ["src/**/*.ts", "scripts/**/*.ts"],
+      "ignore": [
+        "build/**",
+        "coverage/**",
+        "src/preload.js",
+        "src/libMacWindowEffects.dylib",
+        "src/**/__tests__/**"
+      ]
+    },
+    "apps/homepage": {
+      "entry": ["src/main.tsx", "vite.config.ts", "index.html"],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": ["dist/**", "build/**", "coverage/**", "public/**"]
+    },
+    "packages/app-core": {
+      "entry": [
+        "src/index.ts",
+        "src/api/index.ts",
+        "src/config/index.ts",
+        "src/events/index.ts",
+        "src/hooks/index.ts",
+        "src/state/index.ts",
+        "src/components/index.ts",
+        "src/utils/index.ts",
+        "src/platform/index.ts",
+        "src/navigation/index.ts",
+        "src/i18n/index.ts",
+        "src/actions/index.ts",
+        "src/voice/index.ts",
+        "src/autonomy/index.ts",
+        "src/coding/index.ts",
+        "src/providers/index.ts",
+        "src/bridge/index.ts",
+        "src/bridge/electrobun-rpc.ts",
+        "src/bridge/electrobun-runtime.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": [
+        "dist/**",
+        "build/**",
+        "coverage/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/__tests__/**"
+      ]
     }
   },
-  "ignore": [
-    "**/*.d.ts",
-    ".eslintrc.js",
-    "**/__tests__/**",
-    "**/__mocks__/**"
-  ]
+  "ignore": ["**/*.d.ts", ".eslintrc.js", "**/__tests__/**", "**/__mocks__/**"]
 }

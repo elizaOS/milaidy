@@ -1,22 +1,28 @@
-import { type Component, visibleWidth, wrapTextWithAnsi } from "@elizaos/tui";
-import chalk from "chalk";
+import {
+  type Component,
+  Markdown,
+  type MarkdownTheme,
+} from "@mariozechner/pi-tui";
+import { elizaMarkdownTheme, tuiTheme } from "../theme.js";
 
+/**
+ * User message with a tinted background (Pi-style).
+ * Renders exactly: 1 blank line + markdown-with-bg.
+ */
 export class UserMessageComponent implements Component {
-  constructor(private text: string) {}
+  private markdown: Markdown;
+
+  constructor(text: string, markdownTheme: MarkdownTheme = elizaMarkdownTheme) {
+    this.markdown = new Markdown(text, 1, 0, markdownTheme, {
+      bgColor: (t) => tuiTheme.userMsgBg(t),
+    });
+  }
 
   render(width: number): string[] {
-    const prefix = chalk.bold.cyan("You → ");
-    const prefixWidth = visibleWidth(prefix);
-    const contentWidth = Math.max(1, width - prefixWidth);
-
-    const lines = wrapTextWithAnsi(this.text, contentWidth);
-
-    return lines.map((line, i) =>
-      i === 0 ? `${prefix}${line}` : `${" ".repeat(prefixWidth)}${line}`,
-    );
+    return ["", ...this.markdown.render(width)];
   }
 
   invalidate(): void {
-    // Stateless
+    this.markdown.invalidate();
   }
 }

@@ -1,4 +1,5 @@
 import process from "node:process";
+import { getLogPrefix } from "../utils/log-prefix";
 import { getPrimaryCommand, hasHelpOrVersion } from "./argv";
 import { registerSubCliByName } from "./program/register.subclis";
 
@@ -23,6 +24,42 @@ function formatUncaughtError(error: unknown): string {
   return String(error);
 }
 
+function hasInsufficientCreditsSignal(input: string): boolean {
+  return /\b(insufficient(?:[_\s]+(?:credits?|quota))|insufficient_quota|out of credits|payment required|statuscode:\s*402)\b/i.test(
+    input,
+  );
+}
+
+function shouldIgnoreUnhandledRejection(reason: unknown): boolean {
+  const formatted = formatUncaughtError(reason);
+  if (
+    !/AI_NoOutputGeneratedError|No output generated|AI_APICallError/i.test(
+      formatted,
+    )
+  ) {
+    return false;
+  }
+
+  if (hasInsufficientCreditsSignal(formatted)) {
+    return true;
+  }
+
+  if (reason && typeof reason === "object") {
+    const statusCode = (reason as { statusCode?: number }).statusCode;
+    if (statusCode === 402) return true;
+
+    const responseBody = (reason as { responseBody?: unknown }).responseBody;
+    if (
+      typeof responseBody === "string" &&
+      hasInsufficientCreditsSignal(responseBody)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function runCli(argv: string[] = process.argv) {
   await loadDotEnv();
 
@@ -34,13 +71,29 @@ export async function runCli(argv: string[] = process.argv) {
   const { buildProgram } = await import("./program");
   const program = buildProgram();
 
+  // Prevent Commander from calling process.exit() directly so that piped stdio (vitest etc)
+  // has a chance to flush cleanly before the process spins down.
+  program.exitOverride();
+
   process.on("unhandledRejection", (reason) => {
-    console.error("[milady] Unhandled rejection:", formatUncaughtError(reason));
+    if (shouldIgnoreUnhandledRejection(reason)) {
+      console.warn(
+        `${getLogPrefix()} Provider credits appear exhausted; request failed without output. Top up credits and retry.`,
+      );
+      return;
+    }
+    console.error(
+      `${getLogPrefix()} Unhandled rejection:`,
+      formatUncaughtError(reason),
+    );
     process.exit(1);
   });
 
   process.on("uncaughtException", (error) => {
-    console.error("[milady] Uncaught exception:", formatUncaughtError(error));
+    console.error(
+      `${getLogPrefix()} Uncaught exception:`,
+      formatUncaughtError(error),
+    );
     process.exit(1);
   });
 
@@ -49,5 +102,14 @@ export async function runCli(argv: string[] = process.argv) {
     await registerSubCliByName(program, primary);
   }
 
-  await program.parseAsync(argv);
+  try {
+    await program.parseAsync(argv);
+  } catch (err) {
+    // If commander threw because of an early exit (e.g. --help, --version), don't crash.
+    if (err && typeof err === "object" && "code" in err && "exitCode" in err) {
+      process.exitCode = (err as { exitCode: number }).exitCode ?? 1;
+      return;
+    }
+    throw err;
+  }
 }

@@ -1,42 +1,63 @@
 import {
+  type Api,
+  getEnvApiKey,
+  getModels,
+  getProviders,
+  type Model,
+} from "@mariozechner/pi-ai";
+import {
   type Component,
   type Focusable,
   getEditorKeybindings,
   Input,
   type SelectItem,
   SelectList,
-} from "@elizaos/tui";
-import chalk from "chalk";
-import { tuiTheme } from "../theme";
-
-/** Minimal model type (TUI disabled). */
-export interface TuiModel {
-  id: string;
-  provider: string;
-  api: string;
-}
+} from "@mariozechner/pi-tui";
+import { tuiTheme } from "../theme.js";
+import { ModalFrame } from "./modal-frame.js";
 
 export interface ModelSelectorOptions {
-  currentModel: TuiModel;
-  onSelect: (model: TuiModel) => void;
+  currentModel: Model<Api>;
+  onSelect: (model: Model<Api>) => void;
   onCancel: () => void;
   hasCredentials?: (provider: string) => boolean;
 }
 
 /**
- * Model selector (TUI disabled, shows empty list).
+ * Pi-style model selector with a filter input + a scrollable list.
  */
 export class ModelSelectorComponent implements Component, Focusable {
   focused = false;
 
   private filterInput = new Input();
   private selectList: SelectList;
-  private modelByKey = new Map<string, TuiModel>();
+  private modelByKey = new Map<string, Model<Api>>();
+  private frame = new ModalFrame({
+    title: "Select model",
+    hint: "type to filter • ↑↓ navigate • Enter select • Esc cancel",
+  });
 
   constructor(options: ModelSelectorOptions) {
     const items: SelectItem[] = [];
-    // No models
-    this.modelByKey = new Map();
+
+    for (const provider of getProviders()) {
+      for (const model of getModels(provider)) {
+        const key = `${model.provider}/${model.id}`;
+        this.modelByKey.set(key, model);
+
+        const hasKey =
+          options.hasCredentials?.(model.provider) ??
+          Boolean(getEnvApiKey(model.provider));
+        const keyHint = hasKey ? "" : " (no key)";
+
+        items.push({
+          value: key,
+          label: key,
+          description: `${model.api}${keyHint}`,
+        });
+      }
+    }
+
     this.selectList = new SelectList(items, 12, tuiTheme.selectList);
 
     this.selectList.onSelect = (item) => {
@@ -50,12 +71,20 @@ export class ModelSelectorComponent implements Component, Focusable {
       options.onCancel();
     };
 
+    // Default selection to current model if present.
+    const currentKey = `${options.currentModel.provider}/${options.currentModel.id}`;
+    const currentIndex = items.findIndex((i) => i.value === currentKey);
+    if (currentIndex >= 0) {
+      this.selectList.setSelectedIndex(currentIndex);
+    }
+
     this.filterInput.setValue("");
   }
 
   handleInput(data: string): void {
     const kb = getEditorKeybindings();
 
+    // Let the list handle navigation/confirm/cancel.
     if (
       kb.matches(data, "selectUp") ||
       kb.matches(data, "selectDown") ||
@@ -66,6 +95,7 @@ export class ModelSelectorComponent implements Component, Focusable {
       return;
     }
 
+    // Otherwise treat it as filter input.
     const before = this.filterInput.getValue();
     this.filterInput.handleInput(data);
     const after = this.filterInput.getValue();
@@ -76,13 +106,13 @@ export class ModelSelectorComponent implements Component, Focusable {
   }
 
   render(width: number): string[] {
+    // Propagate focus to the filter input so cursor marker is emitted.
     this.filterInput.focused = this.focused;
 
-    const header = [chalk.bold(" Select model"), chalk.dim(" (no models)"), ""];
-
     const filterLine = this.filterInput.render(width).map((l) => `  ${l}`);
+    const body = [...filterLine, "", ...this.selectList.render(width)];
 
-    return [...header, ...filterLine, "", ...this.selectList.render(width)];
+    return this.frame.render(width, body);
   }
 
   invalidate(): void {

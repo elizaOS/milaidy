@@ -13,7 +13,7 @@ import {
 
 // Mock dependencies before importing the module under test
 vi.mock("../config/config", () => ({
-  loadMiladyConfig: vi.fn(() => ({})),
+  loadElizaConfig: vi.fn(() => ({})),
 }));
 
 vi.mock("./update-checker", () => ({
@@ -48,7 +48,7 @@ async function importFreshNotifier() {
 
   // Re-mock after reset
   vi.doMock("../config/config", () => ({
-    loadMiladyConfig: vi.fn(() => ({})),
+    loadElizaConfig: vi.fn(() => ({})),
   }));
   vi.doMock("./update-checker", () => ({
     checkForUpdate: vi.fn(),
@@ -128,7 +128,7 @@ describe("scheduleUpdateNotification", () => {
   it("does not check when checkOnStart is false", async () => {
     const { scheduleUpdateNotification, config, checker } =
       await importFreshNotifier();
-    vi.mocked(config.loadMiladyConfig).mockReturnValue({
+    vi.mocked(config.loadElizaConfig).mockReturnValue({
       update: { checkOnStart: false },
     });
 
@@ -166,7 +166,7 @@ describe("scheduleUpdateNotification", () => {
     expect(output).toContain("Update available");
     expect(output).toContain("2.0.0");
     expect(output).toContain("2.1.0");
-    expect(output).toContain("milady update");
+    expect(output).toContain("eliza update");
   });
 
   it("does not write notice when no update is available", async () => {
@@ -251,7 +251,7 @@ describe("scheduleUpdateNotification", () => {
   it("ignores corrupt config and still checks for updates", async () => {
     const { scheduleUpdateNotification, config, checker } =
       await importFreshNotifier();
-    vi.mocked(config.loadMiladyConfig).mockImplementation(() => {
+    vi.mocked(config.loadElizaConfig).mockImplementation(() => {
       throw new Error("corrupt");
     });
     vi.mocked(checker.checkForUpdate).mockResolvedValue(

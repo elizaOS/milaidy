@@ -24,6 +24,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.net.URL
+import java.util.UUID
 import kotlin.math.tan
 
 @CapacitorPlugin(name = "MiladyCanvas")
@@ -232,7 +233,7 @@ class CanvasPlugin : Plugin() {
                             FrameLayout.LayoutParams.MATCH_PARENT,
                             FrameLayout.LayoutParams.MATCH_PARENT
                         )
-                        canvas.view.addView(wv, 0)
+                        parent.addView(wv, 0)
                     }
                 }
 
@@ -1806,7 +1807,8 @@ class CanvasPlugin : Plugin() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
-            canvas.view.addView(wv, 0)
+            val parent = canvas.view.parent as? ViewGroup
+            parent?.addView(wv, 0)
             canvas.view.setBackgroundColor(Color.TRANSPARENT)
         }
 
@@ -2144,5 +2146,3 @@ class CanvasPlugin : Plugin() {
         canvases.clear()
     }
 }
-
-private val UUID = java.util.UUID

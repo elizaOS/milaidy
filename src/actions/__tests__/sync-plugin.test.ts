@@ -40,7 +40,9 @@ describe("syncPluginAction", () => {
       undefined,
       undefined,
       undefined,
-      { parameters: { pluginId: "  discord  " } },
+      {
+        parameters: { pluginId: "  discord  " },
+      },
     );
 
     expect(mockSyncPlugin).toHaveBeenCalledWith("discord");
@@ -61,7 +63,9 @@ describe("syncPluginAction", () => {
       undefined,
       undefined,
       undefined,
-      { parameters: { pluginId: "discord" } },
+      {
+        parameters: { pluginId: "discord" },
+      },
     );
 
     expect(result.success).toBe(false);
@@ -82,7 +86,9 @@ describe("syncPluginAction", () => {
       undefined,
       undefined,
       undefined,
-      { parameters: { pluginId: "telegram-enhanced" } },
+      {
+        parameters: { pluginId: "telegram-enhanced" },
+      },
     );
 
     expect(result.success).toBe(true);

@@ -12,6 +12,10 @@
       "**",
       "!assets",
       "!dist",
+      "!apps/app/public",
+      "!apps/app/electrobun/build",
+      "!**/tsc-out",
+      "!**/dist-tsc",
       "!docs/_layouts",
       "!**/.github/contributor-trust.json",
       "!node_modules",
@@ -23,7 +27,8 @@
       "!vendor",
       "!test/contracts/lib",
       "!test/contracts/out",
-      "!test/contracts/cache"
+      "!test/contracts/cache",
+      "!**/vrms/imported-avatars.json"
     ]
   },
   "assist": {
@@ -68,5 +73,17 @@
     "parser": {
       "tailwindDirectives": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.css"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noDuplicateProperties": "off"
+          }
+        }
+      }
+    }
+  ]
 }

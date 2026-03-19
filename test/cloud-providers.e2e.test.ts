@@ -43,6 +43,12 @@ const ALL_PROVIDER_KEYS = [
   "GROQ_API_KEY",
   "XAI_API_KEY",
   "OLLAMA_BASE_URL",
+  "MILADY_CLOUD_TTS_DISABLED",
+  "MILADY_CLOUD_MEDIA_DISABLED",
+  "MILADY_CLOUD_EMBEDDINGS_DISABLED",
+  "MILADY_CLOUD_RPC_DISABLED",
+  "MILADY_USE_PI_AI",
+  "ELIZA_USE_PI_AI",
 ];
 
 const LIVE_PROVIDER_KEY_SNAPSHOT = {
@@ -392,7 +398,323 @@ describe("Provider switching simulation", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 6. Live model call tests (only run with MILADY_LIVE_TEST=1)
+// 6. Granular cloud service toggles
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("Granular cloud service toggles (services.inference)", () => {
+  it("keeps direct providers when services.inference is false", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        services: { inference: false },
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // Cloud plugin stays (for RPC), but Anthropic is NOT stripped
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
+  });
+
+  it("strips direct providers when services.inference is true (default)", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        services: { inference: true },
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
+  });
+
+  it("keeps direct providers when inferenceMode is byok", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
+  });
+
+  it("keeps direct providers when inferenceMode is local", () => {
+    process.env.OPENAI_API_KEY = "sk-test";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "local",
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-openai")).toBe(true);
+  });
+});
+
+describe("Subscription provider overrides cloud inference default", () => {
+  it("detects subscriptionProvider and defaults to byok instead of cloud", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-sub";
+    const config = {
+      cloud: { enabled: true, apiKey: "ck-test" },
+      agents: { defaults: { subscriptionProvider: "anthropic-subscription" } },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // Cloud plugin loaded (for RPC), but Anthropic NOT stripped
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
+  });
+
+  it("explicit inferenceMode cloud overrides subscriptionProvider", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-sub";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "cloud",
+      },
+      agents: { defaults: { subscriptionProvider: "anthropic-subscription" } },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // User explicitly set inferenceMode to cloud — respect that
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
+  });
+
+  it("no subscriptionProvider defaults to cloud inference", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const config = {
+      cloud: { enabled: true, apiKey: "ck-test" },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
+  });
+});
+
+describe("Cloud env propagation respects service toggles", () => {
+  it("skips cloud model env vars when services.inference is false", () => {
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        services: { inference: false },
+      },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
+    expect(process.env.ELIZAOS_CLOUD_SMALL_MODEL).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_LARGE_MODEL).toBeUndefined();
+  });
+
+  it("skips cloud model env vars when subscriptionProvider is set", () => {
+    const config = {
+      cloud: { enabled: true, apiKey: "ck-test" },
+      agents: { defaults: { subscriptionProvider: "anthropic-subscription" } },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
+    expect(process.env.ELIZAOS_CLOUD_SMALL_MODEL).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_LARGE_MODEL).toBeUndefined();
+    expect(process.env.SMALL_MODEL).toBeUndefined();
+  });
+
+  it("sets cloud model env vars when inferenceMode is explicitly cloud", () => {
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "cloud",
+      },
+      agents: { defaults: { subscriptionProvider: "anthropic-subscription" } },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    // Explicit cloud mode overrides subscriptionProvider
+    expect(process.env.SMALL_MODEL).toBeDefined();
+    expect(process.env.LARGE_MODEL).toBeDefined();
+  });
+
+  it("propagates per-service disable env vars", () => {
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        services: {
+          inference: true,
+          tts: false,
+          media: false,
+          embeddings: false,
+          rpc: false,
+        },
+      },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.MILADY_CLOUD_TTS_DISABLED).toBe("true");
+    expect(process.env.MILADY_CLOUD_MEDIA_DISABLED).toBe("true");
+    expect(process.env.MILADY_CLOUD_EMBEDDINGS_DISABLED).toBe("true");
+    expect(process.env.MILADY_CLOUD_RPC_DISABLED).toBe("true");
+  });
+
+  it("cleans up per-service env vars when toggles re-enabled", () => {
+    process.env.MILADY_CLOUD_TTS_DISABLED = "true";
+    process.env.ELIZA_CLOUD_TTS_DISABLED = "true";
+    process.env.MILADY_CLOUD_MEDIA_DISABLED = "true";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        services: { tts: true, media: true },
+      },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    expect(process.env.MILADY_CLOUD_TTS_DISABLED).toBeUndefined();
+    expect(process.env.MILADY_CLOUD_MEDIA_DISABLED).toBeUndefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. Full provider switch with cloud RPC preservation
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("Provider switch preserves cloud for RPC", () => {
+  it("cloud → subscription: cloud stays enabled, inference switches to byok", () => {
+    // Start: cloud handles everything
+    let config = {
+      cloud: { enabled: true, apiKey: "ck-test" },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    let plugins = collectPluginNames(config);
+    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
+
+    // Switch to Anthropic subscription (simulating what the backend now does)
+    process.env.ANTHROPIC_API_KEY = "sk-ant-sub";
+    config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+      agents: { defaults: { subscriptionProvider: "anthropic-subscription" } },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    plugins = collectPluginNames(config);
+
+    // Cloud stays for RPC, Anthropic loaded for inference
+    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(plugins.has("@elizaos/plugin-anthropic")).toBe(true);
+    // Cloud model vars cleaned
+    expect(process.env.ELIZAOS_CLOUD_SMALL_MODEL).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_LARGE_MODEL).toBeUndefined();
+    // Cloud still enabled for RPC
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
+    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-test");
+  });
+
+  it("subscription → cloud: inference switches back to cloud", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-sub";
+    let config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+      agents: { defaults: { subscriptionProvider: "anthropic-subscription" } },
+    } as MiladyConfig;
+    let plugins = collectPluginNames(config);
+    expect(plugins.has("@elizaos/plugin-anthropic")).toBe(true);
+
+    // Switch back to cloud inference
+    config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "cloud",
+        services: { inference: true },
+      },
+    } as MiladyConfig;
+    applyCloudConfigToEnv(config);
+    plugins = collectPluginNames(config);
+
+    expect(plugins.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(plugins.has("@elizaos/plugin-anthropic")).toBe(false);
+    expect(process.env.SMALL_MODEL).toBeDefined();
+    expect(process.env.LARGE_MODEL).toBeDefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. Pi AI + cloud RPC preservation
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("Pi AI with cloud enabled for RPC (cloud inference byok)", () => {
+  it("loads pi-ai plugin when cloud is enabled but inferenceMode is byok", () => {
+    process.env.MILADY_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // Cloud stays loaded for RPC
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    // Pi AI handles inference
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
+  });
+
+  it("pi-ai removes direct providers when cloud is in byok mode", () => {
+    process.env.MILADY_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // Cloud stays for RPC, Pi AI handles inference
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
+    // Direct providers should be removed — pi-ai handles upstream selection
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
+  });
+
+  it("loads direct provider (not pi-ai) when cloud is byok and pi-ai is disabled", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const config = {
+      cloud: {
+        enabled: true,
+        apiKey: "ck-test",
+        inferenceMode: "byok",
+        services: { inference: false },
+      },
+    } as MiladyConfig;
+    const names = collectPluginNames(config);
+    // Cloud stays for RPC, direct provider handles inference
+    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
+    expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
+    expect(names.has("@elizaos/plugin-pi-ai")).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. Live model call tests (only run with MILADY_LIVE_TEST=1)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const isLive = process.env.MILADY_LIVE_TEST === "1";
@@ -439,7 +761,7 @@ describe.skipIf(!isLive)("Live model calls (requires real API keys)", () => {
     const { createOpenAI } = await import("@ai-sdk/openai");
     const openai = createOpenAI({
       apiKey: cloudKey as string,
-      baseURL: "https://www.elizacloud.ai/api/v1",
+      baseURL: "https://elizacloud.ai/api/v1",
       compatibility: "compatible",
     });
     try {

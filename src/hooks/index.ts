@@ -1,8 +1,1 @@
-export {
-  type LoadHooksOptions,
-  loadHooks,
-} from "./loader";
-export {
-  createHookEvent,
-  triggerHook,
-} from "./registry";
+export * from "@elizaos/autonomous/hooks";

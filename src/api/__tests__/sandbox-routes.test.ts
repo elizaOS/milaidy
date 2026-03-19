@@ -11,6 +11,28 @@ import type { SandboxManager } from "../../services/sandbox-manager";
 import { handleSandboxRoute } from "../sandbox-routes";
 import { createMockReq, createMockRes } from "./sandbox-test-helpers";
 
+vi.mock("node:child_process", async () => {
+  const actual =
+    await vi.importActual<typeof import("node:child_process")>(
+      "node:child_process",
+    );
+  return {
+    ...actual,
+    execSync: vi.fn(() => ""),
+    execFileSync: vi.fn(() => Buffer.from("mock-binary")),
+  };
+});
+
+vi.mock("node:fs", async () => {
+  const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
+  return {
+    ...actual,
+    readFileSync: vi.fn(() => Buffer.from("mock-binary")),
+    unlinkSync: vi.fn(),
+    writeFileSync: vi.fn(),
+  };
+});
+
 function createMockManager(
   overrides: Partial<SandboxManager> = {},
 ): SandboxManager {
@@ -38,11 +60,14 @@ function createMockManager(
     }),
     getBrowserCdpEndpoint: vi.fn().mockReturnValue("http://localhost:9222"),
     getBrowserWsEndpoint: vi.fn().mockReturnValue("ws://localhost:9222"),
+    getBrowserNoVncEndpoint: vi
+      .fn()
+      .mockReturnValue("http://localhost:6080/vnc.html"),
     isReady: vi.fn().mockReturnValue(true),
     getMode: vi.fn().mockReturnValue("standard"),
     getState: vi.fn().mockReturnValue("ready"),
     ...overrides,
-  } as unknown as SandboxManager;
+  } as Partial<SandboxManager> as SandboxManager;
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -213,6 +238,7 @@ describe("handleSandboxRoute", () => {
       const body = JSON.parse(res._body);
       expect(body.cdpEndpoint).toBe("http://localhost:9222");
       expect(body.wsEndpoint).toBe("ws://localhost:9222");
+      expect(body.noVncEndpoint).toBe("http://localhost:6080/vnc.html");
     });
   });
 

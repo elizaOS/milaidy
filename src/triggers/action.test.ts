@@ -38,7 +38,6 @@ describe("createTriggerTaskAction", () => {
 
     const runtimePartial: Partial<IAgentRuntime> = {
       agentId: "00000000-0000-0000-0000-000000000303" as UUID,
-      enableAutonomy: true,
       useModel: useModelMock,
       getTasks: getTasksMock,
       createTask: createTaskMock,

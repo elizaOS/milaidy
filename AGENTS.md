@@ -26,7 +26,7 @@
 - **Source code:** `src/` — runtime in `src/runtime/`, CLI wiring in `src/cli/`, config in `src/config/`, providers in `src/providers/`, hooks in `src/hooks/`, utils in `src/utils/`, types in `src/types/`
 - **Tests:** colocated `*.test.ts` alongside source files
 - **Build output:** `dist/` (via `tsdown`)
-- **Entry points:** `src/entry.ts` (CLI), `src/index.ts` (library), `src/runtime/eliza.ts` (ElizaOS runtime)
+- **Entry points:** `src/entry.ts` (CLI), `src/index.ts` (library), `src/runtime/eliza.ts` (elizaOS runtime)
 - **Apps:** `apps/app/` (Capacitor mobile/desktop, includes React UI), `apps/chrome-extension/`
 - **Deployment:** `deploy/` (Docker configs)
 - **Scripts:** `scripts/` (build, dev, release tooling)
@@ -48,6 +48,9 @@
 - Formatting/linting via Biome; run `bun run check` before commits.
 - Add brief code comments for tricky or non-obvious logic.
 - Aim to keep files under ~500 LOC; split/refactor when it improves clarity or testability.
+- **Do not remove exception-handling guards** in `apps/app/electrobun/src/native/agent.ts` as "excess" or during deslop/cleanup. The try/catch and `.catch()` there keep the desktop app usable when the runtime fails to load (API server stays up, UI can show error). See `docs/electrobun-startup.md`.
+- **Do not remove NODE_PATH setup code** in `src/runtime/eliza.ts`, `scripts/run-node.mjs`, or `apps/app/electrobun/src/native/agent.ts`. Without it, dynamic plugin imports fail with "Cannot find module". See `docs/plugin-resolution-and-node-path.md`.
+- **Do not remove the Bun exports patch** in `scripts/patch-deps.mjs` (patchBunExports). It fixes "Cannot find module" for plugins whose published package.json points `exports["."].bun` at missing `./src/index.ts`. See "Bun and published package exports" in `docs/plugin-resolution-and-node-path.md`.
 - Naming: use **Milady** for product/app/docs headings; use `milady` for CLI command, package/binary, paths, and config keys.
 
 ## Dependencies
@@ -58,7 +61,7 @@
 
 ## Testing Guidelines
 
-- Framework: Vitest with V8 coverage thresholds (70% lines/branches/functions/statements)
+- Framework: Vitest with V8 coverage thresholds (25% lines/functions/statements, 15% branches)
 - Naming: match source names with `*.test.ts`; e2e in `*.e2e.test.ts`; live in `*.live.test.ts`
 - Run `bun run test` before pushing when you touch logic
 

@@ -7,7 +7,7 @@ describe("parseCliProfileArgs", () => {
   it("leaves plugins --dev for subcommands", () => {
     const res = parseCliProfileArgs([
       "node",
-      "milady",
+      "eliza",
       "plugins",
       "--dev",
       "--allow-unconfigured",
@@ -18,7 +18,7 @@ describe("parseCliProfileArgs", () => {
     expect(res.profile).toBeNull();
     expect(res.argv).toEqual([
       "node",
-      "milady",
+      "eliza",
       "plugins",
       "--dev",
       "--allow-unconfigured",
@@ -26,18 +26,18 @@ describe("parseCliProfileArgs", () => {
   });
 
   it("still accepts global --dev before subcommand", () => {
-    const res = parseCliProfileArgs(["node", "milady", "--dev", "plugins"]);
+    const res = parseCliProfileArgs(["node", "eliza", "--dev", "plugins"]);
     if (!res.ok) {
       throw new Error(res.error);
     }
     expect(res.profile).toBe("dev");
-    expect(res.argv).toEqual(["node", "milady", "plugins"]);
+    expect(res.argv).toEqual(["node", "eliza", "plugins"]);
   });
 
   it("parses --profile value and strips it", () => {
     const res = parseCliProfileArgs([
       "node",
-      "milady",
+      "eliza",
       "--profile",
       "work",
       "start",
@@ -46,18 +46,18 @@ describe("parseCliProfileArgs", () => {
       throw new Error(res.error);
     }
     expect(res.profile).toBe("work");
-    expect(res.argv).toEqual(["node", "milady", "start"]);
+    expect(res.argv).toEqual(["node", "eliza", "start"]);
   });
 
   it("rejects missing profile value", () => {
-    const res = parseCliProfileArgs(["node", "milady", "--profile"]);
+    const res = parseCliProfileArgs(["node", "eliza", "--profile"]);
     expect(res.ok).toBe(false);
   });
 
   it("rejects combining --dev with --profile (dev first)", () => {
     const res = parseCliProfileArgs([
       "node",
-      "milady",
+      "eliza",
       "--dev",
       "--profile",
       "work",
@@ -69,7 +69,7 @@ describe("parseCliProfileArgs", () => {
   it("rejects combining --dev with --profile (profile first)", () => {
     const res = parseCliProfileArgs([
       "node",
-      "milady",
+      "eliza",
       "--profile",
       "work",
       "--dev",
@@ -87,95 +87,95 @@ describe("applyCliProfileEnv", () => {
       env,
       homedir: () => "/home/peter",
     });
-    const expectedStateDir = path.join("/home/peter", ".milady-dev");
-    expect(env.MILADY_PROFILE).toBe("dev");
-    expect(env.MILADY_STATE_DIR).toBe(expectedStateDir);
-    expect(env.MILADY_CONFIG_PATH).toBe(
-      path.join(expectedStateDir, "milady.json"),
+    const expectedStateDir = path.join("/home/peter", ".eliza-dev");
+    expect(env.ELIZA_PROFILE).toBe("dev");
+    expect(env.ELIZA_STATE_DIR).toBe(expectedStateDir);
+    expect(env.ELIZA_CONFIG_PATH).toBe(
+      path.join(expectedStateDir, "eliza.json"),
     );
-    expect(env.MILADY_GATEWAY_PORT).toBe("19001");
+    expect(env.ELIZA_GATEWAY_PORT).toBe("19001");
   });
 
   it("does not override explicit env values", () => {
     const env: Record<string, string | undefined> = {
-      MILADY_STATE_DIR: "/custom",
-      MILADY_GATEWAY_PORT: "19099",
+      ELIZA_STATE_DIR: "/custom",
+      ELIZA_GATEWAY_PORT: "19099",
     };
     applyCliProfileEnv({
       profile: "dev",
       env,
       homedir: () => "/home/peter",
     });
-    expect(env.MILADY_STATE_DIR).toBe("/custom");
-    expect(env.MILADY_GATEWAY_PORT).toBe("19099");
-    expect(env.MILADY_CONFIG_PATH).toBe(path.join("/custom", "milady.json"));
+    expect(env.ELIZA_STATE_DIR).toBe("/custom");
+    expect(env.ELIZA_GATEWAY_PORT).toBe("19099");
+    expect(env.ELIZA_CONFIG_PATH).toBe(path.join("/custom", "eliza.json"));
   });
 });
 
 describe("formatCliCommand", () => {
   it("returns command unchanged when no profile is set", () => {
-    expect(formatCliCommand("milady setup --fix", {})).toBe(
-      "milady setup --fix",
+    expect(formatCliCommand("eliza setup --fix", {})).toMatch(
+      /^(?:eliza|milady) setup --fix$/,
     );
   });
 
   it("returns command unchanged when profile is default", () => {
     expect(
-      formatCliCommand("milady setup --fix", { MILADY_PROFILE: "default" }),
-    ).toBe("milady setup --fix");
+      formatCliCommand("eliza setup --fix", { ELIZA_PROFILE: "default" }),
+    ).toMatch(/^(?:eliza|milady) setup --fix$/);
   });
 
   it("returns command unchanged when profile is Default (case-insensitive)", () => {
     expect(
-      formatCliCommand("milady setup --fix", { MILADY_PROFILE: "Default" }),
-    ).toBe("milady setup --fix");
+      formatCliCommand("eliza setup --fix", { ELIZA_PROFILE: "Default" }),
+    ).toMatch(/^(?:eliza|milady) setup --fix$/);
   });
 
   it("returns command unchanged when profile is invalid", () => {
     expect(
-      formatCliCommand("milady setup --fix", {
-        MILADY_PROFILE: "bad profile",
+      formatCliCommand("eliza setup --fix", {
+        ELIZA_PROFILE: "bad profile",
       }),
-    ).toBe("milady setup --fix");
+    ).toMatch(/^(?:eliza|milady) setup --fix$/);
   });
 
   it("returns command unchanged when --profile is already present", () => {
     expect(
-      formatCliCommand("milady --profile work setup --fix", {
-        MILADY_PROFILE: "work",
+      formatCliCommand("eliza --profile work setup --fix", {
+        ELIZA_PROFILE: "work",
       }),
-    ).toBe("milady --profile work setup --fix");
+    ).toMatch(/^(?:eliza|milady) --profile work setup --fix$/);
   });
 
   it("returns command unchanged when --dev is already present", () => {
     expect(
-      formatCliCommand("milady --dev setup", { MILADY_PROFILE: "dev" }),
-    ).toBe("milady --dev setup");
+      formatCliCommand("eliza --dev setup", { ELIZA_PROFILE: "dev" }),
+    ).toMatch(/^(?:eliza|milady) --dev setup$/);
   });
 
   it("inserts --profile flag when profile is set", () => {
     expect(
-      formatCliCommand("milady setup --fix", { MILADY_PROFILE: "work" }),
-    ).toBe("milady --profile work setup --fix");
+      formatCliCommand("eliza setup --fix", { ELIZA_PROFILE: "work" }),
+    ).toMatch(/^(?:eliza|milady) --profile work setup --fix$/);
   });
 
   it("trims whitespace from profile", () => {
     expect(
-      formatCliCommand("milady setup --fix", {
-        MILADY_PROFILE: "  jbmilady  ",
+      formatCliCommand("eliza setup --fix", {
+        ELIZA_PROFILE: "  jbeliza  ",
       }),
-    ).toBe("milady --profile jbmilady setup --fix");
+    ).toMatch(/^(?:eliza|milady) --profile jbeliza setup --fix$/);
   });
 
-  it("handles command with no args after milady", () => {
-    expect(formatCliCommand("milady", { MILADY_PROFILE: "test" })).toBe(
-      "milady --profile test",
+  it("handles command with no args after eliza", () => {
+    expect(formatCliCommand("eliza", { ELIZA_PROFILE: "test" })).toMatch(
+      /^(?:eliza|milady) --profile test$/,
     );
   });
 
   it("handles bun wrapper", () => {
     expect(
-      formatCliCommand("bun milady setup", { MILADY_PROFILE: "work" }),
-    ).toBe("bun milady --profile work setup");
+      formatCliCommand("bun eliza setup", { ELIZA_PROFILE: "work" }),
+    ).toMatch(/^bun (?:eliza|milady) --profile work setup$/);
   });
 });

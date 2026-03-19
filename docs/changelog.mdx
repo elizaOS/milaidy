@@ -1,0 +1,647 @@
+---
+title: Changelog
+description: What's new in Milady — features, improvements, and fixes.
+---
+
+<Update label="2026-06-11" description="Week of June 5–11" tags={["Update", "Fix"]}>
+## Unified provider configuration
+
+Onboarding, settings, and subscription flows now share a single provider configuration contract. Previously, changing your model provider in one place didn't always reflect in another — now provider selections stay consistent everywhere. Wallet RPC provider choices are also initialized from your saved wallet configuration instead of falling back to hardcoded defaults.
+
+## Updates
+
+- **Companion shell startup stability** — The companion view no longer stalls or misbehaves on launch. Routing after startup is now tied to the active tab, and greeting animations are properly sequenced so the shell loads cleanly on first open.
+- **TTS language accuracy** — Text-to-speech now sets the language tag explicitly on each utterance, preventing the system from falling back to your OS locale and producing unexpected pronunciation.
+- **Dark mode shell header visibility** — The toggle border in the shell header is now visible in dark mode, fixing a contrast issue that made it hard to see.
+- **Connector search auto-fill blocked** — The search input in the connectors panel no longer triggers browser auto-fill suggestions, which could cover the results list.
+- **Button hit targets normalized** — Small and large button variants now have consistent vertical padding, making tap and click targets more reliable across the dashboard.
+
+## Bug fixes
+
+- Fixed a race condition in embedding disposal that could cause in-flight operations to fail during cleanup
+- Fixed one-time error hints not displaying — transient action errors now surface once and dismiss automatically instead of being silently swallowed
+</Update>
+
+<Update label="2026-06-04" description="Week of May 29 – June 4" tags={["Feature", "Update"]}>
+## Privy server wallets
+
+Your agent can now provision and manage wallets through Privy's server-side wallet infrastructure. Three new API endpoints — `/api/privy/status`, `/api/privy/login`, and `/api/privy/logout` — handle wallet provisioning for both Ethereum and Solana chains automatically. Configure your Privy credentials and the system creates wallets on demand when your agent needs them. See the [wallet guide](/guides/wallet) for details.
+
+## Conversation history rollback
+
+You can now truncate a conversation from a specific message forward using the new `POST /api/conversations/:id/messages/truncate` endpoint. Pass a `messageId` to remove that message and everything after it, letting you undo a wrong turn in a conversation without starting over. See the [conversations API reference](/rest/conversations) for details.
+
+## Native Signal device linking
+
+The Signal connector now supports native device linking via QR code, replacing the previous signal-cli dependency with a purpose-built native bridge. Pairing is managed through new `/api/signal/*` endpoints that handle session lifecycle, QR code generation, and connection status — making Signal setup faster and more reliable. See the [Signal plugin docs](/plugin-registry/platform/signal) for details.
+
+## Updates
+
+- **Legacy Electron environment variables removed** — `MILADY_ELECTRON_API_BASE` and `MILADY_ELECTRON_TEST_API_BASE` are no longer supported. The Electrobun migration is complete — use the current Electrobun configuration paths instead. See the [desktop app guide](/apps/desktop) for details.
+- **Modular runtime packaging** — Core autonomous agent services have been extracted into a standalone package, improving module boundaries and reducing startup overhead for lightweight deployments.
+</Update>
+
+<Update label="2026-05-28" description="Week of May 22–28" tags={["Feature", "Update"]}>
+## Talk mode for desktop
+
+You can now have full voice conversations with your agent hands-free. Talk mode combines offline speech-to-text (Whisper.cpp), streaming text-to-speech (ElevenLabs or browser TTS), and voice activity detection into a seamless loop — you speak, the agent listens, processes, and speaks back. Configure STT model size, TTS provider, and voice presets from the dashboard. Talk mode is available in the Electrobun desktop app. See the [talk mode guide](/apps/dashboard/talk-mode) for details.
+
+## Triggers and heartbeats
+
+Your agent can now run tasks on a schedule without manual intervention. Create interval, one-time, or cron-based triggers that wake the agent and execute prompts or actions automatically. The dashboard shows triggers as "Heartbeats" with a two-panel UI — browse your triggers on the left, create or edit on the right with a friendly duration picker. You can also create triggers from chat by asking your agent to do something on a schedule. See the [triggers guide](/guides/triggers) for details.
+
+## Database browser
+
+A built-in database browser in the dashboard lets you inspect your agent's data directly. Browse relational tables in a paginated grid, filter and view uploaded media (images, audio, video) in a gallery, and explore vector store entries used for semantic search. See the [database guide](/advanced/database) for details.
+
+## Fine-tuning pipeline
+
+The training system now supports the full fine-tuning lifecycle from the dashboard. Build datasets from captured trajectories, start and monitor training jobs with real-time progress via SSE events, import finished models into Ollama, and activate them as your agent's default. The system auto-detects your hardware backend — MLX on Apple Silicon, CUDA on NVIDIA GPUs, or CPU. See the [training guide](/guides/training) for details.
+
+## OpenAI-compatible API
+
+Milady now exposes OpenAI-compatible endpoints at `/v1/models` and `/v1/chat/completions`, plus an Anthropic-compatible `/v1/messages` endpoint. External tools and scripts that work with the OpenAI API format can now talk to your agent directly without any adapter code. See the [API reference](/api-reference) for details.
+
+## Updates
+
+- **Wallet trading API** — New endpoints for BSC token trading are available: preflight checks, price quotes, trade execution, and transaction status tracking. Use the full trade flow programmatically via the REST API. See the [wallet API reference](/rest/wallet).
+- **Dashboard internationalization** — The dashboard is now available in five languages: English, Spanish, Korean, Portuguese, and Simplified Chinese. Language is auto-detected from your browser settings.
+- **Terminal authorization for custom actions** — Shell and code custom action handlers now require a dedicated `terminalToken` when `MILADY_TERMINAL_RUN_TOKEN` is set, adding a second layer of authorization beyond the main API token. See the [custom actions API reference](/rest/custom-actions).
+</Update>
+
+<Update label="2026-05-21" description="Week of May 15–21" tags={["Feature", "Update"]}>
+## Autonomous mode
+
+Your agent can now reason and act independently between conversations. When enabled, the agent runs a continuous loop — observing its environment, making decisions, and executing actions without waiting for input. Toggle autonomous mode from the dashboard or via the `GET /api/agent/autonomy` and `POST /api/agent/autonomy` endpoints. The autonomous panel in the chat view shows real-time thoughts, actions, and heartbeats as your agent works in the background. See the [autonomous mode guide](/guides/autonomous-mode) for details.
+
+## Local model downloads
+
+You can now download and run AI models locally for fully offline inference. Five model types are supported — vision (BLIP, Florence-2, Moondream2), LLM (Llama 3.2, Qwen 2.5, Phi-3 via Ollama), TTS (Parler, Bark, SpeechT5), STT (Whisper), and embeddings (MiniLM, BGE, Nomic Embed). Models are cached on disk after download and available without an internet connection. See the [local models guide](/guides/local-models) for details.
+
+## Chrome extension for browser control
+
+A new Chrome extension — Milady Browser Relay — lets your agent control browser tabs in real time via the Chrome DevTools Protocol. Your agent can read page content, execute JavaScript, navigate URLs, capture screenshots, and interact with elements programmatically. Install it from source using the CLI or by loading the unpacked extension directory. See the [Chrome extension guide](/apps/chrome-extension) for details.
+
+## Mobile app (iOS and Android)
+
+The Milady mobile app is now available for iOS and Android, built with Capacitor and nine custom native plugins. The full dashboard runs inside a native WebView with access to device hardware — gateway discovery, voice wake word, talk mode, camera, location, screen capture, and more. A plugin bridge handles capability detection per platform with graceful fallback to web APIs. See the [mobile app guide](/apps/mobile) and [Capacitor plugins reference](/apps/mobile/capacitor-plugins) for details.
+
+## Deep linking
+
+The desktop app now registers the `milady://` custom URL protocol so external applications and browsers can open and share content with your running agent. Share text, URLs, and files by opening a `milady://share` URL from any app. Incoming payloads are queued if the app is still loading and delivered once the window is ready. See the [deep linking guide](/apps/desktop/deep-linking) for details.
+
+## Dashboard pairing
+
+The dashboard now requires a pairing code for initial authentication. When you first open the dashboard, a one-time pairing code is printed to the server logs. Enter it to establish a secure connection — the token persists across sessions so you only pair once. An expiry countdown shows remaining time before the code needs to be refreshed. See the [pairing guide](/dashboard/pairing) for details.
+
+## Updates
+
+- **Native desktop modules** — The Electrobun desktop app now exposes 10 native modules with 118+ RPC methods covering agent lifecycle, network discovery, voice I/O, wake-word detection, screen capture, camera, canvas windows, geolocation, and system permissions. See the [native modules reference](/apps/desktop/native-modules).
+- **Terminal UI (TUI)** — A keyboard-driven terminal interface for chatting with your agent and managing the runtime without a browser. Includes a split conversation list and chat pane, real-time streaming, slash commands, and Markdown rendering. See the [TUI guide](/apps/tui).
+</Update>
+
+<Update label="2026-05-14" description="Week of May 8–14" tags={["Feature", "Update"]}>
+## Media generation
+
+Your agent can now generate images, videos, and audio — and analyze images with AI vision — all from chat. Four new actions are available: `GENERATE_IMAGE`, `GENERATE_VIDEO`, `GENERATE_AUDIO`, and `ANALYZE_IMAGE`. Each supports multiple provider backends including FAL.ai, OpenAI, Google, xAI, and Eliza Cloud. Choose between cloud mode (no API key needed) and bring-your-own-key mode per media type. A media gallery in the dashboard lets you browse everything your agent has created. See the [media generation guide](/guides/media-generation) for details.
+
+## Event hooks
+
+You can now extend your agent with event-driven hooks that respond to commands, session events, agent lifecycle events, and gateway events. Hooks are loaded from disk at startup — each hook is a directory with a frontmatter config and a handler module. Use hooks to add custom behavior without modifying core code. See the [hooks guide](/guides/hooks) for details.
+
+## Config includes
+
+Split your agent configuration across multiple files with the `$include` directive. Compose shared base configs, separate environment-specific settings, and keep large configurations organized. Local keys override included keys, so you can layer overrides cleanly. See the [config includes guide](/guides/config-includes) for details.
+
+## Plugin eject system
+
+You can now clone any plugin's source code locally, edit it, and have the runtime load your version instead of the npm package. The eject system supports syncing with upstream changes, contributing edits back via pull requests, and reverting to the original at any time. Ask your agent to eject a plugin or use the CLI. See the [plugin eject guide](/plugins/plugin-eject) for details.
+
+## Skills marketplace with security review
+
+The skills view now includes a marketplace backed by the clawhub.ai registry. Browse, search, and install skills directly from the dashboard. A built-in security review system scans installed skills and flags issues — quarantined skills are visually marked, and blocked skills cannot be enabled until reviewed.
+
+## Six more platform connectors
+
+Your agent can now connect to six additional platforms:
+
+- **Feishu / Lark** — bots, chats, and workflow notifications.
+- **Twilio** — voice and SMS messaging.
+- **Twitch** — live chat integration.
+- **Gmail Watch** — Pub/Sub email monitoring with auto-renewal.
+- **Linear** — issue tracking integration.
+- **Zalo** — messaging on Vietnam's largest chat platform.
+
+Install any connector with `milady plugins install <name>` and configure it in your [social settings](/guides/connectors).
+
+## Updates
+
+- **Voice wake word** — You can now configure a wake word (default: "milady") so your agent listens for a trigger phrase before responding. Adjust sensitivity and Whisper model size from the voice settings panel.
+- **Install plugins from chat** — Ask your agent to install a plugin by name (e.g., "install the discord plugin") and it handles the download, installation, and restart automatically.
+- **Runtime log level** — Change your agent's log verbosity at runtime by asking it to "set log level to debug" (or trace, info, warn, error) without restarting.
+- **Configuration templates** — Eight production-ready config templates are now available for common deployment scenarios — minimal setup, Discord bot, multi-model, and more. See the [config templates guide](/guides/config-templates).
+- **Dashboard themes and avatars** — Six visual themes and eight built-in 3D VRM avatars with 29 emotes across six categories. Themes control colors, typography, borders, and animations across the entire dashboard. See the [themes guide](/guides/themes).
+</Update>
+
+<Update label="2026-05-07" description="Week of May 1–7" tags={["Feature", "Update"]}>
+## Agent export and import
+
+You can now migrate your agent between machines with a single encrypted file. Export captures the full agent state — character, memories, knowledge, relationships, and configuration — into a password-protected `.eliza-agent` archive. Import it on another machine to restore everything. See the [agent export guide](/guides/agent-export) for details.
+
+## Sandbox and computer use
+
+Agents can now run code, browse the web, take screenshots, record audio, and interact with desktop applications inside an isolated container sandbox. The sandbox supports four configurable security modes (off, light, standard, max), network policies, audit logging, and a remote signing service that keeps wallet keys on the host while sandboxed agents submit transactions. See the [sandbox guide](/guides/sandbox) for details.
+
+## MCP marketplace
+
+You can now browse and install Model Context Protocol servers directly from the official MCP registry. Search for tools by name, view details, and install them in one step — the configuration is generated automatically. MCP servers extend your agent with external capabilities like file access, database queries, and API integrations. See the [MCP marketplace guide](/guides/mcp-marketplace) for details.
+
+## Custom actions editor
+
+A visual editor in the dashboard lets you create custom agent actions without writing plugin code. Define actions with HTTP, shell, or code handlers, configure parameters and headers, and test them — all from the UI. See the [custom actions guide](/guides/custom-actions) for details.
+
+## Plugin eject system
+
+You can now fork any plugin's source code locally, modify it, and have the runtime load your local copy instead of the npm package. Six new agent actions — eject, reinject, sync, and status for both plugins and core — make it easy to customize, test, and contribute changes back upstream. See the [plugin eject guide](/plugins/plugin-eject) for details.
+
+## Stream overlay widgets
+
+Live streams now support a customizable overlay system with built-in widgets — viewer count, thought bubbles, alert popups, action tickers, branding, and custom HTML. You can arrange widgets with the layout editor and save per-destination layouts. External plugins can register their own overlay widgets.
+
+## Memory and embedding explorer
+
+A new vector browser in the dashboard lets you visually explore your agent's memory store. Browse memories in a paginated list, search by content, and inspect individual entries. A 2D scatter plot and interactive 3D visualization show how embeddings cluster, making it easier to understand what your agent remembers and how it relates.
+
+## Three new platform connectors
+
+Your agent can now connect to three additional messaging platforms:
+
+- **Matrix** — federated chat with homeserver config, access token auth, auto-join, end-to-end encryption, and mention-only mode.
+- **Nostr** — relay-based decentralized social with private key auth, configurable relay list, and DM support.
+- **Nextcloud Talk** — webhook-based bot integration with per-room filtering.
+
+Install any connector with `milady plugins install <name>` and configure it in your [social settings](/guides/connectors).
+
+## Updates
+
+- **Secrets vault** — A new Secrets view in the dashboard organizes your API keys and credentials by category (AI providers, blockchain, connectors, auth). You can add, remove, and manage secrets with plugin-aware discovery that shows which plugins need which keys.
+- **Media gallery** — A new media gallery in the dashboard lets you browse photos, videos, and audio stored in your agent's database, with filtering by media type.
+- **Diagnostics and security audit API** — New endpoints expose filterable runtime logs, autonomy event replay with cursor-based pagination, and a security audit log with severity filtering and SSE streaming. See the [API reference](/api-reference) for details.
+- **Streaming permissions in onboarding** — Camera and microphone permissions are now requested during the onboarding wizard and manageable from Settings, so streaming works out of the box on both mobile and desktop.
+- **Dark theme button readability** — Accent-colored buttons now use dark text for better contrast, and hover effects highlight the border instead of changing text color.
+- **Onboarding layout improvements** — The connection step now shows a Quick Start / Advanced toggle, full-width provider cards, and an always-visible Continue button on the permissions step.
+- **Configuration templates** — Eight ready-to-use configuration templates for common deployment scenarios are now available. See the [config templates guide](/guides/config-templates).
+</Update>
+
+<Update label="2026-04-30" description="Week of April 24–30" tags={["Feature", "Update"]}>
+## Streaming response recovery
+
+When a chat response is interrupted mid-stream — whether from a network hiccup or a timeout — the message is now marked as interrupted with a Retry button. You can re-request the response instead of being left with a partial message.
+
+## Orchestrator trajectory tagging
+
+LLM calls made by the [swarm orchestrator](/guides/coding-swarms) are now tagged with a purple "orchestrator" badge in the [trajectories viewer](/advanced/trajectories). Each entry includes metadata like decision type, session ID, and task label, making it easier to distinguish orchestrator reasoning from individual agent calls during multi-agent runs.
+
+## Training backend auto-detection
+
+The [fine-tuning](/guides/training) system now detects available ML backends — MLX on Apple Silicon, CUDA on NVIDIA GPUs, and CPU as a fallback — before starting a training job. If the requested backend isn't available, you get a clear error instead of a cryptic failure mid-run.
+
+## Updates
+
+- **Character metadata persists across restarts** — Your agent's username and topics now survive restarts. Previously, these fields were treated as runtime-only and would revert to defaults after a reboot. See the [character editor](/agents/character-interface) for details.
+- **Reconnection progress indicator** — When the WebSocket connection drops, the dashboard now shows an amber "Reconnecting..." banner with the current attempt count before escalating to the red failure state, giving you real-time visibility into recovery progress.
+</Update>
+
+<Update label="2026-04-23" description="Week of April 17–23" tags={["Update", "Fix"]}>
+## Telegram connector reliability
+
+The Telegram connector now handles unexpected errors gracefully instead of crashing the agent process. Conversation history restores with a timeout so a slow Telegram API response no longer blocks startup, and authentication retries automatically on transient failures during boot. These changes make Telegram-connected agents significantly more resilient in production.
+
+## Updates
+
+- **Connectors tab shows selected connector only** — The [connectors](/guides/connectors) configuration panel now displays only the connector you selected in the sidebar instead of rendering all connectors at once, making it easier to find and edit settings.
+- **macOS permission dialog identity** — System permission prompts on macOS (microphone, accessibility, etc.) now correctly display "Milady" as the requesting app name instead of a generic or missing identifier.
+
+## Bug fixes
+
+- Fixed companion mode showing a false typing indicator in empty conversations before the user sends a first message
+</Update>
+
+<Update label="2026-04-16" description="Week of April 10–16" tags={["Feature", "Update"]}>
+## Six new platform connectors
+
+Your agent can now connect to six additional messaging platforms out of the box:
+
+- **Signal** — private messaging via signal-cli with attachment and read receipt support. See the [Signal plugin docs](/plugin-registry/platform/signal).
+- **Farcaster** — decentralized social protocol integration for casting, replying, and reacting on-chain. See the [Farcaster plugin docs](/plugin-registry/platform/farcaster).
+- **Microsoft Teams** — Azure Bot integration with threaded replies and media support. See the [MS Teams plugin docs](/plugin-registry/platform/msteams).
+- **Google Chat** — service account integration with webhook delivery and per-space configuration. See the [Google Chat plugin docs](/plugin-registry/platform/googlechat).
+- **Mattermost** — self-hosted team messaging with bot token auth and mention filtering. See the [Mattermost plugin docs](/plugin-registry/platform/mattermost).
+- **BlueBubbles** — iMessage bridge for non-Apple platforms. See the [BlueBubbles plugin docs](/plugin-registry/platform/bluebubbles).
+
+Install any connector with `milady plugins install <name>` and configure it in your [social settings](/guides/connectors).
+
+## Lens Protocol connector
+
+Your agent can now interact on the Lens Protocol decentralized social network. Post, reply, react, repost, and handle notifications — all through the Lens V3 API. Configure it alongside your other [social connectors](/guides/connectors).
+
+## Trajectory archival and optimization
+
+Trajectory data — the full record of every LLM call your agent makes — is now archived durably with compressed exports. The system preserves complete prompt and response text for [training](/guides/training) fidelity while extracting lightweight insights into metadata, reducing storage usage without losing data. Archived trajectories are compressed as JSONL before pruning, so nothing is lost during TTL cleanup. See the [trajectories guide](/advanced/trajectories) for details.
+
+## Updates
+
+- **Connector test coverage** — The Farcaster and Lens Protocol connectors now have comprehensive end-to-end test suites verified against live APIs, confirming production readiness.
+- **API docs translated** — The API reference and agent endpoints are now available in Spanish, French, and Simplified Chinese.
+- **Character generation improvements** — The character generation endpoint now supports a `system` field and `context.topics` parameter for more targeted character creation. See the [character API reference](/rest/character).
+</Update>
+
+<Update label="2026-04-09" description="Week of April 3–9" tags={["Feature", "Update", "Fix"]}>
+## Opinion markets plugin
+
+Your agent can now trade on prediction markets through a new opinion markets plugin. Browse markets, place bets, check positions, cancel orders, and redeem outcomes — all from chat or the REST API. Real-time market data streams via WebSocket so your agent stays current on price movements.
+
+## Agent self-awareness
+
+Your agent can now report on its own status. A new awareness system aggregates health signals from the runtime, cloud connection, wallet, connectors, plugins, and permissions into a single view. Ask your agent "what's your status?" and it returns a structured summary of what's working, what's degraded, and what needs attention.
+
+## Coding agent settings
+
+The Settings view now includes a Coding Agents section where you can choose the agent selection strategy, default agent type, permission level, and per-agent model preferences. These controls give you finer-grained control over how [coding swarms](/guides/coding-swarms) behave.
+
+## Granular cloud service toggles
+
+When connected to Eliza Cloud, you can now enable or disable individual cloud services — inference, RPC, media, TTS, and embeddings — instead of toggling the entire cloud connection. This lets you keep cloud RPC while using a local model provider, for example. See the [cloud guide](/guides/cloud) for details.
+
+## Character generation API format update
+
+The `POST /api/character/generate` endpoint now returns `chatExamples` in the `messageExamples` schema — conversation groups with `{name, content}` message objects instead of the previous `{user, content}` flat array. The `"system"` field type is also now accepted. See the [Character API reference](/rest/character) for the updated response format.
+
+## Updates
+
+- **Credit exhaustion errors surfaced clearly** — Cloud provider billing errors (HTTP 402 and 429) are now detected and shown in the dashboard with actionable guidance instead of generic failure messages.
+- **Knowledge service retry** — When the knowledge service is still loading, requests return a `Retry-After` header and the client auto-retries with exponential backoff, preventing failed queries during startup.
+- **System warning banners** — Connector failures and coordinator wiring issues now surface directly in the dashboard as dismissible warning banners so you can act on problems immediately.
+</Update>
+
+<Update label="2026-04-02" description="Week of March 27 – April 2" tags={["Feature", "Update", "Fix"]}>
+## Multi-destination streaming with pump.fun and X/Twitter
+
+You can now stream to multiple destinations at once and switch between them at runtime. Two new streaming plugins ship this week:
+
+- **pump.fun** — stream directly to pump.fun via RTMP
+- **X/Twitter** — stream to X/Twitter via RTMPS
+
+Configure your destinations in the [stream settings](/dashboard/stream) and switch the active target without restarting. Streaming plugins now also validate your RTMP URL on startup and surface a clear error if it's missing.
+
+## Windows standalone installer
+
+The Windows download is now a proper single-file installer built with Inno Setup. Previously, the public `.exe` was a bootstrap wrapper that required a companion payload archive. The new installer works on its own — download, run, and you're set. MSIX remains available as an alternative. See the [installation guide](/installation) for details.
+
+## Companion i18n support
+
+The companion UI now supports internationalization. English and Simplified Chinese (zh-CN) are available at launch, with the framework in place for additional languages. Plugin logos for installed plugins also appear in the companion sidebar.
+
+## Coding agent always available
+
+The coding agent plugin is now a core plugin that loads automatically on every startup. You no longer need to manually enable it to use coding and terminal features. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Health endpoint and crash recovery
+
+A new `GET /api/health` endpoint returns structured status for every subsystem — runtime, database, plugins, coordinator, connectors, and uptime. The dashboard shows a connection-failed banner with a retry button when the server is unreachable, and a React error boundary prevents full white-screen crashes. See the [API reference](/api-reference) for endpoint details.
+
+## Updates
+
+- **Improved desktop startup errors** — When the agent runtime fails to load, the desktop app now keeps the API server running and shows the actual error message in the UI instead of a generic "Failed to fetch." This makes it much easier to diagnose configuration issues.
+- **NFA endpoints graceful fallback** — The `/api/nfa/status` and `/api/nfa/learnings` endpoints now return empty data gracefully when the BNB identity plugin is not installed, instead of failing. See the [wallet guide](/guides/wallet) for details.
+- **Plugin logos in companion view** — Installed plugins now display their logos in the companion UI for easier identification.
+
+## Bug fixes
+
+- Fixed Intel Mac desktop app crashing on startup due to ARM64 native binaries being shipped instead of x64 binaries
+- Fixed plugin resolution failures ("Cannot find module") across CLI, desktop dev mode, and direct runtime load — not just packaged builds
+- Fixed coding agent plugin failing to load under Bun due to a stale package export pointing to a non-existent source file
+- Credit exhaustion from model providers is now detected and surfaced clearly in the dashboard
+- Knowledge service retries automatically with exponential backoff when temporarily unavailable, instead of failing silently
+- Desktop app startup errors now keep the API server running so you can see the actual error message instead of a generic failure
+- NFA endpoints return graceful empty responses when the BNB identity plugin is not installed, instead of throwing errors
+</Update>
+
+<Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
+## API key validation for model providers
+
+The desktop app now automatically validates your API keys for eight model providers — including OpenAI, Anthropic, Groq, Google GenAI, OpenRouter, and xAI. Keys are scanned on startup and verified in the background so you know immediately if a provider is misconfigured. You can also test connections on demand from the tray menu. See [model providers](/model-providers) for setup details.
+
+## Dedicated settings window
+
+A new standalone Settings window gives you quick access to General, Providers, Advanced, and About tabs without navigating away from your current view. The window syncs with your dark mode preference and connects directly to the API for real-time configuration changes. Open it from the tray menu or the application menu bar.
+
+## Application menu overhaul
+
+The menu bar has been reorganized with a new Agent menu that gives you one-click access to [Knowledge](/guides/knowledge), [Skills](/plugins/skills), [Plugins](/plugins/overview), and [Social Connectors](/guides/connectors). File, View, and Window menus have also been expanded for quicker navigation.
+
+## Interactive tray provider management
+
+The system tray now includes interactive submenus for each model provider. You can set a provider as active, test its connection, or enable it — all from the tray icon without opening the dashboard.
+
+## Bug fixes
+
+- Character view no longer crashes when no character draft is loaded
+- Character editor dark mode now renders correctly across the notebook frame and decorative elements
+</Update>
+
+<Update label="2026-03-19" description="Week of March 14–19" tags={["Feature", "Update", "Security", "Fix"]}>
+## Cloud control plane dashboard
+
+You can now manage cloud agents directly from the Milady homepage. The new dashboard includes agent lifecycle controls (provision, suspend, resume, delete), snapshots and backups, credits and billing, container metrics, and log streaming — all without leaving the app. Local and remote agents are auto-discovered alongside cloud agents. See [Cloud deployment](/deployment#cloud-agent-deployment) for details.
+
+## Cloud-first onboarding
+
+Running `milady start` for the first time now asks "Where should your agent live?" with [Eliza Cloud](/guides/cloud) as the recommended option. Choose cloud for a hosted runtime with no local setup, or local to run on your own machine. Cloud configuration is saved automatically so subsequent launches reconnect without prompting. See the [cloud guide](/guides/cloud) for details.
+
+## Game-style notebook character editor
+
+The [character editor](/agents/character-interface) has been redesigned as an interactive notebook UI. Sidebar tabs let you navigate between About Me, Directions, and Style Rules sections. Each section supports Core/Examples switching, and the editor works in both light and dark mode. You can now also edit character topics and the character name directly from the editor.
+
+## Scratch workspace controls for coding agents
+
+Coding agent sessions now show keep, promote, and delete controls for scratch workspaces. When a coding session ends, you can decide whether to retain the temporary workspace, promote it to a permanent one, or clean it up — directly from the dashboard. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Official Docker images
+
+Pre-built Docker images are now published to GitHub Container Registry on every release, optimized at roughly half the size of a manual build. Pull `ghcr.io/milady-ai/agent` to deploy without building from source. See the [deployment guide](/deployment) for Docker Compose setup and environment variables.
+
+## VRM wave greeting and smooth loading transitions
+
+Your VRM avatar now plays a wave greeting animation after loading on app launch and character swaps. The loading screen transitions smoothly with animated progress and a fade-out instead of a hard cut.
+
+## Dashboard UI redesign
+
+Several [dashboard](/apps/dashboard) tabs have been rebuilt with a cleaner two-panel layout:
+
+- **Settings** — section navigation on the left, active section on the right
+- **Heartbeats** — trigger list on the left, create/edit form on the right with a friendlier duration picker
+- **Wallets** — portfolio and chain selector on the left, token table on the right
+- **Social and Plugins** — channel/plugin list on the left, configuration detail on the right
+- **Apps** — game-style phone and tablet device UI for browsing and launching apps
+
+## Homepage redesign
+
+The homepage now features platform download icons with hover labels that always link to the latest release, a typewriter hero animation, and a streamlined footer. Download links are fetched from the latest GitHub release at build time so they stay current.
+
+## Electrobun desktop migration
+
+The [desktop app](/apps/desktop) has fully migrated from Electron to Electrobun — a lighter, faster native shell. This reduces memory usage and startup time. Auto-updates continue to work through the Electrobun updater. See [desktop updates](/self-updates#electrobun-desktop-updates) for details.
+
+## Faster page loads
+
+Three.js and the 3D avatar stack (~1.7 MB) are now lazy-loaded — they only download when you open the companion view. The stream view is also lazy-loaded. Together, these changes cut the initial page load significantly.
+
+## Smaller prompts, faster responses
+
+Default workspace boilerplate files are no longer injected into every prompt — only files you've customized are included. Emote definitions have also been moved out of the prompt context and into action parameters. Together, these changes reduce prompt size by roughly 4,000 characters per turn, which means faster responses and lower token costs.
+
+## Wallet key export security
+
+Wallet private key exports now require a 10-second confirmation delay, are rate-limited to one export per 10 minutes, and generate an audit log entry for every attempt. This protects against instant key extraction from compromised sessions. See the [wallet guide](/guides/wallet) for details.
+
+## Cloud API key protection
+
+Cloud API keys are no longer stored in `process.env` after login. They are scrubbed immediately and held in a sealed, non-enumerable store — preventing leakage through crash dumps, child processes, or environment inspection.
+
+## Windows desktop crash fix
+
+The Windows desktop app no longer crashes on startup due to an embedding initialization issue. Fatal startup errors are now written to a log file for easier diagnosis.
+
+## Character editor bug fixes
+
+- Character topics are now properly loaded and saved when editing
+- Saving a character no longer fails with a 422 error from extra fields in the payload
+- Raw translation keys (e.g., `characterview.StyleRules`) now display as proper English text
+- Save and Customize buttons are now visible when using companion mode, with a frosted glass backdrop
+- The Etherscan link from the character view now points to the correct wallet address page
+
+## Additional fixes
+
+- Schema validation now correctly rejects invalid character data that previously bypassed checks
+- Dark mode navigation tabs are now visible in all dashboard views
+- Empty conversations are automatically cleaned up when you navigate away
+- Password field toggle no longer erases entered API keys or bot tokens
+- Wallet RPC selection is now consistent across onboarding, settings, and runtime
+- Onboarding configuration persists correctly across app relaunches
+- Avatar index parsing now validates input range, preventing display errors
+- Voice defaults are now consistent — `autoSpeak` no longer appears enabled while voice is off
+- Oversized voice API requests are properly rejected with a 413 error
+- Performance improved for LLM turns and streaming by eliminating redundant sorting and string allocations
+- Character saves no longer fail when voice configuration cannot be saved
+- Server startup now detects and kills stale processes holding the default port, preventing indefinite hangs
+- Desktop app correctly discovers plugins in packaged builds, resolving silent startup failures on Windows
+- Cloud dashboard now correctly displays agents after Eliza Cloud login
+- API server errors are now surfaced to stderr in desktop mode for easier troubleshooting
+</Update>
+
+<Update label="2026-03-13" description="Week of March 8–13" tags={["Feature", "Security", "Fix"]}>
+## Game-style onboarding redesign
+
+First-run setup has been rebuilt as a streamlined six-step flow with a three-column glassmorphism layout and a dark game-style theme applied across all modals and overlays. The new steps — Wake Up, Identity, Language, Connection, Permissions, and Activate — replace the previous ten-step wizard.
+
+## New CLI commands — doctor, db reset, and interactive setup
+
+Three new CLI commands ship this week:
+
+- **`milady doctor`** — runs a full environment health check, flagging missing dependencies, port conflicts, and configuration issues. See the [doctor reference](/cli/doctor).
+- **`milady db reset`** — safely resets the database with a confirmation prompt. See the [db reference](/cli/db).
+- **`milady setup`** — an interactive wizard that walks you through model provider selection with support for nine providers. See the [setup reference](/cli/setup).
+
+## Distribution across six new package managers
+
+Milady is now available through significantly more installation channels:
+
+- **Homebrew** — `brew install milaidy` (CLI) or `brew install --cask milaidy` (desktop)
+- **Snap Store** — `snap install milady` with strict confinement
+- **Flatpak / Flathub** — production-ready Flatpak with AppStream metadata
+- **APT** — Debian/Ubuntu users can install via APT and run as a systemd service with auto-restart
+- **Google Play Store** — Android app with signed releases
+- **iOS and Mac App Store** — available via TestFlight and App Store Connect
+
+See the [installation guide](/installation) for platform-specific instructions.
+
+## Native GPU companion rendering
+
+Desktop builds now include WebGPU-powered native rendering infrastructure for companion visuals, providing a faster alternative to the webview-based renderer for GPU-accelerated scenes.
+
+## Game client canvas windows
+
+Game clients on [desktop](/apps/desktop) now open in a dedicated native window with isolated cookies and storage instead of an embedded iframe. This improves stability and security for in-app game experiences.
+
+## Streaming controls in companion mode
+
+You can now manage live streaming directly from companion mode — including destination and source pickers, stream settings, and new agent actions like go live, go offline, and speak on stream. See the [stream guide](/dashboard/stream) for details.
+
+## NFA wallet flow
+
+A new identity and NFA wallet flow adds an identity card surface, wallet-style confirmation UX, and public BSC RPC defaults. See the [wallet guide](/guides/wallet) for details.
+
+## Link sanitization for chat messages
+
+Chat message links are now sanitized to block `javascript:`, `data:`, and `vbscript:` URI schemes, preventing XSS through untrusted content. Normal links and relative paths continue to work as expected.
+
+## Wallet transfer guard in manual-key mode
+
+Agent-originated wallet transfer requests can no longer bypass the manual-local-key confirmation guard. All transfers now require explicit user signature approval.
+
+## Command palette and real-time sidebar
+
+The command palette now uses a centralized command registry, making it easier to discover and access actions. The conversation sidebar also updates in real time via WebSocket events instead of polling, so new messages and status changes appear instantly.
+
+## Desktop bug fixes
+
+- Window position is now restored correctly after hide/show
+- Clipboard image encoding works reliably across platforms
+- TTS interruption now fully stops in-flight audio
+- Navigation guard blocks external URLs from loading in the main app window
+- VRM avatar face orientation no longer flips incorrectly
+- Companion UI regressions in settings, stream navigation, VRM loading, and shell close flows are resolved
+
+## Additional fixes
+
+- Voice and agent-mode dropdowns are no longer hidden behind other elements
+- Settings sidebar now shows section labels for easier navigation
+- Avatar selector prevents double-click during load
+- Duplicate "++" label on the add-post button is fixed
+- Conversation sidebar now shows title on the left and timestamp on the right
+- Cloud model provider no longer re-enables itself on restart after you switch away
+- Remote server access works correctly with wildcard bind and reverse proxy path prefixes
+- Marketplace-installed skills now appear in the UI (dot-prefix directories were being skipped)
+- Oversized voice API requests are properly rejected with a 413 error
+- Action blocks in coordinator chat display are stripped cleanly without affecting user JSON
+</Update>
+
+<Update label="2026-03-07" description="Feb 23 – March 7" tags={["Feature", "Update", "Security", "Fix"]}>
+## Coding agent swarm orchestration
+
+You can now run multiple coding agents in parallel on a single task. The new swarm coordinator decomposes complex work into sub-tasks, routes each to the best-performing agent based on success rate and speed, and displays live terminal output in side-by-side panes. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Live streaming to Twitch, YouTube, and custom RTMP
+
+Milady now supports multi-destination live streaming. You can stream to Twitch, YouTube, pump.fun, X/Twitter, or any custom RTMP target — and switch destinations at runtime without restarting. Your agent can also speak on stream via TTS piped directly into the audio track. See the [stream guide](/dashboard/stream) for details.
+
+## 3D companion with VRM avatars
+
+A full 3D companion view is now available with a VRM avatar engine, animations, bubble emotes, theme switching, and localization support (English and Chinese). The companion view also includes a wallet trading panel with token swaps, send, trade history, portfolio display, and P&L analytics. See the [wallet guide](/guides/wallet) for details.
+
+## iMessage and SMS connector
+
+The new Blooio plugin adds iMessage and SMS as a first-class messaging connector. Set up your API key and phone number during onboarding to start messaging. See the [connectors overview](/guides/connectors) for details.
+
+## Bulk knowledge import
+
+You can now upload multiple files and entire folders to the [knowledge base](/guides/knowledge) at once. Large imports are processed in streaming batches so you don't need to upload files one at a time.
+
+## In-app bug reports
+
+A new bug report modal lets you submit issues directly to GitHub from within the app, with optional screenshot capture. If GitHub submission isn't available, you can copy the report to your clipboard instead.
+
+## Subscription provider setup
+
+Subscription providers can now be configured end-to-end from the Settings UI, including OAuth flows and provider switching. See [dashboard settings](/apps/dashboard/settings) for details.
+
+## Chat image attachments
+
+You can now attach and send images directly in [chat](/dashboard/chat) conversations.
+
+## Slash, hash, and dollar commands
+
+The app now supports `/`, `#`, and `$` command prefixes in chat for quick access to actions, channels, and variables. See the [chat commands reference](/chat-commands) for details.
+
+## Companion wallet trading panel
+
+The companion view now includes a full trading panel. You can swap tokens on BNB Chain via PancakeSwap, send BNB and tokens with address validation, browse your multi-chain portfolio, view NFT collectibles, and check P&L analytics — all without leaving the companion. See the [wallet guide](/guides/wallet) for details.
+
+## Telegram message chunking and draft-stream
+
+The Telegram connector now automatically splits long agent responses into properly chunked messages instead of truncating them. A new draft-stream mode lets you see message composition in real time as the agent generates its reply.
+
+## Agent activity box
+
+A sticky activity indicator now shows real-time per-task progress in the chat view. Routine coding-agent status messages are filtered from chat history to reduce noise. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Pi AI model provider
+
+You can now use Pi AI as a model provider with streaming support. Configure it in the [model providers](/model-providers) settings alongside your existing providers.
+
+## Opinion markets plugin
+
+A new opinion markets plugin lets your agent trade on prediction markets through a central limit order book. You can get market details, list available markets, place bets, cancel orders, check positions, and redeem winnings — all from chat actions or the REST API.
+
+## BNB identity plugin and NFA learning provenance
+
+A new BNB Chain identity plugin gives your agent on-chain identity management. The plugin supports BAP-578 NFA (Non-Fungible Agent) learning provenance — you can mint NFAs, update Merkle roots for your agent's learning history, and query NFA status. See the [wallet guide](/guides/wallet) for details.
+
+## Agent self-awareness
+
+Your agent can now introspect its own state using a new self-awareness system. A `GET_SELF_STATUS` action returns a unified view of runtime health, wallet state, cloud connectivity, active connectors, and plugin health — helping your agent make context-aware decisions.
+
+## Swarm completion summaries
+
+Multi-agent coding swarm runs now produce a synthesis message when all tasks are complete, giving you a structured summary of what was accomplished across agent sessions.
+
+## Health endpoint and reconnect banner
+
+A new `/api/health` endpoint reports server readiness. The dashboard shows a connection-failed banner with a retry button when the server is unreachable, and a React error boundary prevents full white-screen crashes.
+
+## Cross-platform audio capture for streaming
+
+Streaming now auto-detects the best capture method for your platform — native pipe on desktop, X11 on Linux, AVFoundation on macOS, and CDP on web. Audio source selection supports system audio, microphone, and file playback with per-source volume control.
+
+## Wallet trading actions
+
+New `CHECK_BALANCE`, `EXECUTE_TRADE`, and `TRANSFER_TOKEN` actions let your agent trade tokens on BSC via PancakeSwap. A trading profile tracks P&L and trade history. See the [wallet guide](/guides/wallet) for details.
+
+## Emote animations restored
+
+All 30 VRM emote animations have been replaced with working Mixamo files — the previous animations were broken Git LFS stubs that failed silently. You can also now drag and drop custom VRM avatars directly onto the avatar selector.
+
+## Accessibility improvements
+
+Emoji icons throughout the UI have been replaced with SVG icons for consistent rendering across platforms and proper screen reader support.
+
+## Security hardening
+
+This release includes a broad set of security improvements:
+
+- **DNS rebinding protection** — the API server now validates Host headers, blocking DNS rebinding attacks against localhost
+- **Config injection prevention** — `$include` directives and prototype pollution via config endpoints are blocked
+- **Environment variable protection** — process-level vars like `NODE_OPTIONS` and `LD_PRELOAD`, TLS bypass vars, and CA override vars are blocked from config persistence
+- **Custom action gates** — shell and code execution handlers now require explicit authorization
+- **Plugin install safety** — all `npm` and `bun` install calls now use `--ignore-scripts` to prevent malicious postinstall execution
+- **SQL guard hardening** — dangerous PostgreSQL functions are blocked from the raw SQL query endpoint
+- **Desktop URL validation** — `shell.openExternal` and file path IPC handlers validate inputs to block malicious URL schemes
+- **MCP server hardening** — V8 inspector debug flags are blocked in MCP server arguments
+- **Terminal step-up auth** — terminal command execution now requires a dedicated step-up token, separate from the main API token
+
+## Additional fixes
+
+- WhatsApp session credentials are now properly saved before disconnecting, preventing unnecessary QR re-scans on restart
+- Model provider dropdown no longer defaults to the wrong provider on page load — your saved choice is respected
+- System warning banners auto-dismiss after 20 seconds and no longer permanently cover the navigation bar
+- Stale database lock files from crashed processes are automatically cleaned up on restart, preventing data loss
+- Model provider detection now prioritizes your explicit configuration over auto-detected plugins
+- Terminal output no longer flashes or scrolls from the top when resuming a session
+- Triggers no longer fire during agent restart, preventing once-only triggers from being consumed without executing
+- Settings model dropdowns now correctly fall back to environment variable values for local providers like Ollama
+- Skills remain visible in the UI even when the catalog API is rate-limited
+- Agent loading no longer hangs on startup due to retry traps
+- Custom VRM avatar uploads persist across page refresh
+- Chat auto-scroll is restored on new message updates
+- Conversation delete now requires explicit confirmation
+- The settings modal no longer closes when pressing Enter or Space
+- Document uploads exceeding 32 MB now show a clear, human-readable error message
+- Memory leaks and GC pressure in the API server have been reduced
+- The Gemini API key alias is now normalized correctly, and `getSetting` handles null values gracefully
+- Embedding inputs that exceed the model's context window are now truncated automatically, preventing a crash
+- The settings reset button is now functional — it was previously a non-working placeholder
+- Stream popout windows now route correctly, and TTS audio plays reliably in popout mode
+- The avatar panel in the sidebar is now collapsible, giving more vertical space to terminal panes during swarm sessions
+- A crash on Bun 1.3.9 on Linux is mitigated by automatically falling back to Node
+</Update>

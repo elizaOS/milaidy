@@ -19,6 +19,11 @@ const CORE_BRANCH = "develop";
 const CORE_PACKAGE_NAME = "@elizaos/core";
 const DEFAULT_CORE_PATHS = ["../packages/typescript/src/index.node.ts"];
 const DEFAULT_CORE_SUBPATHS = ["../packages/typescript/src/*"];
+const UPSTREAM_SCHEMA = "eliza-upstream-v1";
+
+function isSupportedUpstreamSchema(value: string): boolean {
+  return value === UPSTREAM_SCHEMA;
+}
 
 let ejectLock: Promise<void> = Promise.resolve();
 
@@ -32,7 +37,7 @@ function serialise<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export interface UpstreamMetadata {
-  $schema: "milaidy-upstream-v1";
+  $schema: typeof UPSTREAM_SCHEMA;
   source: string;
   gitUrl: string;
   branch: string;
@@ -184,7 +189,8 @@ async function readUpstreamMetadata(): Promise<UpstreamMetadata | null> {
     const raw = await fs.readFile(upstreamFilePath(), "utf-8");
     const parsed = JSON.parse(raw) as Partial<UpstreamMetadata>;
     if (
-      parsed.$schema !== "milaidy-upstream-v1" ||
+      typeof parsed.$schema !== "string" ||
+      !isSupportedUpstreamSchema(parsed.$schema) ||
       typeof parsed.gitUrl !== "string" ||
       typeof parsed.branch !== "string" ||
       typeof parsed.commitHash !== "string" ||
@@ -195,7 +201,7 @@ async function readUpstreamMetadata(): Promise<UpstreamMetadata | null> {
     }
 
     return {
-      $schema: "milaidy-upstream-v1",
+      $schema: UPSTREAM_SCHEMA,
       source:
         typeof parsed.source === "string"
           ? parsed.source
@@ -268,7 +274,11 @@ async function writeTsconfigCorePaths(
 }
 
 async function runCoreInstallAndBuild(monorepoDir: string): Promise<void> {
-  await execFileAsync("bun", ["install"], { cwd: monorepoDir });
+  // SECURITY: --ignore-scripts prevents postinstall lifecycle scripts from
+  // executing arbitrary code on the host (see PR #573 for full analysis).
+  await execFileAsync("bun", ["install", "--ignore-scripts"], {
+    cwd: monorepoDir,
+  });
   await execFileAsync("bun", ["run", "--filter", CORE_PACKAGE_NAME, "build"], {
     cwd: monorepoDir,
   });
@@ -360,7 +370,7 @@ export function ejectCore(): Promise<CoreEjectResult> {
 
       const commitHash = await gitStdout(["rev-parse", "HEAD"], monorepoDir);
       const metadata: UpstreamMetadata = {
-        $schema: "milaidy-upstream-v1",
+        $schema: UPSTREAM_SCHEMA,
         source: "github:elizaos/eliza",
         gitUrl: CORE_GIT_URL,
         branch: CORE_BRANCH,

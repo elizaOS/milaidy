@@ -22,20 +22,47 @@ afterEach(() => {
 
 describe("findOwnPackageRoot", () => {
   it("matches package name case-insensitively", () => {
-    const root = makeTempDir("milady-root-");
+    const root = makeTempDir("eliza-root-");
     const nested = path.join(root, "src", "api");
     mkdirSync(nested, { recursive: true });
     writeFileSync(
       path.join(root, "package.json"),
-      JSON.stringify({ name: "Milady" }),
+      JSON.stringify({ name: "Eliza" }),
       "utf8",
     );
 
     expect(findOwnPackageRoot(nested)).toBe(root);
   });
 
+  it("matches 'elizaai' package name", () => {
+    const root = makeTempDir("elizaai-root-");
+    const nested = path.join(root, "src", "api");
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "elizaai" }),
+      "utf8",
+    );
+
+    expect(findOwnPackageRoot(nested)).toBe(root);
+  });
+
+  it("falls back to plugins.json presence when package name is unknown", () => {
+    const root = makeTempDir("unknown-pkg-");
+    const nested = path.join(root, "src", "api");
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "some-other-name" }),
+      "utf8",
+    );
+    writeFileSync(path.join(root, "plugins.json"), "[]", "utf8");
+
+    expect(findOwnPackageRoot(nested)).toBe(root);
+  });
+
   it("returns start directory when no matching package root exists", () => {
-    const root = makeTempDir("not-milady-");
+    const root = makeTempDir("not-eliza-");
     const nested = path.join(root, "src", "api");
     mkdirSync(nested, { recursive: true });
     writeFileSync(

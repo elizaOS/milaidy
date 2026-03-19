@@ -120,4 +120,64 @@ describe("trigger scheduling helpers", () => {
     });
     expect(a).toBe(b);
   });
+
+  test("different wakeMode produces different dedupe key", () => {
+    const a = buildTriggerDedupeKey({
+      triggerType: "interval",
+      instructions: "Summarize PRs",
+      intervalMs: 60000,
+      wakeMode: "inject_now",
+    });
+    const b = buildTriggerDedupeKey({
+      triggerType: "interval",
+      instructions: "Summarize PRs",
+      intervalMs: 60000,
+      wakeMode: "next_autonomy_cycle",
+    });
+    expect(a).not.toBe(b);
+  });
+
+  test("different triggerType produces different dedupe key", () => {
+    const a = buildTriggerDedupeKey({
+      triggerType: "interval",
+      instructions: "Run check",
+      intervalMs: 60000,
+      wakeMode: "inject_now",
+    });
+    const b = buildTriggerDedupeKey({
+      triggerType: "cron",
+      instructions: "Run check",
+      cronExpression: "*/1 * * * *",
+      wakeMode: "inject_now",
+    });
+    expect(a).not.toBe(b);
+  });
+
+  test("empty/undefined optional fields produce consistent output", () => {
+    const a = buildTriggerDedupeKey({
+      triggerType: "interval",
+      instructions: "Check status",
+      wakeMode: "inject_now",
+    });
+    const b = buildTriggerDedupeKey({
+      triggerType: "interval",
+      instructions: "Check status",
+      intervalMs: undefined,
+      scheduledAtIso: undefined,
+      cronExpression: undefined,
+      wakeMode: "inject_now",
+    });
+    expect(a).toBe(b);
+  });
+
+  test("known input produces known output (snapshot)", () => {
+    const key = buildTriggerDedupeKey({
+      triggerType: "interval",
+      instructions: "Summarize PRs",
+      intervalMs: 60000,
+      wakeMode: "inject_now",
+    });
+    expect(key).toMatch(/^trigger-[0-9a-f]+$/);
+    expect(key).toBe("trigger-32d0b114");
+  });
 });

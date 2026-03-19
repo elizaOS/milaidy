@@ -18,7 +18,7 @@ import type {
   MediaConfig,
   VideoConfig,
   VisionConfig,
-} from "../config/types.milady";
+} from "../config/types.eliza";
 
 // ============================================================================
 // Result Types
@@ -1219,13 +1219,15 @@ class SunoAudioProvider implements AudioGenerationProvider {
 export interface MediaProviderFactoryOptions {
   elizaCloudBaseUrl?: string;
   elizaCloudApiKey?: string;
+  /** When true, factories will NOT fall back to ElizaCloud providers. */
+  cloudMediaDisabled?: boolean;
 }
 
 export function createImageProvider(
   config: ImageConfig | undefined,
   options: MediaProviderFactoryOptions,
 ): ImageGenerationProvider {
-  const mode = config?.mode ?? "cloud";
+  const mode = config?.mode ?? (options.cloudMediaDisabled ? "local" : "cloud");
   const provider = mode === "cloud" ? "cloud" : (config?.provider ?? "cloud");
 
   switch (provider) {
@@ -1251,8 +1253,14 @@ export function createImageProvider(
       break;
   }
 
+  if (options.cloudMediaDisabled) {
+    throw new Error(
+      "No image provider configured and cloud media is disabled. " +
+        "Configure a direct provider (fal, openai, google, xai) or enable cloud media.",
+    );
+  }
   return new ElizaCloudImageProvider(
-    options.elizaCloudBaseUrl ?? "https://www.elizacloud.ai/api/v1",
+    options.elizaCloudBaseUrl ?? "https://elizacloud.ai/api/v1",
     options.elizaCloudApiKey,
   );
 }
@@ -1261,7 +1269,7 @@ export function createVideoProvider(
   config: VideoConfig | undefined,
   options: MediaProviderFactoryOptions,
 ): VideoGenerationProvider {
-  const mode = config?.mode ?? "cloud";
+  const mode = config?.mode ?? (options.cloudMediaDisabled ? "local" : "cloud");
   const provider = mode === "cloud" ? "cloud" : (config?.provider ?? "cloud");
 
   switch (provider) {
@@ -1282,8 +1290,14 @@ export function createVideoProvider(
       break;
   }
 
+  if (options.cloudMediaDisabled) {
+    throw new Error(
+      "No video provider configured and cloud media is disabled. " +
+        "Configure a direct provider (fal, openai, google) or enable cloud media.",
+    );
+  }
   return new ElizaCloudVideoProvider(
-    options.elizaCloudBaseUrl ?? "https://www.elizacloud.ai/api/v1",
+    options.elizaCloudBaseUrl ?? "https://elizacloud.ai/api/v1",
     options.elizaCloudApiKey,
   );
 }
@@ -1292,15 +1306,21 @@ export function createAudioProvider(
   config: AudioGenConfig | undefined,
   options: MediaProviderFactoryOptions,
 ): AudioGenerationProvider {
-  const mode = config?.mode ?? "cloud";
+  const mode = config?.mode ?? (options.cloudMediaDisabled ? "local" : "cloud");
   const provider = mode === "cloud" ? "cloud" : (config?.provider ?? "cloud");
 
   if (provider === "suno" && config?.suno?.apiKey) {
     return new SunoAudioProvider(config.suno);
   }
 
+  if (options.cloudMediaDisabled) {
+    throw new Error(
+      "No audio provider configured and cloud media is disabled. " +
+        "Configure a direct provider (suno) or enable cloud media.",
+    );
+  }
   return new ElizaCloudAudioProvider(
-    options.elizaCloudBaseUrl ?? "https://www.elizacloud.ai/api/v1",
+    options.elizaCloudBaseUrl ?? "https://elizacloud.ai/api/v1",
     options.elizaCloudApiKey,
   );
 }
@@ -1309,7 +1329,7 @@ export function createVisionProvider(
   config: VisionConfig | undefined,
   options: MediaProviderFactoryOptions,
 ): VisionAnalysisProvider {
-  const mode = config?.mode ?? "cloud";
+  const mode = config?.mode ?? (options.cloudMediaDisabled ? "local" : "cloud");
   const provider = mode === "cloud" ? "cloud" : (config?.provider ?? "cloud");
 
   switch (provider) {
@@ -1338,8 +1358,14 @@ export function createVisionProvider(
       return new OllamaVisionProvider(config?.ollama ?? {});
   }
 
+  if (options.cloudMediaDisabled) {
+    throw new Error(
+      "No vision provider configured and cloud media is disabled. " +
+        "Configure a direct provider (openai, google, anthropic, xai, ollama) or enable cloud media.",
+    );
+  }
   return new ElizaCloudVisionProvider(
-    options.elizaCloudBaseUrl ?? "https://www.elizacloud.ai/api/v1",
+    options.elizaCloudBaseUrl ?? "https://elizacloud.ai/api/v1",
     options.elizaCloudApiKey,
   );
 }

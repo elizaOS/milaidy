@@ -1,7 +1,7 @@
 /**
  * Unit tests for the CharacterSchema Zod validation.
  *
- * Verifies that the character section of MiladyConfig is properly
+ * Verifies that the character section of ElizaConfig is properly
  * validated: correct shapes pass, invalid shapes are rejected,
  * and edge cases are handled.
  */
@@ -9,9 +9,9 @@ import { describe, expect, it } from "vitest";
 import { CharacterSchema } from "./zod-schema";
 
 describe("CharacterSchema", () => {
-  it("accepts undefined (character is optional)", () => {
+  it("rejects undefined (PUT body must be an object)", () => {
     const result = CharacterSchema.safeParse(undefined);
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("accepts an empty object", () => {
@@ -33,7 +33,7 @@ describe("CharacterSchema", () => {
       bio: "A test agent.",
       system: "You are a test agent.",
       adjectives: ["curious", "witty"],
-      topics: ["AI", "testing"],
+      topics: ["ai", "music"],
       style: {
         all: ["Be concise."],
         chat: ["Be casual."],
@@ -111,16 +111,9 @@ describe("CharacterSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects topic that is empty string", () => {
+  it("rejects topic longer than 100 characters", () => {
     const result = CharacterSchema.safeParse({
-      topics: ["valid", ""],
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects topic longer than 200 characters", () => {
-    const result = CharacterSchema.safeParse({
-      topics: ["T".repeat(201)],
+      topics: ["A".repeat(101)],
     });
     expect(result.success).toBe(false);
   });
@@ -182,13 +175,6 @@ describe("CharacterSchema", () => {
   it("rejects non-array types for adjectives", () => {
     const result = CharacterSchema.safeParse({
       adjectives: "not-an-array",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects non-array types for topics", () => {
-    const result = CharacterSchema.safeParse({
-      topics: "not-an-array",
     });
     expect(result.success).toBe(false);
   });

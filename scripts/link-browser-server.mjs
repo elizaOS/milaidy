@@ -1,11 +1,14 @@
 #!/usr/bin/env node
+import { execSync } from "node:child_process";
 /**
  * Post-install setup for @elizaos/plugin-browser:
  *
- * 1. Symlinks the installed package's `dist/server` to the workspace's
+ * 1. Builds the stagehand-server if dist/index.js is missing but source exists.
+ *
+ * 2. Symlinks the installed package's `dist/server` to the workspace's
  *    stagehand-server source (the npm package doesn't ship the server).
  *
- * 2. Copies the workspace's patched process-manager.js over the npm
+ * 3. Copies the workspace's patched process-manager.js over the npm
  *    package's version (adds probe/reuse, port management, removes Docker
  *    env defaults).
  *
@@ -24,15 +27,15 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const miladyRoot = resolve(__dirname, "..");
-// plugins are inside milady, not one level up
-const workspaceRoot = miladyRoot;
+const elizaRoot = resolve(__dirname, "..");
+// stagehand-server lives in the parent workspace (eliza-workspace/plugins/...)
+const workspaceRoot = resolve(elizaRoot, "..");
 
 // ── Resolve plugin-browser package ───────────────────────────────────────────
 
 let pluginRoot;
 try {
-  const req = createRequire(join(miladyRoot, "package.json"));
+  const req = createRequire(join(elizaRoot, "package.json"));
   const pkgJson = req.resolve("@elizaos/plugin-browser/package.json");
   pluginRoot = dirname(pkgJson);
 } catch {
@@ -42,7 +45,7 @@ try {
   process.exit(0);
 }
 
-// ── 1. Symlink stagehand-server ──────────────────────────────────────────────
+// ── 1. Build stagehand-server if needed ─────────────────────────────────────
 
 const stagehandDir = join(
   workspaceRoot,
@@ -51,6 +54,33 @@ const stagehandDir = join(
   "stagehand-server",
 );
 const stagehandIndex = join(stagehandDir, "dist", "index.js");
+const stagehandSrc = join(stagehandDir, "src", "index.ts");
+
+if (!existsSync(stagehandIndex) && existsSync(stagehandSrc)) {
+  console.log(
+    "[link-browser-server] Stagehand server not built — building now...",
+  );
+  try {
+    // Install deps if node_modules is missing, then compile TypeScript
+    if (!existsSync(join(stagehandDir, "node_modules"))) {
+      execSync("pnpm install --ignore-scripts", {
+        cwd: stagehandDir,
+        stdio: "inherit",
+      });
+    }
+    // Resolve tsc: prefer local node_modules/.bin, then pnpm dlx, then npx
+    const localTsc = join(stagehandDir, "node_modules", ".bin", "tsc");
+    const tscCmd = existsSync(localTsc) ? localTsc : "pnpm exec tsc";
+    execSync(tscCmd, { cwd: stagehandDir, stdio: "inherit" });
+    console.log("[link-browser-server] Stagehand server built successfully");
+  } catch (err) {
+    console.error(
+      `[link-browser-server] Failed to build stagehand-server: ${err.message ?? err}`,
+    );
+  }
+}
+
+// ── 2. Symlink stagehand-server ──────────────────────────────────────────────
 
 if (existsSync(stagehandIndex)) {
   const serverLink = join(pluginRoot, "dist", "server");
@@ -91,7 +121,7 @@ if (existsSync(stagehandIndex)) {
   );
 }
 
-// ── 2. Copy patched process-manager.js ───────────────────────────────────────
+// ── 3. Copy patched process-manager.js ───────────────────────────────────────
 // The workspace has a fixed process-manager that adds port probing/reuse,
 // removes Docker env defaults, and handles EADDRINUSE properly.
 

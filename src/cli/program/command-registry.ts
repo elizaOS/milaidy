@@ -2,6 +2,8 @@ import type { Command } from "commander";
 import { registerConfigCli } from "./register.config";
 import { registerConfigureCommand } from "./register.configure";
 import { registerDashboardCommand } from "./register.dashboard";
+import { registerDbCommand } from "./register.db";
+import { registerDoctorCommand } from "./register.doctor";
 import { registerSetupCommand } from "./register.setup";
 import { registerStartCommand } from "./register.start";
 import { registerSubCliCommands } from "./register.subclis";
@@ -15,6 +17,8 @@ export function registerProgramCommands(
   registerStartCommand(program);
   registerTuiCommand(program);
   registerSetupCommand(program);
+  registerDoctorCommand(program);
+  registerDbCommand(program);
   registerConfigureCommand(program);
   registerConfigCli(program);
   registerDashboardCommand(program);

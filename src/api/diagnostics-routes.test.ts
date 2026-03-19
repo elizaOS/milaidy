@@ -23,7 +23,12 @@ async function invoke(args: {
     source: string;
     tags: string[];
   }>;
-  eventBuffer?: Array<{ type: string; eventId: string }>;
+  eventBuffer?: Array<{
+    type: string;
+    eventId: string;
+    runId?: string;
+    seq?: number;
+  }>;
   relayPort?: number;
   checkRelayReachable?: (relayPort: number) => Promise<boolean>;
   resolveExtensionPath?: () => string | null;
@@ -294,10 +299,54 @@ describe("diagnostics routes", () => {
     });
   });
 
+  test("returns replayable autonomy events with runId+fromSeq filters", async () => {
+    const events = [
+      { type: "agent_event", eventId: "evt-1", runId: "run-1", seq: 1 },
+      { type: "agent_event", eventId: "evt-2", runId: "run-2", seq: 1 },
+      { type: "agent_event", eventId: "evt-3", runId: "run-1", seq: 2 },
+      { type: "heartbeat_event", eventId: "evt-4", runId: "run-1", seq: 3 },
+    ];
+
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/agent/events",
+      url: "/api/agent/events?runId=run-1&fromSeq=2",
+      eventBuffer: events,
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.status).toBe(200);
+    expect(result.payload).toEqual({
+      events: [
+        { type: "agent_event", eventId: "evt-3", runId: "run-1", seq: 2 },
+        { type: "heartbeat_event", eventId: "evt-4", runId: "run-1", seq: 3 },
+      ],
+      latestEventId: "evt-4",
+      totalBuffered: 2,
+      replayed: true,
+    });
+  });
+
+  test("returns 400 for invalid fromSeq in autonomy replay", async () => {
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/agent/events",
+      url: "/api/agent/events?runId=run-1&fromSeq=nope",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.status).toBe(400);
+    expect(result.payload).toEqual(
+      expect.objectContaining({
+        error: expect.stringContaining('Invalid "fromSeq"'),
+      }),
+    );
+  });
+
   test("returns extension relay status and path", async () => {
     const checkRelayReachable = vi.fn(async () => true);
     const resolveExtensionPath = vi.fn(
-      () => "/tmp/milady/apps/chrome-extension",
+      () => "/tmp/eliza/apps/chrome-extension",
     );
 
     const result = await invoke({
@@ -315,7 +364,7 @@ describe("diagnostics routes", () => {
     expect(result.payload).toEqual({
       relayReachable: true,
       relayPort: 19999,
-      extensionPath: "/tmp/milady/apps/chrome-extension",
+      extensionPath: "/tmp/eliza/apps/chrome-extension",
     });
   });
 });

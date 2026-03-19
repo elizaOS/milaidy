@@ -1,10 +1,24 @@
 {
-  "name": "@milady/capacitor-swabble",
+  "name": "@miladyai/capacitor-swabble",
   "version": "1.0.0",
-  "description": "Milady Swabble Plugin for Capacitor - Voice wake word detection and speech-to-text",
+  "description": "Detects wake words and transcribes live speech with microphone state events.",
+  "keywords": [
+    "voice",
+    "wake-word",
+    "speech-to-text",
+    "microphone"
+  ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./src/index.ts",
-  "types": "./dist/plugin.d.ts",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/plugin.cjs.js"
+    },
+    "./package.json": "./package.json"
+  },
   "unpkg": "dist/plugin.js",
   "files": [
     "android/src/main/",
@@ -12,7 +26,7 @@
     "dist/",
     "ios/Sources/",
     "ios/Plugin.xcodeproj/",
-    "electron/",
+    "electrobun/",
     "*.podspec"
   ],
   "author": "Milady",
@@ -38,9 +52,13 @@
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "capacitor": {
     "ios": {
-      "src": "ios"
+      "src": "ios",
+      "podName": "MiladyCapacitorSwabble"
     },
     "android": {
       "src": "android"
@@ -54,7 +72,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Support via Web Speech API (limited timing data, no Whisper). Wake word detection and basic STT.",
-      "node": "Full support via Electron with Whisper.cpp for high-quality STT and precise timing data",
+      "node": "Full support via Electrobun with Whisper.cpp for high-quality STT and precise timing data",
       "ios": true,
       "android": true
     }

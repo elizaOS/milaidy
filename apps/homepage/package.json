@@ -1,0 +1,38 @@
+{
+  "name": "@miladyai/homepage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node ../../scripts/write-homepage-release-data.mjs",
+    "dev": "vite",
+    "prebuild": "node ../../scripts/write-homepage-release-data.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^3.5.0",
+    "@react-three/fiber": "^9.5.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "framer-motion": "^12.34.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.13.1",
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.183.1",
+    "@vitejs/plugin-react-swc": "^4.2.1",
+    "jsdom": "^29.0.0",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vitest": "^4.1.0"
+  }
+}

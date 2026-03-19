@@ -5,23 +5,27 @@ import {
   createMockIncomingMessage,
 } from "../test-support/test-helpers";
 import type { CloudRouteState } from "./cloud-routes";
-import { handleCloudRoute } from "./cloud-routes";
+import {
+  _resetCloudSecretsForTesting,
+  getCloudSecret,
+  handleCloudRoute,
+} from "./cloud-routes";
 
 const fetchMock =
   vi.fn<
     (input: string | URL | Request, init?: RequestInit) => Promise<Response>
   >();
-const { saveMiladyConfigMock, validateCloudBaseUrlMock } = vi.hoisted(() => ({
-  saveMiladyConfigMock: vi.fn<(config: unknown) => void>(),
+const { saveElizaConfigMock, validateCloudBaseUrlMock } = vi.hoisted(() => ({
+  saveElizaConfigMock: vi.fn<(config: unknown) => void>(),
   validateCloudBaseUrlMock: vi.fn<(rawUrl: string) => Promise<string | null>>(),
 }));
 
-vi.mock("../cloud/validate-url", () => ({
+vi.mock("@elizaos/autonomous/cloud/validate-url", () => ({
   validateCloudBaseUrl: validateCloudBaseUrlMock,
 }));
 
 vi.mock("../config/config", () => ({
-  saveMiladyConfig: saveMiladyConfigMock,
+  saveElizaConfig: saveElizaConfigMock,
 }));
 
 function createState(createAgent: (args: unknown) => Promise<unknown>) {
@@ -34,8 +38,24 @@ function createState(createAgent: (args: unknown) => Promise<unknown>) {
         createAgent,
       }),
     },
-  } as unknown as CloudRouteState;
+  } as Partial<CloudRouteState> as CloudRouteState;
 }
+
+// Keep these route tests hermetic: login helpers should never call the live cloud service.
+beforeEach(() => {
+  fetchMock.mockReset();
+  saveElizaConfigMock.mockReset();
+  validateCloudBaseUrlMock.mockReset();
+  vi.stubGlobal("fetch", fetchMock);
+  validateCloudBaseUrlMock.mockResolvedValue(null);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  delete process.env.ELIZAOS_CLOUD_API_KEY;
+  delete process.env.ELIZAOS_CLOUD_ENABLED;
+});
 
 describe("handleCloudRoute", () => {
   it("returns false for unknown routes", async () => {
@@ -66,7 +86,7 @@ describe("handleCloudRoute", () => {
       cloudManager: {
         getClient: () => null,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const handled = await handleCloudRoute(
       req,
@@ -119,7 +139,7 @@ describe("handleCloudRoute", () => {
       cloudManager: {
         getClient: () => null,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const handled = await handleCloudRoute(
       req,
@@ -148,7 +168,7 @@ describe("handleCloudRoute", () => {
           listAgents: listAgentsMock,
         }),
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
 
     const handled = await handleCloudRoute(
@@ -286,7 +306,7 @@ describe("handleCloudRoute", () => {
         getClientStatus: vi.fn(),
         getStatus: vi.fn(),
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
 
     const handled = await handleCloudRoute(
@@ -324,7 +344,7 @@ describe("handleCloudRoute", () => {
         connect: connectMock,
         getStatus: statusMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
 
     const handled = await handleCloudRoute(
@@ -358,7 +378,7 @@ describe("handleCloudRoute", () => {
       cloudManager: {
         getClient: () => null,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
 
     const handled = await handleCloudRoute(
@@ -390,7 +410,7 @@ describe("handleCloudRoute", () => {
         getActiveAgentId: () => validAgentId,
         disconnect: disconnectMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
 
     const handled = await handleCloudRoute(
@@ -429,7 +449,7 @@ describe("handleCloudRoute", () => {
         getActiveAgentId: () => differentAgentId,
         disconnect: disconnectMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
 
     const handled = await handleCloudRoute(
@@ -460,7 +480,7 @@ describe("handleCloudRoute", () => {
         getActiveAgentId: vi.fn(),
         disconnect: disconnectMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
       createMockIncomingMessage({
@@ -497,7 +517,7 @@ describe("handleCloudRoute", () => {
         connect: connectMock,
         getStatus: statusMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
       createMockIncomingMessage({
@@ -531,7 +551,7 @@ describe("handleCloudRoute", () => {
       config: {},
       runtime: null,
       cloudManager: null,
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
 
     const handled = await handleCloudRoute(
@@ -565,7 +585,7 @@ describe("handleCloudRoute", () => {
         connect: connectMock,
         getStatus: statusMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
       createMockIncomingMessage({
@@ -593,7 +613,7 @@ describe("handleCloudRoute", () => {
   it("returns a clean response if disconnect config save fails", async () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
     process.env.ELIZAOS_CLOUD_ENABLED = "true";
-    saveMiladyConfigMock.mockImplementationOnce(() => {
+    saveElizaConfigMock.mockImplementationOnce(() => {
       throw new Error("failed to write config");
     });
     const disconnectMock = vi.fn();
@@ -618,7 +638,7 @@ describe("handleCloudRoute", () => {
       cloudManager: {
         disconnect: disconnectMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
@@ -666,7 +686,7 @@ describe("handleCloudRoute", () => {
         updateAgent: vi.fn(async () => undefined),
       },
       cloudManager: null,
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
@@ -707,7 +727,7 @@ describe("handleCloudRoute", () => {
       cloudManager: {
         disconnect: vi.fn(),
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
@@ -728,7 +748,7 @@ describe("handleCloudRoute", () => {
   });
 
   it("logs non-error disconnect config save failures", async () => {
-    saveMiladyConfigMock.mockImplementationOnce(() => {
+    saveElizaConfigMock.mockImplementationOnce(() => {
       throw "disconnect save failed";
     });
     const state = {
@@ -740,7 +760,7 @@ describe("handleCloudRoute", () => {
       },
       runtime: null,
       cloudManager: null,
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
@@ -781,7 +801,7 @@ describe("handleCloudRoute", () => {
         updateAgent: updateAgentMock,
       },
       cloudManager: null,
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
@@ -809,7 +829,7 @@ describe("handleCloudRoute", () => {
       cloudManager: {
         disconnect: vi.fn(),
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
@@ -855,7 +875,7 @@ describe("handleCloudRoute", () => {
       cloudManager: {
         disconnect: disconnectMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
@@ -960,7 +980,7 @@ describe("handleCloudRoute", () => {
   });
 
   it("clears cached cloud auth state for POST /api/cloud/disconnect", async () => {
-    saveMiladyConfigMock.mockClear();
+    saveElizaConfigMock.mockClear();
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
     process.env.ELIZAOS_CLOUD_ENABLED = "true";
 
@@ -986,7 +1006,7 @@ describe("handleCloudRoute", () => {
       cloudManager: {
         disconnect: disconnectMock,
       },
-    } as unknown as CloudRouteState;
+    } as Partial<CloudRouteState> as CloudRouteState;
 
     const { res, getStatus, getJson } = createMockHttpResponse();
     const handled = await handleCloudRoute(
@@ -1004,7 +1024,7 @@ describe("handleCloudRoute", () => {
     expect(getStatus()).toBe(200);
     expect(getJson()).toEqual({ ok: true, status: "disconnected" });
     expect(disconnectMock).toHaveBeenCalledTimes(1);
-    expect(saveMiladyConfigMock).toHaveBeenCalledTimes(1);
+    expect(saveElizaConfigMock).toHaveBeenCalledTimes(1);
 
     expect(state.config.cloud?.enabled).toBe(false);
     expect(state.config.cloud?.apiKey).toBeUndefined();
@@ -1035,21 +1055,10 @@ function cloudState(): CloudRouteState {
     config: { cloud: { baseUrl: "https://test.elizacloud.ai" } },
     cloudManager: null,
     runtime: null,
-  } as unknown as CloudRouteState;
+  } as Partial<CloudRouteState> as CloudRouteState;
 }
 
 describe("handleCloudRoute timeout behavior", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", fetchMock);
-    validateCloudBaseUrlMock.mockResolvedValue(null);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    delete process.env.ELIZAOS_CLOUD_API_KEY;
-    delete process.env.ELIZAOS_CLOUD_ENABLED;
-  });
-
   it("returns 504 when cloud login session creation times out", async () => {
     let capturedSignal: AbortSignal | null | undefined;
     fetchMock.mockImplementation(async (_input, init) => {
@@ -1153,7 +1162,7 @@ describe("handleCloudRoute timeout behavior", () => {
     state.cloudManager = {
       getClient: vi.fn(() => ({ deleteAgent: vi.fn() })),
       init: initMock,
-    } as unknown as CloudRouteState["cloudManager"];
+    } as CloudRouteState["cloudManager"];
     fetchMock.mockResolvedValue({
       ok: true,
       headers: new Headers(),
@@ -1181,14 +1190,14 @@ describe("handleCloudRoute timeout behavior", () => {
   });
 
   it("logs non-error save failure while handling authenticated login status", async () => {
-    saveMiladyConfigMock.mockImplementation(() => {
+    saveElizaConfigMock.mockImplementation(() => {
       throw "persist blocked";
     });
     const state = cloudState();
     state.cloudManager = {
       getClient: () => null,
       init: vi.fn(),
-    } as unknown as CloudRouteState["cloudManager"];
+    } as CloudRouteState["cloudManager"];
     fetchMock.mockResolvedValue({
       ok: true,
       headers: new Headers(),
@@ -1351,7 +1360,7 @@ describe("handleCloudRoute timeout behavior", () => {
     state.cloudManager = {
       getClient: () => null,
       init: initMock,
-    } as unknown as CloudRouteState["cloudManager"];
+    } as CloudRouteState["cloudManager"];
     state.runtime = {
       agentId: "00000000-0000-0000-0000-000000000001",
       character: { secrets: {} },
@@ -1390,7 +1399,7 @@ describe("handleCloudRoute timeout behavior", () => {
   });
 
   it("returns authenticated state after successful login poll", async () => {
-    saveMiladyConfigMock.mockClear();
+    saveElizaConfigMock.mockClear();
     const initMock = vi.fn();
     const req = createMockIncomingMessage({
       url: "/api/cloud/login/status?sessionId=test-session",
@@ -1409,7 +1418,7 @@ describe("handleCloudRoute timeout behavior", () => {
     state.cloudManager = {
       getClient: () => null,
       init: initMock,
-    } as unknown as CloudRouteState["cloudManager"];
+    } as CloudRouteState["cloudManager"];
 
     const { res, getJson } = createMockHttpResponse<Record<string, unknown>>();
     const handled = await handleCloudRoute(
@@ -1423,10 +1432,13 @@ describe("handleCloudRoute timeout behavior", () => {
     expect(handled).toBe(true);
     expect(res.statusCode).toBe(200);
     expect(getJson()).toEqual({ status: "authenticated", keyPrefix: "ak-pfx" });
-    expect(saveMiladyConfigMock).toHaveBeenCalledWith(state.config);
+    expect(saveElizaConfigMock).toHaveBeenCalledWith(state.config);
     expect(initMock).toHaveBeenCalledTimes(1);
-    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ak-test");
-    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
+    // Keys are scrubbed from process.env into the sealed store
+    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+    expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ak-test");
+    expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBe("true");
   });
 
   it("persists authenticated login to runtime and logs non-Error DB failures", async () => {
@@ -1443,7 +1455,7 @@ describe("handleCloudRoute timeout behavior", () => {
     state.cloudManager = {
       getClient: () => null,
       init: initMock,
-    } as unknown as CloudRouteState["cloudManager"];
+    } as CloudRouteState["cloudManager"];
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -1509,7 +1521,7 @@ describe("handleCloudRoute timeout behavior", () => {
     state.cloudManager = {
       getClient: () => null,
       init: initMock,
-    } as unknown as CloudRouteState["cloudManager"];
+    } as CloudRouteState["cloudManager"];
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -1548,7 +1560,7 @@ describe("handleCloudRoute timeout behavior", () => {
   });
 
   it("saves auth data and ignores config save failures during login poll", async () => {
-    saveMiladyConfigMock.mockImplementation(() => {
+    saveElizaConfigMock.mockImplementation(() => {
       throw new Error("persist blocked");
     });
     const initMock = vi.fn();
@@ -1564,7 +1576,7 @@ describe("handleCloudRoute timeout behavior", () => {
     state.cloudManager = {
       getClient: () => null,
       init: initMock,
-    } as unknown as CloudRouteState["cloudManager"];
+    } as CloudRouteState["cloudManager"];
 
     const handled = await handleCloudRoute(
       createMockIncomingMessage({
@@ -1583,7 +1595,8 @@ describe("handleCloudRoute timeout behavior", () => {
       keyPrefix: undefined,
     });
     expect(initMock).toHaveBeenCalledTimes(1);
-    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ak-test");
+    expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+    expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ak-test");
   });
 
   it("persists authenticated login to runtime secrets and handles runtime failures", async () => {
@@ -1600,7 +1613,7 @@ describe("handleCloudRoute timeout behavior", () => {
     state.cloudManager = {
       getClient: () => null,
       init: initMock,
-    } as unknown as CloudRouteState["cloudManager"];
+    } as CloudRouteState["cloudManager"];
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -1715,6 +1728,148 @@ describe("handleCloudRoute timeout behavior", () => {
     expect(getJson()).toEqual({
       status: "error",
       error: "Failed to reach Eliza Cloud",
+    });
+  });
+
+  // ── Security: cloud secret scrubbing regression tests ───────────────────
+  describe("cloud secret scrubbing (CVE mitigation)", () => {
+    beforeEach(() => {
+      _resetCloudSecretsForTesting();
+    });
+
+    it("scrubs ELIZAOS_CLOUD_API_KEY from process.env after login", async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authenticated",
+            apiKey: "ck-secret-key",
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const state = {
+        config: {},
+        runtime: null,
+        cloudManager: null,
+      } as Partial<CloudRouteState> as CloudRouteState;
+
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/login",
+        headers: { "content-type": "application/json" },
+        bodyChunks: [
+          Buffer.from(JSON.stringify({ email: "a@b.c", code: "123456" })),
+        ],
+      });
+      const { res } = createMockHttpResponse();
+
+      await handleCloudRoute(req, res, "/api/cloud/login", "POST", state);
+
+      // The upstream handler sets process.env.ELIZAOS_CLOUD_API_KEY.
+      // Our wrapper must have scrubbed it.
+      expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+      expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    });
+
+    it("scrubs ELIZAOS_CLOUD_ENABLED from process.env after disconnect", async () => {
+      // Simulate a prior login that leaked into process.env
+      process.env.ELIZAOS_CLOUD_API_KEY = "ck-leaked";
+      process.env.ELIZAOS_CLOUD_ENABLED = "true";
+
+      const state = {
+        config: { cloud: { enabled: true, apiKey: "ck-leaked" } },
+        runtime: null,
+        cloudManager: null,
+      } as Partial<CloudRouteState> as CloudRouteState;
+
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/disconnect",
+      });
+      const { res } = createMockHttpResponse();
+
+      await handleCloudRoute(req, res, "/api/cloud/disconnect", "POST", state);
+
+      expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+      expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
+    });
+
+    it("getCloudSecret returns the scrubbed value after process.env is cleaned", async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authenticated",
+            apiKey: "ck-sealed",
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const state = {
+        config: {},
+        runtime: null,
+        cloudManager: null,
+      } as Partial<CloudRouteState> as CloudRouteState;
+
+      // Use GET /api/cloud/login/status?sessionId=... which is where
+      // the upstream handler processes the "authenticated" response and
+      // sets process.env.ELIZAOS_CLOUD_API_KEY.
+      const req = createMockIncomingMessage({
+        method: "GET",
+        url: "/api/cloud/login/status?sessionId=test-session-123",
+        headers: { host: "localhost:3000" },
+      });
+      const { res } = createMockHttpResponse();
+
+      await handleCloudRoute(req, res, "/api/cloud/login/status", "GET", state);
+
+      // process.env is clean
+      expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
+      // but the sealed store has the value
+      expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ck-sealed");
+      expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBe("true");
+    });
+
+    it("getCloudSecret falls back to process.env for docker entrypoint keys", () => {
+      // Docker entrypoints set process.env before this module loads
+      process.env.ELIZAOS_CLOUD_API_KEY = "ck-docker";
+      expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ck-docker");
+    });
+
+    it("cloud API key is not enumerable in process.env after login", async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authenticated",
+            apiKey: "ck-hidden",
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const state = {
+        config: {},
+        runtime: null,
+        cloudManager: null,
+      } as Partial<CloudRouteState> as CloudRouteState;
+
+      const req = createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/login",
+        headers: { "content-type": "application/json" },
+        bodyChunks: [
+          Buffer.from(JSON.stringify({ email: "a@b.c", code: "123456" })),
+        ],
+      });
+      const { res } = createMockHttpResponse();
+
+      await handleCloudRoute(req, res, "/api/cloud/login", "POST", state);
+
+      // The key must not appear in JSON.stringify(process.env) or Object.keys
+      const envDump = JSON.stringify(process.env);
+      expect(envDump).not.toContain("ck-hidden");
+      expect(Object.keys(process.env)).not.toContain("ELIZAOS_CLOUD_API_KEY");
     });
   });
 });

@@ -4,32 +4,58 @@
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
   <name>Milady</name>
-  <summary>Personal AI assistant built on ElizaOS</summary>
+  <summary>Personal AI assistant built on elizaOS</summary>
+
+  <developer id="ai.milady">
+    <name>Milady AI</name>
+  </developer>
+
   <description>
     <p>
-      Milady is a personal AI assistant you run on your own devices, built on
-      ElizaOS. It provides zero-config onboarding, multi-provider AI support,
+      Milady is a personal AI assistant that runs on your own devices, built on
+      elizaOS. It provides zero-config onboarding, multi-provider AI support,
       a web dashboard, and a plugin system for extensibility.
     </p>
     <p>Features:</p>
     <ul>
-      <li>Interactive setup on first run</li>
-      <li>Support for Anthropic, OpenAI, Google Gemini, Ollama, and more</li>
-      <li>Web dashboard at http://localhost:18789</li>
-      <li>Plugin system for extensibility</li>
-      <li>Web3 wallet integration</li>
+      <li>Interactive setup on first run — pick a name, personality, and AI provider</li>
+      <li>Support for Anthropic (Claude), OpenAI, Google Gemini, Ollama, and more</li>
+      <li>Web dashboard at localhost for agent management</li>
+      <li>Plugin system with 100+ official plugins</li>
+      <li>Connects to Telegram, Discord, Slack, and other platforms</li>
+      <li>Web3 wallet integration (EVM and Solana)</li>
     </ul>
   </description>
+
   <url type="homepage">https://milady.ai</url>
   <url type="bugtracker">https://github.com/milady-ai/milady/issues</url>
   <url type="vcs-browser">https://github.com/milady-ai/milady</url>
+  <url type="help">https://docs.milady.ai</url>
+
   <provides>
     <binary>milady</binary>
   </provides>
+
   <categories>
     <category>Development</category>
     <category>Utility</category>
   </categories>
+
+  <launchable type="desktop-id">ai.milady.Milady.desktop</launchable>
+
+  <screenshots>
+    <!-- Add screenshots before Flathub submission.
+    <screenshot type="default">
+      <caption>Milady web dashboard showing agent management</caption>
+      <image type="source">https://milady.ai/screenshots/dashboard.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Interactive CLI setup wizard</caption>
+      <image type="source">https://milady.ai/screenshots/cli-setup.png</image>
+    </screenshot>
+    -->
+  </screenshots>
+
   <releases>
     <release version="2.0.0-alpha.7" date="2026-02-07">
       <description>
@@ -37,7 +63,17 @@
       </description>
     </release>
   </releases>
+
   <content_rating type="oars-1.1">
     <content_attribute id="social-chat">moderate</content_attribute>
   </content_rating>
+
+  <keywords>
+    <keyword>ai</keyword>
+    <keyword>assistant</keyword>
+    <keyword>agent</keyword>
+    <keyword>elizaos</keyword>
+    <keyword>llm</keyword>
+    <keyword>chatbot</keyword>
+  </keywords>
 </component>

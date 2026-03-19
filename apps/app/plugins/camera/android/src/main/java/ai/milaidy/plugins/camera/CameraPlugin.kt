@@ -174,7 +174,7 @@ class CameraPlugin : Plugin() {
         }
     }
 
-    private fun hasRequiredPermissions(): Boolean {
+    override fun hasRequiredPermissions(): Boolean {
         return getPermissionState("camera") == com.getcapacitor.PermissionState.GRANTED
     }
 
@@ -230,7 +230,7 @@ class CameraPlugin : Plugin() {
                         .setTargetResolution(Size(width, height))
                         .build()
                         .also {
-                            it.surfaceProvider = previewView?.surfaceProvider
+                            it.setSurfaceProvider(previewView?.surfaceProvider)
                         }
 
                     // Build ImageCapture with flash mode from current settings.
@@ -602,7 +602,7 @@ class CameraPlugin : Plugin() {
 
         currentRecordingSaveToGallery = saveToGallery
 
-        val outputOptions = if (saveToGallery && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val pendingRecording = if (saveToGallery && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
@@ -612,18 +612,17 @@ class CameraPlugin : Plugin() {
                 )
             }
             currentRecordingFile = null
-            MediaStoreOutputOptions.Builder(
+            val options = MediaStoreOutputOptions.Builder(
                 context.contentResolver,
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             ).setContentValues(contentValues).build()
+            videoCapture.output.prepareRecording(context, options)
         } else {
             val file = File(context.cacheDir, fileName)
             currentRecordingFile = file
-            FileOutputOptions.Builder(file).build()
+            val options = FileOutputOptions.Builder(file).build()
+            videoCapture.output.prepareRecording(context, options)
         }
-
-        val pendingRecording = videoCapture.output
-            .prepareRecording(context, outputOptions)
 
         if (includeAudio) {
             pendingRecording.withAudioEnabled()
@@ -633,7 +632,7 @@ class CameraPlugin : Plugin() {
         recordingStartTime = System.currentTimeMillis()
 
         currentRecording =
-            pendingRecording.start(ContextCompat.getMainExecutor(context)) { recordEvent ->
+            pendingRecording.start(ContextCompat.getMainExecutor(context)) { recordEvent: VideoRecordEvent ->
                 when (recordEvent) {
                     is VideoRecordEvent.Start -> {
                         notifyListeners("recordingState", JSObject().apply {
@@ -946,7 +945,7 @@ class CameraPlugin : Plugin() {
     // ---- Permissions ----
 
     @PluginMethod
-    fun checkPermissions(call: PluginCall) {
+    override fun checkPermissions(call: PluginCall) {
         val cameraStatus = getPermissionState("camera")
         val micStatus = getPermissionState("microphone")
 
@@ -958,7 +957,7 @@ class CameraPlugin : Plugin() {
     }
 
     @PluginMethod
-    fun requestPermissions(call: PluginCall) {
+    override fun requestPermissions(call: PluginCall) {
         requestAllPermissions(call, "handleAllPermissionsResult")
     }
 

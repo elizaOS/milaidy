@@ -15,14 +15,14 @@ function mockRuntime() {
   return {
     agentId: "agent-test-id",
     createMemory: vi.fn().mockResolvedValue("mem-id"),
-  } as unknown as Parameters<typeof restartAction.handler>[0];
+  } as Parameters<typeof restartAction.handler>[0];
 }
 
 function mockMessage() {
   return {
     roomId: "room-test-id",
     worldId: "world-test-id",
-  } as unknown as Parameters<typeof restartAction.handler>[1];
+  } as Parameters<typeof restartAction.handler>[1];
 }
 
 // Prevent the default process.exit handler from firing.

@@ -1,29 +1,44 @@
+# ── Docker Build Context Exclusions ──
+# Reduces context sent to daemon from ~4GB to ~200MB
+
+# Git history (700MB+)
 .git
-.DS_Store
-**/.DS_Store
-node_modules
-**/node_modules
-.bun
-**/.bun
-coverage
-**/coverage
-*.log
+.github
 
-# Build artifacts
-dist
-**/dist
-**/*.trace
+# IDE
+.vscode
+.idea
 
-# Large binary media files (not needed for build)
-*.mp4
-*.mov
-*.wav
-*.mp3
+# Previous build artifacts
+dist/
 
-# Temp
-tmp
-**/tmp
-.tmp
-**/.tmp
-.cache
-**/.cache
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/vitest*
+coverage/
+
+# Dev tooling
+.storybook
+**/*.stories.*
+.husky
+git-hooks
+
+# Documentation
+docs/
+
+# Large assets not needed for headless agent
+**/*.vrm
+**/*.glb
+**/*.gltf
+**/*.fbx
+
+# Desktop builds
+apps/app/electrobun/build
+apps/app/android
+apps/app/ios
+
+# Homepage static site
+apps/homepage/out
+apps/homepage/.next

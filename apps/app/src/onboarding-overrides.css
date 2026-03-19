@@ -1,0 +1,19 @@
+.onboarding-provider-card {
+  padding: 10px 14px;
+}
+
+.onboarding-provider-card > div:last-child {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.onboarding-provider-desc {
+  display: block;
+  line-height: 1.3;
+  -webkit-line-clamp: 2;
+  min-height: calc(1.3em * 2);
+}

@@ -13,7 +13,10 @@
  *
  * NO MOCKS — all tests spin up a real HTTP server.
  */
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server";
@@ -133,8 +136,13 @@ describe("Auth bypass (no MILADY_API_TOKEN)", () => {
   let envBackup: { restore: () => void };
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED");
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
+      "MILADY_PAIRING_DISABLED",
+    );
     delete process.env.MILADY_API_TOKEN;
+    delete process.env.ELIZA_API_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
 
     const server = await startApiServer({ port: 0 });
@@ -179,12 +187,16 @@ describe("Non-loopback binding enforces auth without explicit token", () => {
   beforeAll(async () => {
     envBackup = saveEnv(
       "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
       "MILADY_PAIRING_DISABLED",
       "MILADY_API_BIND",
+      "ELIZA_API_BIND",
     );
     delete process.env.MILADY_API_TOKEN;
+    delete process.env.ELIZA_API_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
     process.env.MILADY_API_BIND = "0.0.0.0";
+    process.env.ELIZA_API_BIND = "0.0.0.0";
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -231,9 +243,20 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
 
+  const TERMINAL_TOKEN = "test-terminal-token-def456";
+
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED");
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
+      "MILADY_PAIRING_DISABLED",
+      "MILADY_TERMINAL_RUN_TOKEN",
+      "ELIZA_TERMINAL_RUN_TOKEN",
+    );
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.ELIZA_API_TOKEN = TEST_TOKEN;
+    process.env.MILADY_TERMINAL_RUN_TOKEN = TERMINAL_TOKEN;
+    process.env.ELIZA_TERMINAL_RUN_TOKEN = TERMINAL_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
 
     const server = await startApiServer({ port: 0 });
@@ -319,6 +342,7 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
 
   it("accepts WebSocket upgrade with query token when enabled", async () => {
     process.env.MILADY_ALLOW_WS_QUERY_TOKEN = "1";
+    process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = "1";
     try {
       const result = await connectWs(
         `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TEST_TOKEN)}`,
@@ -326,6 +350,7 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
       expect(result.kind).toBe("open");
     } finally {
       delete process.env.MILADY_ALLOW_WS_QUERY_TOKEN;
+      delete process.env.ELIZA_ALLOW_WS_QUERY_TOKEN;
     }
   });
 
@@ -390,11 +415,67 @@ describe("Token auth gate (MILADY_API_TOKEN set)", () => {
       port,
       "POST",
       "/api/terminal/run",
-      { command: "echo auth-gate" },
+      { command: "echo auth-gate", terminalToken: TERMINAL_TOKEN },
       auth,
     );
     // shell policy may still deny execution, but auth gate must pass
     expect(status).not.toBe(401);
+  });
+
+  it("protects sensitive config mutation surfaces with token auth", async () => {
+    const auth = { headers: { Authorization: `Bearer ${TEST_TOKEN}` } };
+
+    const mutationRequests: Array<{
+      method: string;
+      path: string;
+      body?: Record<string, unknown>;
+      expectedWithAuth: number;
+    }> = [
+      {
+        method: "PUT",
+        path: "/api/config",
+        body: { features: { browser: true } },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "PUT",
+        path: "/api/secrets",
+        body: { secrets: {} },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "POST",
+        path: "/api/connectors",
+        body: { name: "auth-gate-test", config: { enabled: true } },
+        expectedWithAuth: 200,
+      },
+      {
+        method: "DELETE",
+        path: "/api/connectors/auth-gate-test",
+        expectedWithAuth: 200,
+      },
+      // Note: MCP config endpoints have additional security gates (terminal auth, URL validation)
+      // that are tested separately in server.mcp-config-validation.test.ts
+    ];
+
+    for (const testCase of mutationRequests) {
+      const { status: noAuthStatus } = await req(
+        port,
+        testCase.method,
+        testCase.path,
+        testCase.body,
+      );
+      expect(noAuthStatus).toBe(401);
+
+      const { status: withAuthStatus } = await req(
+        port,
+        testCase.method,
+        testCase.path,
+        testCase.body,
+        auth,
+      );
+      expect(withAuthStatus).toBe(testCase.expectedWithAuth);
+    }
   });
 });
 
@@ -410,12 +491,18 @@ describe("CORS origin restrictions", () => {
   beforeAll(async () => {
     envBackup = saveEnv(
       "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
       "MILADY_ALLOWED_ORIGINS",
+      "ELIZA_ALLOWED_ORIGINS",
       "MILADY_ALLOW_NULL_ORIGIN",
+      "ELIZA_ALLOW_NULL_ORIGIN",
     );
     delete process.env.MILADY_API_TOKEN;
+    delete process.env.ELIZA_API_TOKEN;
     delete process.env.MILADY_ALLOWED_ORIGINS;
+    delete process.env.ELIZA_ALLOWED_ORIGINS;
     delete process.env.MILADY_ALLOW_NULL_ORIGIN;
+    delete process.env.ELIZA_ALLOW_NULL_ORIGIN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -475,9 +562,9 @@ describe("CORS origin restrictions", () => {
     expect(status).toBe(200);
   });
 
-  it("allows capacitor-electron origin", async () => {
+  it("allows electrobun origin", async () => {
     const { status } = await req(port, "GET", "/api/status", undefined, {
-      origin: "capacitor-electron://-",
+      origin: "electrobun://-",
     });
     expect(status).toBe(200);
   });
@@ -491,6 +578,7 @@ describe("CORS origin restrictions", () => {
 
   it("MILADY_ALLOWED_ORIGINS allows custom origins", async () => {
     process.env.MILADY_ALLOWED_ORIGINS = "https://custom.example.com";
+    process.env.ELIZA_ALLOWED_ORIGINS = "https://custom.example.com";
     try {
       const { status, headers } = await req(
         port,
@@ -505,6 +593,7 @@ describe("CORS origin restrictions", () => {
       );
     } finally {
       delete process.env.MILADY_ALLOWED_ORIGINS;
+      delete process.env.ELIZA_ALLOWED_ORIGINS;
     }
   });
 
@@ -517,6 +606,7 @@ describe("CORS origin restrictions", () => {
 
     // Allowed with flag
     process.env.MILADY_ALLOW_NULL_ORIGIN = "1";
+    process.env.ELIZA_ALLOW_NULL_ORIGIN = "1";
     try {
       const { status: s2 } = await req(port, "GET", "/api/status", undefined, {
         origin: "null",
@@ -524,6 +614,7 @@ describe("CORS origin restrictions", () => {
       expect(s2).toBe(200);
     } finally {
       delete process.env.MILADY_ALLOW_NULL_ORIGIN;
+      delete process.env.ELIZA_ALLOW_NULL_ORIGIN;
     }
   });
 
@@ -556,8 +647,13 @@ describe("Pairing flow", () => {
   let envBackup: { restore: () => void };
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN", "MILADY_PAIRING_DISABLED");
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
+      "MILADY_PAIRING_DISABLED",
+    );
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.ELIZA_API_TOKEN = TEST_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
 
     const server = await startApiServer({ port: 0 });
@@ -640,6 +736,7 @@ describe("Pairing flow", () => {
     const freshToken = "fresh-pair-token-999";
     const savedToken = process.env.MILADY_API_TOKEN;
     process.env.MILADY_API_TOKEN = freshToken;
+    process.env.ELIZA_API_TOKEN = freshToken;
 
     const fresh = await startApiServer({ port: 0 });
 
@@ -669,8 +766,13 @@ describe("Pairing flow", () => {
       expect(s1).toBe(403);
     } finally {
       await fresh.close();
-      if (savedToken) process.env.MILADY_API_TOKEN = savedToken;
-      else delete process.env.MILADY_API_TOKEN;
+      if (savedToken) {
+        process.env.MILADY_API_TOKEN = savedToken;
+        process.env.ELIZA_API_TOKEN = savedToken;
+      } else {
+        delete process.env.MILADY_API_TOKEN;
+        delete process.env.ELIZA_API_TOKEN;
+      }
     }
   }, 30_000);
 });
@@ -689,12 +791,16 @@ describe("Auth + wallet integration", () => {
   beforeAll(async () => {
     envBackup = saveEnv(
       "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
       "MILADY_WALLET_EXPORT_TOKEN",
+      "ELIZA_WALLET_EXPORT_TOKEN",
       "EVM_PRIVATE_KEY",
       "SOLANA_PRIVATE_KEY",
     );
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.ELIZA_API_TOKEN = TEST_TOKEN;
     process.env.MILADY_WALLET_EXPORT_TOKEN = EXPORT_TOKEN;
+    process.env.ELIZA_WALLET_EXPORT_TOKEN = EXPORT_TOKEN;
     process.env.EVM_PRIVATE_KEY =
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
@@ -774,10 +880,23 @@ describe("Auth + agent lifecycle", () => {
   let port: number;
   let close: () => Promise<void>;
   let envBackup: { restore: () => void };
+  let tmpConfigDir: string;
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN");
+    envBackup = saveEnv(
+      "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
+      "MILADY_CONFIG_PATH",
+      "ELIZA_CONFIG_PATH",
+    );
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.ELIZA_API_TOKEN = TEST_TOKEN;
+
+    // Isolate config writes to a temp directory so the onboarding POST
+    // never clobbers the real ~/.milady/milady.json.
+    tmpConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-auth-e2e-"));
+    process.env.MILADY_CONFIG_PATH = path.join(tmpConfigDir, "milady.json");
+    process.env.ELIZA_CONFIG_PATH = path.join(tmpConfigDir, "milady.json");
 
     const server = await startApiServer({ port: 0 });
     port = server.port;
@@ -787,6 +906,7 @@ describe("Auth + agent lifecycle", () => {
   afterAll(async () => {
     await close();
     envBackup.restore();
+    fs.rmSync(tmpConfigDir, { recursive: true, force: true });
   });
 
   const auth = { headers: { Authorization: `Bearer lifecycle-auth-token` } };
@@ -809,6 +929,10 @@ describe("Auth + agent lifecycle", () => {
         name: "AuthTestAgent",
         bio: ["An auth test agent"],
         systemPrompt: "You are a test agent.",
+        connection: {
+          kind: "local-provider",
+          provider: "anthropic",
+        },
       },
       auth,
     );
@@ -892,8 +1016,9 @@ describe("Auth edge cases and security", () => {
   let envBackup: { restore: () => void };
 
   beforeAll(async () => {
-    envBackup = saveEnv("MILADY_API_TOKEN");
+    envBackup = saveEnv("MILADY_API_TOKEN", "ELIZA_API_TOKEN");
     process.env.MILADY_API_TOKEN = TEST_TOKEN;
+    process.env.ELIZA_API_TOKEN = TEST_TOKEN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;

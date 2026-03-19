@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { tryOptionalDynamicImport } from "../test-support/test-helpers";
 import {
   CORE_PLUGINS,
@@ -48,7 +48,7 @@ describe("Code writing plugin classification", () => {
   });
 
   it("@elizaos/plugin-code is not loaded with empty config (optional)", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-code")).toBe(false);
   });
 
@@ -63,7 +63,7 @@ describe("Code writing plugin classification", () => {
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-code")).toBe(true);
     expect(names.has("@elizaos/plugin-shell")).toBe(true);

@@ -1,70 +1,90 @@
 # Flatpak manifest for Milady
-# Build: flatpak-builder --repo=repo build-dir ai.milady.Milady.yml
+# Build:   flatpak-builder --repo=repo --force-clean build-dir ai.milady.Milady.yml
 # Install: flatpak --user install repo ai.milady.Milady
+# Bundle:  flatpak build-bundle repo milady.flatpak ai.milady.Milady
 
 app-id: ai.milady.Milady
 runtime: org.freedesktop.Platform
-runtime-version: '23.08'
+runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
 command: milady
 
 finish-args:
-  # Network access (for AI providers, plugin downloads)
+  # Network access (required for AI provider APIs, plugin downloads, web dashboard)
   - --share=network
-  # Filesystem access (for config, workspace, plugins)
-  - --filesystem=home
-  # D-Bus access (for desktop notifications)
-  - --talk-name=org.freedesktop.Notifications
-  # Allow binding to localhost for web dashboard
+  # IPC namespace (required for localhost web dashboard binding)
   - --share=ipc
+  # Home directory access (config, workspace, plugins, local models)
+  - --filesystem=home
+  # XDG config for .config/milady persistence
+  - --filesystem=xdg-config/milady:create
+  # D-Bus access for desktop notifications
+  - --talk-name=org.freedesktop.Notifications
+  # D-Bus access for system tray / status notifier
+  - --talk-name=org.kde.StatusNotifierWatcher
+
+build-options:
+  no-debuginfo: true
 
 modules:
-  # ── Node.js 22 ─────────────────────────────────────────────────────────
+  # ── Node.js 22 LTS ───────────────────────────────────────────────────
   - name: nodejs
     buildsystem: simple
     build-commands:
-      - install -D -m 755 bin/node /app/bin/node
-      - install -D -m 755 bin/npm /app/bin/npm
-      - install -D -m 755 bin/npx /app/bin/npx
+      - install -Dm755 bin/node /app/bin/node
+      - install -Dm755 bin/npm /app/bin/npm
+      - install -Dm755 bin/npx /app/bin/npx
       - cp -r lib /app/lib
+      - cp -r include /app/include
     sources:
       - type: archive
-        # Node.js 22.x for x86_64 — update URL + sha256 for each release
         url: https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz
-        sha256: "22982235e1b71fa8850f82edd09cdae7e3f32df1764a9ec298c72d25ef2c164f"
+        sha256: 22982235e1b71fa8850f82edd09cdae7e3f32df1764a9ec298c72d25ef2c164f
         only-arches:
           - x86_64
       - type: archive
         url: https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-arm64.tar.xz
-        sha256: "8cfd5a8b9afae5a2e0bd86b0148ca31d2589c0ea669c2d0b11c132e35d90ed68"
+        sha256: 8cfd5a8b9afae5a2e0bd86b0148ca31d2589c0ea669c2d0b11c132e35d90ed68
         only-arches:
           - aarch64
 
-  # ── Milady ────────────────────────────────────────────────────────────
+  # ── Milady CLI ────────────────────────────────────────────────────────
+  # NOTE: For Flathub submission, replace the npm-install build with an
+  # offline approach using flatpak-node-generator or a vendored tarball.
+  # The current approach (npm install -g) requires network at build time
+  # and works for self-hosted builds and CI bundles, but Flathub's build
+  # infrastructure does not allow network access during the build phase.
+  #
+  # To generate offline sources for Flathub:
+  #   flatpak-node-generator npm package-lock.json -o npm-sources.json
+  # Then add: sources: [type: file, path: npm-sources.json]
   - name: milady
     buildsystem: simple
     build-options:
       env:
         npm_config_nodedir: /app
     build-commands:
-      # Install milady globally
-      - npm install -g milady --prefix=/app
+      # Install milady globally from npm
+      - /app/bin/npm install -g miladyai --prefix=/app
 
-      # Create wrapper script
-      - |
-        cat > /app/bin/milady << 'WRAPPER'
-        #!/bin/sh
-        export NODE_PATH="/app/lib/node_modules"
-        exec /app/bin/node /app/lib/node_modules/milady/milady.mjs "$@"
-        WRAPPER
-      - chmod +x /app/bin/milady
+      # Install wrapper script from source
+      - install -Dm755 milady-wrapper.sh /app/bin/milady
 
-      # Install desktop entry
-      - install -D -m 644 ai.milady.Milady.desktop /app/share/applications/ai.milady.Milady.desktop
-      - install -D -m 644 ai.milady.Milady.metainfo.xml /app/share/metainfo/ai.milady.Milady.metainfo.xml
+      # Install desktop entry and AppStream metadata
+      - install -Dm644 ai.milady.Milady.desktop /app/share/applications/ai.milady.Milady.desktop
+      - install -Dm644 ai.milady.Milady.metainfo.xml /app/share/metainfo/ai.milady.Milady.metainfo.xml
+
+      # Install icons at standard hicolor sizes
+      - install -Dm644 icons/128x128/ai.milady.Milady.png /app/share/icons/hicolor/128x128/apps/ai.milady.Milady.png
+      - install -Dm644 icons/256x256/ai.milady.Milady.png /app/share/icons/hicolor/256x256/apps/ai.milady.Milady.png
+      - install -Dm644 icons/512x512/ai.milady.Milady.png /app/share/icons/hicolor/512x512/apps/ai.milady.Milady.png
 
     sources:
       - type: file
         path: ai.milady.Milady.desktop
       - type: file
         path: ai.milady.Milady.metainfo.xml
+      - type: file
+        path: milady-wrapper.sh
+      - type: dir
+        path: icons

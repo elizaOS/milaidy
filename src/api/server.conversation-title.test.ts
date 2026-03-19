@@ -18,7 +18,7 @@ describe("persistConversationRoomTitle", () => {
     const runtime = {
       getRoom: vi.fn().mockResolvedValue(null),
       adapter: {},
-    } as unknown as Pick<AgentRuntime, "getRoom" | "adapter">;
+    } as Pick<AgentRuntime, "getRoom" | "adapter">;
 
     const updated = await persistConversationRoomTitle(runtime, conversation);
 
@@ -33,7 +33,7 @@ describe("persistConversationRoomTitle", () => {
         name: conversation.title,
       }),
       adapter: { updateRoom: vi.fn() },
-    } as unknown as Pick<AgentRuntime, "getRoom" | "adapter">;
+    } as Pick<AgentRuntime, "getRoom" | "adapter">;
 
     const updated = await persistConversationRoomTitle(runtime, conversation);
 
@@ -48,7 +48,7 @@ describe("persistConversationRoomTitle", () => {
         name: "Old title",
       }),
       adapter: {},
-    } as unknown as Pick<AgentRuntime, "getRoom" | "adapter">;
+    } as Pick<AgentRuntime, "getRoom" | "adapter">;
 
     const updated = await persistConversationRoomTitle(runtime, conversation);
 
@@ -63,7 +63,7 @@ describe("persistConversationRoomTitle", () => {
         name: "Old title",
       }),
       adapter: { updateRoom },
-    } as unknown as Pick<AgentRuntime, "getRoom" | "adapter">;
+    } as Pick<AgentRuntime, "getRoom" | "adapter">;
 
     const updated = await persistConversationRoomTitle(runtime, conversation);
 

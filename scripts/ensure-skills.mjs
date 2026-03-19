@@ -1,237 +1,113 @@
 #!/usr/bin/env node
 /**
- * Ensure required skills exist in ~/.milady/skills/
+ * Ensure required skills exist in the managed skills store.
  *
- * This script is run during startup to ensure the milady-development skill
- * is available for the agent to use for self-modification workflows.
+ * This script is run during startup to seed shipped skills into:
+ *   $ELIZA_STATE_DIR/skills
+ * or, by default:
+ *   ~/.eliza/skills
  *
  * Run automatically during startup, or manually:
  *   node scripts/ensure-skills.mjs
  */
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const MILADY_DIR = join(homedir(), ".milady");
-const SKILLS_DIR = join(MILADY_DIR, "skills");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const MILADY_DEVELOPMENT_SKILL = `---
-name: milady-development
-description: "Self-modify milady agent through plugins. Edit, build, restart runtime, upgrade from upstream, manage plugins. For agent self-improvement and development workflows."
-metadata:
-  otto:
-    emoji: "🔧"
-    requires:
-      bins: ["git", "bun"]
----
+export const SHIPPED_SKILLS_DIR = join(__dirname, "skills");
 
-# Milady Development Skill
+function resolveUserPath(input, home = homedir) {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("~")) {
+    return resolve(trimmed.replace(/^~(?=$|[\\/])/, home()));
+  }
+  return resolve(trimmed);
+}
 
-You are a self-modifying agent. You can edit your own code through **plugins**, rebuild, and restart yourself. All agent capabilities live in plugins - this is where you make changes.
+export function resolveStateDir(env = process.env, home = homedir) {
+  const override = env.ELIZA_STATE_DIR?.trim();
+  if (override) {
+    return resolveUserPath(override, home);
+  }
+  return join(home(), ".eliza");
+}
 
-**Important**: Do NOT modify eliza core (\`~/.milady/eliza\`). The core runtime is stable infrastructure. All customization happens through plugins.
+export function resolveSkillsDir(env = process.env, home = homedir) {
+  return join(resolveStateDir(env, home), "skills");
+}
 
-## Directory Structure
+function shippedSkillIds(assetsDir = SHIPPED_SKILLS_DIR) {
+  return readdirSync(assetsDir)
+    .filter((entry) => {
+      try {
+        return statSync(join(assetsDir, entry)).isDirectory();
+      } catch {
+        return false;
+      }
+    })
+    .sort();
+}
 
-\`\`\`
-~/.milady/
-├── eliza/                     # ElizaOS core (DO NOT MODIFY)
-├── plugins/                   # Plugins - EDIT HERE
-│   ├── plugin-discord/
-│   ├── plugin-telegram/
-│   ├── plugin-agent-helpers/
-│   └── ...
-└── skills/                    # Skills like this one
-\`\`\`
-
-## Plugin Architecture
-
-Everything is a plugin. Want to add a new capability? Create or modify a plugin.
-
-### Plugin Structure
-
-\`\`\`
-plugin-name/
-├── typescript/
-│   ├── src/
-│   │   ├── index.ts       # Plugin entry point
-│   │   ├── actions/       # Actions the agent can take
-│   │   ├── providers/     # Context providers for LLM
-│   │   └── services/      # Background services
-│   ├── package.json
-│   └── tsconfig.json
-\`\`\`
-
-### Key Plugin Concepts
-
-- **Actions**: Things you can do (RESTART_AGENT, SEND_MESSAGE, etc.)
-- **Providers**: Context injected into your prompts
-- **Evaluators**: Run after actions to assess results
-- **Services**: Background processes
-
-## Editing Plugins
-
-### Edit Local Plugins
-
-Plugins at \`~/.milady/plugins/\` are editable:
-
-\`\`\`bash
-# List available plugins
-ls ~/.milady/plugins/
-
-# Read a plugin's entry point
-cat ~/.milady/plugins/plugin-discord/typescript/src/index.ts
-\`\`\`
-
-### Eject a Registry Plugin
-
-For plugins from the registry, eject them first:
-
-Tell yourself: "Eject plugin-twitter so I can modify it"
-
-This clones the plugin to \`~/.milady/plugins/\` for local editing.
-
-### Create a New Plugin
-
-\`\`\`bash
-mkdir -p ~/.milady/plugins/plugin-my-feature/typescript/src/actions
-\`\`\`
-
-## Making Changes
-
-1. **Identify the plugin** that handles what you want to change
-2. **Read the plugin's index.ts** to understand exports
-3. **Edit the relevant file** (action, provider, service)
-4. **Restart** to load changes
-
-Example - adding a new action:
-
-\`\`\`typescript
-// ~/.milady/plugins/plugin-my-feature/typescript/src/actions/my-action.ts
-import type { Action } from "@elizaos/core";
-
-export const myAction: Action = {
-  name: "MY_ACTION",
-  similes: ["DO_MY_THING"],
-  description: "Does something useful",
-  validate: async () => true,
-  handler: async (runtime, message, state) => {
-    return { text: "Done!", success: true };
-  },
-};
-\`\`\`
-
-Then export it from index.ts:
-
-\`\`\`typescript
-import type { Plugin } from "@elizaos/core";
-import { myAction } from "./actions/my-action";
-
-export const myFeaturePlugin: Plugin = {
-  name: "plugin-my-feature",
-  description: "My custom feature",
-  actions: [myAction],
-};
-
-export default myFeaturePlugin;
-\`\`\`
-
-## Restarting the Runtime
-
-After making changes, restart to load them.
-
-### Method 1: RESTART_AGENT Action (Preferred)
-
-Tell yourself: "Restart to apply changes"
-
-### Method 2: API Endpoint
-
-\`\`\`bash
-curl -X POST http://localhost:3000/api/agent/restart
-\`\`\`
-
-## Plugin Management
-
-You have the \`plugin-plugin-manager\` plugin:
-
-- **Install**: "Install @elizaos/plugin-twitter"
-- **Search**: "Search for blockchain plugins"
-- **Eject**: "Eject plugin-discord so I can modify it"
-- **Sync**: "Sync plugin-discord with upstream"
-- **Reinject**: "Reinject plugin-discord" (discard changes)
-- **List**: "List my ejected plugins"
-
-## Upgrading Plugins
-
-\`\`\`bash
-cd ~/.milady/plugins
-git fetch origin next
-git merge --no-edit origin/next
-bun install
-\`\`\`
-
-Or use the setup script:
-
-\`\`\`bash
-node scripts/setup-local-eliza.mjs --skip-eliza
-\`\`\`
-
-## Self-Modification Workflow
-
-1. **Check if a plugin exists** that does something similar
-2. **Decide**: modify existing or create new
-3. **Make your changes** using Edit/Write tools
-4. **Restart to apply**: "Restart to apply my changes"
-5. **Test** the new functionality
-6. **Iterate** if needed
-
-## Important Paths
-
-| What | Path |
-|------|------|
-| Plugins | \`~/.milady/plugins/\` |
-| Skills | \`~/.milady/skills/\` |
-| Eliza Core (read-only) | \`~/.milady/eliza/\` |
-
-## Shell Commands
-
-\`\`\`bash
-# List plugins
-ls ~/.milady/plugins/
-
-# Update plugins
-cd ~/.milady/plugins && git pull origin next && bun install
-
-# Check upstream changes
-cd ~/.milady/plugins && git fetch origin next && git rev-list --count HEAD..origin/next
-\`\`\`
-`;
-
-function ensureSkillsDir() {
-  if (!existsSync(SKILLS_DIR)) {
-    console.log(`[ensure-skills] Creating ${SKILLS_DIR}...`);
-    mkdirSync(SKILLS_DIR, { recursive: true });
+export function ensureSkillsDir(skillsDir = resolveSkillsDir()) {
+  if (!existsSync(skillsDir)) {
+    console.log(`[ensure-skills] Creating ${skillsDir}...`);
+    mkdirSync(skillsDir, { recursive: true });
   }
 }
 
-function ensureMiladyDevelopmentSkill() {
-  const skillDir = join(SKILLS_DIR, "milady-development");
-  const skillPath = join(skillDir, "SKILL.md");
+export function ensureShippedSkill(
+  skillId,
+  { skillsDir = resolveSkillsDir(), assetsDir = SHIPPED_SKILLS_DIR } = {},
+) {
+  const sourceDir = join(assetsDir, skillId);
+  const targetDir = join(skillsDir, skillId);
+  const targetSkillPath = join(targetDir, "SKILL.md");
 
-  if (existsSync(skillPath)) {
-    console.log("[ensure-skills] milady-development skill already exists");
-    return;
+  if (!existsSync(sourceDir)) {
+    throw new Error(`Missing shipped skill asset: ${sourceDir}`);
   }
 
-  console.log("[ensure-skills] Creating milady-development skill...");
-  mkdirSync(skillDir, { recursive: true });
-  writeFileSync(skillPath, MILADY_DEVELOPMENT_SKILL);
-  console.log("[ensure-skills] milady-development skill created");
+  if (existsSync(targetSkillPath)) {
+    console.log(`[ensure-skills] ${skillId} skill already exists`);
+    return false;
+  }
+
+  console.log(`[ensure-skills] Creating ${skillId} skill...`);
+  mkdirSync(targetDir, { recursive: true });
+  cpSync(sourceDir, targetDir, { recursive: true, force: true });
+  console.log(`[ensure-skills] ${skillId} skill created`);
+  return true;
 }
 
-function main() {
-  ensureSkillsDir();
-  ensureMiladyDevelopmentSkill();
+export function ensureShippedSkills({
+  skillsDir = resolveSkillsDir(),
+  assetsDir = SHIPPED_SKILLS_DIR,
+} = {}) {
+  ensureSkillsDir(skillsDir);
+
+  const created = [];
+  for (const skillId of shippedSkillIds(assetsDir)) {
+    if (ensureShippedSkill(skillId, { skillsDir, assetsDir })) {
+      created.push(skillId);
+    }
+  }
+  return created;
 }
 
-main();
+export function main() {
+  ensureShippedSkills();
+}
+
+const isMain =
+  process.argv[1] && resolve(process.argv[1]) === resolve(__filename);
+
+if (isMain) {
+  main();
+}

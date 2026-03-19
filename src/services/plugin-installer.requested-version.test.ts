@@ -104,25 +104,33 @@ beforeEach(async () => {
   vi.resetModules();
   execCalls.splice(0, execCalls.length);
 
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-inst-vtest-"));
-  configDir = path.join(tmpDir, ".milady");
-  configPath = path.join(configDir, "milady.json");
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-inst-vtest-"));
+  configDir = path.join(tmpDir, ".eliza");
+  configPath = path.join(configDir, "eliza.json");
 
   await fs.mkdir(configDir, { recursive: true });
   await writeConfig({});
 
   savedEnv = {
-    MILADY_STATE_DIR: process.env.MILADY_STATE_DIR,
-    MILADY_CONFIG_PATH: process.env.MILADY_CONFIG_PATH,
+    ELIZA_STATE_DIR: process.env.ELIZA_STATE_DIR,
+    ELIZA_CONFIG_PATH: process.env.ELIZA_CONFIG_PATH,
+    ELIZA_PLUGIN_RELEASE_CHANNEL: process.env.ELIZA_PLUGIN_RELEASE_CHANNEL,
+    MILADY_PLUGIN_RELEASE_CHANNEL: process.env.MILADY_PLUGIN_RELEASE_CHANNEL,
   };
-  process.env.MILADY_STATE_DIR = configDir;
-  process.env.MILADY_CONFIG_PATH = configPath;
+  process.env.ELIZA_STATE_DIR = configDir;
+  process.env.ELIZA_CONFIG_PATH = configPath;
+  delete process.env.ELIZA_PLUGIN_RELEASE_CHANNEL;
+  delete process.env.MILADY_PLUGIN_RELEASE_CHANNEL;
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
-  process.env.MILADY_STATE_DIR = savedEnv.MILADY_STATE_DIR;
-  process.env.MILADY_CONFIG_PATH = savedEnv.MILADY_CONFIG_PATH;
+  process.env.ELIZA_STATE_DIR = savedEnv.ELIZA_STATE_DIR;
+  process.env.ELIZA_CONFIG_PATH = savedEnv.ELIZA_CONFIG_PATH;
+  process.env.ELIZA_PLUGIN_RELEASE_CHANNEL =
+    savedEnv.ELIZA_PLUGIN_RELEASE_CHANNEL;
+  process.env.MILADY_PLUGIN_RELEASE_CHANNEL =
+    savedEnv.MILADY_PLUGIN_RELEASE_CHANNEL;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -164,9 +172,10 @@ describe("plugin-installer (requestedVersion)", () => {
     const installCall = execCalls.find(
       (c) => c.cmd === "npm" && c.args[0] === "install",
     );
-    expect(installCall?.args[1]).toBe(
-      `@elizaos/plugin-test@${requestedVersion}`,
+    const versionedArg = installCall?.args.find((a: string) =>
+      a.startsWith("@elizaos/plugin-test@"),
     );
+    expect(versionedArg).toBe(`@elizaos/plugin-test@${requestedVersion}`);
 
     const config = JSON.parse(await fs.readFile(configPath, "utf-8")) as {
       plugins?: {
@@ -178,6 +187,52 @@ describe("plugin-installer (requestedVersion)", () => {
     );
     expect(config.plugins?.installs?.["@elizaos/plugin-test"]?.spec).toBe(
       `@elizaos/plugin-test@${requestedVersion}`,
+    );
+  });
+
+  it("prefers the alpha dist-tag for @elizaos plugins on the alpha channel", async () => {
+    process.env.ELIZA_PLUGIN_RELEASE_CHANNEL = "alpha";
+
+    const { getPluginInfo } = await import("./registry-client");
+    vi.mocked(getPluginInfo).mockResolvedValue({
+      name: "@elizaos/plugin-test",
+      gitRepo: "elizaos-plugins/plugin-test",
+      gitUrl: "https://github.com/elizaos-plugins/plugin-test.git",
+      description: "Test plugin",
+      homepage: null,
+      topics: [],
+      stars: 0,
+      language: "TypeScript",
+      npm: {
+        package: "@elizaos/plugin-test",
+        v0Version: null,
+        v1Version: null,
+        v2Version: "2.0.0-alpha.3",
+      },
+      git: { v0Branch: null, v1Branch: null, v2Branch: "next" },
+      supports: { v0: false, v1: false, v2: true },
+    });
+
+    const { installPlugin } = await import("./plugin-installer");
+    const result = await installPlugin("@elizaos/plugin-test");
+
+    expect(result.success).toBe(true);
+
+    const installCall = execCalls.find(
+      (call) => call.cmd === "npm" && call.args[0] === "install",
+    );
+    const versionedArg = installCall?.args.find((arg: string) =>
+      arg.startsWith("@elizaos/plugin-test@"),
+    );
+    expect(versionedArg).toBe("@elizaos/plugin-test@alpha");
+
+    const config = JSON.parse(await fs.readFile(configPath, "utf-8")) as {
+      plugins?: {
+        installs?: Record<string, { spec?: string; version?: string }>;
+      };
+    };
+    expect(config.plugins?.installs?.["@elizaos/plugin-test"]?.spec).toBe(
+      "@elizaos/plugin-test@alpha",
     );
   });
 });

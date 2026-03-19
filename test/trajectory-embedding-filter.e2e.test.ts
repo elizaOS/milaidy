@@ -168,7 +168,7 @@ function createRuntimeWithCoreLogger(
   return {
     agentId,
     character: { name },
-    adapter: { db } as unknown as AgentRuntime["adapter"],
+    adapter: { db } as AgentRuntime["adapter"],
     plugins: [],
     actions: [],
     providers: [],
@@ -203,7 +203,7 @@ function createRuntimeWithCoreLogger(
           child: () => ({}),
         }) as AgentRuntime["logger"],
     } as AgentRuntime["logger"],
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("trajectory filters no-input embedding noise", () => {

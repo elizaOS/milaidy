@@ -85,34 +85,25 @@ describe("POST /api/provider/switch", () => {
     });
 
     it("rejects missing provider field", async () => {
-      const { status, data } = await req(
-        port,
-        "POST",
-        "/api/provider/switch",
-        { apiKey: "sk-test-123" },
-      );
+      const { status, data } = await req(port, "POST", "/api/provider/switch", {
+        apiKey: "sk-test-123",
+      });
       expect(status).toBe(400);
       expect(data.error).toMatch(/missing provider/i);
     });
 
     it("rejects empty string provider", async () => {
-      const { status, data } = await req(
-        port,
-        "POST",
-        "/api/provider/switch",
-        { provider: "" },
-      );
+      const { status, data } = await req(port, "POST", "/api/provider/switch", {
+        provider: "",
+      });
       expect(status).toBe(400);
       expect(data.error).toMatch(/missing provider/i);
     });
 
     it("rejects unknown provider", async () => {
-      const { status, data } = await req(
-        port,
-        "POST",
-        "/api/provider/switch",
-        { provider: "banana-ai" },
-      );
+      const { status, data } = await req(port, "POST", "/api/provider/switch", {
+        provider: "banana-ai",
+      });
       expect(status).toBe(400);
       expect(data.error).toMatch(/invalid provider/i);
     });
@@ -180,6 +171,7 @@ describe("POST /api/provider/switch", () => {
     // These providers don't require an apiKey
     const nonKeyProviders = [
       "elizacloud",
+      "pi-ai",
       "openai-codex",
       "openai-subscription",
       "anthropic-subscription",
@@ -251,13 +243,28 @@ describe("POST /api/provider/switch", () => {
         provider: "google",
         apiKey: "AIza-test-key",
       });
-      expect(process.env.GOOGLE_API_KEY).toBe("AIza-test-key");
+      expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe("AIza-test-key");
 
       // Switch to cloud
       await req(port, "POST", "/api/provider/switch", {
         provider: "elizacloud",
       });
-      expect(process.env.GOOGLE_API_KEY).toBeUndefined();
+      expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBeUndefined();
+    });
+
+    it("switching to pi-ai clears direct API keys and sets flag", async () => {
+      await req(port, "POST", "/api/provider/switch", {
+        provider: "openai",
+        apiKey: "sk-test-openai-key-1234",
+      });
+      expect(process.env.OPENAI_API_KEY).toBe("sk-test-openai-key-1234");
+
+      await req(port, "POST", "/api/provider/switch", {
+        provider: "pi-ai",
+      });
+
+      expect(process.env.OPENAI_API_KEY).toBeUndefined();
+      expect(process.env.MILADY_USE_PI_AI).toBe("1");
     });
 
     it("trims whitespace from API keys before storing", async () => {

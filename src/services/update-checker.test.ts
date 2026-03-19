@@ -6,84 +6,105 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReleaseChannel } from "../config/types.milady";
 import { CHANNEL_DIST_TAGS } from "./update-checker";
+
+// The type is inlined to avoid resolving types.eliza vs types.eliza
+// depending on the workspace layout.
+type ReleaseChannel = "stable" | "beta" | "nightly";
 
 // ---------------------------------------------------------------------------
 // We test the pure logic functions by importing them directly.
 // Network-dependent functions are tested with mocked fetch.
 // ---------------------------------------------------------------------------
 
-// Mock config module before imports
-vi.mock("../config/config", () => ({
-  loadMiladyConfig: vi.fn(() => ({})),
-  saveMiladyConfig: vi.fn(),
+// Mock config module before imports.
+// The eliza workspace exports loadElizaConfig/saveElizaConfig while the npm
+// eliza fork exports loadElizaConfig/saveElizaConfig.  Provide both so the
+// mock satisfies whichever variant the resolved source uses.
+const { _loadConfig, _saveConfig } = vi.hoisted(() => ({
+  _loadConfig: vi.fn(() => ({})),
+  _saveConfig: vi.fn(),
+}));
+
+vi.mock("@elizaos/autonomous/config/config", () => ({
+  loadElizaConfig: _loadConfig,
+  saveElizaConfig: _saveConfig,
 }));
 
 // Mock version module
-vi.mock("../runtime/version", () => ({
+vi.mock("@elizaos/autonomous/runtime/version", () => ({
   VERSION: "2.0.0-alpha.7",
 }));
 
-import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
 import {
   checkForUpdate,
   fetchAllChannelVersions,
   resolveChannel,
-} from "./update-checker";
+} from "@elizaos/autonomous/services/update-checker";
 
 // ============================================================================
 // 1. Channel resolution
 // ============================================================================
 
 describe("resolveChannel", () => {
-  const originalEnv = process.env.MILADY_UPDATE_CHANNEL;
+  // The source uses ELIZA_UPDATE_CHANNEL to override the release channel.
+  // Set/clear it to be safe.
+  const ENV_KEYS = ["ELIZA_UPDATE_CHANNEL"] as const;
+  const originals = ENV_KEYS.map((k) => process.env[k]);
+
+  function setChannelEnv(value: string) {
+    for (const k of ENV_KEYS) process.env[k] = value;
+  }
+  function deleteChannelEnv() {
+    for (const k of ENV_KEYS) delete process.env[k];
+  }
 
   afterEach(() => {
-    if (originalEnv === undefined) {
-      delete process.env.MILADY_UPDATE_CHANNEL;
-    } else {
-      process.env.MILADY_UPDATE_CHANNEL = originalEnv;
-    }
+    ENV_KEYS.forEach((k, i) => {
+      if (originals[i] === undefined) delete process.env[k];
+      else process.env[k] = originals[i];
+    });
   });
 
   it("defaults to stable when no config is set", () => {
+    deleteChannelEnv();
     expect(resolveChannel(undefined)).toBe("stable");
   });
 
   it("returns the configured channel", () => {
+    deleteChannelEnv();
     expect(resolveChannel({ channel: "beta" })).toBe("beta");
     expect(resolveChannel({ channel: "nightly" })).toBe("nightly");
     expect(resolveChannel({ channel: "stable" })).toBe("stable");
   });
 
-  it("respects MILADY_UPDATE_CHANNEL env var override", () => {
-    process.env.MILADY_UPDATE_CHANNEL = "nightly";
+  it("respects update channel env var override", () => {
+    setChannelEnv("nightly");
     expect(resolveChannel({ channel: "stable" })).toBe("nightly");
   });
 
   it("ignores invalid env var values", () => {
-    process.env.MILADY_UPDATE_CHANNEL = "invalid";
+    setChannelEnv("invalid");
     expect(resolveChannel({ channel: "beta" })).toBe("beta");
   });
 
   it("handles env var with extra whitespace", () => {
-    process.env.MILADY_UPDATE_CHANNEL = "  beta  ";
+    setChannelEnv("  beta  ");
     expect(resolveChannel({ channel: "stable" })).toBe("beta");
   });
 
   it("handles env var case-insensitively", () => {
-    process.env.MILADY_UPDATE_CHANNEL = "NIGHTLY";
+    setChannelEnv("NIGHTLY");
     expect(resolveChannel(undefined)).toBe("nightly");
   });
 
   it("falls back to config when env var is empty string", () => {
-    process.env.MILADY_UPDATE_CHANNEL = "";
+    setChannelEnv("");
     expect(resolveChannel({ channel: "beta" })).toBe("beta");
   });
 
   it("falls back to config when env var is only whitespace", () => {
-    process.env.MILADY_UPDATE_CHANNEL = "   ";
+    setChannelEnv("   ");
     expect(resolveChannel({ channel: "nightly" })).toBe("nightly");
   });
 });
@@ -123,8 +144,8 @@ describe("checkForUpdate", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
-    vi.mocked(loadMiladyConfig).mockReturnValue({});
-    vi.mocked(saveMiladyConfig).mockImplementation(() => {});
+    _loadConfig.mockReturnValue({});
+    _saveConfig.mockImplementation(() => {});
     mockFetch.mockReset();
   });
 
@@ -192,7 +213,7 @@ describe("checkForUpdate", () => {
   });
 
   it("handles missing dist-tag", async () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: { channel: "nightly" },
     });
 
@@ -212,7 +233,7 @@ describe("checkForUpdate", () => {
   });
 
   it("saves last-check metadata to config", async () => {
-    vi.mocked(saveMiladyConfig).mockClear();
+    _saveConfig.mockClear();
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -223,15 +244,15 @@ describe("checkForUpdate", () => {
 
     await checkForUpdate({ force: true });
 
-    expect(saveMiladyConfig).toHaveBeenCalledOnce();
-    const savedConfig = vi.mocked(saveMiladyConfig).mock.calls[0][0];
+    expect(_saveConfig).toHaveBeenCalledOnce();
+    const savedConfig = _saveConfig.mock.calls[0][0] as Record<string, unknown>;
     expect(savedConfig.update?.lastCheckAt).toBeDefined();
     expect(savedConfig.update?.lastCheckVersion).toBe("2.1.0");
   });
 
   it("returns cached result within check interval", async () => {
     const recentCheck = new Date().toISOString();
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: {
         lastCheckAt: recentCheck,
         lastCheckVersion: "2.1.0",
@@ -250,7 +271,7 @@ describe("checkForUpdate", () => {
 
   it("bypasses cache when force is true", async () => {
     const recentCheck = new Date().toISOString();
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: {
         lastCheckAt: recentCheck,
         lastCheckVersion: "2.1.0",
@@ -273,7 +294,7 @@ describe("checkForUpdate", () => {
   });
 
   it("uses beta channel when configured", async () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: { channel: "beta" },
     });
 
@@ -297,7 +318,7 @@ describe("checkForUpdate", () => {
     const fiveHoursAgo = new Date(
       Date.now() - 5 * 60 * 60 * 1000,
     ).toISOString();
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: {
         lastCheckAt: fiveHoursAgo,
         lastCheckVersion: "2.0.0",
@@ -321,7 +342,7 @@ describe("checkForUpdate", () => {
 
   it("returns updateAvailable=false when cached with no lastCheckVersion", async () => {
     const recentCheck = new Date().toISOString();
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: {
         lastCheckAt: recentCheck,
         // lastCheckVersion is undefined
@@ -362,13 +383,14 @@ describe("checkForUpdate", () => {
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe("https://registry.npmjs.org/milady");
+    // The URL depends on which fork (elizaos vs elizaai) is resolved
+    expect(url).toMatch(/^https:\/\/registry\.npmjs\.org\/(elizaos|elizaai)$/);
     expect(options.headers.Accept).toBe("application/vnd.npm.install-v1+json");
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("writes warning to stderr when saveMiladyConfig throws", async () => {
-    vi.mocked(saveMiladyConfig).mockImplementation(() => {
+  it("writes warning to stderr when saveConfig throws", async () => {
+    _saveConfig.mockImplementation(() => {
       throw new Error("EACCES: permission denied");
     });
 
@@ -400,7 +422,7 @@ describe("checkForUpdate", () => {
   it("handles registry returning malformed JSON (no dist-tags key)", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ name: "milady", versions: {} }),
+      json: async () => ({ name: "eliza", versions: {} }),
     });
 
     const result = await checkForUpdate({ force: true });
@@ -427,7 +449,7 @@ describe("checkForUpdate", () => {
   });
 
   it("detects nightly update on nightly channel", async () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: { channel: "nightly" },
     });
 
@@ -467,7 +489,7 @@ describe("checkForUpdate", () => {
   });
 
   it("re-checks every time when checkIntervalSeconds is 0", async () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: {
         lastCheckAt: new Date().toISOString(), // just checked
         lastCheckVersion: "2.0.0",
@@ -488,7 +510,7 @@ describe("checkForUpdate", () => {
   });
 
   it("re-checks when lastCheckAt is an invalid date string", async () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    _loadConfig.mockReturnValue({
       update: {
         lastCheckAt: "not-a-date",
         lastCheckVersion: "2.0.0",
@@ -509,7 +531,7 @@ describe("checkForUpdate", () => {
   });
 
   it("handles concurrent calls without double-fetching from cache", async () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({});
+    _loadConfig.mockReturnValue({});
 
     let fetchCount = 0;
     mockFetch.mockImplementation(async () => {
@@ -630,12 +652,18 @@ describe("npm registry integration", () => {
       return;
     }
 
-    // Fetch the abbreviated packument directly (same way update-checker does)
-    const res = await globalThis.fetch("https://registry.npmjs.org/milady", {
-      headers: {
-        Accept: "application/vnd.npm.install-v1+json",
+    // Fetch the abbreviated packument directly (same way update-checker does).
+    // The resolved source may target either "elizaos" or "elizaai" on npm.
+    // We test against "elizaos" which is the upstream package name.
+    const packageName = "elizaos";
+    const res = await globalThis.fetch(
+      `https://registry.npmjs.org/${packageName}`,
+      {
+        headers: {
+          Accept: "application/vnd.npm.install-v1+json",
+        },
       },
-    });
+    );
 
     expect(res.ok).toBe(true);
 
@@ -645,7 +673,7 @@ describe("npm registry integration", () => {
     };
 
     // Verify the response has the expected shape
-    expect(data.name).toBe("milady");
+    expect(data.name).toBe(packageName);
     expect(data["dist-tags"]).toBeDefined();
     expect(typeof data["dist-tags"]).toBe("object");
 

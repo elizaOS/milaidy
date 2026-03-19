@@ -6,37 +6,24 @@ import {
   handleAgentLifecycleRoutes,
 } from "./agent-lifecycle-routes";
 
-function createRuntimeWithAutonomyService(
-  service: {
-    enableAutonomy: () => Promise<void>;
-    disableAutonomy: () => Promise<void>;
-  },
+function createRuntimeStub(
   plugins: Array<{ name: string }> = [],
 ): AgentRuntime {
   return {
+    enableAutonomy: true,
     plugins,
-    getService: vi.fn((name: string) => (name === "AUTONOMY" ? service : null)),
-  } as unknown as AgentRuntime;
+    getService: vi.fn(() => null),
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("agent lifecycle routes", () => {
   let state: AgentLifecycleRouteState;
-  let enableAutonomy: ReturnType<typeof vi.fn>;
-  let disableAutonomy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    enableAutonomy = vi.fn(async () => undefined);
-    disableAutonomy = vi.fn(async () => undefined);
     state = {
-      runtime: createRuntimeWithAutonomyService(
-        {
-          enableAutonomy,
-          disableAutonomy,
-        },
-        [{ name: "openai-main" }],
-      ),
+      runtime: createRuntimeStub([{ name: "openai-main" }]),
       agentState: "stopped",
-      agentName: "Milady",
+      agentName: "Eliza",
       model: undefined,
       startedAt: undefined,
     };
@@ -54,7 +41,9 @@ describe("agent lifecycle routes", () => {
         method: ctx.method,
         pathname: ctx.pathname,
         state: ctx.runtime,
+        error: (res, message, status) => ctx.error(res, message, status),
         json: (res, data, status) => ctx.json(res, data, status),
+        readJsonBody: () => ctx.readJsonBody(),
       }),
     { runtimeProvider: () => state },
   );
@@ -68,28 +57,27 @@ describe("agent lifecycle routes", () => {
     expect(result.handled).toBe(false);
   });
 
-  test("starts the agent and enables autonomy", async () => {
+  test("starts the agent in paused state", async () => {
     const result = await invoke({
       method: "POST",
       pathname: "/api/agent/start",
     });
 
     expect(result.status).toBe(200);
-    expect(state.agentState).toBe("running");
+    expect(state.agentState).toBe("paused");
     expect(state.model).toBe("openai-main");
     expect(state.startedAt).toBeTypeOf("number");
-    expect(enableAutonomy).toHaveBeenCalledTimes(1);
     expect(result.payload).toMatchObject({
       ok: true,
       status: {
-        state: "running",
-        agentName: "Milady",
+        state: "paused",
+        agentName: "Eliza",
         model: "openai-main",
       },
     });
   });
 
-  test("stops the agent and disables autonomy", async () => {
+  test("stops the agent", async () => {
     state.agentState = "running";
     state.startedAt = Date.now() - 3_000;
     state.model = "openai-main";
@@ -103,10 +91,9 @@ describe("agent lifecycle routes", () => {
     expect(state.agentState).toBe("stopped");
     expect(state.startedAt).toBeUndefined();
     expect(state.model).toBeUndefined();
-    expect(disableAutonomy).toHaveBeenCalledTimes(1);
     expect(result.payload).toMatchObject({
       ok: true,
-      status: { state: "stopped", agentName: "Milady" },
+      status: { state: "stopped", agentName: "Eliza" },
     });
   });
 
@@ -122,12 +109,11 @@ describe("agent lifecycle routes", () => {
 
     expect(result.status).toBe(200);
     expect(state.agentState).toBe("paused");
-    expect(disableAutonomy).toHaveBeenCalledTimes(1);
     expect(result.payload).toMatchObject({
       ok: true,
       status: {
         state: "paused",
-        agentName: "Milady",
+        agentName: "Eliza",
         model: "openai-main",
       },
     });
@@ -136,7 +122,7 @@ describe("agent lifecycle routes", () => {
     ).toBe(true);
   });
 
-  test("resumes the agent and enables autonomy", async () => {
+  test("resumes the agent", async () => {
     state.agentState = "paused";
     state.startedAt = Date.now() - 2_000;
     state.model = "openai-main";
@@ -148,14 +134,48 @@ describe("agent lifecycle routes", () => {
 
     expect(result.status).toBe(200);
     expect(state.agentState).toBe("running");
-    expect(enableAutonomy).toHaveBeenCalledTimes(1);
     expect(result.payload).toMatchObject({
       ok: true,
       status: {
         state: "running",
-        agentName: "Milady",
+        agentName: "Eliza",
         model: "openai-main",
       },
     });
+  });
+
+  test("reports autonomy enabled state", async () => {
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/agent/autonomy",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toEqual({ enabled: true });
+  });
+
+  test("toggles autonomy enabled state", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/autonomy",
+      body: { enabled: false },
+    });
+
+    expect(result.status).toBe(200);
+    expect(
+      (state.runtime as { enableAutonomy?: boolean } | null)?.enableAutonomy,
+    ).toBe(false);
+    expect(result.payload).toEqual({ enabled: false });
+  });
+
+  test("rejects invalid autonomy payloads", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/agent/autonomy",
+      body: { enabled: "nope" },
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.payload).toEqual({ error: "enabled must be a boolean" });
   });
 });

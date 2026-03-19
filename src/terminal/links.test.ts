@@ -70,12 +70,12 @@ describe("formatDocsLink", () => {
     const result = formatDocsLink("/getting-started", undefined, {
       force: false,
     });
-    expect(result).toBe("https://docs.milady.ai/getting-started");
+    expect(result).toBe("https://docs.eliza.ai/getting-started");
   });
 
   it("prepends / when path does not start with /", () => {
     const result = formatDocsLink("guide/setup", undefined, { force: false });
-    expect(result).toBe("https://docs.milady.ai/guide/setup");
+    expect(result).toBe("https://docs.eliza.ai/guide/setup");
   });
 
   it("passes through absolute URLs unchanged", () => {
@@ -88,13 +88,13 @@ describe("formatDocsLink", () => {
   it("uses provided label in link text when forced", () => {
     const result = formatDocsLink("/api", "API Docs", { force: true });
     expect(result).toBe(
-      "\u001b]8;;https://docs.milady.ai/api\u0007API Docs\u001b]8;;\u0007",
+      "\u001b]8;;https://docs.eliza.ai/api\u0007API Docs\u001b]8;;\u0007",
     );
   });
 
   it("uses url as fallback when force is false", () => {
     const result = formatDocsLink("/api", "API Docs", { force: false });
-    expect(result).toBe("https://docs.milady.ai/api");
+    expect(result).toBe("https://docs.eliza.ai/api");
   });
 
   it("uses custom fallback", () => {
@@ -107,6 +107,6 @@ describe("formatDocsLink", () => {
 
   it("trims path whitespace", () => {
     const result = formatDocsLink("  /trimmed  ", undefined, { force: false });
-    expect(result).toBe("https://docs.milady.ai/trimmed");
+    expect(result).toBe("https://docs.eliza.ai/trimmed");
   });
 });

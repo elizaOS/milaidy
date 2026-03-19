@@ -802,6 +802,75 @@ export const BlueBubblesConfigSchema = BlueBubblesAccountSchemaBase.extend({
   });
 });
 
+// ── Retake.tv streaming connector ──────────────────────────────────────────
+
+export const RetakeConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    accessToken: z.string().optional(),
+    apiUrl: z.string().url().optional(),
+    captureUrl: z.string().optional(),
+  })
+  .strict();
+
+// ── Twitch chat connector schema ──────────────────────────────────────────
+
+export const TwitchConnectorConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    username: z.string().optional(),
+    clientId: z.string().optional(),
+    accessToken: z.string().optional(),
+    clientSecret: z.string().optional(),
+    refreshToken: z.string().optional(),
+    channel: z.string().optional(),
+    channels: z.string().optional(),
+    requireMention: z.boolean().optional(),
+    allowedRoles: z.string().optional(),
+  })
+  .strict();
+
+// ── Streaming destination schemas ──────────────────────────────────────────
+
+export const TwitchStreamConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    streamKey: z.string().optional(),
+  })
+  .strict();
+
+export const YoutubeStreamConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    streamKey: z.string().optional(),
+    rtmpUrl: z.string().url().optional(),
+  })
+  .strict();
+
+export const CustomRtmpConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    rtmpUrl: z.string().optional(),
+    rtmpKey: z.string().optional(),
+  })
+  .strict();
+
+export const PumpfunStreamConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    streamKey: z.string().optional(),
+    rtmpUrl: z.string().optional(),
+  })
+  .strict();
+
+export const XStreamConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    streamKey: z.string().optional(),
+    rtmpUrl: z.string().optional(),
+  })
+  .strict();
+
 export const MSTeamsChannelSchema = z
   .object({
     requireMention: z.boolean().optional(),

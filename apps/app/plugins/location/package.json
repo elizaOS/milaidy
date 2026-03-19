@@ -1,11 +1,24 @@
 {
-  "name": "@milady/capacitor-location",
+  "name": "@miladyai/capacitor-location",
   "version": "1.0.0",
-  "private": true,
-  "description": "Location services plugin for Milady Capacitor app",
+  "description": "Reads current location, watches movement, and manages geolocation permissions.",
+  "keywords": [
+    "location",
+    "geolocation",
+    "device",
+    "permissions"
+  ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./src/index.ts",
-  "types": "./dist/plugin.d.ts",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/plugin.cjs.js"
+    },
+    "./package.json": "./package.json"
+  },
   "unpkg": "dist/plugin.js",
   "files": [
     "android/src/main/",
@@ -20,9 +33,17 @@
     "clean": "rimraf ./dist",
     "docgen": "docgen --api LocationPlugin --output-readme README.md --output-json dist/docs.json"
   },
+  "author": "Milady",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milady-ai/milady.git",
+    "directory": "apps/app/plugins/location"
+  },
   "capacitor": {
     "ios": {
-      "src": "ios"
+      "src": "ios",
+      "podName": "MiladyCapacitorLocation"
     },
     "android": {
       "src": "android"
@@ -39,6 +60,9 @@
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "milady": {
     "platforms": [
       "browser",
@@ -47,7 +71,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Full support via Geolocation API (current position, watch position, permissions)",
-      "node": "Full support via Electron with native geolocation services",
+      "node": "Full support via Electrobun with native geolocation services",
       "ios": true,
       "android": true
     }

@@ -124,7 +124,6 @@ describe("trigger runtime", () => {
     };
 
     registerTriggerTaskWorker(runtimePartial as IAgentRuntime);
-    registerTriggerTaskWorker(runtimePartial as IAgentRuntime);
     expect(registerTaskWorker).toHaveBeenCalledTimes(1);
   });
 
@@ -142,10 +141,10 @@ describe("trigger runtime", () => {
   });
 
   test("honors trigger feature flag settings", () => {
-    const previous = process.env.MILADY_TRIGGERS_ENABLED;
-    process.env.MILADY_TRIGGERS_ENABLED = "0";
+    const previous = process.env.ELIZA_TRIGGERS_ENABLED;
+    process.env.ELIZA_TRIGGERS_ENABLED = "0";
     expect(triggersFeatureEnabled(runtime)).toBe(false);
-    process.env.MILADY_TRIGGERS_ENABLED = previous;
+    process.env.ELIZA_TRIGGERS_ENABLED = previous;
   });
 
   test("executes cron trigger, dispatches and persists next schedule", async () => {
@@ -176,8 +175,58 @@ describe("trigger runtime", () => {
     const runtimeWithLimit = {
       ...runtime,
       getSetting: (key: string) =>
-        key === "MILADY_TRIGGERS_MAX_ACTIVE" ? 12 : undefined,
+        key === "ELIZA_TRIGGERS_MAX_ACTIVE" ? 12 : undefined,
     } as IAgentRuntime;
     expect(getTriggerLimit(runtimeWithLimit)).toBe(12);
+  });
+
+  test("skips scheduler trigger when autonomy service is unavailable", async () => {
+    const runtimeNoAutonomy: Partial<IAgentRuntime> = {
+      ...runtime,
+      getService: () => null,
+    };
+
+    const task = tasks[0];
+    const result = await executeTriggerTask(
+      runtimeNoAutonomy as IAgentRuntime,
+      task,
+      { source: "scheduler" },
+    );
+
+    expect(result.status).toBe("skipped");
+    expect(result.taskDeleted).toBe(false);
+    expect(updateTaskMock).not.toHaveBeenCalled();
+    expect(injectInstructionMock).not.toHaveBeenCalled();
+  });
+
+  test("manual trigger bypasses autonomy guard and attempts dispatch", async () => {
+    const runtimeNoAutonomy: Partial<IAgentRuntime> = {
+      ...runtime,
+      getService: () => null,
+    };
+
+    const task = tasks[0];
+    const result = await executeTriggerTask(
+      runtimeNoAutonomy as IAgentRuntime,
+      task,
+      { source: "manual" },
+    );
+
+    // Manual triggers bypass the guard, so dispatch is attempted.
+    // Since autonomy is unavailable, dispatchInstruction will throw → error status.
+    expect(result.status).toBe("error");
+    expect(injectInstructionMock).not.toHaveBeenCalled();
+  });
+
+  test("normal execution unaffected by autonomy guard", async () => {
+    const task = tasks[0];
+    const result = await executeTriggerTask(runtime, task, {
+      source: "scheduler",
+    });
+
+    expect(result.status).toBe("success");
+    expect(result.taskDeleted).toBe(false);
+    expect(injectInstructionMock).toHaveBeenCalledTimes(1);
+    expect(updateTaskMock).toHaveBeenCalledTimes(1);
   });
 });

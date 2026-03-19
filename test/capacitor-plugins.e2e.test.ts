@@ -11,42 +11,51 @@
  * These tests require plugins to be built first (bun run plugin:build).
  */
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const pluginsDir = path.resolve(here, "../apps/app/plugins");
+const localRequire = createRequire(import.meta.url);
 
-function resolveEsmIndexPath(pluginDir: string): string | null {
-  const standard = path.join(pluginDir, "dist", "esm", "index");
-  if (fs.existsSync(standard)) return standard;
-
-  const nested = path.join(pluginDir, "dist", "esm", "src", "index");
-  if (fs.existsSync(nested)) return nested;
+function resolveExistingPath(candidates: string[]): string | null {
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
 
   return null;
 }
 
+function resolveEsmIndexPath(pluginDir: string): string | null {
+  return resolveExistingPath([
+    path.join(pluginDir, "dist", "esm", "index.js"),
+    path.join(pluginDir, "dist", "esm", "src", "index.js"),
+    path.join(pluginDir, "dist", "esm", "index"),
+    path.join(pluginDir, "dist", "esm", "src", "index"),
+  ]);
+}
+
+function resolvePackageDir(packageName: string): string {
+  return path.dirname(localRequire.resolve(`${packageName}/package.json`));
+}
+
 const PLUGINS = [
-  { dir: "gateway", name: "@milady/capacitor-gateway", exportName: "Gateway" },
-  { dir: "camera", name: "@milady/capacitor-camera", exportName: "Camera" },
-  { dir: "canvas", name: "@milady/capacitor-canvas", exportName: "Canvas" },
-  { dir: "desktop", name: "@milady/capacitor-desktop", exportName: "Desktop" },
+  { name: "@miladyai/capacitor-gateway", exportName: "Gateway" },
+  { name: "@miladyai/capacitor-camera", exportName: "Camera" },
+  { name: "@miladyai/capacitor-canvas", exportName: "Canvas" },
+  { name: "@miladyai/capacitor-desktop", exportName: "Desktop" },
   {
-    dir: "location",
-    name: "@milady/capacitor-location",
+    name: "@miladyai/capacitor-location",
     exportName: "Location",
   },
   {
-    dir: "screencapture",
-    name: "@milady/capacitor-screencapture",
+    name: "@miladyai/capacitor-screencapture",
     exportName: "ScreenCapture",
   },
-  { dir: "swabble", name: "@milady/capacitor-swabble", exportName: "Swabble" },
+  { name: "@miladyai/capacitor-swabble", exportName: "Swabble" },
   {
-    dir: "talkmode",
-    name: "@milady/capacitor-talkmode",
+    name: "@miladyai/capacitor-talkmode",
     exportName: "TalkMode",
   },
 ];
@@ -54,7 +63,7 @@ const PLUGINS = [
 describe("Capacitor Plugin Build Verification", () => {
   for (const plugin of PLUGINS) {
     describe(plugin.name, () => {
-      const dir = path.join(pluginsDir, plugin.dir);
+      const dir = resolvePackageDir(plugin.name);
       const pkgPath = path.join(dir, "package.json");
 
       it("package.json exists and is valid JSON", () => {
@@ -78,6 +87,26 @@ describe("Capacitor Plugin Build Verification", () => {
         expect(pkg.types).toBeDefined();
       });
 
+      it("uses the ESM index for module and import entry points", () => {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+        const esmPath =
+          resolveEsmIndexPath(dir)?.replaceAll(path.sep, "/") ?? null;
+
+        if (!esmPath) {
+          console.warn(`[SKIP] ${plugin.name}: ESM build not found`);
+          return;
+        }
+
+        const modulePath = String(pkg.module ?? "").replaceAll(path.sep, "/");
+        const importPath = String(pkg.exports?.["."]?.import ?? "").replaceAll(
+          path.sep,
+          "/",
+        );
+
+        expect(modulePath).toBe("./dist/esm/index.js");
+        expect(importPath).toBe("./dist/esm/index.js");
+      });
+
       it("dist/ directory exists with built files", () => {
         const distDir = path.join(dir, "dist");
         const built = fs.existsSync(distDir);
@@ -89,16 +118,20 @@ describe("Capacitor Plugin Build Verification", () => {
           return;
         }
 
-        const cjsPath = path.join(distDir, "plugin.cjs");
+        const cjsPath = resolveExistingPath([
+          path.join(distDir, "plugin.cjs.js"),
+          path.join(distDir, "plugin.cjs"),
+        ]);
         const esmPath = resolveEsmIndexPath(dir);
 
         // Check type declarations
-        const standardTypes = path.join(distDir, "esm", "index.d.ts");
-        const nestedTypes = path.join(distDir, "esm", "src", "index.d.ts");
         const hasTypes =
-          fs.existsSync(standardTypes) || fs.existsSync(nestedTypes);
+          resolveExistingPath([
+            path.join(distDir, "esm", "index.d.ts"),
+            path.join(distDir, "esm", "src", "index.d.ts"),
+          ]) !== null;
 
-        if (!fs.existsSync(cjsPath) || !esmPath || !hasTypes) {
+        if (!cjsPath || !esmPath || !hasTypes) {
           console.warn(
             `[SKIP] ${plugin.name}: partial dist output (run bun run plugin:build)`,
           );

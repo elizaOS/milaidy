@@ -16,13 +16,17 @@ import http from "node:http";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-// Load .env from the eliza workspace root
-const envPath = path.resolve(import.meta.dirname, "..", "..", "eliza", ".env");
-try {
-  const { config } = await import("dotenv");
-  config({ path: envPath });
-} catch {
-  // dotenv may not be available — keys must be in process.env already
+const liveTestsEnabled = process.env.MILADY_LIVE_TEST === "1";
+
+// Load .env from the repository root only for explicit live runs.
+if (liveTestsEnabled) {
+  const envPath = path.resolve(import.meta.dirname, "..", ".env");
+  try {
+    const { config } = await import("dotenv");
+    config({ path: envPath });
+  } catch {
+    // dotenv may not be available — keys must be in process.env already
+  }
 }
 
 // Normalize key names: .env uses SOLANA_API_KEY, wallet expects SOLANA_PRIVATE_KEY
@@ -43,7 +47,8 @@ const hasEvmKey = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
 const hasSolKey = Boolean(process.env.SOLANA_PRIVATE_KEY?.trim());
 const hasAlchemy = Boolean(process.env.ALCHEMY_API_KEY?.trim());
 const hasHelius = Boolean(process.env.HELIUS_API_KEY?.trim());
-const canRun = hasEvmKey && hasSolKey && hasAlchemy && hasHelius;
+const canRun =
+  liveTestsEnabled && hasEvmKey && hasSolKey && hasAlchemy && hasHelius;
 const WALLET_EXPORT_TOKEN = `wallet-live-export-token-${Date.now()}`;
 
 function req(

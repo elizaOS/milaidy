@@ -1,0 +1,102 @@
+{
+  "assets": [
+    {
+      "id": 1,
+      "slug": "milady-1",
+      "title": "Chen",
+      "sourceName": "Chen"
+    },
+    {
+      "id": 2,
+      "slug": "milady-2",
+      "title": "Jin",
+      "sourceName": "Jin"
+    },
+    {
+      "id": 3,
+      "slug": "milady-3",
+      "title": "Kei",
+      "sourceName": "Kei"
+    },
+    {
+      "id": 4,
+      "slug": "milady-4",
+      "title": "Momo",
+      "sourceName": "Momo"
+    },
+    {
+      "id": 5,
+      "slug": "milady-5",
+      "title": "Rin",
+      "sourceName": "Rin"
+    },
+    {
+      "id": 6,
+      "slug": "milady-6",
+      "title": "Ryu",
+      "sourceName": "Ryu"
+    },
+    {
+      "id": 7,
+      "slug": "milady-7",
+      "title": "Satoshi",
+      "sourceName": "Satoshi"
+    },
+    {
+      "id": 8,
+      "slug": "milady-8",
+      "title": "Yuki",
+      "sourceName": "Yuki"
+    }
+  ],
+  "injectedCharacters": [
+    {
+      "catchphrase": "I'm here to help you.",
+      "name": "Chen",
+      "avatarAssetId": 1,
+      "voicePresetId": "sarah"
+    },
+    {
+      "catchphrase": "I'm here to get things done.",
+      "name": "Jin",
+      "avatarAssetId": 2,
+      "voicePresetId": "adam"
+    },
+    {
+      "catchphrase": "I'm online and ready.",
+      "name": "Kei",
+      "avatarAssetId": 3,
+      "voicePresetId": "josh"
+    },
+    {
+      "catchphrase": "I'm ready to assist.",
+      "name": "Momo",
+      "avatarAssetId": 4,
+      "voicePresetId": "alice"
+    },
+    {
+      "catchphrase": "Let's build something fun.",
+      "name": "Rin",
+      "avatarAssetId": 5,
+      "voicePresetId": "matilda"
+    },
+    {
+      "catchphrase": "I am ready when you are.",
+      "name": "Ryu",
+      "avatarAssetId": 6,
+      "voicePresetId": "daniel"
+    },
+    {
+      "catchphrase": "Show me what we're building.",
+      "name": "Satoshi",
+      "avatarAssetId": 7,
+      "voicePresetId": "brian"
+    },
+    {
+      "catchphrase": "Let's figure this out together.",
+      "name": "Yuki",
+      "avatarAssetId": 8,
+      "voicePresetId": "lily"
+    }
+  ]
+}

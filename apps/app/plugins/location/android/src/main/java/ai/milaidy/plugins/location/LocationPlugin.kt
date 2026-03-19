@@ -208,12 +208,12 @@ class LocationPlugin : Plugin() {
     // ── Permissions ─────────────────────────────────────────────────────
 
     @PluginMethod
-    fun checkPermissions(call: PluginCall) {
+    override fun checkPermissions(call: PluginCall) {
         call.resolve(buildPermissionResult())
     }
 
     @PluginMethod
-    fun requestPermissions(call: PluginCall) {
+    override fun requestPermissions(call: PluginCall) {
         if (hasRequiredPermissions()) {
             call.resolve(buildPermissionResult())
             return
@@ -252,7 +252,7 @@ class LocationPlugin : Plugin() {
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
-    private fun hasRequiredPermissions(): Boolean {
+    override fun hasRequiredPermissions(): Boolean {
         return getPermissionState("location") == com.getcapacitor.PermissionState.GRANTED
     }
 

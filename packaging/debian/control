@@ -12,10 +12,10 @@ Rules-Requires-Root: no
 Package: milady
 Architecture: all
 Depends: nodejs (>= 22.12.0), ${misc:Depends}
-Recommends: npm
-Description: Personal AI assistant built on ElizaOS
+Recommends: npm, systemd
+Description: Personal AI assistant built on elizaOS
  Milady is a personal AI assistant you run on your own devices, built
- on ElizaOS. It provides zero-config onboarding, multi-provider AI
+ on elizaOS. It provides zero-config onboarding, multi-provider AI
  support, a web dashboard, and a plugin system.
  .
  Features:

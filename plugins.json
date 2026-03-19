@@ -1,14 +1,22 @@
 {
   "$schema": "plugin-index-v1",
-  "generatedAt": "2026-02-09T20:23:38.561Z",
-  "count": 97,
+  "generatedAt": "2026-03-14T08:11:48.802Z",
+  "count": 105,
   "plugins": [
     {
       "id": "acp",
       "dirName": "plugin-acp",
       "name": "Acp",
       "npmName": "@elizaos/plugin-acp",
-      "description": "",
+      "description": "Agent Communication Protocol connector for linking agents through an ACP gateway.",
+      "tags": [
+        "connector",
+        "agents",
+        "gateway",
+        "realtime",
+        "integration",
+        "acp"
+      ],
       "category": "connector",
       "envKey": "ACP_GATEWAY_TOKEN",
       "configKeys": [
@@ -129,96 +137,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "ACP_GATEWAY_URL": {
-          "label": "Gateway URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "ACP_GATEWAY_TOKEN": {
-          "label": "Gateway Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ACP_GATEWAY_PASSWORD": {
-          "label": "Gateway Password",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ACP_DEFAULT_SESSION_KEY": {
-          "label": "Default Session Key",
-          "group": "Session",
-          "width": "half"
-        },
-        "ACP_DEFAULT_SESSION_LABEL": {
-          "label": "Default Session Label",
-          "group": "Session",
-          "width": "half"
-        },
-        "ACP_REQUIRE_EXISTING": {
-          "label": "Require Existing Session",
-          "group": "Session",
-          "width": "half"
-        },
-        "ACP_RESET_SESSION": {
-          "label": "Reset Session on Start",
-          "group": "Session",
-          "width": "half"
-        },
-        "ACP_PREFIX_CWD": {
-          "label": "Prefix CWD",
-          "group": "Advanced",
-          "width": "full",
-          "advanced": true
-        },
-        "ACP_VERBOSE": {
-          "label": "Verbose Logging",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "ACP_CLIENT_NAME": {
-          "label": "Client Name",
-          "group": "Client Identity",
-          "width": "half"
-        },
-        "ACP_CLIENT_DISPLAY_NAME": {
-          "label": "Client Display Name",
-          "group": "Client Identity",
-          "width": "half"
-        },
-        "ACP_CLIENT_VERSION": {
-          "label": "Client Version",
-          "group": "Client Identity",
-          "width": "half"
-        },
-        "ACP_CLIENT_MODE": {
-          "label": "Client Mode",
-          "group": "Client Identity",
-          "width": "half"
-        },
-        "ACP_PERSIST_SESSIONS": {
-          "label": "Persist Sessions",
-          "group": "Session",
-          "width": "half"
-        },
-        "ACP_SESSION_STORE_PATH": {
-          "label": "Session Store Path",
-          "group": "Session",
-          "width": "full"
-        },
-        "ACP_AGENT_ID": {
-          "label": "Agent ID",
-          "group": "Client Identity",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#acp-agent-communication-protocol"
     },
     {
       "id": "agent-orchestrator",
       "dirName": "plugin-agent-orchestrator",
       "name": "Agent Orchestrator",
       "npmName": "@elizaos/plugin-agent-orchestrator",
-      "description": "Agent orchestration plugin for ElizaOS (task lifecycle + agent providers)",
+      "description": "Coding agent orchestration plugin - spawn and manage CLI coding agents via PTY",
+      "tags": ["agent-orchestrator", "agent", "orchestrator"],
       "category": "feature",
       "envKey": null,
       "configKeys": ["ORCHESTRATOR_ACTIVE_PROVIDER"],
@@ -230,13 +157,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "ORCHESTRATOR_ACTIVE_PROVIDER": {
-          "label": "Active Provider",
-          "group": "General",
-          "width": "half"
-        }
       }
     },
     {
@@ -245,6 +165,15 @@
       "name": "Agent Skills",
       "npmName": "@elizaos/plugin-agent-skills",
       "description": "Agent Skills plugin for elizaOS - implement the Agent Skills specification with progressive disclosure",
+      "tags": [
+        "agent-skills",
+        "clawhub",
+        "otto",
+        "skills",
+        "agents",
+        "progressive-disclosure",
+        "agent"
+      ],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -286,36 +215,6 @@
           "required": false,
           "example": "./milady/skills"
         }
-      },
-      "configUiHints": {
-        "SKILLS_DIR": {
-          "label": "Skills Directory",
-          "group": "Paths",
-          "width": "full"
-        },
-        "SKILLS_AUTO_LOAD": {
-          "label": "Auto-Load Skills",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "SKILLS_REGISTRY": {
-          "label": "Registry URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "BUNDLED_SKILLS_DIRS": {
-          "label": "Bundled Skills Directories",
-          "group": "Paths",
-          "width": "full",
-          "help": "Comma-separated list of directories"
-        },
-        "OTTO_BUNDLED_SKILLS_DIR": {
-          "label": "Otto Bundled Skills Dir",
-          "group": "Paths",
-          "width": "full",
-          "advanced": true,
-          "help": "Legacy setting for Otto bundled skills"
-        }
       }
     },
     {
@@ -323,7 +222,8 @@
       "dirName": "plugin-anthropic",
       "name": "Anthropic",
       "npmName": "@elizaos/plugin-anthropic",
-      "description": "",
+      "description": "Anthropic model provider for Claude chat and reasoning models.",
+      "tags": ["ai-provider", "llm", "anthropic", "chat"],
       "category": "ai-provider",
       "envKey": "ANTHROPIC_API_KEY",
       "configKeys": [
@@ -369,34 +269,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "ANTHROPIC_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ANTHROPIC_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "ANTHROPIC_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "ANTHROPIC_EXPERIMENTAL_TELEMETRY": {
-          "label": "Experimental Telemetry",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "ANTHROPIC_BROWSER_BASE_URL": {
-          "label": "Browser Proxy URL",
-          "group": "Advanced",
-          "width": "full",
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#anthropic"
     },
     {
       "id": "auto-trader",
@@ -404,6 +277,15 @@
       "name": "Auto Trader",
       "npmName": "@elizaos/plugin-auto-trader",
       "description": "Autonomous trading plugin with LLM-powered strategies for Solana",
+      "tags": [
+        "trading",
+        "solana",
+        "jupiter",
+        "defi",
+        "auto-trader",
+        "auto",
+        "trader"
+      ],
       "category": "feature",
       "envKey": "BIRDEYE_API_KEY",
       "configKeys": [
@@ -551,131 +433,6 @@
           "required": true,
           "sensitive": true
         }
-      },
-      "configUiHints": {
-        "BIRDEYE_API_KEY": {
-          "label": "Birdeye API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ZEROEX_API_KEY": {
-          "label": "0x API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "SOLANA_RPC_URL": {
-          "label": "Solana RPC URL",
-          "group": "Connection",
-          "width": "half"
-        },
-        "EVM_PROVIDER_URL": {
-          "label": "EVM Provider URL",
-          "group": "Connection",
-          "width": "half"
-        },
-        "SOLANA_PRIVATE_KEY": {
-          "label": "Solana Private Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "SOLANA_ADDRESS": {
-          "label": "Wallet Address",
-          "group": "Connection",
-          "width": "half"
-        },
-        "SOLANA_ENABLED": {
-          "label": "Solana Enabled",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "TRADING_MODE": {
-          "label": "Trading Mode",
-          "group": "Trading",
-          "width": "half"
-        },
-        "MAX_PORTFOLIO_ALLOCATION": {
-          "label": "Max Portfolio Allocation",
-          "group": "Risk Management",
-          "width": "half",
-          "unit": "%",
-          "min": 0,
-          "max": 100
-        },
-        "MIN_LIQUIDITY_USD": {
-          "label": "Min Liquidity",
-          "group": "Risk Management",
-          "width": "half",
-          "unit": "USD",
-          "min": 0
-        },
-        "MIN_VOLUME_24H_USD": {
-          "label": "Min 24h Volume",
-          "group": "Risk Management",
-          "width": "half",
-          "unit": "USD",
-          "min": 0
-        },
-        "MIN_SELL_COUNT_24H": {
-          "label": "Min 24h Sell Count",
-          "group": "Risk Management",
-          "width": "half",
-          "min": 0
-        },
-        "MAX_BUY_SELL_RATIO": {
-          "label": "Max Buy/Sell Ratio",
-          "group": "Risk Management",
-          "width": "half",
-          "min": 0
-        },
-        "RUGCHECK_ENABLED": {
-          "label": "Rug Check",
-          "group": "Risk Management",
-          "advanced": true
-        },
-        "STOP_LOSS_PERCENT": {
-          "label": "Stop Loss",
-          "group": "Trading",
-          "width": "half",
-          "unit": "%",
-          "min": 0,
-          "max": 100
-        },
-        "TAKE_PROFIT_PERCENT": {
-          "label": "Take Profit",
-          "group": "Trading",
-          "width": "half",
-          "unit": "%",
-          "min": 0
-        },
-        "TRADING_INTERVAL_MS": {
-          "label": "Trading Interval",
-          "group": "Trading",
-          "width": "half",
-          "unit": "ms",
-          "min": 1000
-        },
-        "MAX_DAILY_LOSS_USD": {
-          "label": "Max Daily Loss",
-          "group": "Risk Management",
-          "width": "half",
-          "unit": "USD",
-          "min": 0
-        },
-        "MAX_POSITION_SIZE_USD": {
-          "label": "Max Position Size",
-          "group": "Risk Management",
-          "width": "half",
-          "unit": "USD",
-          "min": 0
-        },
-        "SLIPPAGE_BPS": {
-          "label": "Slippage",
-          "group": "Trading",
-          "width": "half",
-          "unit": "bps",
-          "min": 0,
-          "max": 10000
-        }
       }
     },
     {
@@ -683,7 +440,7 @@
       "dirName": "plugin-babylon",
       "name": "Babylon",
       "npmName": "@elizaos/plugin-babylon",
-      "description": "Babylon prediction market platform integration for ElizaOS with autonomous trading, social features, and A2A protocol support",
+      "description": "Babylon prediction market platform integration for elizaOS with autonomous trading, social features, and A2A protocol support",
       "category": "app",
       "envKey": null,
       "configKeys": [
@@ -877,14 +634,16 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "tags": ["app", "interactive", "babylon"]
     },
     {
       "id": "blooio",
       "dirName": "plugin-blooio",
       "name": "Blooio",
       "npmName": "@elizaos/plugin-blooio",
-      "description": "Blooio plugin for iMessage/SMS messaging integration",
+      "description": "Integrates Blooio iMessage/SMS messaging into ElizaOS with signed webhooks and outbound message sending.",
+      "tags": ["connector", "social", "social-chat", "messaging", "blooio"],
       "category": "connector",
       "envKey": "BLOOIO_API_KEY",
       "configKeys": [
@@ -948,59 +707,22 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "BLOOIO_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "BLOOIO_WEBHOOK_URL": {
-          "label": "Webhook URL",
-          "group": "Webhook",
-          "width": "full"
-        },
-        "BLOOIO_WEBHOOK_SECRET": {
-          "label": "Webhook Secret",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "BLOOIO_BASE_URL": {
-          "label": "Base URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "BLOOIO_WEBHOOK_PORT": {
-          "label": "Webhook Port",
-          "group": "Webhook",
-          "width": "half",
-          "min": 1,
-          "max": 65535
-        },
-        "BLOOIO_FROM_NUMBER": {
-          "label": "From Number",
-          "group": "Messaging",
-          "width": "half"
-        },
-        "BLOOIO_SIGNATURE_TOLERANCE_SEC": {
-          "label": "Signature Tolerance",
-          "group": "Advanced",
-          "width": "half",
-          "unit": "s",
-          "advanced": true
-        },
-        "BLOOIO_WEBHOOK_PATH": {
-          "label": "Webhook Path",
-          "group": "Webhook",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#blooio-sms-via-api"
     },
     {
       "id": "bluebubbles",
       "dirName": "plugin-bluebubbles",
       "name": "Bluebubbles",
       "npmName": "@elizaos/plugin-bluebubbles",
-      "description": "",
+      "description": "BlueBubbles connector for sending and receiving iMessage chats through the BlueBubbles bridge.",
+      "tags": [
+        "connector",
+        "messaging",
+        "imessage",
+        "bluebubbles",
+        "social",
+        "social-chat"
+      ],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -1071,62 +793,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "BLUEBUBBLES_SERVER_URL": {
-          "label": "Server URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "BLUEBUBBLES_PASSWORD": {
-          "label": "Password",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "BLUEBUBBLES_WEBHOOK_PATH": {
-          "label": "Webhook Path",
-          "group": "Connection",
-          "width": "half"
-        },
-        "BLUEBUBBLES_DM_POLICY": {
-          "label": "DM Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "BLUEBUBBLES_GROUP_POLICY": {
-          "label": "Group Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "BLUEBUBBLES_ALLOW_FROM": {
-          "label": "Allowed Senders (DM)",
-          "group": "Policies",
-          "width": "full",
-          "help": "Comma-separated list of allowed contacts"
-        },
-        "BLUEBUBBLES_GROUP_ALLOW_FROM": {
-          "label": "Allowed Senders (Group)",
-          "group": "Policies",
-          "width": "full",
-          "help": "Comma-separated list of allowed contacts"
-        },
-        "BLUEBUBBLES_SEND_READ_RECEIPTS": {
-          "label": "Send Read Receipts",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "BLUEBUBBLES_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#bluebubbles-imessage-from-any-platform"
     },
     {
       "id": "bluesky",
       "dirName": "plugin-bluesky",
       "name": "Bluesky",
       "npmName": "@elizaos/plugin-bluesky",
-      "description": "",
+      "description": "Bluesky connector for ElizaOS",
+      "tags": ["connector", "social", "social-feed", "bluesky"],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -1252,103 +927,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "BLUESKY_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        },
-        "BLUESKY_DRY_RUN": {
-          "label": "Dry Run",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "BLUESKY_HANDLE": {
-          "label": "Handle",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "BLUESKY_PASSWORD": {
-          "label": "App Password",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "BLUESKY_SERVICE": {
-          "label": "Service URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "BLUESKY_MAX_POST_LENGTH": {
-          "label": "Max Post Length",
-          "group": "Posting",
-          "width": "half",
-          "min": 1,
-          "max": 3000
-        },
-        "BLUESKY_POLL_INTERVAL": {
-          "label": "Poll Interval",
-          "group": "Timing",
-          "width": "half",
-          "unit": "s",
-          "min": 10
-        },
-        "BLUESKY_ENABLE_POSTING": {
-          "label": "Enable Posting",
-          "group": "Posting",
-          "width": "half"
-        },
-        "BLUESKY_POST_INTERVAL_MIN": {
-          "label": "Post Interval (Min)",
-          "group": "Timing",
-          "width": "half",
-          "unit": "s",
-          "min": 60
-        },
-        "BLUESKY_POST_INTERVAL_MAX": {
-          "label": "Post Interval (Max)",
-          "group": "Timing",
-          "width": "half",
-          "unit": "s",
-          "min": 60
-        },
-        "BLUESKY_ENABLE_ACTION_PROCESSING": {
-          "label": "Enable Action Processing",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "BLUESKY_ACTION_INTERVAL": {
-          "label": "Action Interval",
-          "group": "Advanced",
-          "width": "half",
-          "unit": "s",
-          "min": 10,
-          "advanced": true
-        },
-        "BLUESKY_POST_IMMEDIATELY": {
-          "label": "Post Immediately",
-          "group": "Posting",
-          "width": "half"
-        },
-        "BLUESKY_MAX_ACTIONS_PROCESSING": {
-          "label": "Max Actions per Batch",
-          "group": "Advanced",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        },
-        "BLUESKY_ENABLE_DMS": {
-          "label": "Enable DMs",
-          "group": "General",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#bluesky"
     },
     {
       "id": "browser",
       "dirName": "plugin-browser",
       "name": "Browser",
       "npmName": "@elizaos/plugin-browser",
-      "description": "Browser automation plugin for ElizaOS - enables AI agents to browse websites, interact with elements, and extract data",
+      "description": "Web scraping and content extraction with Playwright",
+      "tags": ["browser", "web-scraping"],
       "category": "feature",
       "envKey": "BROWSERBASE_API_KEY",
       "configKeys": [
@@ -1392,39 +979,69 @@
           "description": "CapSolver API key for automated CAPTCHA solving",
           "required": false
         }
-      },
-      "configUiHints": {
-        "BROWSERBASE_API_KEY": {
-          "label": "BrowserBase API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "BROWSERBASE_PROJECT_ID": {
-          "label": "BrowserBase Project ID",
-          "group": "Connection",
-          "width": "half"
-        },
-        "OPENAI_API_KEY": {
-          "label": "OpenAI API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ANTHROPIC_API_KEY": {
-          "label": "Anthropic API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "BROWSER_HEADLESS": {
-          "label": "Headless Mode",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "CAPSOLVER_API_KEY": {
-          "label": "CapSolver API Key",
-          "group": "Authentication",
-          "width": "half"
-        }
       }
+    },
+    {
+      "id": "clawbal",
+      "dirName": "app-clawbal",
+      "name": "Clawbal Chat",
+      "npmName": "@iqlabs-official/plugin-clawbal",
+      "description": "On-chain AI chatrooms on Solana — agents chat, trade, launch tokens, and compete on PnL leaderboards",
+      "category": "app",
+      "envKey": "SOLANA_PRIVATE_KEY",
+      "configKeys": [
+        "SOLANA_PRIVATE_KEY",
+        "SOLANA_RPC_URL",
+        "CLAWBAL_CHATROOM",
+        "MOLTBOOK_TOKEN",
+        "BAGS_API_KEY",
+        "IMAGE_API_KEY",
+        "MILADY_ASSETS_PATH"
+      ],
+      "version": "1.0.0",
+      "gitUrl": "https://github.com/IQCoreTeam/milady-clawbal.git",
+      "pluginParameters": {
+        "SOLANA_PRIVATE_KEY": {
+          "type": "string",
+          "description": "Solana wallet private key (base58 or JSON array)",
+          "required": true,
+          "sensitive": true
+        },
+        "SOLANA_RPC_URL": {
+          "type": "string",
+          "description": "Solana RPC endpoint (default: mainnet)",
+          "required": false
+        },
+        "CLAWBAL_CHATROOM": {
+          "type": "string",
+          "description": "Default chatroom (default: Trenches)",
+          "required": false
+        },
+        "MOLTBOOK_TOKEN": {
+          "type": "string",
+          "description": "Moltbook API token for posting",
+          "required": false,
+          "sensitive": true
+        },
+        "BAGS_API_KEY": {
+          "type": "string",
+          "description": "bags.fm API key for token launches",
+          "required": false,
+          "sensitive": true
+        },
+        "IMAGE_API_KEY": {
+          "type": "string",
+          "description": "Image generation API key (auto-detects provider from prefix)",
+          "required": false,
+          "sensitive": true
+        },
+        "MILADY_ASSETS_PATH": {
+          "type": "string",
+          "description": "Path to milady-image-generator assets for unique PFP generation",
+          "required": false
+        }
+      },
+      "tags": ["app", "interactive", "clawbal"]
     },
     {
       "id": "cli",
@@ -1432,6 +1049,7 @@
       "name": "Cli",
       "npmName": "@elizaos/plugin-cli",
       "description": "CLI framework plugin for ElizaOS agents - provides command registration, execution, and utilities",
+      "tags": ["cli", "developer-tools", "terminal"],
       "category": "feature",
       "envKey": null,
       "configKeys": ["CLI_NAME", "CLI_VERSION"],
@@ -1449,18 +1067,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "CLI_NAME": {
-          "label": "CLI Name",
-          "group": "General",
-          "width": "half"
-        },
-        "CLI_VERSION": {
-          "label": "CLI Version",
-          "group": "General",
-          "width": "half"
-        }
       }
     },
     {
@@ -1468,7 +1074,8 @@
       "dirName": "plugin-code",
       "name": "Code",
       "npmName": "@elizaos/plugin-code",
-      "description": "Coder tools plugin for ElizaOS (filesystem + shell + git)",
+      "description": "A coder tools plugin for elizaOS that provides filesystem, shell, and git capabilities in a restricted/sandboxed environment.",
+      "tags": ["coding", "filesystem", "shell", "git", "code"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1504,32 +1111,20 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "CODER_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        },
-        "CODER_ALLOWED_DIRECTORY": {
-          "label": "Allowed Directory",
-          "group": "Security",
-          "width": "full"
-        },
-        "CODER_TIMEOUT": {
-          "label": "Timeout",
-          "group": "Behavior",
-          "width": "half",
-          "unit": "ms",
-          "min": 1000
-        },
-        "CODER_FORBIDDEN_COMMANDS": {
-          "label": "Forbidden Commands",
-          "group": "Security",
-          "width": "full",
-          "help": "Comma-separated list of forbidden shell commands"
-        }
       }
+    },
+    {
+      "id": "coding-agent",
+      "dirName": "plugin-coding-agent",
+      "name": "Coding Agent Swarms",
+      "npmName": "@elizaos/plugin-coding-agent",
+      "description": "Orchestrate CLI coding agents (Claude Code, Gemini CLI, Codex, Aider) via PTY sessions with workspace and issue management",
+      "category": "feature",
+      "envKey": null,
+      "configKeys": [],
+      "version": "1.0.0",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg",
+      "tags": ["coding-agent", "coding", "agent"]
     },
     {
       "id": "commands",
@@ -1537,6 +1132,7 @@
       "name": "Commands",
       "npmName": "@elizaos/plugin-commands",
       "description": "Chat command system for Eliza agents (/help, /status, /reset, etc.)",
+      "tags": ["commands"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1583,36 +1179,6 @@
           "default": "true",
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "COMMANDS_ENABLED": {
-          "label": "Enable Commands",
-          "group": "General",
-          "width": "half"
-        },
-        "COMMANDS_CONFIG_ENABLED": {
-          "label": "Enable /config",
-          "group": "Commands",
-          "width": "half"
-        },
-        "COMMANDS_DEBUG_ENABLED": {
-          "label": "Enable /debug",
-          "group": "Commands",
-          "width": "half",
-          "advanced": true
-        },
-        "COMMANDS_BASH_ENABLED": {
-          "label": "Enable /bash",
-          "group": "Commands",
-          "width": "half",
-          "advanced": true,
-          "help": "Requires elevated permissions"
-        },
-        "COMMANDS_RESTART_ENABLED": {
-          "label": "Enable /restart",
-          "group": "Commands",
-          "width": "half"
-        }
       }
     },
     {
@@ -1621,6 +1187,7 @@
       "name": "Computeruse",
       "npmName": "@elizaos/plugin-computeruse",
       "description": "Computer automation plugin for ElizaOS - enables AI agents to control the local machine (when supported) or a remote ComputerUse MCP server",
+      "tags": ["computeruse", "automation", "desktop", "gui", "mcp"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1645,24 +1212,6 @@
           "description": "MCP server name to use for remote control (default: computeruse)",
           "required": false
         }
-      },
-      "configUiHints": {
-        "COMPUTERUSE_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        },
-        "COMPUTERUSE_MODE": {
-          "label": "Execution Mode",
-          "group": "Behavior",
-          "width": "half",
-          "help": "auto | local | mcp"
-        },
-        "COMPUTERUSE_MCP_SERVER": {
-          "label": "MCP Server Name",
-          "group": "Connection",
-          "width": "half"
-        }
       }
     },
     {
@@ -1671,6 +1220,7 @@
       "name": "Copilot Proxy",
       "npmName": "@elizaos/plugin-copilot-proxy",
       "description": "ElizaOS Copilot Proxy Model Provider - TypeScript implementation",
+      "tags": ["copilot-proxy", "copilot", "proxy"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1733,55 +1283,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "COPILOT_PROXY_BASE_URL": {
-          "label": "Base URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "COPILOT_PROXY_MODEL": {
-          "label": "Default Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "COPILOT_PROXY_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        },
-        "COPILOT_PROXY_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "COPILOT_PROXY_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "COPILOT_PROXY_TIMEOUT_SECONDS": {
-          "label": "Timeout",
-          "group": "Advanced",
-          "width": "half",
-          "unit": "s",
-          "min": 1,
-          "advanced": true
-        },
-        "COPILOT_PROXY_MAX_TOKENS": {
-          "label": "Max Tokens",
-          "group": "Advanced",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        },
-        "COPILOT_PROXY_CONTEXT_WINDOW": {
-          "label": "Context Window",
-          "group": "Advanced",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        }
       }
     },
     {
@@ -1790,6 +1291,7 @@
       "name": "Cron",
       "npmName": "@elizaos/plugin-cron",
       "description": "Cron scheduling plugin for ElizaOS agents - schedule recurring or one-time jobs that execute actions, run prompts, or trigger events",
+      "tags": ["cron"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -1797,11 +1299,50 @@
       "pluginDeps": ["cli"]
     },
     {
+      "id": "custom-rtmp",
+      "dirName": "custom-rtmp",
+      "name": "Custom RTMP",
+      "npmName": null,
+      "description": "Stream to any RTMP destination with a custom URL and key",
+      "category": "streaming",
+      "envKey": "CUSTOM_RTMP_URL",
+      "configKeys": ["CUSTOM_RTMP_URL", "CUSTOM_RTMP_KEY"],
+      "pluginParameters": {
+        "CUSTOM_RTMP_URL": {
+          "type": "string",
+          "description": "RTMP ingest URL for your streaming platform",
+          "required": true,
+          "sensitive": false
+        },
+        "CUSTOM_RTMP_KEY": {
+          "type": "string",
+          "description": "RTMP stream key",
+          "required": true,
+          "sensitive": true
+        }
+      },
+      "configUiHints": {
+        "CUSTOM_RTMP_URL": {
+          "label": "RTMP URL",
+          "group": "Connection",
+          "width": "full"
+        },
+        "CUSTOM_RTMP_KEY": {
+          "label": "Stream Key",
+          "group": "Authentication",
+          "width": "full"
+        }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#custom-rtmp",
+      "tags": ["streaming", "broadcast", "custom-rtmp", "custom", "rtmp"]
+    },
+    {
       "id": "directives",
       "dirName": "plugin-directives",
       "name": "Directives",
       "npmName": "@elizaos/plugin-directives",
       "description": "Inline directive parsing for Eliza agents (@think, @model, @verbose, etc.)",
+      "tags": ["directives"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1840,31 +1381,6 @@
           "default": "false",
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "DEFAULT_THINKING": {
-          "label": "Default Thinking Level",
-          "group": "Defaults",
-          "width": "half",
-          "help": "off, minimal, low, medium, high"
-        },
-        "DEFAULT_VERBOSE": {
-          "label": "Default Verbose Level",
-          "group": "Defaults",
-          "width": "half",
-          "help": "off, on, full"
-        },
-        "ALLOW_ELEVATED": {
-          "label": "Allow Elevated Directives",
-          "group": "Permissions",
-          "width": "half"
-        },
-        "ALLOW_EXEC": {
-          "label": "Allow Exec Directive",
-          "group": "Permissions",
-          "width": "half",
-          "help": "Enables shell configuration via directives"
-        }
       }
     },
     {
@@ -1872,7 +1388,8 @@
       "dirName": "plugin-discord",
       "name": "Discord",
       "npmName": "@elizaos/plugin-discord",
-      "description": "",
+      "description": "A Discord plugin for ElizaOS, enabling integration with Discord servers for interaction, voice, and message management.",
+      "tags": ["connector", "social", "social-chat", "messaging", "discord"],
       "category": "connector",
       "envKey": "DISCORD_API_TOKEN",
       "configKeys": [
@@ -1943,54 +1460,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "DISCORD_API_TOKEN": {
-          "label": "API Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "DISCORD_APPLICATION_ID": {
-          "label": "Application ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "CHANNEL_IDS": {
-          "label": "Channel IDs",
-          "group": "Channels",
-          "width": "full"
-        },
-        "DISCORD_TEST_CHANNEL_ID": {
-          "label": "Test Channel ID",
-          "group": "Channels",
-          "width": "half",
-          "advanced": true
-        },
-        "DISCORD_VOICE_CHANNEL_ID": {
-          "label": "Voice Channel ID",
-          "group": "Channels",
-          "width": "half"
-        },
-        "DISCORD_SHOULD_IGNORE_BOT_MESSAGES": {
-          "label": "Ignore Bot Messages",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "DISCORD_SHOULD_IGNORE_DIRECT_MESSAGES": {
-          "label": "Ignore Direct Messages",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "DISCORD_SHOULD_RESPOND_ONLY_TO_MENTIONS": {
-          "label": "Respond Only to Mentions",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "DISCORD_LISTEN_CHANNEL_IDS": {
-          "label": "Listen-Only Channel IDs",
-          "group": "Channels",
-          "width": "full"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#discord"
     },
     {
       "id": "edge-tts",
@@ -1998,6 +1468,7 @@
       "name": "Edge Tts",
       "npmName": "@elizaos/plugin-edge-tts",
       "description": "Free text-to-speech using Microsoft Edge TTS - no API key required",
+      "tags": ["edge-tts", "edge", "text-to-speech"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -2064,50 +1535,6 @@
           "default": "30000",
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "EDGE_TTS_VOICE": {
-          "label": "Voice",
-          "group": "Voice",
-          "width": "half"
-        },
-        "EDGE_TTS_LANG": {
-          "label": "Language",
-          "group": "Voice",
-          "width": "half"
-        },
-        "EDGE_TTS_OUTPUT_FORMAT": {
-          "label": "Output Format",
-          "group": "Output",
-          "width": "full"
-        },
-        "EDGE_TTS_RATE": {
-          "label": "Speech Rate",
-          "group": "Voice",
-          "width": "half"
-        },
-        "EDGE_TTS_PITCH": {
-          "label": "Pitch",
-          "group": "Voice",
-          "width": "half"
-        },
-        "EDGE_TTS_VOLUME": {
-          "label": "Volume",
-          "group": "Voice",
-          "width": "half"
-        },
-        "EDGE_TTS_PROXY": {
-          "label": "Proxy URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "EDGE_TTS_TIMEOUT_MS": {
-          "label": "Timeout",
-          "group": "Connection",
-          "width": "half",
-          "unit": "ms",
-          "min": 0
-        }
       }
     },
     {
@@ -2115,7 +1542,8 @@
       "dirName": "plugin-elevenlabs",
       "name": "Elevenlabs",
       "npmName": "@elizaos/plugin-elevenlabs",
-      "description": "",
+      "description": "ElevenLabs voice plugin for text-to-speech generation and conversational audio output.",
+      "tags": ["voice", "text-to-speech", "audio", "elevenlabs"],
       "category": "feature",
       "envKey": "ELEVENLABS_API_KEY",
       "configKeys": [
@@ -2246,100 +1674,6 @@
           "default": "false",
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "ELEVENLABS_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ELEVENLABS_VOICE_ID": {
-          "label": "Voice ID",
-          "group": "Voice",
-          "width": "half"
-        },
-        "ELEVENLABS_MODEL_ID": {
-          "label": "TTS Model",
-          "group": "Voice",
-          "width": "half"
-        },
-        "ELEVENLABS_VOICE_STABILITY": {
-          "label": "Voice Stability",
-          "group": "Voice",
-          "width": "half",
-          "min": 0,
-          "max": 1
-        },
-        "ELEVENLABS_OPTIMIZE_STREAMING_LATENCY": {
-          "label": "Streaming Latency Optimization",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true,
-          "min": 0,
-          "max": 4
-        },
-        "ELEVENLABS_OUTPUT_FORMAT": {
-          "label": "Output Format",
-          "group": "Voice",
-          "width": "half"
-        },
-        "ELEVENLABS_BROWSER_URL": {
-          "label": "Browser Proxy URL",
-          "group": "Advanced",
-          "width": "full",
-          "advanced": true
-        },
-        "ELEVENLABS_VOICE_SIMILARITY_BOOST": {
-          "label": "Similarity Boost",
-          "group": "Voice",
-          "width": "half",
-          "min": 0,
-          "max": 1
-        },
-        "ELEVENLABS_VOICE_STYLE": {
-          "label": "Style Intensity",
-          "group": "Voice",
-          "width": "half",
-          "min": 0,
-          "max": 1
-        },
-        "ELEVENLABS_VOICE_USE_SPEAKER_BOOST": {
-          "label": "Speaker Boost",
-          "group": "Voice",
-          "width": "half"
-        },
-        "ELEVENLABS_STT_MODEL_ID": {
-          "label": "STT Model",
-          "group": "Speech-to-Text",
-          "width": "half"
-        },
-        "ELEVENLABS_STT_LANGUAGE_CODE": {
-          "label": "STT Language",
-          "group": "Speech-to-Text",
-          "width": "half"
-        },
-        "ELEVENLABS_STT_TIMESTAMPS_GRANULARITY": {
-          "label": "Timestamp Granularity",
-          "group": "Speech-to-Text",
-          "width": "half"
-        },
-        "ELEVENLABS_STT_DIARIZE": {
-          "label": "Enable Diarization",
-          "group": "Speech-to-Text",
-          "width": "half"
-        },
-        "ELEVENLABS_STT_NUM_SPEAKERS": {
-          "label": "Number of Speakers",
-          "group": "Speech-to-Text",
-          "width": "half",
-          "min": 1,
-          "max": 32
-        },
-        "ELEVENLABS_STT_TAG_AUDIO_EVENTS": {
-          "label": "Tag Audio Events",
-          "group": "Speech-to-Text",
-          "width": "half"
-        }
       }
     },
     {
@@ -2347,7 +1681,8 @@
       "dirName": "plugin-eliza-classic",
       "name": "Eliza Classic",
       "npmName": "@elizaos/plugin-eliza-classic",
-      "description": "",
+      "description": "Compatibility plugin for loading classic ElizaOS behavior and legacy agent workflows.",
+      "tags": ["compatibility", "legacy", "agents", "eliza-classic", "classic"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -2358,7 +1693,8 @@
       "dirName": "plugin-elizacloud",
       "name": "Elizacloud",
       "npmName": "@elizaos/plugin-elizacloud",
-      "description": "",
+      "description": "ElizaOS plugin to connect with ElizaOS Cloud services",
+      "tags": ["elizacloud"],
       "category": "feature",
       "envKey": "ELIZAOS_CLOUD_API_KEY",
       "configKeys": [
@@ -2387,15 +1723,15 @@
       "pluginParameters": {
         "ELIZAOS_CLOUD_API_KEY": {
           "type": "string",
-          "description": "API key used to authenticate requests to ElizaOS Cloud API (format: eliza_xxxxx). Get it from https://www.elizacloud.ai/dashboard/api-keys",
+          "description": "API key used to authenticate requests to elizaOS Cloud API (format: eliza_xxxxx). Get it from https://elizacloud.ai/dashboard/api-keys",
           "required": true,
           "sensitive": true
         },
         "ELIZAOS_CLOUD_BASE_URL": {
           "type": "string",
-          "description": "Base URL for all ElizaOS Cloud API requests.",
+          "description": "Base URL for all elizaOS Cloud API requests.",
           "required": false,
-          "default": "https://www.elizacloud.ai/api/v1",
+          "default": "https://elizacloud.ai/api/v1",
           "sensitive": false
         },
         "ELIZAOS_CLOUD_SMALL_MODEL": {
@@ -2433,13 +1769,13 @@
         },
         "ELIZAOS_CLOUD_EMBEDDING_URL": {
           "type": "string",
-          "description": "Custom base URL for the ElizaOS Cloud embeddings endpoint.",
+          "description": "Custom base URL for the elizaOS Cloud embeddings endpoint.",
           "required": false,
           "sensitive": false
         },
         "ELIZAOS_CLOUD_EMBEDDING_API_KEY": {
           "type": "string",
-          "description": "Custom API key for the ElizaOS Cloud embeddings endpoint.",
+          "description": "Custom API key for the elizaOS Cloud embeddings endpoint.",
           "required": false,
           "sensitive": true
         },
@@ -2493,13 +1829,13 @@
         },
         "ELIZAOS_CLOUD_BROWSER_BASE_URL": {
           "type": "string",
-          "description": "Browser-only proxy endpoint base URL for ElizaOS Cloud requests (no secrets in the client).",
+          "description": "Browser-only proxy endpoint base URL for elizaOS Cloud requests (no secrets in the client).",
           "required": false,
           "sensitive": false
         },
         "ELIZAOS_CLOUD_BROWSER_EMBEDDING_URL": {
           "type": "string",
-          "description": "Browser-only proxy endpoint base URL for ElizaOS Cloud embeddings.",
+          "description": "Browser-only proxy endpoint base URL for elizaOS Cloud embeddings.",
           "required": false,
           "sensitive": false
         },
@@ -2517,118 +1853,6 @@
           "default": "2.0.0-alpha",
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "ELIZAOS_CLOUD_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half",
-          "placeholder": "eliza_xxxxx"
-        },
-        "ELIZAOS_CLOUD_BASE_URL": {
-          "label": "Base URL",
-          "group": "Connection",
-          "width": "half",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "SMALL_MODEL": {
-          "label": "Small Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "LARGE_MODEL": {
-          "label": "Large Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "Embeddings",
-          "width": "half"
-        },
-        "ELIZAOS_CLOUD_EMBEDDING_URL": {
-          "label": "Embedding URL",
-          "group": "Embeddings",
-          "width": "half",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_EMBEDDING_API_KEY": {
-          "label": "Embedding API Key",
-          "group": "Embeddings",
-          "width": "half",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_EMBEDDING_DIMENSIONS": {
-          "label": "Embedding Dimensions",
-          "group": "Embeddings",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_IMAGE_DESCRIPTION_MODEL": {
-          "label": "Image Description Model",
-          "group": "Media",
-          "width": "half"
-        },
-        "ELIZAOS_CLOUD_IMAGE_DESCRIPTION_MAX_TOKENS": {
-          "label": "Image Description Max Tokens",
-          "group": "Media",
-          "width": "half",
-          "min": 1,
-          "unit": "tokens"
-        },
-        "ELIZAOS_CLOUD_TTS_MODEL": {
-          "label": "TTS Model",
-          "group": "Speech",
-          "width": "half"
-        },
-        "ELIZAOS_CLOUD_TTS_VOICE": {
-          "label": "TTS Voice",
-          "group": "Speech",
-          "width": "half"
-        },
-        "ELIZAOS_CLOUD_TTS_INSTRUCTIONS": {
-          "label": "TTS Instructions",
-          "group": "Speech",
-          "width": "full"
-        },
-        "ELIZAOS_CLOUD_EXPERIMENTAL_TELEMETRY": {
-          "label": "Experimental Telemetry",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_BROWSER_BASE_URL": {
-          "label": "Browser Base URL",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_BROWSER_EMBEDDING_URL": {
-          "label": "Browser Embedding URL",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_ENABLED": {
-          "label": "Enabled",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "ELIZAOS_CLOUD_APP_VERSION": {
-          "label": "App Version",
-          "group": "Advanced",
-          "advanced": true
-        }
       }
     },
     {
@@ -2636,7 +1860,8 @@
       "dirName": "plugin-evm",
       "name": "Evm",
       "npmName": "@elizaos/plugin-evm",
-      "description": "",
+      "description": "This plugin enables interaction with EVM-compatible chains, supporting token transfers, cross-chain bridging, and swaps via LiFi integration.",
+      "tags": ["crypto", "evm"],
       "category": "feature",
       "envKey": "ALCHEMY_API_KEY",
       "configKeys": [
@@ -2737,75 +1962,6 @@
           "default": "https://sepolia.base.org",
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "EVM_PRIVATE_KEY": {
-          "label": "Private Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "EVM_RPC_PROVIDER": {
-          "label": "RPC Provider",
-          "group": "Providers",
-          "width": "half"
-        },
-        "ALCHEMY_API_KEY": {
-          "label": "Alchemy API Key",
-          "group": "Providers",
-          "width": "half"
-        },
-        "INFURA_API_KEY": {
-          "label": "Infura API Key",
-          "group": "Providers",
-          "width": "half"
-        },
-        "ANKR_API_KEY": {
-          "label": "Ankr API Key",
-          "group": "Providers",
-          "width": "half"
-        },
-        "ETHEREUM_PROVIDER_ETHEREUM": {
-          "label": "Ethereum RPC URL",
-          "group": "Providers",
-          "width": "full"
-        },
-        "ETHEREUM_PROVIDER_BASE": {
-          "label": "Base RPC URL",
-          "group": "Providers",
-          "width": "full"
-        },
-        "ETHEREUM_PROVIDER_ARBITRUM": {
-          "label": "Arbitrum RPC URL",
-          "group": "Providers",
-          "width": "full"
-        },
-        "ETHEREUM_PROVIDER_OPTIMISM": {
-          "label": "Optimism RPC URL",
-          "group": "Providers",
-          "width": "full"
-        },
-        "TEE_MODE": {
-          "label": "TEE Mode",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        },
-        "WALLET_SECRET_SALT": {
-          "label": "Wallet Secret Salt",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        },
-        "SEPOLIA_RPC_URL": {
-          "label": "Sepolia RPC URL",
-          "group": "Testnets",
-          "width": "full"
-        },
-        "BASE_SEPOLIA_RPC_URL": {
-          "label": "Base Sepolia RPC URL",
-          "group": "Testnets",
-          "width": "full"
-        }
       }
     },
     {
@@ -2814,6 +1970,7 @@
       "name": "Experience",
       "npmName": "@elizaos/plugin-experience",
       "description": "Experience learning plugin for ElizaOS - records and recalls transferable agent learnings",
+      "tags": ["experience", "learning", "memory"],
       "category": "feature",
       "envKey": null,
       "configKeys": ["AUTO_RECORD_THRESHOLD"],
@@ -2825,14 +1982,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "AUTO_RECORD_THRESHOLD": {
-          "label": "Auto-Record Threshold",
-          "group": "Behavior",
-          "width": "half",
-          "min": 0
-        }
       }
     },
     {
@@ -2840,7 +1989,8 @@
       "dirName": "plugin-farcaster",
       "name": "Farcaster",
       "npmName": "@elizaos/plugin-farcaster",
-      "description": "",
+      "description": "Farcaster connector for publishing casts and responding to social conversations.",
+      "tags": ["connector", "social", "farcaster", "messaging", "social-feed"],
       "category": "connector",
       "envKey": "FARCASTER_NEYNAR_API_KEY",
       "configKeys": [
@@ -2965,103 +2115,22 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "FARCASTER_DRY_RUN": {
-          "label": "Dry Run",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        },
-        "FARCASTER_FID": {
-          "label": "Farcaster FID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MAX_CAST_LENGTH": {
-          "label": "Max Cast Length",
-          "group": "Posting",
-          "width": "half",
-          "min": 1
-        },
-        "FARCASTER_POLL_INTERVAL": {
-          "label": "Poll Interval",
-          "group": "Posting",
-          "width": "half",
-          "unit": "seconds",
-          "min": 0
-        },
-        "ENABLE_CAST": {
-          "label": "Enable Casting",
-          "group": "Posting",
-          "width": "half"
-        },
-        "CAST_INTERVAL_MIN": {
-          "label": "Min Cast Interval",
-          "group": "Posting",
-          "width": "half",
-          "unit": "minutes",
-          "min": 0
-        },
-        "CAST_INTERVAL_MAX": {
-          "label": "Max Cast Interval",
-          "group": "Posting",
-          "width": "half",
-          "unit": "minutes",
-          "min": 0
-        },
-        "ENABLE_ACTION_PROCESSING": {
-          "label": "Enable Action Processing",
-          "group": "Actions",
-          "width": "half"
-        },
-        "ACTION_INTERVAL": {
-          "label": "Action Interval",
-          "group": "Actions",
-          "width": "half",
-          "unit": "minutes",
-          "min": 0
-        },
-        "CAST_IMMEDIATELY": {
-          "label": "Cast Immediately",
-          "group": "Posting",
-          "width": "half"
-        },
-        "MAX_ACTIONS_PROCESSING": {
-          "label": "Max Actions per Batch",
-          "group": "Actions",
-          "width": "half",
-          "min": 1
-        },
-        "FARCASTER_SIGNER_UUID": {
-          "label": "Signer UUID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "FARCASTER_NEYNAR_API_KEY": {
-          "label": "Neynar API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "FARCASTER_HUB_URL": {
-          "label": "Hub URL",
-          "group": "Advanced",
-          "width": "full",
-          "advanced": true
-        },
-        "FARCASTER_MODE": {
-          "label": "Mode",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#farcaster"
     },
     {
       "id": "feishu",
       "dirName": "plugin-feishu",
       "name": "Feishu",
       "npmName": "@elizaos/plugin-feishu",
-      "description": "",
+      "description": "Feishu connector for bots, chats, and workflow notifications on Lark/Feishu.",
+      "tags": [
+        "connector",
+        "messaging",
+        "feishu",
+        "productivity",
+        "social",
+        "social-chat"
+      ],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -3104,41 +2173,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "FEISHU_APP_ID": {
-          "label": "App ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "FEISHU_APP_SECRET": {
-          "label": "App Secret",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "FEISHU_DOMAIN": {
-          "label": "Domain",
-          "group": "Connection",
-          "width": "half"
-        },
-        "FEISHU_ALLOWED_CHATS": {
-          "label": "Allowed Chat IDs",
-          "group": "Connection",
-          "width": "full"
-        },
-        "FEISHU_TEST_CHAT_ID": {
-          "label": "Test Chat ID",
-          "group": "Connection",
-          "width": "half",
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#feishu-lark"
     },
     {
       "id": "form",
       "dirName": "plugin-form",
       "name": "Form",
       "npmName": "@elizaos/plugin-form",
-      "description": "Guardrails for agent-guided user journeys - forms as agent guidance rails for ElizaOS",
+      "description": "Integrates Form chain capabilities for curves-based token economics with ERC20 conversion and management.",
+      "tags": ["form"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -3149,7 +2192,8 @@
       "dirName": "plugin-github",
       "name": "Github",
       "npmName": "@elizaos/plugin-github",
-      "description": "",
+      "description": "Comprehensive GitHub integration plugin for ElizaOS with repository management, issue tracking, and PR workflows",
+      "tags": ["connector", "integration", "github"],
       "category": "connector",
       "envKey": "GITHUB_API_TOKEN",
       "configKeys": [
@@ -3214,48 +2258,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "GITHUB_API_TOKEN": {
-          "label": "API Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "GITHUB_OWNER": {
-          "label": "Repository Owner",
-          "group": "Repository",
-          "width": "half"
-        },
-        "GITHUB_REPO": {
-          "label": "Repository Name",
-          "group": "Repository",
-          "width": "half"
-        },
-        "GITHUB_BRANCH": {
-          "label": "Default Branch",
-          "group": "Repository",
-          "width": "half"
-        },
-        "GITHUB_WEBHOOK_SECRET": {
-          "label": "Webhook Secret",
-          "group": "App",
-          "width": "half"
-        },
-        "GITHUB_APP_ID": {
-          "label": "App ID",
-          "group": "App",
-          "width": "half"
-        },
-        "GITHUB_APP_PRIVATE_KEY": {
-          "label": "App Private Key",
-          "group": "App",
-          "width": "half"
-        },
-        "GITHUB_INSTALLATION_ID": {
-          "label": "Installation ID",
-          "group": "App",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#github"
     },
     {
       "id": "gmail-watch",
@@ -3263,17 +2266,20 @@
       "name": "Gmail Watch",
       "npmName": "@elizaos/plugin-gmail-watch",
       "description": "Gmail Pub/Sub watcher – spawns gog gmail watch serve and auto-renews",
+      "tags": ["connector", "integration", "gmail-watch", "gmail", "watch"],
       "category": "connector",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.0-alpha.4",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#gmail-watch"
     },
     {
       "id": "goals",
       "dirName": "plugin-goals",
       "name": "Goals",
       "npmName": "@elizaos/plugin-goals",
-      "description": "Goals management plugin for ElizaOS - tracking and achieving objectives",
+      "description": "Goals for your agent",
+      "tags": ["goals", "objectives", "task-management"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -3322,42 +2328,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "GOAL_CHECK_INTERVAL": {
-          "label": "Check Interval",
-          "group": "Scheduling",
-          "width": "half",
-          "min": 0
-        },
-        "GOAL_BATCH_SIZE": {
-          "label": "Batch Size",
-          "group": "Scheduling",
-          "width": "half",
-          "min": 1
-        },
-        "GOAL_MAX_CONCURRENT": {
-          "label": "Max Concurrent",
-          "group": "Scheduling",
-          "width": "half",
-          "min": 1
-        },
-        "GOAL_REMINDER_COOLDOWN": {
-          "label": "Reminder Cooldown",
-          "group": "Scheduling",
-          "width": "half",
-          "min": 0
-        },
-        "GOAL_ENABLE_SMART_REMINDERS": {
-          "label": "Smart Reminders",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "GOAL_ENABLE_MONITORING": {
-          "label": "Enable Monitoring",
-          "group": "Behavior",
-          "width": "half"
-        }
       }
     },
     {
@@ -3365,7 +2335,17 @@
       "dirName": "plugin-google-chat",
       "name": "Google Chat",
       "npmName": "@elizaos/plugin-google-chat",
-      "description": "",
+      "description": "Google Chat connector for bots, spaces, and message-driven workflows.",
+      "tags": [
+        "connector",
+        "messaging",
+        "google-chat",
+        "productivity",
+        "social",
+        "social-chat",
+        "google",
+        "chat"
+      ],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -3443,65 +2423,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "GOOGLE_CHAT_SERVICE_ACCOUNT": {
-          "label": "Service Account JSON",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "GOOGLE_CHAT_SERVICE_ACCOUNT_FILE": {
-          "label": "Service Account File",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "GOOGLE_APPLICATION_CREDENTIALS": {
-          "label": "Application Credentials",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "GOOGLE_CHAT_AUDIENCE_TYPE": {
-          "label": "Audience Type",
-          "group": "Connection",
-          "width": "half"
-        },
-        "GOOGLE_CHAT_AUDIENCE": {
-          "label": "Audience",
-          "group": "Connection",
-          "width": "half"
-        },
-        "GOOGLE_CHAT_WEBHOOK_PATH": {
-          "label": "Webhook Path",
-          "group": "Connection",
-          "width": "full"
-        },
-        "GOOGLE_CHAT_SPACES": {
-          "label": "Spaces",
-          "group": "Connection",
-          "width": "full"
-        },
-        "GOOGLE_CHAT_REQUIRE_MENTION": {
-          "label": "Require Mention",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "GOOGLE_CHAT_ENABLED": {
-          "label": "Enabled",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "GOOGLE_CHAT_BOT_USER": {
-          "label": "Bot User ID",
-          "group": "Connection",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#google-chat"
     },
     {
       "id": "google-genai",
       "dirName": "plugin-google-genai",
       "name": "Google Genai",
       "npmName": "@elizaos/plugin-google-genai",
-      "description": "",
+      "description": "LLM ElizaOS plugin for google genai",
+      "tags": ["ai-provider", "llm", "google-genai", "google", "genai"],
       "category": "ai-provider",
       "envKey": "GOOGLE_GENERATIVE_AI_API_KEY",
       "configKeys": [
@@ -3572,55 +2502,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "GOOGLE_GENERATIVE_AI_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "GOOGLE_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "GOOGLE_IMAGE_MODEL": {
-          "label": "Image Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "GOOGLE_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "GOOGLE_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "SMALL_MODEL": {
-          "label": "Small Model (fallback)",
-          "group": "Models",
-          "width": "half"
-        },
-        "LARGE_MODEL": {
-          "label": "Large Model (fallback)",
-          "group": "Models",
-          "width": "half"
-        },
-        "IMAGE_MODEL": {
-          "label": "Image Model (fallback)",
-          "group": "Models",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#google-gemini"
     },
     {
       "id": "groq",
       "dirName": "plugin-groq",
       "name": "Groq",
       "npmName": "@elizaos/plugin-groq",
-      "description": "",
+      "description": "Groq model provider for low-latency chat and inference workloads.",
+      "tags": ["ai-provider", "llm", "groq", "chat"],
       "category": "ai-provider",
       "envKey": "GROQ_API_KEY",
       "configKeys": [
@@ -3670,45 +2560,33 @@
           "default": "Chip-PlayAI"
         }
       },
-      "configUiHints": {
-        "GROQ_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "GROQ_BASE_URL": {
-          "label": "Base URL",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "GROQ_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "GROQ_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "GROQ_TTS_MODEL": {
-          "label": "TTS Model",
-          "group": "Speech",
-          "width": "half"
-        },
-        "GROQ_TTS_VOICE": {
-          "label": "TTS Voice",
-          "group": "Speech",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#groq"
+    },
+    {
+      "id": "hedera",
+      "dirName": "plugin-hedera",
+      "name": "Hedera",
+      "npmName": "@elizaos/plugin-hedera",
+      "description": "ElizaOS plugin for Hedera blockchain",
+      "tags": ["hedera", "hedera-agent-kit", "llm"],
+      "category": "feature",
+      "envKey": null,
+      "configKeys": []
     },
     {
       "id": "imessage",
       "dirName": "plugin-imessage",
       "name": "Imessage",
       "npmName": "@elizaos/plugin-imessage",
-      "description": "",
+      "description": "iMessage connector for Mac-based conversations and message automation.",
+      "tags": [
+        "connector",
+        "messaging",
+        "imessage",
+        "apple",
+        "social",
+        "social-chat"
+      ],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -3765,45 +2643,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "IMESSAGE_CLI_PATH": {
-          "label": "CLI Path",
-          "group": "Connection",
-          "width": "full"
-        },
-        "IMESSAGE_DB_PATH": {
-          "label": "Database Path",
-          "group": "Connection",
-          "width": "full"
-        },
-        "IMESSAGE_POLL_INTERVAL_MS": {
-          "label": "Poll Interval",
-          "group": "Connection",
-          "width": "half",
-          "unit": "ms",
-          "min": 0
-        },
-        "IMESSAGE_DM_POLICY": {
-          "label": "DM Policy",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "IMESSAGE_GROUP_POLICY": {
-          "label": "Group Policy",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "IMESSAGE_ALLOW_FROM": {
-          "label": "Allowed Senders",
-          "group": "Behavior",
-          "width": "full"
-        },
-        "IMESSAGE_ENABLED": {
-          "label": "Enabled",
-          "group": "Behavior",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#imessage-macos-only"
     },
     {
       "id": "inmemorydb",
@@ -3811,6 +2651,7 @@
       "name": "Inmemorydb",
       "npmName": "@elizaos/plugin-inmemorydb",
       "description": "Pure in-memory, ephemeral database storage for elizaOS - no persistence, completely forgets on reset",
+      "tags": ["database", "storage", "inmemorydb"],
       "category": "database",
       "envKey": null,
       "configKeys": [],
@@ -3821,7 +2662,8 @@
       "dirName": "plugin-instagram",
       "name": "Instagram",
       "npmName": "@elizaos/plugin-instagram",
-      "description": "",
+      "description": "Enables Instagram integration with support for media posting, comment handling, and interaction management.",
+      "tags": ["connector", "social", "social-feed", "instagram"],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -3857,28 +2699,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "INSTAGRAM_USERNAME": {
-          "label": "Username",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "INSTAGRAM_PASSWORD": {
-          "label": "Password",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "INSTAGRAM_VERIFICATION_CODE": {
-          "label": "2FA Code",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "INSTAGRAM_PROXY": {
-          "label": "Proxy URL",
-          "group": "Connection",
-          "width": "full"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#instagram"
     },
     {
       "id": "iq",
@@ -3990,14 +2811,17 @@
           "group": "Connection",
           "width": "full"
         }
-      }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#iq-solana-on-chain",
+      "tags": ["connector", "integration", "iq"]
     },
     {
       "id": "knowledge",
       "dirName": "plugin-knowledge",
       "name": "Knowledge",
       "npmName": "@elizaos/plugin-knowledge",
-      "description": "Knowledge and RAG plugin for elizaOS - provides retrieval augmented generation capabilities",
+      "description": "Eliza RAG Knowledge Plugin",
+      "tags": ["knowledge"],
       "category": "feature",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
@@ -4177,157 +3001,6 @@
           "default": true,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "CTX_KNOWLEDGE_ENABLED": {
-          "label": "Enable Contextual Knowledge",
-          "group": "General"
-        },
-        "EMBEDDING_PROVIDER": {
-          "label": "Embedding Provider",
-          "group": "Embeddings",
-          "width": "half"
-        },
-        "OPENAI_API_KEY": {
-          "label": "OpenAI API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ANTHROPIC_API_KEY": {
-          "label": "Anthropic API Key",
-          "group": "Authentication",
-          "width": "half",
-          "showIf": {
-            "field": "CTX_KNOWLEDGE_ENABLED",
-            "op": "truthy"
-          }
-        },
-        "OPENROUTER_API_KEY": {
-          "label": "OpenRouter API Key",
-          "group": "Authentication",
-          "width": "half",
-          "showIf": {
-            "field": "CTX_KNOWLEDGE_ENABLED",
-            "op": "truthy"
-          }
-        },
-        "GOOGLE_API_KEY": {
-          "label": "Google API Key",
-          "group": "Authentication",
-          "width": "half",
-          "showIf": {
-            "field": "CTX_KNOWLEDGE_ENABLED",
-            "op": "truthy"
-          }
-        },
-        "OPENAI_EMBEDDING_MODEL": {
-          "label": "OpenAI Embedding Model",
-          "group": "Embeddings",
-          "width": "half"
-        },
-        "TEXT_EMBEDDING_MODEL": {
-          "label": "Text Embedding Model",
-          "group": "Embeddings",
-          "width": "half"
-        },
-        "EMBEDDING_DIMENSION": {
-          "label": "Embedding Dimensions",
-          "group": "Embeddings",
-          "width": "half",
-          "min": 1
-        },
-        "OPENAI_EMBEDDING_DIMENSIONS": {
-          "label": "OpenAI Embedding Dimensions",
-          "group": "Embeddings",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        },
-        "TEXT_PROVIDER": {
-          "label": "Text Provider",
-          "group": "Text Generation",
-          "width": "half",
-          "showIf": {
-            "field": "CTX_KNOWLEDGE_ENABLED",
-            "op": "truthy"
-          }
-        },
-        "TEXT_MODEL": {
-          "label": "Text Model",
-          "group": "Text Generation",
-          "width": "half",
-          "showIf": {
-            "field": "CTX_KNOWLEDGE_ENABLED",
-            "op": "truthy"
-          }
-        },
-        "OPENAI_BASE_URL": {
-          "label": "OpenAI Base URL",
-          "group": "Connection",
-          "width": "half",
-          "advanced": true
-        },
-        "ANTHROPIC_BASE_URL": {
-          "label": "Anthropic Base URL",
-          "group": "Connection",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENROUTER_BASE_URL": {
-          "label": "OpenRouter Base URL",
-          "group": "Connection",
-          "width": "half",
-          "advanced": true
-        },
-        "GOOGLE_BASE_URL": {
-          "label": "Google Base URL",
-          "group": "Connection",
-          "width": "half",
-          "advanced": true
-        },
-        "MAX_INPUT_TOKENS": {
-          "label": "Max Input Tokens",
-          "group": "Limits",
-          "width": "half",
-          "min": 1,
-          "unit": "tokens"
-        },
-        "MAX_OUTPUT_TOKENS": {
-          "label": "Max Output Tokens",
-          "group": "Limits",
-          "width": "half",
-          "min": 1,
-          "unit": "tokens"
-        },
-        "MAX_CONCURRENT_REQUESTS": {
-          "label": "Max Concurrent Requests",
-          "group": "Limits",
-          "width": "half",
-          "min": 1
-        },
-        "REQUESTS_PER_MINUTE": {
-          "label": "Requests Per Minute",
-          "group": "Limits",
-          "width": "half",
-          "min": 1
-        },
-        "TOKENS_PER_MINUTE": {
-          "label": "Tokens Per Minute",
-          "group": "Limits",
-          "width": "half",
-          "min": 1,
-          "unit": "tokens/min"
-        },
-        "KNOWLEDGE_PATH": {
-          "label": "Knowledge Path",
-          "group": "General",
-          "width": "full"
-        },
-        "LOAD_DOCS_ON_STARTUP": {
-          "label": "Load Docs On Startup",
-          "group": "Advanced",
-          "advanced": true
-        }
       }
     },
     {
@@ -4335,7 +3008,8 @@
       "dirName": "plugin-line",
       "name": "Line",
       "npmName": "@elizaos/plugin-line",
-      "description": "",
+      "description": "LINE connector for bot messaging and customer conversations.",
+      "tags": ["connector", "messaging", "line", "social", "social-chat"],
       "category": "connector",
       "envKey": "LINE_CHANNEL_ACCESS_TOKEN",
       "configKeys": [
@@ -4392,50 +3066,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "LINE_CHANNEL_ACCESS_TOKEN": {
-          "label": "Channel Access Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "LINE_CHANNEL_SECRET": {
-          "label": "Channel Secret",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "LINE_WEBHOOK_PATH": {
-          "label": "Webhook Path",
-          "group": "Connection",
-          "width": "full"
-        },
-        "LINE_DM_POLICY": {
-          "label": "DM Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "LINE_GROUP_POLICY": {
-          "label": "Group Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "LINE_ALLOW_FROM": {
-          "label": "Allowed Users",
-          "group": "Policies",
-          "width": "full"
-        },
-        "LINE_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#line"
     },
     {
       "id": "linear",
       "dirName": "plugin-linear",
       "name": "Linear",
       "npmName": "@elizaos/plugin-linear",
-      "description": "Linear integration plugin for ElizaOS (TypeScript)",
+      "description": "Linear integration plugin for ElizaOS",
+      "tags": ["linear", "project-management"],
       "category": "feature",
       "envKey": "LINEAR_API_KEY",
       "configKeys": [
@@ -4463,23 +3102,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "LINEAR_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "LINEAR_WORKSPACE_ID": {
-          "label": "Workspace ID",
-          "group": "Configuration",
-          "width": "half"
-        },
-        "LINEAR_DEFAULT_TEAM_KEY": {
-          "label": "Default Team Key",
-          "group": "Configuration",
-          "width": "half"
-        }
       }
     },
     {
@@ -4487,7 +3109,15 @@
       "dirName": "plugin-local-ai",
       "name": "Local Ai",
       "npmName": "@elizaos/plugin-local-ai",
-      "description": "",
+      "description": "LocalAI provider for self-hosted, OpenAI-compatible local model inference.",
+      "tags": [
+        "ai-provider",
+        "llm",
+        "local-models",
+        "self-hosted",
+        "local-ai",
+        "local"
+      ],
       "category": "ai-provider",
       "envKey": null,
       "configKeys": [
@@ -4548,52 +3178,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "MODELS_DIR": {
-          "label": "Models Directory",
-          "group": "Paths",
-          "width": "full"
-        },
-        "CACHE_DIR": {
-          "label": "Cache Directory",
-          "group": "Paths",
-          "width": "full"
-        },
-        "LOCAL_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "LOCAL_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "LOCAL_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "LOCAL_EMBEDDING_DIMENSIONS": {
-          "label": "Embedding Dimensions",
-          "group": "Models",
-          "width": "half",
-          "min": 1
-        },
-        "CUDA_VISIBLE_DEVICES": {
-          "label": "CUDA Visible Devices",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#local-ai"
     },
     {
       "id": "local-embedding",
       "dirName": "plugin-local-embedding",
       "name": "Local Embedding",
       "npmName": "@elizaos/plugin-local-embedding",
-      "description": "Local AI model embedding and inference plugin for ElizaOS",
+      "description": "Local embedding generation",
+      "tags": ["local-embedding", "local", "embedding"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -4653,45 +3246,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "MODELS_DIR": {
-          "label": "Models Directory",
-          "group": "Paths",
-          "width": "full"
-        },
-        "CACHE_DIR": {
-          "label": "Cache Directory",
-          "group": "Paths",
-          "width": "full"
-        },
-        "LOCAL_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "LOCAL_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "LOCAL_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "LOCAL_EMBEDDING_DIMENSIONS": {
-          "label": "Embedding Dimensions",
-          "group": "Models",
-          "width": "half",
-          "min": 1
-        },
-        "CUDA_VISIBLE_DEVICES": {
-          "label": "CUDA Visible Devices",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        }
       }
     },
     {
@@ -4700,6 +3254,7 @@
       "name": "Localdb",
       "npmName": "@elizaos/plugin-localdb",
       "description": "Simple JSON-based local database storage for elizaOS - no SQL, no migrations",
+      "tags": ["database", "storage", "localdb"],
       "category": "database",
       "envKey": null,
       "configKeys": [],
@@ -4711,6 +3266,7 @@
       "name": "Lp Manager",
       "npmName": "@elizaos/plugin-lp-manager",
       "description": "A unified plugin for managing liquidity positions on Solana DEXs (Raydium, Orca, Meteora) and EVM DEXs (Uniswap, PancakeSwap, Aerodrome).",
+      "tags": ["lp-manager", "lp", "manager"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -4823,83 +3379,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "SOLANA_RPC_URL": {
-          "label": "Solana RPC URL",
-          "group": "Solana",
-          "width": "full"
-        },
-        "SOLANA_COMMITMENT": {
-          "label": "Commitment Level",
-          "group": "Solana",
-          "width": "half"
-        },
-        "SOLANA_PUBLIC_KEY": {
-          "label": "Public Key",
-          "group": "Solana",
-          "width": "half"
-        },
-        "SOLANA_PRIVATE_KEY": {
-          "label": "Private Key",
-          "group": "Solana",
-          "width": "half"
-        },
-        "EVM_PRIVATE_KEY": {
-          "label": "EVM Private Key",
-          "group": "Ethereum",
-          "width": "half"
-        },
-        "ETHEREUM_RPC_URL": {
-          "label": "Ethereum RPC URL",
-          "group": "Ethereum",
-          "width": "full"
-        },
-        "EVM_PROVIDER_MAINNET": {
-          "label": "Mainnet Provider URL",
-          "group": "Ethereum",
-          "width": "full"
-        },
-        "BASE_RPC_URL": {
-          "label": "Base RPC URL",
-          "group": "Base",
-          "width": "full"
-        },
-        "EVM_PROVIDER_BASE": {
-          "label": "Base Provider URL",
-          "group": "Base",
-          "width": "full"
-        },
-        "BSC_RPC_URL": {
-          "label": "BSC RPC URL",
-          "group": "BSC",
-          "width": "full"
-        },
-        "EVM_PROVIDER_BSC": {
-          "label": "BSC Provider URL",
-          "group": "BSC",
-          "width": "full"
-        },
-        "ARBITRUM_RPC_URL": {
-          "label": "Arbitrum RPC URL",
-          "group": "Arbitrum",
-          "width": "full"
-        },
-        "EVM_PROVIDER_ARBITRUM": {
-          "label": "Arbitrum Provider URL",
-          "group": "Arbitrum",
-          "width": "full"
-        },
-        "LP_SOLANA_DEXES": {
-          "label": "Solana DEXes",
-          "group": "DEX Config",
-          "width": "half"
-        },
-        "LP_EVM_DEXES": {
-          "label": "EVM DEXes",
-          "group": "DEX Config",
-          "width": "half"
-        }
       }
     },
     {
@@ -4907,7 +3386,15 @@
       "dirName": "plugin-matrix",
       "name": "Matrix",
       "npmName": "@elizaos/plugin-matrix",
-      "description": "",
+      "description": "Matrix connector for rooms, bots, and federated chat workflows.",
+      "tags": [
+        "connector",
+        "messaging",
+        "matrix",
+        "chat",
+        "social",
+        "social-chat"
+      ],
       "category": "connector",
       "envKey": "MATRIX_ACCESS_TOKEN",
       "configKeys": [
@@ -4971,48 +3458,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "MATRIX_HOMESERVER": {
-          "label": "Homeserver URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "MATRIX_USER_ID": {
-          "label": "User ID",
-          "group": "Connection",
-          "width": "half"
-        },
-        "MATRIX_ACCESS_TOKEN": {
-          "label": "Access Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MATRIX_DEVICE_ID": {
-          "label": "Device ID",
-          "group": "Connection",
-          "width": "half"
-        },
-        "MATRIX_ROOMS": {
-          "label": "Rooms",
-          "group": "Channels",
-          "width": "full"
-        },
-        "MATRIX_AUTO_JOIN": {
-          "label": "Auto Join",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "MATRIX_ENCRYPTION": {
-          "label": "Encryption",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "MATRIX_REQUIRE_MENTION": {
-          "label": "Require Mention",
-          "group": "Behavior",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#matrix"
     },
     {
       "id": "mattermost",
@@ -5020,6 +3466,7 @@
       "name": "Mattermost",
       "npmName": "@elizaos/plugin-mattermost",
       "description": "Mattermost integration plugin for elizaOS agents - TypeScript implementation",
+      "tags": ["connector", "social", "social-chat", "messaging", "mattermost"],
       "category": "connector",
       "envKey": "MATTERMOST_BOT_TOKEN",
       "configKeys": [
@@ -5097,65 +3544,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "MATTERMOST_SERVER_URL": {
-          "label": "Server URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "MATTERMOST_BOT_TOKEN": {
-          "label": "Bot Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MATTERMOST_TEAM_ID": {
-          "label": "Team ID",
-          "group": "Connection",
-          "width": "half"
-        },
-        "MATTERMOST_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        },
-        "MATTERMOST_DM_POLICY": {
-          "label": "DM Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "MATTERMOST_GROUP_POLICY": {
-          "label": "Group Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "MATTERMOST_ALLOWED_USERS": {
-          "label": "Allowed Users",
-          "group": "Policies",
-          "width": "full"
-        },
-        "MATTERMOST_ALLOWED_CHANNELS": {
-          "label": "Allowed Channels",
-          "group": "Policies",
-          "width": "full"
-        },
-        "MATTERMOST_REQUIRE_MENTION": {
-          "label": "Require Mention",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "MATTERMOST_IGNORE_BOT_MESSAGES": {
-          "label": "Ignore Bot Messages",
-          "group": "Behavior",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#mattermost"
     },
     {
       "id": "mcp",
       "dirName": "plugin-mcp",
       "name": "Mcp",
       "npmName": "@elizaos/plugin-mcp",
-      "description": "elizaOS plugin to integrate with MCP (Model Context Protocol) servers",
+      "description": "ElizaOS plugin allowing agents to connect to MCP servers",
+      "tags": ["connector", "integration", "mcp"],
       "category": "connector",
       "envKey": null,
       "configKeys": ["PATH", "mcp"],
@@ -5174,37 +3571,34 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "PATH": {
-          "label": "System PATH",
-          "group": "Configuration",
-          "width": "full",
-          "advanced": true
-        },
-        "mcp": {
-          "label": "MCP Configuration",
-          "group": "Configuration",
-          "width": "full"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#mcp-model-context-protocol"
     },
     {
       "id": "memory",
       "dirName": "plugin-memory",
       "name": "Memory",
       "npmName": "@elizaos/plugin-memory",
-      "description": "Memory management plugin for ElizaOS (TypeScript)",
+      "description": "Agent memory",
+      "tags": ["memory", "summarization"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.4"
+      "version": "2.0.1"
     },
     {
       "id": "minecraft",
       "dirName": "plugin-minecraft",
       "name": "Minecraft",
       "npmName": "@elizaos/plugin-minecraft",
-      "description": "Minecraft automation plugin for ElizaOS (Mineflayer bridge)",
+      "description": "Minecraft automation app for driving Mineflayer bots from Milady agents.",
+      "tags": [
+        "app",
+        "games",
+        "minecraft",
+        "automation",
+        "mineflayer",
+        "interactive"
+      ],
       "category": "app",
       "envKey": null,
       "configKeys": [
@@ -5253,42 +3647,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "MC_HOST": {
-          "label": "Server Host",
-          "group": "Connection",
-          "width": "half"
-        },
-        "MC_PORT": {
-          "label": "Server Port",
-          "group": "Connection",
-          "width": "half",
-          "min": 1,
-          "max": 65535
-        },
-        "MC_SERVER_PORT": {
-          "label": "Local Server Port",
-          "group": "Connection",
-          "width": "half",
-          "min": 1,
-          "max": 65535
-        },
-        "MC_USERNAME": {
-          "label": "Username",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MC_AUTH": {
-          "label": "Auth Mode",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MC_VERSION": {
-          "label": "Minecraft Version",
-          "group": "Configuration",
-          "width": "half"
-        }
       }
     },
     {
@@ -5297,6 +3655,7 @@
       "name": "Moltbook",
       "npmName": "@elizaos/plugin-moltbook",
       "description": "Moltbook social plugin for Eliza agents - Reddit-style platform for AI agents",
+      "tags": ["moltbook", "social", "reddit", "agents", "autonomous"],
       "category": "feature",
       "envKey": "MOLTBOOK_TOKEN",
       "configKeys": [
@@ -5352,46 +3711,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "MOLTBOOK_TOKEN": {
-          "label": "Auth Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MOLTBOOK_AGENT_NAME": {
-          "label": "Agent Name",
-          "group": "Identity",
-          "width": "half"
-        },
-        "MOLTBOOK_MODEL": {
-          "label": "Model",
-          "group": "Identity",
-          "width": "half"
-        },
-        "MOLTBOOK_PERSONALITY": {
-          "label": "Personality",
-          "group": "Identity",
-          "width": "full"
-        },
-        "MOLTBOOK_AUTONOMY_INTERVAL_MS": {
-          "label": "Autonomy Interval",
-          "group": "Autonomy",
-          "width": "half",
-          "unit": "ms",
-          "min": 1000
-        },
-        "MOLTBOOK_AUTONOMY_MAX_STEPS": {
-          "label": "Max Steps",
-          "group": "Autonomy",
-          "width": "half",
-          "min": 1
-        },
-        "MOLTBOOK_AUTONOMOUS_MODE": {
-          "label": "Autonomous Mode",
-          "group": "Autonomy",
-          "width": "half"
-        }
       }
     },
     {
@@ -5400,6 +3719,7 @@
       "name": "Msteams",
       "npmName": "@elizaos/plugin-msteams",
       "description": "Microsoft Teams integration for ElizaOS",
+      "tags": ["connector", "social", "social-chat", "messaging", "msteams"],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -5470,59 +3790,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "MSTEAMS_APP_ID": {
-          "label": "App ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MSTEAMS_APP_PASSWORD": {
-          "label": "App Password",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MSTEAMS_TENANT_ID": {
-          "label": "Tenant ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "MSTEAMS_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        },
-        "MSTEAMS_WEBHOOK_PORT": {
-          "label": "Webhook Port",
-          "group": "Webhook",
-          "width": "half",
-          "min": 1,
-          "max": 65535
-        },
-        "MSTEAMS_WEBHOOK_PATH": {
-          "label": "Webhook Path",
-          "group": "Webhook",
-          "width": "full"
-        },
-        "MSTEAMS_ALLOWED_TENANTS": {
-          "label": "Allowed Tenants",
-          "group": "Policies",
-          "width": "full"
-        },
-        "MSTEAMS_SHAREPOINT_SITE_ID": {
-          "label": "SharePoint Site ID",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        },
-        "MSTEAMS_MEDIA_MAX_MB": {
-          "label": "Media Max Size",
-          "group": "Advanced",
-          "width": "half",
-          "unit": "MB",
-          "min": 1,
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#microsoft-teams"
     },
     {
       "id": "mysticism",
@@ -5530,6 +3798,7 @@
       "name": "Mysticism",
       "npmName": "@elizaos/plugin-mysticism",
       "description": "Mystical divination engines for ElizaOS — Tarot, I Ching, and Astrology readings",
+      "tags": ["mysticism", "tarot", "iching", "astrology", "divination"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -5558,29 +3827,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "MYSTICISM_PRICE_TAROT": {
-          "label": "Tarot Price",
-          "group": "Pricing",
-          "width": "half",
-          "unit": "SOL",
-          "min": 0
-        },
-        "MYSTICISM_PRICE_ICHING": {
-          "label": "I Ching Price",
-          "group": "Pricing",
-          "width": "half",
-          "unit": "SOL",
-          "min": 0
-        },
-        "MYSTICISM_PRICE_ASTROLOGY": {
-          "label": "Astrology Price",
-          "group": "Pricing",
-          "width": "half",
-          "unit": "SOL",
-          "min": 0
-        }
       }
     },
     {
@@ -5589,6 +3835,7 @@
       "name": "N8n",
       "npmName": "@elizaos/plugin-n8n",
       "description": "N8n workflow integration plugin with AI-powered plugin creation for ElizaOS",
+      "tags": ["n8n", "llm", "plugin-creation", "anthropic", "claude"],
       "category": "feature",
       "envKey": "ANTHROPIC_API_KEY",
       "configKeys": [
@@ -5629,33 +3876,6 @@
           "description": "n8n instance URL (e.g., https://your.n8n.cloud) (required for workflow features)",
           "required": false
         }
-      },
-      "configUiHints": {
-        "ANTHROPIC_API_KEY": {
-          "label": "Anthropic API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "PLUGIN_DATA_DIR": {
-          "label": "Plugin Data Directory",
-          "group": "Configuration",
-          "width": "full"
-        },
-        "CLAUDE_MODEL": {
-          "label": "Claude Model",
-          "group": "Configuration",
-          "width": "half"
-        },
-        "N8N_API_KEY": {
-          "label": "n8n API Key",
-          "group": "n8n Connection",
-          "width": "half"
-        },
-        "N8N_HOST": {
-          "label": "n8n Host URL",
-          "group": "n8n Connection",
-          "width": "full"
-        }
       }
     },
     {
@@ -5664,6 +3884,15 @@
       "name": "Nextcloud Talk",
       "npmName": "@elizaos/plugin-nextcloud-talk",
       "description": "Nextcloud Talk plugin for elizaOS - TypeScript implementation",
+      "tags": [
+        "connector",
+        "social",
+        "social-chat",
+        "messaging",
+        "nextcloud-talk",
+        "nextcloud",
+        "talk"
+      ],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -5727,57 +3956,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "NEXTCLOUD_URL": {
-          "label": "Nextcloud URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "NEXTCLOUD_BOT_SECRET": {
-          "label": "Bot Secret",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "NEXTCLOUD_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        },
-        "NEXTCLOUD_WEBHOOK_PORT": {
-          "label": "Webhook Port",
-          "group": "Webhook",
-          "width": "half",
-          "min": 1,
-          "max": 65535
-        },
-        "NEXTCLOUD_WEBHOOK_HOST": {
-          "label": "Webhook Host",
-          "group": "Webhook",
-          "width": "half"
-        },
-        "NEXTCLOUD_WEBHOOK_PATH": {
-          "label": "Webhook Path",
-          "group": "Webhook",
-          "width": "full"
-        },
-        "NEXTCLOUD_WEBHOOK_PUBLIC_URL": {
-          "label": "Webhook Public URL",
-          "group": "Webhook",
-          "width": "full"
-        },
-        "NEXTCLOUD_ALLOWED_ROOMS": {
-          "label": "Allowed Rooms",
-          "group": "Policies",
-          "width": "full"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#nextcloud-talk"
     },
     {
       "id": "nostr",
       "dirName": "plugin-nostr",
       "name": "Nostr",
       "npmName": "@elizaos/plugin-nostr",
-      "description": "",
+      "description": "Nostr connector for relay-based social posting and conversation handling.",
+      "tags": ["connector", "social", "nostr", "relays", "social-feed"],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -5820,40 +4007,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "NOSTR_PRIVATE_KEY": {
-          "label": "Private Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "NOSTR_RELAYS": {
-          "label": "Relay URLs",
-          "group": "Connection",
-          "width": "full"
-        },
-        "NOSTR_DM_POLICY": {
-          "label": "DM Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "NOSTR_ALLOW_FROM": {
-          "label": "Allowed Users",
-          "group": "Policies",
-          "width": "full"
-        },
-        "NOSTR_ENABLED": {
-          "label": "Enabled",
-          "group": "General",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#nostr"
     },
     {
       "id": "ollama",
       "dirName": "plugin-ollama",
       "name": "Ollama",
       "npmName": "@elizaos/plugin-ollama",
-      "description": "",
+      "description": "Ollama provider for running local LLMs on your own machine.",
+      "tags": ["ai-provider", "llm", "ollama", "local-models"],
       "category": "ai-provider",
       "envKey": null,
       "configKeys": [
@@ -5916,53 +4078,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "OLLAMA_API_ENDPOINT": {
-          "label": "API Endpoint",
-          "group": "Connection",
-          "width": "full",
-          "placeholder": "http://localhost:11434/api"
-        },
-        "OLLAMA_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "OLLAMA_MEDIUM_MODEL": {
-          "label": "Medium Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "OLLAMA_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "OLLAMA_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "SMALL_MODEL": {
-          "label": "Small Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "LARGE_MODEL": {
-          "label": "Large Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#ollama-local-models"
     },
     {
       "id": "openai",
       "dirName": "plugin-openai",
       "name": "Openai",
       "npmName": "@elizaos/plugin-openai",
-      "description": "",
+      "description": "Integrates OpenAI's GPT models for automated text generation with customizable prompts.",
+      "tags": ["ai-provider", "llm", "openai"],
       "category": "ai-provider",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
@@ -5985,7 +4109,7 @@
         "OPENAI_BROWSER_BASE_URL",
         "OPENAI_BROWSER_EMBEDDING_URL"
       ],
-      "version": "2.0.0-alpha.5",
+      "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "OPENAI_API_KEY": {
           "type": "string",
@@ -6106,115 +4230,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "OPENAI_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half",
-          "placeholder": "sk-..."
-        },
-        "OPENAI_BASE_URL": {
-          "label": "Base URL",
-          "group": "Connection",
-          "width": "half",
-          "placeholder": "https://api.openai.com/v1"
-        },
-        "OPENAI_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "SMALL_MODEL": {
-          "label": "Small Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENAI_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "LARGE_MODEL": {
-          "label": "Large Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENAI_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "Embeddings",
-          "width": "half"
-        },
-        "OPENAI_EMBEDDING_URL": {
-          "label": "Embedding URL",
-          "group": "Embeddings",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENAI_EMBEDDING_API_KEY": {
-          "label": "Embedding API Key",
-          "group": "Embeddings",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENAI_EMBEDDING_DIMENSIONS": {
-          "label": "Embedding Dimensions",
-          "group": "Embeddings",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        },
-        "OPENAI_IMAGE_DESCRIPTION_MODEL": {
-          "label": "Image Description Model",
-          "group": "Media",
-          "width": "half"
-        },
-        "OPENAI_IMAGE_DESCRIPTION_MAX_TOKENS": {
-          "label": "Image Description Max Tokens",
-          "group": "Media",
-          "width": "half",
-          "min": 1,
-          "unit": "tokens"
-        },
-        "OPENAI_TTS_MODEL": {
-          "label": "TTS Model",
-          "group": "Speech",
-          "width": "half"
-        },
-        "OPENAI_TTS_VOICE": {
-          "label": "TTS Voice",
-          "group": "Speech",
-          "width": "half"
-        },
-        "OPENAI_TTS_INSTRUCTIONS": {
-          "label": "TTS Instructions",
-          "group": "Speech",
-          "width": "full"
-        },
-        "OPENAI_EXPERIMENTAL_TELEMETRY": {
-          "label": "Experimental Telemetry",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "OPENAI_BROWSER_BASE_URL": {
-          "label": "Browser Base URL",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "OPENAI_BROWSER_EMBEDDING_URL": {
-          "label": "Browser Embedding URL",
-          "group": "Advanced",
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#openai"
     },
     {
       "id": "openrouter",
       "dirName": "plugin-openrouter",
       "name": "Openrouter",
       "npmName": "@elizaos/plugin-openrouter",
-      "description": "",
+      "description": "OpenRouter provider for routing requests across many hosted models through one API.",
+      "tags": ["ai-provider", "llm", "openrouter", "routing"],
       "category": "ai-provider",
       "envKey": "OPENROUTER_API_KEY",
       "configKeys": [
@@ -6236,7 +4260,7 @@
         "OPENROUTER_AUTO_CLEANUP_IMAGES",
         "OPENROUTER_TOOL_EXECUTION_MAX_STEPS"
       ],
-      "version": "2.0.0-alpha.5",
+      "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "OPENROUTER_API_KEY": {
           "type": "string",
@@ -6355,113 +4379,15 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "OPENROUTER_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "OPENROUTER_BASE_URL": {
-          "label": "Base URL",
-          "group": "Connection",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENROUTER_BROWSER_BASE_URL": {
-          "label": "Browser Base URL",
-          "group": "Connection",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENROUTER_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "OPENROUTER_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "SMALL_MODEL": {
-          "label": "Small Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "LARGE_MODEL": {
-          "label": "Large Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENROUTER_IMAGE_MODEL": {
-          "label": "Image Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "IMAGE_MODEL": {
-          "label": "Image Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENROUTER_IMAGE_GENERATION_MODEL": {
-          "label": "Image Generation Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "IMAGE_GENERATION_MODEL": {
-          "label": "Image Generation Model (Fallback)",
-          "group": "Models",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENROUTER_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "Embeddings",
-          "width": "half"
-        },
-        "EMBEDDING_MODEL": {
-          "label": "Embedding Model (Fallback)",
-          "group": "Embeddings",
-          "width": "half",
-          "advanced": true
-        },
-        "OPENROUTER_EMBEDDING_DIMENSIONS": {
-          "label": "Embedding Dimensions",
-          "group": "Embeddings",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        },
-        "EMBEDDING_DIMENSIONS": {
-          "label": "Embedding Dimensions (Fallback)",
-          "group": "Embeddings",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        },
-        "OPENROUTER_AUTO_CLEANUP_IMAGES": {
-          "label": "Auto Cleanup Images",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "OPENROUTER_TOOL_EXECUTION_MAX_STEPS": {
-          "label": "Tool Execution Max Steps",
-          "group": "Advanced",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#openrouter"
     },
     {
       "id": "pdf",
       "dirName": "plugin-pdf",
       "name": "Pdf",
       "npmName": "@elizaos/plugin-pdf",
-      "description": "",
+      "description": "Core Node.js plugin for Eliza OS that provides essential services and actions for file operations.",
+      "tags": ["pdf"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -6473,6 +4399,7 @@
       "name": "Personality",
       "npmName": "@elizaos/plugin-personality",
       "description": "ElizaOS plugin for agent self-modification and character evolution",
+      "tags": ["personality", "character-evolution", "self-modification"],
       "category": "feature",
       "envKey": null,
       "configKeys": ["ADMIN_USERS"],
@@ -6484,13 +4411,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "ADMIN_USERS": {
-          "label": "Admin Users",
-          "width": "full",
-          "placeholder": "user1,user2,user3"
-        }
       }
     },
     {
@@ -6498,7 +4418,8 @@
       "dirName": "plugin-plugin-manager",
       "name": "Plugin Manager",
       "npmName": "@elizaos/plugin-plugin-manager",
-      "description": "Plugin manager for ElizaOS",
+      "description": "Dynamic plugin management for agents. Load and unload plugins at runtime",
+      "tags": ["plugin-manager", "manager"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -6510,6 +4431,7 @@
       "name": "Polymarket",
       "npmName": "@elizaos/plugin-polymarket",
       "description": "Multi-language Polymarket prediction markets plugin for elizaOS",
+      "tags": ["polymarket", "prediction-markets", "web3", "polygon"],
       "category": "feature",
       "envKey": "CLOB_API_KEY",
       "configKeys": [
@@ -6561,38 +4483,6 @@
           "required": false,
           "sensitive": true
         }
-      },
-      "configUiHints": {
-        "POLYMARKET_PRIVATE_KEY": {
-          "label": "Private Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "CLOB_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "CLOB_API_SECRET": {
-          "label": "API Secret",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "CLOB_API_PASSPHRASE": {
-          "label": "API Passphrase",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "CLOB_API_URL": {
-          "label": "CLOB API URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "CLOB_WS_URL": {
-          "label": "WebSocket URL",
-          "group": "Connection",
-          "width": "full"
-        }
       }
     },
     {
@@ -6601,6 +4491,7 @@
       "name": "Prose",
       "npmName": "@elizaos/plugin-prose",
       "description": "OpenProse VM integration for ElizaOS - a programming language for AI sessions",
+      "tags": ["openprose", "prose", "llm", "vm", "workflow", "orchestration"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -6622,21 +4513,62 @@
           "type": "string",
           "description": "Directory containing prose skill files (prose.md, help.md, etc.)"
         }
+      }
+    },
+    {
+      "id": "retake",
+      "dirName": "plugin-retake",
+      "name": "Retake.tv",
+      "npmName": "@elizaos/plugin-retake",
+      "description": "Live video streaming connector for retake.tv",
+      "category": "streaming",
+      "homepage": "https://retake.tv",
+      "repository": "https://github.com/elizaos-plugins/plugin-retake",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#retaketv",
+      "envKey": "RETAKE_ACCESS_TOKEN",
+      "configKeys": [
+        "RETAKE_ACCESS_TOKEN",
+        "RETAKE_API_URL",
+        "RETAKE_CAPTURE_URL"
+      ],
+      "pluginParameters": {
+        "RETAKE_ACCESS_TOKEN": {
+          "type": "string",
+          "description": "Access token for retake.tv API",
+          "required": false,
+          "sensitive": true
+        },
+        "RETAKE_API_URL": {
+          "type": "string",
+          "description": "Retake.tv API base URL",
+          "required": false,
+          "sensitive": false
+        },
+        "RETAKE_CAPTURE_URL": {
+          "type": "string",
+          "description": "Capture URL for retake.tv stream",
+          "required": false,
+          "sensitive": false
+        }
       },
       "configUiHints": {
-        "PROSE_WORKSPACE_DIR": {
-          "label": "Workspace Directory",
+        "RETAKE_ACCESS_TOKEN": {
+          "label": "Access Token",
+          "group": "Authentication",
           "width": "full"
         },
-        "PROSE_STATE_MODE": {
-          "label": "State Mode",
+        "RETAKE_API_URL": {
+          "label": "API URL",
+          "group": "Connection",
           "width": "half"
         },
-        "PROSE_SKILLS_DIR": {
-          "label": "Skills Directory",
-          "width": "full"
+        "RETAKE_CAPTURE_URL": {
+          "label": "Capture URL",
+          "group": "Connection",
+          "width": "half"
         }
-      }
+      },
+      "tags": ["retake", "streaming", "rtmp", "chat", "broadcast"]
     },
     {
       "id": "rlm",
@@ -6644,6 +4576,13 @@
       "name": "Rlm",
       "npmName": "@elizaos/plugin-rlm",
       "description": "RLM (Recursive Language Model) plugin for elizaOS - enables processing of arbitrarily long contexts",
+      "tags": [
+        "rlm",
+        "recursive-language-model",
+        "llm",
+        "agent",
+        "long-context"
+      ],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -6654,7 +4593,8 @@
       "dirName": "plugin-roblox",
       "name": "Roblox",
       "npmName": "@elizaos/plugin-roblox",
-      "description": "",
+      "description": "Roblox app integration for agent-driven gameplay and interactive experiences.",
+      "tags": ["app", "games", "roblox", "interactive"],
       "category": "app",
       "envKey": "ROBLOX_API_KEY",
       "configKeys": [
@@ -6713,45 +4653,6 @@
           "default": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "ROBLOX_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ROBLOX_WEBHOOK_SECRET": {
-          "label": "Webhook Secret",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ROBLOX_UNIVERSE_ID": {
-          "label": "Universe ID",
-          "group": "Connection",
-          "width": "half"
-        },
-        "ROBLOX_PLACE_ID": {
-          "label": "Place ID",
-          "group": "Connection",
-          "width": "half"
-        },
-        "ROBLOX_MESSAGING_TOPIC": {
-          "label": "Messaging Topic",
-          "group": "Connection",
-          "width": "half"
-        },
-        "ROBLOX_POLL_INTERVAL": {
-          "label": "Poll Interval",
-          "group": "Connection",
-          "width": "half",
-          "unit": "s",
-          "min": 1
-        },
-        "ROBLOX_DRY_RUN": {
-          "label": "Dry Run",
-          "group": "Connection",
-          "advanced": true
-        }
       }
     },
     {
@@ -6760,6 +4661,15 @@
       "name": "Robot Voice",
       "npmName": "@elizaos/plugin-robot-voice",
       "description": "Retro 1980s SAM Text-to-Speech plugin for ElizaOS agents",
+      "tags": [
+        "text-to-speech",
+        "sam",
+        "retro",
+        "1980s",
+        "robot-voice",
+        "robot",
+        "voice"
+      ],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -6770,7 +4680,8 @@
       "dirName": "plugin-rolodex",
       "name": "Rolodex",
       "npmName": "@elizaos/plugin-rolodex",
-      "description": "A plugin for ElizaOS that allows you to manage entites, relationships and associations",
+      "description": "Entities, relationships, contact management for agents",
+      "tags": ["rolodex"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -6781,7 +4692,8 @@
       "dirName": "plugin-rss",
       "name": "Rss",
       "npmName": "@elizaos/plugin-rss",
-      "description": "RSS and Atom feed integration plugin for elizaOS - enables agents to fetch and monitor news feeds",
+      "description": "news and feed support",
+      "tags": ["rss", "atom", "feed", "news", "syndication"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -6819,28 +4731,6 @@
           "default": 15,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "RSS_FEEDS": {
-          "label": "Feed URLs",
-          "width": "full",
-          "placeholder": "https://example.com/feed.xml"
-        },
-        "RSS_FEED_FORMAT": {
-          "label": "Output Format",
-          "width": "half"
-        },
-        "RSS_CHECK_INTERVAL_MINUTES": {
-          "label": "Check Interval",
-          "width": "half",
-          "unit": "min",
-          "min": 1
-        },
-        "RSS_DISABLE_ACTIONS": {
-          "label": "Disable Actions",
-          "width": "half",
-          "advanced": true
-        }
       }
     },
     {
@@ -6848,7 +4738,8 @@
       "dirName": "plugin-s3-storage",
       "name": "S3 Storage",
       "npmName": "@elizaos/plugin-s3-storage",
-      "description": "",
+      "description": "S3-compatible object storage plugin for saving files, media, and generated artifacts.",
+      "tags": ["storage", "files", "s3", "s3-storage"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -6911,49 +4802,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "AWS_ACCESS_KEY_ID": {
-          "label": "Access Key ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "AWS_SECRET_ACCESS_KEY": {
-          "label": "Secret Access Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "AWS_REGION": {
-          "label": "Region",
-          "group": "Bucket",
-          "width": "half"
-        },
-        "AWS_S3_BUCKET": {
-          "label": "Bucket Name",
-          "group": "Bucket",
-          "width": "half"
-        },
-        "AWS_S3_UPLOAD_PATH": {
-          "label": "Upload Path",
-          "group": "Bucket",
-          "width": "full"
-        },
-        "AWS_S3_ENDPOINT": {
-          "label": "Custom Endpoint",
-          "group": "Advanced",
-          "width": "full",
-          "advanced": true
-        },
-        "AWS_S3_SSL_ENABLED": {
-          "label": "SSL Enabled",
-          "group": "Advanced",
-          "advanced": true
-        },
-        "AWS_S3_FORCE_PATH_STYLE": {
-          "label": "Force Path Style",
-          "group": "Advanced",
-          "advanced": true
-        }
       }
     },
     {
@@ -6962,6 +4810,7 @@
       "name": "Scheduling",
       "npmName": "@elizaos/plugin-scheduling",
       "description": "Scheduling and calendar coordination plugin for ElizaOS agents",
+      "tags": ["scheduling"],
       "category": "feature",
       "envKey": null,
       "configKeys": ["DEFAULT_TIMEZONE"],
@@ -6973,13 +4822,6 @@
           "required": false,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "DEFAULT_TIMEZONE": {
-          "label": "Default Timezone",
-          "width": "half",
-          "placeholder": "America/New_York"
-        }
       }
     },
     {
@@ -6988,6 +4830,7 @@
       "name": "Scratchpad",
       "npmName": "@elizaos/plugin-scratchpad",
       "description": "File-based memory storage plugin for ElizaOS - persistent notes and memories",
+      "tags": ["scratchpad", "memory", "notes", "storage"],
       "category": "feature",
       "envKey": null,
       "configKeys": ["SCRATCHPAD_BASE_PATH", "SCRATCHPAD_MAX_FILE_SIZE"],
@@ -7006,18 +4849,6 @@
           "default": 1048576,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "SCRATCHPAD_BASE_PATH": {
-          "label": "Base Path",
-          "width": "full"
-        },
-        "SCRATCHPAD_MAX_FILE_SIZE": {
-          "label": "Max File Size",
-          "width": "half",
-          "unit": "bytes",
-          "min": 0
-        }
       }
     },
     {
@@ -7025,7 +4856,16 @@
       "dirName": "plugin-secrets-manager",
       "name": "Secrets Manager",
       "npmName": "@elizaos/plugin-secrets-manager",
-      "description": "Multi-level secret management plugin for ElizaOS with encryption and dynamic plugin activation",
+      "description": "Plugin to enable autonomous agents to request and set runtime settings and secrets",
+      "tags": [
+        "secrets",
+        "encryption",
+        "api-keys",
+        "credentials",
+        "security",
+        "secrets-manager",
+        "manager"
+      ],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -7052,22 +4892,6 @@
           "required": false,
           "example": "true"
         }
-      },
-      "configUiHints": {
-        "ENCRYPTION_SALT": {
-          "label": "Encryption Salt",
-          "width": "half",
-          "advanced": true
-        },
-        "ENABLE_ENCRYPTION": {
-          "label": "Enable Encryption",
-          "width": "half"
-        },
-        "ENABLE_ACCESS_LOGGING": {
-          "label": "Enable Access Logging",
-          "width": "half",
-          "advanced": true
-        }
       }
     },
     {
@@ -7075,7 +4899,8 @@
       "dirName": "plugin-shell",
       "name": "Shell",
       "npmName": "@elizaos/plugin-shell",
-      "description": "Shell command execution plugin for ElizaOS with directory restrictions and history tracking",
+      "description": "A shell plugin for ElizaOS. USE AT YOUR OWN RISK. THIS GIVES AI FULL ACCESS TO THE HOST MACHINE",
+      "tags": ["shell", "terminal", "command", "history"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -7136,51 +4961,6 @@
           "default": 1800000,
           "sensitive": false
         }
-      },
-      "configUiHints": {
-        "SHELL_ALLOWED_DIRECTORY": {
-          "label": "Allowed Directory",
-          "group": "Security",
-          "width": "full"
-        },
-        "SHELL_FORBIDDEN_COMMANDS": {
-          "label": "Forbidden Commands",
-          "group": "Security",
-          "width": "full"
-        },
-        "SHELL_TIMEOUT": {
-          "label": "Command Timeout",
-          "group": "Limits",
-          "width": "half",
-          "unit": "ms",
-          "min": 1000
-        },
-        "SHELL_MAX_OUTPUT_CHARS": {
-          "label": "Max Output Characters",
-          "group": "Limits",
-          "width": "half",
-          "min": 0
-        },
-        "SHELL_ALLOW_BACKGROUND": {
-          "label": "Allow Background Jobs",
-          "group": "Background Jobs",
-          "width": "half"
-        },
-        "SHELL_BACKGROUND_MS": {
-          "label": "Background Threshold",
-          "group": "Background Jobs",
-          "width": "half",
-          "unit": "ms",
-          "min": 0
-        },
-        "SHELL_JOB_TTL_MS": {
-          "label": "Job TTL",
-          "group": "Background Jobs",
-          "width": "half",
-          "unit": "ms",
-          "min": 0,
-          "advanced": true
-        }
       }
     },
     {
@@ -7189,6 +4969,15 @@
       "name": "Signal",
       "npmName": "@elizaos/plugin-signal",
       "description": "Signal messaging integration plugin for ElizaOS agents",
+      "tags": [
+        "signal",
+        "messaging",
+        "secure",
+        "encrypted",
+        "connector",
+        "social",
+        "social-chat"
+      ],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -7224,27 +5013,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "SIGNAL_ACCOUNT_NUMBER": {
-          "label": "Account Number",
-          "width": "half",
-          "placeholder": "+1234567890"
-        },
-        "SIGNAL_HTTP_URL": {
-          "label": "HTTP API URL",
-          "width": "full",
-          "placeholder": "http://localhost:8080"
-        },
-        "SIGNAL_CLI_PATH": {
-          "label": "CLI Path",
-          "width": "full",
-          "advanced": true
-        },
-        "SIGNAL_SHOULD_IGNORE_GROUP_MESSAGES": {
-          "label": "Ignore Group Messages",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#signal"
     },
     {
       "id": "simple-voice",
@@ -7252,6 +5021,15 @@
       "name": "Simple Voice",
       "npmName": "@elizaos/plugin-simple-voice",
       "description": "Retro 1980s SAM Text-to-Speech plugin for ElizaOS agents",
+      "tags": [
+        "text-to-speech",
+        "sam",
+        "retro",
+        "1980s",
+        "simple-voice",
+        "simple",
+        "voice"
+      ],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -7263,6 +5041,14 @@
       "name": "Slack",
       "npmName": "@elizaos/plugin-slack",
       "description": "Slack integration plugin for ElizaOS agents with Socket Mode support",
+      "tags": [
+        "slack",
+        "chat",
+        "messaging",
+        "connector",
+        "social",
+        "social-chat"
+      ],
       "category": "connector",
       "envKey": "SLACK_BOT_TOKEN",
       "configKeys": [
@@ -7319,46 +5105,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "SLACK_BOT_TOKEN": {
-          "label": "Bot Token",
-          "group": "Authentication",
-          "width": "half",
-          "placeholder": "xoxb-..."
-        },
-        "SLACK_APP_TOKEN": {
-          "label": "App Token",
-          "group": "Authentication",
-          "width": "half",
-          "placeholder": "xapp-..."
-        },
-        "SLACK_SIGNING_SECRET": {
-          "label": "Signing Secret",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "SLACK_USER_TOKEN": {
-          "label": "User Token",
-          "group": "Authentication",
-          "width": "half",
-          "placeholder": "xoxp-...",
-          "advanced": true
-        },
-        "SLACK_CHANNEL_IDS": {
-          "label": "Channel IDs",
-          "group": "Channels",
-          "width": "full",
-          "placeholder": "C01ABCDEF,C02GHIJKL"
-        },
-        "SLACK_SHOULD_IGNORE_BOT_MESSAGES": {
-          "label": "Ignore Bot Messages",
-          "group": "Behavior"
-        },
-        "SLACK_SHOULD_RESPOND_ONLY_TO_MENTIONS": {
-          "label": "Respond Only to Mentions",
-          "group": "Behavior"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#slack"
     },
     {
       "id": "social-alpha",
@@ -7366,6 +5113,13 @@
       "name": "Social Alpha",
       "npmName": "@elizaos/plugin-social-alpha",
       "description": "Social Alpha Plugin — Tracks token recommendations (shills/FUD), builds trust scores based on P&L outcomes, and exposes a Social Alpha Provider with win rate, rank, and recommender analytics.",
+      "tags": [
+        "social-alpha",
+        "trust-score",
+        "shill-tracker",
+        "social",
+        "alpha"
+      ],
       "category": "feature",
       "envKey": "BIRDEYE_API_KEY",
       "configKeys": [
@@ -7414,32 +5168,6 @@
           "required": true,
           "sensitive": true
         }
-      },
-      "configUiHints": {
-        "BIRDEYE_API_KEY": {
-          "label": "Birdeye API Key",
-          "width": "half"
-        },
-        "DEXSCREENER_API_KEY": {
-          "label": "DexScreener API Key",
-          "width": "half"
-        },
-        "JUPITER_API_KEY": {
-          "label": "Jupiter API Key",
-          "width": "half"
-        },
-        "HELIUS_API_KEY": {
-          "label": "Helius API Key",
-          "width": "half"
-        },
-        "COINGECKO_API_KEY": {
-          "label": "CoinGecko API Key",
-          "width": "half"
-        },
-        "MORALIS_API_KEY": {
-          "label": "Moralis API Key",
-          "width": "half"
-        }
       }
     },
     {
@@ -7447,7 +5175,8 @@
       "dirName": "plugin-solana",
       "name": "Solana",
       "npmName": "@elizaos/plugin-solana",
-      "description": "",
+      "description": "Core Solana blockchain plugin for Eliza OS, enabling token operations, trading, and DeFi integrations.",
+      "tags": ["crypto", "solana"],
       "category": "feature",
       "envKey": "HELIUS_API_KEY",
       "configKeys": [
@@ -7532,66 +5261,6 @@
           "required": false,
           "sensitive": true
         }
-      },
-      "configUiHints": {
-        "WALLET_PUBLIC_KEY": {
-          "label": "Wallet Public Key",
-          "group": "Wallet",
-          "width": "half"
-        },
-        "WALLET_SECRET_KEY": {
-          "label": "Wallet Secret Key",
-          "group": "Wallet",
-          "width": "half"
-        },
-        "WALLET_SECRET_SALT": {
-          "label": "Wallet Secret Salt",
-          "group": "Wallet",
-          "width": "half"
-        },
-        "WALLET_PRIVATE_KEY": {
-          "label": "Wallet Private Key (Alt)",
-          "group": "Wallet",
-          "width": "half",
-          "advanced": true
-        },
-        "SOLANA_PUBLIC_KEY": {
-          "label": "Solana Public Key (Alt)",
-          "group": "Wallet",
-          "width": "half",
-          "advanced": true
-        },
-        "SOLANA_PRIVATE_KEY": {
-          "label": "Solana Private Key (Alt)",
-          "group": "Wallet",
-          "width": "half",
-          "advanced": true
-        },
-        "SOLANA_RPC_URL": {
-          "label": "RPC URL",
-          "group": "Connection",
-          "width": "full"
-        },
-        "SOL_ADDRESS": {
-          "label": "SOL Token Address",
-          "group": "Connection",
-          "width": "half"
-        },
-        "SLIPPAGE": {
-          "label": "Slippage",
-          "group": "Trading",
-          "width": "half"
-        },
-        "HELIUS_API_KEY": {
-          "label": "Helius API Key",
-          "group": "API Keys",
-          "width": "half"
-        },
-        "BIRDEYE_API_KEY": {
-          "label": "Birdeye API Key",
-          "group": "API Keys",
-          "width": "half"
-        }
       }
     },
     {
@@ -7599,18 +5268,34 @@
       "dirName": "plugin-sql",
       "name": "Sql",
       "npmName": "@elizaos/plugin-sql",
-      "description": "",
+      "description": "SQL database adapter for persistent agent state, memory, and logs.",
       "category": "database",
       "envKey": null,
       "configKeys": [],
-      "version": "2.0.0-alpha.6"
+      "version": "2.0.0-alpha.6",
+      "tags": ["database", "storage", "sql", "persistence"]
+    },
+    {
+      "id": "streaming-base",
+      "dirName": "plugin-streaming-base",
+      "name": "Streaming",
+      "npmName": "@elizaos/plugin-streaming-base",
+      "description": "Enable live streaming controls — adds the Stream tab for managing RTMP destinations",
+      "category": "streaming",
+      "envKey": null,
+      "configKeys": [],
+      "pluginParameters": {},
+      "repository": "https://github.com/elizaos-plugins/plugin-streaming-base",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#enable-streaming-streaming-base",
+      "tags": ["streaming", "broadcast", "streaming-base", "base"]
     },
     {
       "id": "tee",
       "dirName": "plugin-tee",
       "name": "Tee",
       "npmName": "@elizaos/plugin-tee",
-      "description": "Trusted Execution Environment (TEE) integration plugin for elizaOS - Multi-language support (TypeScript, Python, Rust)",
+      "description": "A plugin for secure key derivation and remote attestation within Trusted Execution Environments (TEE).",
+      "tags": ["crypto", "tee"],
       "category": "feature",
       "envKey": null,
       "configKeys": ["TEE_MODE", "TEE_VENDOR", "WALLET_SECRET_SALT"],
@@ -7636,21 +5321,6 @@
           "default": "secret_salt",
           "sensitive": true
         }
-      },
-      "configUiHints": {
-        "TEE_MODE": {
-          "label": "TEE Mode",
-          "width": "half"
-        },
-        "TEE_VENDOR": {
-          "label": "TEE Vendor",
-          "width": "half",
-          "placeholder": "PHALA"
-        },
-        "WALLET_SECRET_SALT": {
-          "label": "Wallet Secret Salt",
-          "width": "half"
-        }
       }
     },
     {
@@ -7658,7 +5328,15 @@
       "dirName": "plugin-telegram",
       "name": "Telegram",
       "npmName": "@elizaos/plugin-telegram",
-      "description": "",
+      "description": "Telegram connector for bot chats, groups, channels, and topic-based conversations.",
+      "tags": [
+        "connector",
+        "messaging",
+        "telegram",
+        "chat",
+        "social",
+        "social-chat"
+      ],
       "category": "connector",
       "envKey": "TELEGRAM_BOT_TOKEN",
       "configKeys": [
@@ -7694,34 +5372,23 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "TELEGRAM_API_ROOT": {
-          "label": "API Root URL",
-          "width": "full",
-          "placeholder": "https://api.telegram.org"
-        },
-        "TELEGRAM_BOT_TOKEN": {
-          "label": "Bot Token",
-          "width": "half"
-        },
-        "TELEGRAM_ALLOWED_CHATS": {
-          "label": "Allowed Chat IDs",
-          "width": "full",
-          "placeholder": "[\"123456789\", \"-100987654\"]"
-        },
-        "TELEGRAM_TEST_CHAT_ID": {
-          "label": "Test Chat ID",
-          "width": "half",
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#telegram"
     },
     {
       "id": "tlon",
       "dirName": "plugin-tlon",
       "name": "Tlon",
       "npmName": "@elizaos/plugin-tlon",
-      "description": "",
+      "description": "Tlon connector for Urbit chat and social interactions.",
+      "tags": [
+        "connector",
+        "social",
+        "urbit",
+        "chat",
+        "social-chat",
+        "messaging",
+        "tlon"
+      ],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -7778,43 +5445,394 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "TLON_SHIP": {
-          "label": "Ship Identifier",
-          "group": "Authentication",
-          "width": "half"
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#tlon-urbit"
+    },
+    {
+      "id": "todo",
+      "dirName": "plugin-todo",
+      "name": "Todo",
+      "npmName": "@elizaos/plugin-todo",
+      "description": "A todo list. For humans and agents.",
+      "tags": ["todo", "task-management", "multi-language"],
+      "category": "feature",
+      "envKey": null,
+      "configKeys": ["ENABLE_REMINDERS", "REMINDER_INTERVAL_MS"],
+      "version": "2.0.0-alpha.4",
+      "pluginParameters": {
+        "ENABLE_REMINDERS": {
+          "type": "boolean",
+          "description": "Enable reminder notifications for todos",
+          "required": false,
+          "default": true,
+          "sensitive": false
         },
-        "TLON_URL": {
-          "label": "Tlon URL",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "TLON_CODE": {
-          "label": "Access Code",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "TLON_ENABLED": {
-          "label": "Enabled",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "TLON_GROUP_CHANNELS": {
-          "label": "Group Channels",
-          "group": "Channels",
-          "width": "full"
-        },
-        "TLON_DM_ALLOWLIST": {
-          "label": "DM Allowlist",
-          "group": "Channels",
-          "width": "full"
-        },
-        "TLON_AUTO_DISCOVER_CHANNELS": {
-          "label": "Auto-Discover Channels",
-          "group": "Behavior",
-          "width": "half"
+        "REMINDER_INTERVAL_MS": {
+          "type": "number",
+          "description": "Interval in milliseconds between reminder checks",
+          "required": false,
+          "default": 30000,
+          "sensitive": false
         }
       }
+    },
+    {
+      "id": "trajectory-logger",
+      "dirName": "plugin-trajectory-logger",
+      "name": "Trajectory Logger",
+      "npmName": "@elizaos/plugin-trajectory-logger",
+      "description": "Trajectory logging plugin for ElizaOS - capture agent interaction trajectories for RL training",
+      "tags": [
+        "trajectory",
+        "rl",
+        "training",
+        "logging",
+        "trajectory-logger",
+        "logger"
+      ],
+      "category": "feature",
+      "envKey": null,
+      "configKeys": [],
+      "version": "2.0.0-alpha.4"
+    },
+    {
+      "id": "trust",
+      "dirName": "plugin-trust",
+      "name": "Trust",
+      "npmName": "@elizaos/plugin-trust",
+      "description": "Primitives for agents to trust humans and each other",
+      "tags": ["trust", "permissions", "security", "rbac"],
+      "category": "feature",
+      "envKey": null,
+      "configKeys": ["OWNER_ENTITY_ID", "WORLD_ID"],
+      "version": "2.0.0-alpha.4",
+      "pluginDeps": ["anthropic"],
+      "pluginParameters": {
+        "OWNER_ENTITY_ID": {
+          "type": "string",
+          "description": "Entity identifier",
+          "required": false,
+          "sensitive": false
+        },
+        "WORLD_ID": {
+          "type": "string",
+          "description": "World identifier",
+          "required": false,
+          "sensitive": false
+        }
+      }
+    },
+    {
+      "id": "tts",
+      "dirName": "plugin-tts",
+      "name": "Tts",
+      "npmName": "@elizaos/plugin-tts",
+      "description": "A plugin for generating text-to-speech using FAL.ai API within the ElizaOS ecosystem, featuring automatic language detection and voice selection.",
+      "tags": ["llm", "text-to-speech"],
+      "category": "feature",
+      "envKey": null,
+      "configKeys": [
+        "TTS_AUTO_MODE",
+        "TTS_DEFAULT_PROVIDER",
+        "TTS_MAX_LENGTH",
+        "TTS_SUMMARIZE",
+        "TTS_DEFAULT_VOICE"
+      ],
+      "version": "2.0.0-alpha.4",
+      "pluginParameters": {
+        "TTS_AUTO_MODE": {
+          "type": "string",
+          "description": "When to automatically apply TTS (off, always, inbound, tagged)",
+          "required": false,
+          "default": "off",
+          "sensitive": false
+        },
+        "TTS_DEFAULT_PROVIDER": {
+          "type": "string",
+          "description": "Default TTS provider (auto, elevenlabs, openai, edge, simple-voice)",
+          "required": false,
+          "default": "auto",
+          "sensitive": false
+        },
+        "TTS_MAX_LENGTH": {
+          "type": "number",
+          "description": "Maximum text length for TTS synthesis",
+          "required": false,
+          "default": "1500",
+          "sensitive": false
+        },
+        "TTS_SUMMARIZE": {
+          "type": "boolean",
+          "description": "Summarize long text instead of truncating",
+          "required": false,
+          "default": "true",
+          "sensitive": false
+        },
+        "TTS_DEFAULT_VOICE": {
+          "type": "string",
+          "description": "Default voice ID for synthesis",
+          "required": false,
+          "sensitive": false
+        }
+      }
+    },
+    {
+      "id": "twilio",
+      "dirName": "plugin-twilio",
+      "name": "Twilio",
+      "npmName": "@elizaos/plugin-twilio",
+      "description": "A Twilio plugin for ElizaOS that enables SMS and voice call capabilities.",
+      "tags": [
+        "llm",
+        "twilio",
+        "connector",
+        "social",
+        "social-chat",
+        "messaging"
+      ],
+      "category": "connector",
+      "envKey": "TWILIO_AUTH_TOKEN",
+      "configKeys": [
+        "TWILIO_ACCOUNT_SID",
+        "TWILIO_AUTH_TOKEN",
+        "TWILIO_PHONE_NUMBER",
+        "TWILIO_WEBHOOK_URL",
+        "TWILIO_WEBHOOK_PORT",
+        "VOICE_CALL_PROVIDER",
+        "VOICE_CALL_FROM_NUMBER",
+        "VOICE_CALL_TO_NUMBER",
+        "VOICE_CALL_WEBHOOK_PORT",
+        "VOICE_CALL_WEBHOOK_PATH",
+        "VOICE_CALL_PUBLIC_URL",
+        "VOICE_CALL_MAX_DURATION_SECONDS",
+        "VOICE_CALL_MAX_CONCURRENT_CALLS",
+        "VOICE_CALL_INBOUND_POLICY",
+        "VOICE_CALL_ALLOW_FROM",
+        "VOICE_CALL_INBOUND_GREETING",
+        "VOICE_CALL_ENABLED"
+      ],
+      "version": "2.0.0-alpha.4",
+      "pluginParameters": {
+        "TWILIO_ACCOUNT_SID": {
+          "type": "string",
+          "description": "Account SID for Twilio",
+          "required": true,
+          "sensitive": true
+        },
+        "TWILIO_AUTH_TOKEN": {
+          "type": "string",
+          "description": "Auth token for Twilio",
+          "required": true,
+          "sensitive": true
+        },
+        "TWILIO_PHONE_NUMBER": {
+          "type": "string",
+          "description": "Phone number",
+          "required": false,
+          "sensitive": false
+        },
+        "TWILIO_WEBHOOK_URL": {
+          "type": "string",
+          "description": "Webhook URL",
+          "required": false,
+          "sensitive": false
+        },
+        "TWILIO_WEBHOOK_PORT": {
+          "type": "number",
+          "description": "Port number",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_PROVIDER": {
+          "type": "string",
+          "description": "Provider selection",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_FROM_NUMBER": {
+          "type": "string",
+          "description": "Phone number",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_TO_NUMBER": {
+          "type": "string",
+          "description": "Phone number",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_WEBHOOK_PORT": {
+          "type": "number",
+          "description": "Port number",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_WEBHOOK_PATH": {
+          "type": "string",
+          "description": "Webhook path",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_PUBLIC_URL": {
+          "type": "string",
+          "description": "Public URL",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_MAX_DURATION_SECONDS": {
+          "type": "number",
+          "description": "Maximum duration in seconds",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_MAX_CONCURRENT_CALLS": {
+          "type": "number",
+          "description": "Maximum concurrent calls",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_INBOUND_POLICY": {
+          "type": "string",
+          "description": "Inbound message/call policy",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_ALLOW_FROM": {
+          "type": "string",
+          "description": "Comma-separated allowed user list",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_INBOUND_GREETING": {
+          "type": "string",
+          "description": "Greeting message for inbound connections",
+          "required": false,
+          "sensitive": false
+        },
+        "VOICE_CALL_ENABLED": {
+          "type": "boolean",
+          "description": "Enable or disable this feature",
+          "required": false,
+          "sensitive": false
+        }
+      },
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#twilio-sms--voice"
+    },
+    {
+      "id": "twitch",
+      "dirName": "plugin-twitch",
+      "name": "Twitch",
+      "npmName": "@elizaos/plugin-twitch",
+      "description": "Twitch connector for live chat, channel events, and audience interactions.",
+      "tags": [
+        "connector",
+        "streaming",
+        "twitch",
+        "chat",
+        "rtmp",
+        "social",
+        "social-chat",
+        "messaging"
+      ],
+      "category": "connector",
+      "envKey": "TWITCH_ACCESS_TOKEN",
+      "configKeys": [
+        "TWITCH_USERNAME",
+        "TWITCH_CLIENT_ID",
+        "TWITCH_ACCESS_TOKEN",
+        "TWITCH_CLIENT_SECRET",
+        "TWITCH_REFRESH_TOKEN",
+        "TWITCH_CHANNEL",
+        "TWITCH_CHANNELS",
+        "TWITCH_REQUIRE_MENTION",
+        "TWITCH_ALLOWED_ROLES"
+      ],
+      "version": "2.0.0-alpha.4",
+      "pluginParameters": {
+        "TWITCH_USERNAME": {
+          "type": "string",
+          "description": "Username for authentication",
+          "required": false,
+          "sensitive": false
+        },
+        "TWITCH_CLIENT_ID": {
+          "type": "string",
+          "description": "Application/client ID",
+          "required": false,
+          "sensitive": false
+        },
+        "TWITCH_ACCESS_TOKEN": {
+          "type": "string",
+          "description": "Access token for Twitch",
+          "required": true,
+          "sensitive": true
+        },
+        "TWITCH_CLIENT_SECRET": {
+          "type": "string",
+          "description": "Client secret for Twitch",
+          "required": false,
+          "sensitive": true
+        },
+        "TWITCH_REFRESH_TOKEN": {
+          "type": "string",
+          "description": "Refresh token for Twitch",
+          "required": false,
+          "sensitive": true
+        },
+        "TWITCH_CHANNEL": {
+          "type": "string",
+          "description": "Channel name",
+          "required": false,
+          "sensitive": false
+        },
+        "TWITCH_CHANNELS": {
+          "type": "string",
+          "description": "Comma-separated room/channel list",
+          "required": false,
+          "sensitive": false
+        },
+        "TWITCH_REQUIRE_MENTION": {
+          "type": "boolean",
+          "description": "Only respond when mentioned",
+          "required": false,
+          "sensitive": false
+        },
+        "TWITCH_ALLOWED_ROLES": {
+          "type": "string",
+          "description": "Comma-separated allowed roles",
+          "required": false,
+          "sensitive": false
+        }
+      },
+      "repository": "https://github.com/milady-ai/milady",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#twitch"
+    },
+    {
+      "id": "twitch-streaming",
+      "dirName": "plugin-twitch",
+      "name": "Twitch Streaming",
+      "npmName": "@elizaos/plugin-twitch-streaming",
+      "description": "Twitch RTMP streaming destination for live broadcasts",
+      "category": "streaming",
+      "envKey": "TWITCH_STREAM_KEY",
+      "configKeys": ["TWITCH_STREAM_KEY"],
+      "pluginParameters": {
+        "TWITCH_STREAM_KEY": {
+          "type": "string",
+          "description": "Twitch stream key for RTMP ingest",
+          "required": true,
+          "sensitive": true
+        }
+      },
+      "configUiHints": {
+        "TWITCH_STREAM_KEY": {
+          "label": "Stream Key",
+          "group": "Authentication",
+          "width": "full"
+        }
+      },
+      "repository": "https://github.com/milady-ai/milady",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#twitch-streaming",
+      "tags": ["twitch", "streaming", "rtmp", "broadcast", "twitch-streaming"]
     },
     {
       "id": "twitter",
@@ -7823,6 +5841,7 @@
       "npmName": "@elizaos/plugin-twitter",
       "description": "Twitter/X social media connector with posting, mentions, and DMs",
       "category": "connector",
+      "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/c/ce/X_logo_2023.svg",
       "envKey": "TWITTER_API_KEY",
       "configKeys": [
         "TWITTER_API_KEY",
@@ -8002,544 +6021,24 @@
           "group": "Advanced",
           "width": "third"
         }
-      }
-    },
-    {
-      "id": "todo",
-      "dirName": "plugin-todo",
-      "name": "Todo",
-      "npmName": "@elizaos/plugin-todo",
-      "description": "Multi-language Todo list plugin for elizaOS with TypeScript, Python, and Rust implementations",
-      "category": "feature",
-      "envKey": null,
-      "configKeys": ["ENABLE_REMINDERS", "REMINDER_INTERVAL_MS"],
-      "version": "2.0.0-alpha.4",
-      "pluginParameters": {
-        "ENABLE_REMINDERS": {
-          "type": "boolean",
-          "description": "Enable reminder notifications for todos",
-          "required": false,
-          "default": true,
-          "sensitive": false
-        },
-        "REMINDER_INTERVAL_MS": {
-          "type": "number",
-          "description": "Interval in milliseconds between reminder checks",
-          "required": false,
-          "default": 30000,
-          "sensitive": false
-        }
       },
-      "configUiHints": {
-        "ENABLE_REMINDERS": {
-          "label": "Enable Reminders",
-          "width": "half"
-        },
-        "REMINDER_INTERVAL_MS": {
-          "label": "Reminder Interval",
-          "width": "half",
-          "unit": "ms",
-          "min": 1000
-        }
-      }
-    },
-    {
-      "id": "trajectory-logger",
-      "dirName": "plugin-trajectory-logger",
-      "name": "Trajectory Logger",
-      "npmName": "@elizaos/plugin-trajectory-logger",
-      "description": "Trajectory logging plugin for ElizaOS - capture agent interaction trajectories for RL training",
-      "category": "feature",
-      "envKey": null,
-      "configKeys": [],
-      "version": "2.0.0-alpha.4"
-    },
-    {
-      "id": "trust",
-      "dirName": "plugin-trust",
-      "name": "Trust",
-      "npmName": "@elizaos/plugin-trust",
-      "description": "Trust and permission management plugin for ElizaOS",
-      "category": "feature",
-      "envKey": null,
-      "configKeys": ["OWNER_ENTITY_ID", "WORLD_ID"],
-      "version": "2.0.0-alpha.4",
-      "pluginDeps": ["anthropic"],
-      "pluginParameters": {
-        "OWNER_ENTITY_ID": {
-          "type": "string",
-          "description": "Entity identifier",
-          "required": false,
-          "sensitive": false
-        },
-        "WORLD_ID": {
-          "type": "string",
-          "description": "World identifier",
-          "required": false,
-          "sensitive": false
-        }
-      },
-      "configUiHints": {
-        "OWNER_ENTITY_ID": {
-          "label": "Owner Entity ID",
-          "width": "half"
-        },
-        "WORLD_ID": {
-          "label": "World ID",
-          "width": "half"
-        }
-      }
-    },
-    {
-      "id": "tts",
-      "dirName": "plugin-tts",
-      "name": "Tts",
-      "npmName": "@elizaos/plugin-tts",
-      "description": "Text-to-speech coordinator for Eliza agents with multi-provider support",
-      "category": "feature",
-      "envKey": null,
-      "configKeys": [
-        "TTS_AUTO_MODE",
-        "TTS_DEFAULT_PROVIDER",
-        "TTS_MAX_LENGTH",
-        "TTS_SUMMARIZE",
-        "TTS_DEFAULT_VOICE"
-      ],
-      "version": "2.0.0-alpha.4",
-      "pluginParameters": {
-        "TTS_AUTO_MODE": {
-          "type": "string",
-          "description": "When to automatically apply TTS (off, always, inbound, tagged)",
-          "required": false,
-          "default": "off",
-          "sensitive": false
-        },
-        "TTS_DEFAULT_PROVIDER": {
-          "type": "string",
-          "description": "Default TTS provider (auto, elevenlabs, openai, edge, simple-voice)",
-          "required": false,
-          "default": "auto",
-          "sensitive": false
-        },
-        "TTS_MAX_LENGTH": {
-          "type": "number",
-          "description": "Maximum text length for TTS synthesis",
-          "required": false,
-          "default": "1500",
-          "sensitive": false
-        },
-        "TTS_SUMMARIZE": {
-          "type": "boolean",
-          "description": "Summarize long text instead of truncating",
-          "required": false,
-          "default": "true",
-          "sensitive": false
-        },
-        "TTS_DEFAULT_VOICE": {
-          "type": "string",
-          "description": "Default voice ID for synthesis",
-          "required": false,
-          "sensitive": false
-        }
-      },
-      "configUiHints": {
-        "TTS_AUTO_MODE": {
-          "label": "Auto Mode",
-          "group": "General",
-          "width": "half"
-        },
-        "TTS_DEFAULT_PROVIDER": {
-          "label": "Default Provider",
-          "group": "General",
-          "width": "half"
-        },
-        "TTS_DEFAULT_VOICE": {
-          "label": "Default Voice",
-          "group": "General",
-          "width": "half"
-        },
-        "TTS_MAX_LENGTH": {
-          "label": "Max Text Length",
-          "group": "Advanced",
-          "width": "half",
-          "min": 1,
-          "max": 10000,
-          "advanced": true
-        },
-        "TTS_SUMMARIZE": {
-          "label": "Summarize Long Text",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        }
-      }
-    },
-    {
-      "id": "twilio",
-      "dirName": "plugin-twilio",
-      "name": "Twilio",
-      "npmName": "@elizaos/plugin-twilio",
-      "description": "Twilio plugin for bidirectional voice and text messaging integration",
-      "category": "connector",
-      "envKey": "TWILIO_AUTH_TOKEN",
-      "configKeys": [
-        "TWILIO_ACCOUNT_SID",
-        "TWILIO_AUTH_TOKEN",
-        "TWILIO_PHONE_NUMBER",
-        "TWILIO_WEBHOOK_URL",
-        "TWILIO_WEBHOOK_PORT",
-        "VOICE_CALL_PROVIDER",
-        "VOICE_CALL_FROM_NUMBER",
-        "VOICE_CALL_TO_NUMBER",
-        "VOICE_CALL_WEBHOOK_PORT",
-        "VOICE_CALL_WEBHOOK_PATH",
-        "VOICE_CALL_PUBLIC_URL",
-        "VOICE_CALL_MAX_DURATION_SECONDS",
-        "VOICE_CALL_MAX_CONCURRENT_CALLS",
-        "VOICE_CALL_INBOUND_POLICY",
-        "VOICE_CALL_ALLOW_FROM",
-        "VOICE_CALL_INBOUND_GREETING",
-        "VOICE_CALL_ENABLED"
-      ],
-      "version": "2.0.0-alpha.4",
-      "pluginParameters": {
-        "TWILIO_ACCOUNT_SID": {
-          "type": "string",
-          "description": "Account SID for Twilio",
-          "required": true,
-          "sensitive": true
-        },
-        "TWILIO_AUTH_TOKEN": {
-          "type": "string",
-          "description": "Auth token for Twilio",
-          "required": true,
-          "sensitive": true
-        },
-        "TWILIO_PHONE_NUMBER": {
-          "type": "string",
-          "description": "Phone number",
-          "required": false,
-          "sensitive": false
-        },
-        "TWILIO_WEBHOOK_URL": {
-          "type": "string",
-          "description": "Webhook URL",
-          "required": false,
-          "sensitive": false
-        },
-        "TWILIO_WEBHOOK_PORT": {
-          "type": "number",
-          "description": "Port number",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_PROVIDER": {
-          "type": "string",
-          "description": "Provider selection",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_FROM_NUMBER": {
-          "type": "string",
-          "description": "Phone number",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_TO_NUMBER": {
-          "type": "string",
-          "description": "Phone number",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_WEBHOOK_PORT": {
-          "type": "number",
-          "description": "Port number",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_WEBHOOK_PATH": {
-          "type": "string",
-          "description": "Webhook path",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_PUBLIC_URL": {
-          "type": "string",
-          "description": "Public URL",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_MAX_DURATION_SECONDS": {
-          "type": "number",
-          "description": "Maximum duration in seconds",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_MAX_CONCURRENT_CALLS": {
-          "type": "number",
-          "description": "Maximum concurrent calls",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_INBOUND_POLICY": {
-          "type": "string",
-          "description": "Inbound message/call policy",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_ALLOW_FROM": {
-          "type": "string",
-          "description": "Comma-separated allowed user list",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_INBOUND_GREETING": {
-          "type": "string",
-          "description": "Greeting message for inbound connections",
-          "required": false,
-          "sensitive": false
-        },
-        "VOICE_CALL_ENABLED": {
-          "type": "boolean",
-          "description": "Enable or disable this feature",
-          "required": false,
-          "sensitive": false
-        }
-      },
-      "configUiHints": {
-        "TWILIO_ACCOUNT_SID": {
-          "label": "Account SID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "TWILIO_AUTH_TOKEN": {
-          "label": "Auth Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "TWILIO_PHONE_NUMBER": {
-          "label": "Phone Number",
-          "group": "Connection",
-          "width": "half",
-          "placeholder": "+1234567890"
-        },
-        "TWILIO_WEBHOOK_URL": {
-          "label": "Webhook URL",
-          "group": "Connection",
-          "width": "half"
-        },
-        "TWILIO_WEBHOOK_PORT": {
-          "label": "Webhook Port",
-          "group": "Connection",
-          "width": "half",
-          "min": 1,
-          "max": 65535
-        },
-        "VOICE_CALL_PROVIDER": {
-          "label": "Voice Call Provider",
-          "group": "Voice",
-          "width": "half"
-        },
-        "VOICE_CALL_FROM_NUMBER": {
-          "label": "From Number",
-          "group": "Voice",
-          "width": "half"
-        },
-        "VOICE_CALL_TO_NUMBER": {
-          "label": "To Number",
-          "group": "Voice",
-          "width": "half"
-        },
-        "VOICE_CALL_WEBHOOK_PORT": {
-          "label": "Voice Webhook Port",
-          "group": "Voice",
-          "width": "half",
-          "min": 1,
-          "max": 65535
-        },
-        "VOICE_CALL_WEBHOOK_PATH": {
-          "label": "Voice Webhook Path",
-          "group": "Voice",
-          "width": "half"
-        },
-        "VOICE_CALL_PUBLIC_URL": {
-          "label": "Public URL",
-          "group": "Voice",
-          "width": "half"
-        },
-        "VOICE_CALL_MAX_DURATION_SECONDS": {
-          "label": "Max Call Duration",
-          "group": "Voice",
-          "width": "half",
-          "unit": "sec",
-          "min": 1
-        },
-        "VOICE_CALL_MAX_CONCURRENT_CALLS": {
-          "label": "Max Concurrent Calls",
-          "group": "Voice",
-          "width": "half",
-          "min": 1
-        },
-        "VOICE_CALL_INBOUND_POLICY": {
-          "label": "Inbound Policy",
-          "group": "Voice",
-          "width": "half"
-        },
-        "VOICE_CALL_ALLOW_FROM": {
-          "label": "Allow From",
-          "group": "Voice",
-          "width": "full"
-        },
-        "VOICE_CALL_INBOUND_GREETING": {
-          "label": "Inbound Greeting",
-          "group": "Voice",
-          "width": "full"
-        },
-        "VOICE_CALL_ENABLED": {
-          "label": "Voice Calls Enabled",
-          "group": "Advanced",
-          "advanced": true
-        }
-      }
-    },
-    {
-      "id": "twitch",
-      "dirName": "plugin-twitch",
-      "name": "Twitch",
-      "npmName": "@elizaos/plugin-twitch",
-      "description": "",
-      "category": "connector",
-      "envKey": "TWITCH_ACCESS_TOKEN",
-      "configKeys": [
-        "TWITCH_USERNAME",
-        "TWITCH_CLIENT_ID",
-        "TWITCH_ACCESS_TOKEN",
-        "TWITCH_CLIENT_SECRET",
-        "TWITCH_REFRESH_TOKEN",
-        "TWITCH_CHANNEL",
-        "TWITCH_CHANNELS",
-        "TWITCH_REQUIRE_MENTION",
-        "TWITCH_ALLOWED_ROLES"
-      ],
-      "version": "2.0.0-alpha.4",
-      "pluginParameters": {
-        "TWITCH_USERNAME": {
-          "type": "string",
-          "description": "Username for authentication",
-          "required": false,
-          "sensitive": false
-        },
-        "TWITCH_CLIENT_ID": {
-          "type": "string",
-          "description": "Application/client ID",
-          "required": false,
-          "sensitive": false
-        },
-        "TWITCH_ACCESS_TOKEN": {
-          "type": "string",
-          "description": "Access token for Twitch",
-          "required": true,
-          "sensitive": true
-        },
-        "TWITCH_CLIENT_SECRET": {
-          "type": "string",
-          "description": "Client secret for Twitch",
-          "required": false,
-          "sensitive": true
-        },
-        "TWITCH_REFRESH_TOKEN": {
-          "type": "string",
-          "description": "Refresh token for Twitch",
-          "required": false,
-          "sensitive": true
-        },
-        "TWITCH_CHANNEL": {
-          "type": "string",
-          "description": "Channel name",
-          "required": false,
-          "sensitive": false
-        },
-        "TWITCH_CHANNELS": {
-          "type": "string",
-          "description": "Comma-separated room/channel list",
-          "required": false,
-          "sensitive": false
-        },
-        "TWITCH_REQUIRE_MENTION": {
-          "type": "boolean",
-          "description": "Only respond when mentioned",
-          "required": false,
-          "sensitive": false
-        },
-        "TWITCH_ALLOWED_ROLES": {
-          "type": "string",
-          "description": "Comma-separated allowed roles",
-          "required": false,
-          "sensitive": false
-        }
-      },
-      "configUiHints": {
-        "TWITCH_USERNAME": {
-          "label": "Username",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "TWITCH_CLIENT_ID": {
-          "label": "Client ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "TWITCH_ACCESS_TOKEN": {
-          "label": "Access Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "TWITCH_CLIENT_SECRET": {
-          "label": "Client Secret",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "TWITCH_REFRESH_TOKEN": {
-          "label": "Refresh Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "TWITCH_CHANNEL": {
-          "label": "Primary Channel",
-          "group": "Channels",
-          "width": "half"
-        },
-        "TWITCH_CHANNELS": {
-          "label": "Additional Channels",
-          "group": "Channels",
-          "width": "full"
-        },
-        "TWITCH_REQUIRE_MENTION": {
-          "label": "Require Mention",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "TWITCH_ALLOWED_ROLES": {
-          "label": "Allowed Roles",
-          "group": "Behavior",
-          "width": "full",
-          "type": "multiselect",
-          "options": [
-            { "value": "broadcaster", "label": "Broadcaster" },
-            { "value": "moderator", "label": "Moderator" },
-            { "value": "vip", "label": "VIP" },
-            { "value": "subscriber", "label": "Subscriber" },
-            { "value": "viewer", "label": "Viewer" }
-          ]
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#twitter--x",
+      "tags": ["connector", "social", "social-feed", "twitter"]
     },
     {
       "id": "vercel-ai-gateway",
       "dirName": "plugin-vercel-ai-gateway",
       "name": "Vercel Ai Gateway",
       "npmName": "@elizaos/plugin-vercel-ai-gateway",
-      "description": "",
+      "description": "Vercel AI Gateway provider for routing model requests through a single endpoint.",
+      "tags": [
+        "ai-provider",
+        "llm",
+        "gateway",
+        "routing",
+        "vercel-ai-gateway",
+        "vercel"
+      ],
       "category": "ai-provider",
       "envKey": "AI_GATEWAY_API_KEY",
       "configKeys": [
@@ -8624,64 +6123,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "AI_GATEWAY_API_KEY": {
-          "label": "API Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "AIGATEWAY_API_KEY": {
-          "label": "API Key (Alternate)",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "VERCEL_OIDC_TOKEN": {
-          "label": "OIDC Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "AI_GATEWAY_BASE_URL": {
-          "label": "Base URL",
-          "group": "Models",
-          "width": "full"
-        },
-        "AI_GATEWAY_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "AI_GATEWAY_LARGE_MODEL": {
-          "label": "Large Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "AI_GATEWAY_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "AI_GATEWAY_EMBEDDING_DIMENSIONS": {
-          "label": "Embedding Dimensions",
-          "group": "Advanced",
-          "width": "half",
-          "min": 1,
-          "advanced": true
-        },
-        "AI_GATEWAY_IMAGE_MODEL": {
-          "label": "Image Model",
-          "group": "Models",
-          "width": "half"
-        },
-        "AI_GATEWAY_TIMEOUT_MS": {
-          "label": "Request Timeout",
-          "group": "Advanced",
-          "width": "half",
-          "unit": "ms",
-          "min": 1000,
-          "max": 300000,
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#vercel-ai-gateway"
     },
     {
       "id": "vision",
@@ -8689,6 +6131,7 @@
       "name": "Vision",
       "npmName": "@elizaos/plugin-vision",
       "description": "Vision plugin for ElizaOS - provides camera integration and visual awareness",
+      "tags": ["vision", "camera", "ai-vision"],
       "category": "feature",
       "envKey": null,
       "configKeys": ["CAMERA_NAME", "PIXEL_CHANGE_THRESHOLD"],
@@ -8702,19 +6145,6 @@
           "type": "number",
           "description": "Percentage of pixels that must change to trigger VLM update (default: 50)"
         }
-      },
-      "configUiHints": {
-        "CAMERA_NAME": {
-          "label": "Camera Name",
-          "width": "half"
-        },
-        "PIXEL_CHANGE_THRESHOLD": {
-          "label": "Pixel Change Threshold",
-          "width": "half",
-          "unit": "%",
-          "min": 0,
-          "max": 100
-        }
       }
     },
     {
@@ -8723,6 +6153,7 @@
       "name": "Webhooks",
       "npmName": "@elizaos/plugin-webhooks",
       "description": "HTTP webhook ingress for external triggers (wake, agent, mapped hooks)",
+      "tags": ["webhooks"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -8733,7 +6164,8 @@
       "dirName": "plugin-whatsapp",
       "name": "Whatsapp",
       "npmName": "@elizaos/plugin-whatsapp",
-      "description": "WhatsApp plugin for ElizaOS — supports Baileys (QR code) and Cloud API",
+      "description": "A plugin for integrating WhatsApp Cloud API with applications, enabling messaging capabilities and webhook handling.",
+      "tags": ["connector", "social", "social-chat", "messaging", "whatsapp"],
       "category": "connector",
       "envKey": "WHATSAPP_ACCESS_TOKEN",
       "configKeys": [
@@ -8746,7 +6178,7 @@
         "WHATSAPP_DM_POLICY",
         "WHATSAPP_GROUP_POLICY"
       ],
-      "version": "2.0.0-alpha.6",
+      "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "WHATSAPP_AUTH_DIR": {
           "type": "string",
@@ -8797,55 +6229,14 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "WHATSAPP_ACCESS_TOKEN": {
-          "label": "Access Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "WHATSAPP_PHONE_NUMBER_ID": {
-          "label": "Phone Number ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "WHATSAPP_WEBHOOK_VERIFY_TOKEN": {
-          "label": "Webhook Verify Token",
-          "group": "Webhook",
-          "width": "half"
-        },
-        "WHATSAPP_BUSINESS_ACCOUNT_ID": {
-          "label": "Business Account ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "WHATSAPP_API_VERSION": {
-          "label": "API Version",
-          "group": "Webhook",
-          "width": "half"
-        },
-        "WHATSAPP_DM_POLICY": {
-          "label": "DM Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "WHATSAPP_GROUP_POLICY": {
-          "label": "Group Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "WHATSAPP_AUTH_DIR": {
-          "label": "Auth Directory (Baileys)",
-          "group": "Baileys (QR code)",
-          "width": "full"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#whatsapp"
     },
     {
       "id": "x402",
       "dirName": "plugin-x402",
       "name": "X402",
       "npmName": "@elizaos/plugin-x402",
-      "description": "x402 HTTP payment protocol plugin for ElizaOS - send and receive crypto payments",
+      "description": "x402 HTTP payment protocol plugin for elizaOS - send and receive crypto payments",
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -8966,14 +6357,16 @@
           "width": "full",
           "advanced": true
         }
-      }
+      },
+      "tags": ["x402"]
     },
     {
       "id": "xai",
       "dirName": "plugin-xai",
       "name": "Xai",
       "npmName": "@elizaos/plugin-xai",
-      "description": "",
+      "description": "TypeScript package for elizaOS xAI integration.",
+      "tags": ["ai-provider", "llm", "xai"],
       "category": "ai-provider",
       "envKey": "XAI_API_KEY",
       "configKeys": [
@@ -9117,109 +6510,61 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "XAI_API_KEY": {
-          "label": "xAI API Key",
-          "group": "AI Models",
-          "width": "half"
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#xai-grok"
+    },
+    {
+      "id": "youtube-streaming",
+      "dirName": "plugin-youtube",
+      "name": "YouTube Streaming",
+      "npmName": "@elizaos/plugin-youtube-streaming",
+      "description": "YouTube RTMP streaming destination for live broadcasts",
+      "category": "streaming",
+      "envKey": "YOUTUBE_STREAM_KEY",
+      "configKeys": ["YOUTUBE_STREAM_KEY", "YOUTUBE_RTMP_URL"],
+      "pluginParameters": {
+        "YOUTUBE_STREAM_KEY": {
+          "type": "string",
+          "description": "YouTube stream key for RTMP ingest",
+          "required": true,
+          "sensitive": true
         },
-        "XAI_MODEL": {
-          "label": "Model",
-          "group": "AI Models",
-          "width": "half"
-        },
-        "XAI_SMALL_MODEL": {
-          "label": "Small Model",
-          "group": "AI Models",
-          "width": "half"
-        },
-        "XAI_EMBEDDING_MODEL": {
-          "label": "Embedding Model",
-          "group": "AI Models",
-          "width": "half"
-        },
-        "XAI_BASE_URL": {
-          "label": "Base URL",
-          "group": "AI Models",
-          "width": "full"
-        },
-        "X_AUTH_MODE": {
-          "label": "Auth Mode",
-          "group": "X/Twitter Authentication",
-          "width": "half"
-        },
-        "X_API_KEY": {
-          "label": "API Key",
-          "group": "X/Twitter Authentication",
-          "width": "half"
-        },
-        "X_API_SECRET": {
-          "label": "API Secret",
-          "group": "X/Twitter Authentication",
-          "width": "half"
-        },
-        "X_ACCESS_TOKEN": {
-          "label": "Access Token",
-          "group": "X/Twitter Authentication",
-          "width": "half"
-        },
-        "X_ACCESS_TOKEN_SECRET": {
-          "label": "Access Token Secret",
-          "group": "X/Twitter Authentication",
-          "width": "half"
-        },
-        "X_BEARER_TOKEN": {
-          "label": "Bearer Token",
-          "group": "X/Twitter Authentication",
-          "width": "half"
-        },
-        "X_CLIENT_ID": {
-          "label": "Client ID",
-          "group": "X/Twitter Authentication",
-          "width": "half"
-        },
-        "X_REDIRECT_URI": {
-          "label": "Redirect URI",
-          "group": "X/Twitter Authentication",
-          "width": "full"
-        },
-        "X_DRY_RUN": {
-          "label": "Dry Run",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        },
-        "X_ENABLE_POST": {
-          "label": "Enable Posting",
-          "group": "X/Twitter Behavior",
-          "width": "half"
-        },
-        "X_ENABLE_REPLIES": {
-          "label": "Enable Replies",
-          "group": "X/Twitter Behavior",
-          "width": "half"
-        },
-        "X_ENABLE_ACTIONS": {
-          "label": "Enable Actions",
-          "group": "X/Twitter Behavior",
-          "width": "half"
-        },
-        "X_MAX_POST_LENGTH": {
-          "label": "Max Post Length",
-          "group": "Advanced",
-          "width": "half",
-          "min": 1,
-          "max": 4000,
-          "advanced": true
+        "YOUTUBE_RTMP_URL": {
+          "type": "string",
+          "description": "YouTube RTMP ingest URL (default: rtmp://a.rtmp.youtube.com/live2)",
+          "required": false,
+          "sensitive": false
         }
-      }
+      },
+      "configUiHints": {
+        "YOUTUBE_STREAM_KEY": {
+          "label": "Stream Key",
+          "group": "Authentication",
+          "width": "full"
+        },
+        "YOUTUBE_RTMP_URL": {
+          "label": "RTMP URL",
+          "group": "Connection",
+          "width": "full"
+        }
+      },
+      "repository": "https://github.com/milady-ai/milady",
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#youtube-streaming",
+      "tags": ["youtube", "streaming", "rtmp", "broadcast", "youtube-streaming"]
     },
     {
       "id": "zalo",
       "dirName": "plugin-zalo",
       "name": "Zalo",
       "npmName": "@elizaos/plugin-zalo",
-      "description": "",
+      "description": "Zalo connector for official account messaging and support workflows.",
+      "tags": [
+        "connector",
+        "messaging",
+        "zalo",
+        "chat",
+        "social",
+        "social-chat"
+      ],
       "category": "connector",
       "envKey": "ZALO_ACCESS_TOKEN",
       "configKeys": [
@@ -9297,70 +6642,23 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "ZALO_APP_ID": {
-          "label": "App ID",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ZALO_SECRET_KEY": {
-          "label": "Secret Key",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ZALO_ACCESS_TOKEN": {
-          "label": "Access Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ZALO_REFRESH_TOKEN": {
-          "label": "Refresh Token",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ZALO_WEBHOOK_URL": {
-          "label": "Webhook URL",
-          "group": "Webhook",
-          "width": "full"
-        },
-        "ZALO_WEBHOOK_PATH": {
-          "label": "Webhook Path",
-          "group": "Webhook",
-          "width": "half"
-        },
-        "ZALO_WEBHOOK_PORT": {
-          "label": "Webhook Port",
-          "group": "Webhook",
-          "width": "half",
-          "min": 1,
-          "max": 65535
-        },
-        "ZALO_USE_POLLING": {
-          "label": "Use Polling",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        },
-        "ZALO_ENABLED": {
-          "label": "Enabled",
-          "group": "Advanced",
-          "width": "half",
-          "advanced": true
-        },
-        "ZALO_PROXY_URL": {
-          "label": "Proxy URL",
-          "group": "Advanced",
-          "width": "full",
-          "advanced": true
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#zalo-vietnam-messaging"
     },
     {
       "id": "zalouser",
       "dirName": "plugin-zalouser",
       "name": "Zalouser",
       "npmName": "@elizaos/plugin-zalouser",
-      "description": "",
+      "description": "Zalo personal-account connector for one-to-one messaging workflows.",
+      "tags": [
+        "connector",
+        "messaging",
+        "zalo",
+        "personal-account",
+        "social",
+        "social-chat",
+        "zalouser"
+      ],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -9438,60 +6736,7 @@
           "sensitive": false
         }
       },
-      "configUiHints": {
-        "ZALOUSER_COOKIE_PATH": {
-          "label": "Cookie Path",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "ZALOUSER_IMEI": {
-          "label": "IMEI",
-          "group": "Authentication",
-          "width": "half"
-        },
-        "ZALOUSER_USER_AGENT": {
-          "label": "User Agent",
-          "group": "Authentication",
-          "width": "full"
-        },
-        "ZALOUSER_PROFILES": {
-          "label": "Profiles",
-          "group": "Behavior",
-          "width": "full"
-        },
-        "ZALOUSER_ENABLED": {
-          "label": "Enabled",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "ZALOUSER_DEFAULT_PROFILE": {
-          "label": "Default Profile",
-          "group": "Behavior",
-          "width": "half"
-        },
-        "ZALOUSER_LISTEN_TIMEOUT": {
-          "label": "Listen Timeout",
-          "group": "Behavior",
-          "width": "half",
-          "unit": "ms",
-          "min": 0
-        },
-        "ZALOUSER_ALLOWED_THREADS": {
-          "label": "Allowed Threads",
-          "group": "Policies",
-          "width": "full"
-        },
-        "ZALOUSER_DM_POLICY": {
-          "label": "DM Policy",
-          "group": "Policies",
-          "width": "half"
-        },
-        "ZALOUSER_GROUP_POLICY": {
-          "label": "Group Policy",
-          "group": "Policies",
-          "width": "half"
-        }
-      }
+      "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#zalo-user-personal"
     }
   ]
 }

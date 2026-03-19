@@ -21,7 +21,7 @@ vi.mock("../../providers/media-provider", () => ({
 }));
 
 vi.mock("../../config/config", () => ({
-  loadMiladyConfig: vi.fn(() => ({ media: {}, cloud: {} })),
+  loadElizaConfig: vi.fn(() => ({ media: {}, cloud: {} })),
 }));
 
 async function loadMediaActions() {

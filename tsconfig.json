@@ -2,21 +2,13 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "allowSyntheticDefaultImports": true,
-    "declaration": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2023",
-      "ScriptHost"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ES2023", "ScriptHost"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,
-    "noEmitOnError": true,
-    "outDir": "dist",
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
@@ -24,20 +16,20 @@
     "useDefineForClassFields": false,
     "baseUrl": ".",
     "paths": {
-      "@elizaos/*": [
-        "./plugins/*/src/index.ts"
-      ]
+      "@elizaos/autonomous/*": ["./node_modules/@elizaos/autonomous/packages/autonomous/src/*"]
     }
   },
-  "include": [
-    "src/**/*"
-  ],
+  "include": ["src/**/*"],
   "exclude": [
     "node_modules",
+    "node_modules/.bun",
     "dist",
+    "packages",
+    "plugins",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "src/**/test-helpers.ts",
-    "src/services/training-service.ts"
+    "src/services/training-service.ts",
+    "src/plugins/retake/**"
   ]
 }

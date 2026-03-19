@@ -1,6 +1,7 @@
 import type { Command } from "commander";
-import type { MiladyConfig } from "../../config/types.milady";
+import type { ElizaConfig } from "../../config/types.eliza";
 import { theme } from "../../terminal/theme";
+import { getLogPrefix } from "../../utils/log-prefix";
 
 export function registerConfigCli(program: Command) {
   const config = program
@@ -11,17 +12,17 @@ export function registerConfigCli(program: Command) {
     .command("get <key>")
     .description("Get a config value")
     .action(async (key: string) => {
-      const { loadMiladyConfig } = await import("../../config/config");
-      let miladyConfig: ReturnType<typeof loadMiladyConfig> | undefined;
+      const { loadElizaConfig } = await import("../../config/config");
+      let elizaConfig: ReturnType<typeof loadElizaConfig> | undefined;
       try {
-        miladyConfig = loadMiladyConfig();
+        elizaConfig = loadElizaConfig();
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
-        console.error(`[milady] Could not load config: ${detail}`);
+        console.error(`${getLogPrefix()} Could not load config: ${detail}`);
         process.exit(1);
       }
       const parts = key.split(".");
-      let value: unknown = miladyConfig;
+      let value: unknown = elizaConfig;
       for (const part of parts) {
         if (value && typeof value === "object") {
           value = (value as Record<string, unknown>)[part];
@@ -55,12 +56,12 @@ export function registerConfigCli(program: Command) {
     .option("-a, --all", "Include advanced/hidden fields")
     .option("--json", "Output as raw JSON")
     .action(async (opts: { all?: boolean; json?: boolean }) => {
-      const { loadMiladyConfig } = await import("../../config/config");
+      const { loadElizaConfig } = await import("../../config/config");
       const { buildConfigSchema } = await import("../../config/schema");
 
-      let config: MiladyConfig | undefined;
+      let config: ElizaConfig | undefined;
       try {
-        config = loadMiladyConfig();
+        config = loadElizaConfig();
       } catch (err) {
         console.error(
           theme.error(

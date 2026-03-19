@@ -1,0 +1,1301 @@
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  applyAgentSkillsCatalogFetchPatch,
+  applyAppCoreMiladyCharacterViewPatch,
+  applyAppCoreMiladyIdentityStepPatch,
+  applyAppCoreMiladyVrmStatePatch,
+  applyAppCoreMiladyVrmTypesPatch,
+  applyAppCoreMiladyVrmViewerPatch,
+  applyAutonomousMiladyOnboardingPresetsPatch,
+  applyExtensionlessJsExportAliases,
+  applyMissingLifecycleScriptPatch,
+  applyNobleHashesCompat,
+  applyPatchToPackageJson,
+  applyPluginVisionPermissionPatch,
+  applyProperLockfileSignalExitCompat,
+  findPackageFilePaths,
+  findPackageJsonPaths,
+  patchAgentSkillsCatalogFetch,
+  patchAppCoreMiladyAssets,
+  patchAutonomousMiladyOnboardingPresets,
+  patchBrokenElizaCoreRuntimeDists,
+  patchBunExports,
+  patchExtensionlessJsExports,
+  patchMissingLifecycleScript,
+  patchNobleHashesCompat,
+  patchPluginVisionPermissionHandling,
+  patchProperLockfileSignalExitCompat,
+  repairElizaCoreRuntimeDist,
+} from "./patch-bun-exports.mjs";
+
+const MOCK_MILADY_CATALOG = {
+  assets: [
+    { id: 1, slug: "milady-1", title: "Chen", sourceName: "Chen" },
+    { id: 2, slug: "milady-2", title: "Jin", sourceName: "Jin" },
+    { id: 3, slug: "milady-3", title: "Kei", sourceName: "Kei" },
+    { id: 4, slug: "milady-4", title: "Momo", sourceName: "Momo" },
+  ],
+  injectedCharacters: [
+    {
+      catchphrase: "I'm ready to assist.",
+      name: "Rin",
+      avatarAssetId: 1,
+      voicePresetId: "alice",
+      avatarAsset: {
+        id: 1,
+        slug: "milady-1",
+        title: "Chen",
+        sourceName: "Chen",
+      },
+    },
+    {
+      catchphrase: "I'm here to help you.",
+      name: "Ai",
+      avatarAssetId: 2,
+      voicePresetId: "sarah",
+      avatarAsset: {
+        id: 2,
+        slug: "milady-2",
+        title: "Jin",
+        sourceName: "Jin",
+      },
+    },
+  ],
+};
+
+describe("patch-bun-exports", () => {
+  it("applyPatchToPackageJson removes bun and default when src/index.ts is missing", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@elizaos", "plugin-fake");
+      const pkgPath = join(pkgDir, "package.json");
+      const pkg = {
+        name: "@elizaos/plugin-fake",
+        version: "1.0.0",
+        exports: {
+          ".": {
+            bun: "./src/index.ts",
+            default: "./src/index.ts",
+            import: { default: "./dist/index.js" },
+          },
+        },
+      };
+      mkdirSync(join(pkgDir, "dist"), { recursive: true });
+      writeFileSync(join(pkgDir, "dist", "index.js"), "// dummy", "utf8");
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2), "utf8");
+
+      const result = applyPatchToPackageJson(pkgPath);
+      expect(result).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.exports["."].bun).toBeUndefined();
+      expect(updated.exports["."].default).toBeUndefined();
+      expect(updated.exports["."].import).toEqual({
+        default: "./dist/index.js",
+      });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyPatchToPackageJson does not patch when src/index.ts exists", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@elizaos", "plugin-fake");
+      const pkgPath = join(pkgDir, "package.json");
+      const pkg = {
+        name: "@elizaos/plugin-fake",
+        exports: {
+          ".": {
+            bun: "./src/index.ts",
+            import: { default: "./dist/index.js" },
+          },
+        },
+      };
+      mkdirSync(join(pkgDir, "src"), { recursive: true });
+      writeFileSync(join(pkgDir, "src", "index.ts"), "// exists", "utf8");
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2), "utf8");
+
+      const result = applyPatchToPackageJson(pkgPath);
+      expect(result).toBe(false);
+
+      const unchanged = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(unchanged.exports["."].bun).toBe("./src/index.ts");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("findPackageJsonPaths returns main path and uses replaceAll for safeName", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const scoped = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "plugin-coding-agent",
+      );
+      mkdirSync(scoped, { recursive: true });
+      writeFileSync(join(scoped, "package.json"), "{}", "utf8");
+
+      const paths = findPackageJsonPaths(tmp, "@elizaos/plugin-coding-agent");
+      expect(paths).toContain(
+        join(
+          tmp,
+          "node_modules",
+          "@elizaos",
+          "plugin-coding-agent",
+          "package.json",
+        ),
+      );
+      expect(paths.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("findPackageJsonPaths matches scoped packages in Bun cache", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const bunScoped = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@noble+hashes@2.0.1",
+        "node_modules",
+        "@noble",
+        "hashes",
+      );
+      mkdirSync(bunScoped, { recursive: true });
+      writeFileSync(join(bunScoped, "package.json"), "{}", "utf8");
+
+      const paths = findPackageJsonPaths(tmp, "@noble/hashes");
+      expect(paths).toContain(join(bunScoped, "package.json"));
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("findPackageFilePaths locates arbitrary files in the Bun cache", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const lockfilePath = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "proper-lockfile@4.1.2",
+        "node_modules",
+        "proper-lockfile",
+        "lib",
+        "lockfile.js",
+      );
+      mkdirSync(join(lockfilePath, ".."), { recursive: true });
+      writeFileSync(lockfilePath, "// test", "utf8");
+
+      const paths = findPackageFilePaths(
+        tmp,
+        "proper-lockfile",
+        "lib/lockfile.js",
+      );
+      expect(paths).toContain(lockfilePath);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchBunExports patches package under root and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@elizaos", "plugin-fake");
+      const pkgPath = join(pkgDir, "package.json");
+      const pkg = {
+        name: "@elizaos/plugin-fake",
+        exports: {
+          ".": {
+            bun: "./src/index.ts",
+            import: { default: "./dist/index.js" },
+          },
+        },
+      };
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2), "utf8");
+
+      const logs: string[] = [];
+      const patched = patchBunExports(tmp, "@elizaos/plugin-fake", (msg) =>
+        logs.push(msg),
+      );
+      expect(patched).toBe(true);
+      expect(logs.some((l) => l.includes("plugin-fake"))).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.exports["."].bun).toBeUndefined();
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyPluginVisionPermissionPatch disables eager camera mode and permission retry spam", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-plugin-vision-test-"));
+    try {
+      const bundlePath = join(tmp, "index.js");
+      writeFileSync(
+        bundlePath,
+        `class VisionService {
+  camera = null;
+  lastFrame = null;
+  DEFAULT_CONFIG = {
+    visionMode: "CAMERA" /* CAMERA */,
+  };
+  async initializeCameraVision() {
+    const toolCheck = await this.checkCameraTools();
+  }
+  startFrameProcessing() {
+    if (this.frameProcessingInterval) {
+      return;
+    }
+    this.frameProcessingInterval = setInterval(async () => {
+      if (!this.isProcessing && this.camera) {
+      }
+    }, this.visionConfig.updateInterval || 100);
+  }
+  async captureAndProcessFrame() {
+    if (!this.camera) {
+      return;
+    }
+    try {
+      await this.camera.capture();
+    } catch (error) {
+      logger14.error("[VisionService] Error capturing frame:", error);
+    }
+  }
+  async captureImage() {
+    try {
+      return await this.camera.capture();
+    } catch (error) {
+      logger14.error("[VisionService] Failed to capture image:", error);
+      return null;
+    }
+  }
+}`,
+        "utf8",
+      );
+
+      expect(applyPluginVisionPermissionPatch(bundlePath)).toBe(true);
+
+      const patched = readFileSync(bundlePath, "utf8");
+      expect(patched).toContain('visionMode: "OFF" /* OFF */');
+      expect(patched).toContain("cameraPermissionDenied = false;");
+      expect(patched).toContain(
+        "this.frameProcessingInterval || this.cameraPermissionDenied",
+      );
+      expect(patched).toContain(
+        "Camera permission not granted; disabling camera capture until permission is granted.",
+      );
+      expect(patched).toContain(
+        'this.visionConfig.visionMode = "OFF" /* OFF */;',
+      );
+      expect(patched).toContain(
+        "Camera permission not granted; skipping image capture.",
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchPluginVisionPermissionHandling patches plugin-vision bundles under root and bun cache", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-plugin-vision-root-"));
+    try {
+      const rootBundle = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "plugin-vision",
+        "dist",
+        "index.js",
+      );
+      mkdirSync(join(rootBundle, ".."), { recursive: true });
+      writeFileSync(
+        rootBundle,
+        `class VisionService {
+  camera = null;
+  lastFrame = null;
+  DEFAULT_CONFIG = {
+    visionMode: "CAMERA" /* CAMERA */,
+  };
+  async initializeCameraVision() {
+    const toolCheck = await this.checkCameraTools();
+  }
+  startFrameProcessing() {
+    if (this.frameProcessingInterval) {
+      return;
+    }
+    this.frameProcessingInterval = setInterval(async () => {
+      if (!this.isProcessing && this.camera) {
+      }
+    }, this.visionConfig.updateInterval || 100);
+  }
+  async captureAndProcessFrame() {
+    if (!this.camera) {
+      return;
+    }
+    try {
+      await this.camera.capture();
+    } catch (error) {
+      logger14.error("[VisionService] Error capturing frame:", error);
+    }
+  }
+  async captureImage() {
+    try {
+      return await this.camera.capture();
+    } catch (error) {
+      logger14.error("[VisionService] Failed to capture image:", error);
+      return null;
+    }
+  }
+}`,
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      expect(
+        patchPluginVisionPermissionHandling(tmp, (msg) => logs.push(msg)),
+      ).toBe(true);
+
+      const patched = readFileSync(rootBundle, "utf8");
+      expect(patched).toContain('visionMode: "OFF" /* OFF */');
+      expect(logs.some((line) => line.includes("@elizaos/plugin-vision"))).toBe(
+        true,
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("repairElizaCoreRuntimeDist copies runtime dist into a broken cached core package", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const sourcePkgDir = join(tmp, "node_modules", "@elizaos", "core");
+      const brokenPkgDir = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+core@2.0.0-alpha.21",
+        "node_modules",
+        "@elizaos",
+        "core",
+      );
+
+      mkdirSync(join(sourcePkgDir, "dist", "node"), { recursive: true });
+      mkdirSync(join(sourcePkgDir, "dist", "browser"), { recursive: true });
+      writeFileSync(join(sourcePkgDir, "dist", "index.js"), "// root", "utf8");
+      writeFileSync(
+        join(sourcePkgDir, "dist", "node", "index.node.js"),
+        "// node",
+        "utf8",
+      );
+      writeFileSync(
+        join(sourcePkgDir, "dist", "browser", "index.browser.js"),
+        "// browser",
+        "utf8",
+      );
+
+      mkdirSync(join(brokenPkgDir, "dist", "testing"), { recursive: true });
+      writeFileSync(
+        join(brokenPkgDir, "dist", "testing", "index.js"),
+        "// only testing",
+        "utf8",
+      );
+
+      const patched = repairElizaCoreRuntimeDist(brokenPkgDir, sourcePkgDir);
+      expect(patched).toBe(true);
+      expect(readFileSync(join(brokenPkgDir, "dist", "index.js"), "utf8")).toBe(
+        "// root",
+      );
+      expect(
+        readFileSync(
+          join(brokenPkgDir, "dist", "node", "index.node.js"),
+          "utf8",
+        ),
+      ).toBe("// node");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchBrokenElizaCoreRuntimeDists repairs broken Bun cache copies from the root install", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const rootPkgDir = join(tmp, "node_modules", "@elizaos", "core");
+      const brokenPkgDir = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+core@2.0.0-alpha.13",
+        "node_modules",
+        "@elizaos",
+        "core",
+      );
+
+      mkdirSync(join(rootPkgDir, "dist", "node"), { recursive: true });
+      mkdirSync(join(rootPkgDir, "dist", "browser"), { recursive: true });
+      writeFileSync(join(rootPkgDir, "package.json"), "{}", "utf8");
+      writeFileSync(join(rootPkgDir, "dist", "index.js"), "// root", "utf8");
+      writeFileSync(
+        join(rootPkgDir, "dist", "node", "index.node.js"),
+        "// node",
+        "utf8",
+      );
+      writeFileSync(
+        join(rootPkgDir, "dist", "browser", "index.browser.js"),
+        "// browser",
+        "utf8",
+      );
+
+      mkdirSync(join(brokenPkgDir, "dist", "testing"), { recursive: true });
+      writeFileSync(join(brokenPkgDir, "package.json"), "{}", "utf8");
+      writeFileSync(
+        join(brokenPkgDir, "dist", "testing", "index.js"),
+        "// only testing",
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchBrokenElizaCoreRuntimeDists(tmp, (msg) =>
+        logs.push(msg),
+      );
+
+      expect(patched).toBe(true);
+      expect(logs.some((line) => line.includes("Repaired @elizaos/core"))).toBe(
+        true,
+      );
+      expect(
+        readFileSync(
+          join(brokenPkgDir, "dist", "node", "index.node.js"),
+          "utf8",
+        ),
+      ).toBe("// node");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyExtensionlessJsExportAliases adds extensionless aliases for .js subpaths", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@noble", "hashes");
+      const pkgPath = join(pkgDir, "package.json");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(
+          {
+            name: "@noble/hashes",
+            exports: {
+              ".": "./index.js",
+              "./sha3.js": "./sha3.js",
+              "./utils.js": "./utils.js",
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const patched = applyExtensionlessJsExportAliases(pkgPath);
+      expect(patched).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.exports["./sha3"]).toBe("./sha3.js");
+      expect(updated.exports["./utils"]).toBe("./utils.js");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchExtensionlessJsExports patches package under root and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@noble", "hashes");
+      const pkgPath = join(pkgDir, "package.json");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(
+          {
+            name: "@noble/hashes",
+            exports: {
+              ".": "./index.js",
+              "./sha3.js": "./sha3.js",
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchExtensionlessJsExports(tmp, "@noble/hashes", (msg) =>
+        logs.push(msg),
+      );
+      expect(patched).toBe(true);
+      expect(logs.some((l) => l.includes("@noble/hashes"))).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.exports["./sha3"]).toBe("./sha3.js");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyNobleHashesCompat restores legacy ethers shims for @noble/hashes", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@noble", "hashes");
+      const pkgPath = join(pkgDir, "package.json");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(join(pkgDir, "legacy.js"), "export const ripemd160 = 1;\n");
+      writeFileSync(
+        join(pkgDir, "sha2.js"),
+        "export const sha256 = 1; export const sha512 = 2;\n",
+      );
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(
+          {
+            name: "@noble/hashes",
+            version: "2.0.1",
+            exports: {
+              ".": "./index.js",
+              "./sha3": "./sha3.js",
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const patched = applyNobleHashesCompat(pkgPath);
+      expect(patched).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.exports["./ripemd160"]).toBe("./ripemd160.js");
+      expect(updated.exports["./ripemd160.js"]).toBe("./ripemd160.js");
+      expect(updated.exports["./sha256"]).toBe("./sha256.js");
+      expect(updated.exports["./sha512"]).toBe("./sha512.js");
+      expect(readFileSync(join(pkgDir, "ripemd160.js"), "utf8")).toContain(
+        'export { ripemd160 } from "./legacy.js";',
+      );
+      expect(readFileSync(join(pkgDir, "sha256.js"), "utf8")).toContain(
+        'export { sha256 } from "./sha2.js";',
+      );
+      expect(readFileSync(join(pkgDir, "sha512.js"), "utf8")).toContain(
+        'export { sha512 } from "./sha2.js";',
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchNobleHashesCompat patches package copies and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@noble", "hashes");
+      const pkgPath = join(pkgDir, "package.json");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(join(pkgDir, "legacy.js"), "export const ripemd160 = 1;\n");
+      writeFileSync(
+        join(pkgDir, "sha2.js"),
+        "export const sha256 = 1; export const sha512 = 2;\n",
+      );
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(
+          {
+            name: "@noble/hashes",
+            version: "2.0.1",
+            exports: {
+              ".": "./index.js",
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchNobleHashesCompat(tmp, (msg) => logs.push(msg));
+      expect(patched).toBe(true);
+      expect(logs.some((l) => l.includes("ethers-compatible"))).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.exports["./sha256"]).toBe("./sha256.js");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyMissingLifecycleScriptPatch removes broken postinstall hooks when the target file is missing", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@elizaos", "plugin-fake");
+      const pkgPath = join(pkgDir, "package.json");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(
+          {
+            name: "@elizaos/plugin-fake",
+            scripts: {
+              postinstall: "node ./scripts/missing-hook.mjs",
+              build: "bun run build.ts",
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const patched = applyMissingLifecycleScriptPatch(
+        pkgPath,
+        "postinstall",
+        "./scripts/missing-hook.mjs",
+      );
+      expect(patched).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.scripts.postinstall).toBeUndefined();
+      expect(updated.scripts.build).toBe("bun run build.ts");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchMissingLifecycleScript patches package copies and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const pkgDir = join(tmp, "node_modules", "@elizaos", "plugin-fake");
+      const pkgPath = join(pkgDir, "package.json");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        pkgPath,
+        JSON.stringify(
+          {
+            name: "@elizaos/plugin-fake",
+            scripts: {
+              postinstall: "node ./scripts/missing-hook.mjs",
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchMissingLifecycleScript(
+        tmp,
+        "@elizaos/plugin-fake",
+        "postinstall",
+        "./scripts/missing-hook.mjs",
+        (msg) => logs.push(msg),
+      );
+      expect(patched).toBe(true);
+      expect(logs.some((l) => l.includes("missing-hook.mjs"))).toBe(true);
+
+      const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(updated.scripts).toBeUndefined();
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyVrmStatePatch rewrites the bundled avatar roster from the catalog", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "state",
+        "vrm.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(filePath, "// upstream", "utf8");
+
+      const patched = applyAppCoreMiladyVrmStatePatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        "Generated from apps/app/characters/catalog.json",
+      );
+      expect(updated).toContain('title: "Chen"');
+      expect(updated).toContain('title: "Momo"');
+      expect(updated).toContain(
+        'vrmPath: resolveAppAssetUrl("vrms/milady-1.vrm.gz")',
+      );
+      expect(updated).toContain(
+        'previewPath: resolveAppAssetUrl("vrms/previews/milady-2.png")',
+      );
+      expect(updated).toContain(
+        'backgroundPath: resolveAppAssetUrl("vrms/backgrounds/milady-4.png")',
+      );
+      expect(updated).toContain(
+        "export const VRM_COUNT = BUNDLED_VRM_ASSETS.length;",
+      );
+      expect(updated).toContain("return resolveBundledVrmAsset(index).title;");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyVrmTypesPatch expands the declared roster size", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "state",
+        "vrm.d.ts",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(filePath, "export declare const VRM_COUNT = 4;\n", "utf8");
+
+      const patched = applyAppCoreMiladyVrmTypesPatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      expect(readFileSync(filePath, "utf8")).toContain(
+        "export declare const VRM_COUNT = 4;",
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyVrmViewerPatch repoints the default fallback avatar", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "avatar",
+        "VrmViewer.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        'const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/eliza-1.vrm.gz");\n',
+        "utf8",
+      );
+
+      const patched = applyAppCoreMiladyVrmViewerPatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      expect(readFileSync(filePath, "utf8")).toContain(
+        'const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/milady-1.vrm.gz");',
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyIdentityStepPatch rewrites injected onboarding characters from the catalog", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "onboarding",
+        "IdentityStep.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const IDENTITY_PRESETS = {
+    "I'm ready to assist.": { name: "Rin", avatarIndex: 1 },
+    "I'm here to help you.": { name: "Ai", avatarIndex: 2 },
+};
+styles.slice(0, 4);
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreMiladyIdentityStepPatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        '"I\'m ready to assist.": { name: "Rin", avatarIndex: 1 }',
+      );
+      expect(updated).toContain(
+        '"I\'m here to help you.": { name: "Ai", avatarIndex: 2 }',
+      );
+      expect(updated).toContain("styles.slice(0, 2);");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyCharacterViewPatch rewrites injected roster metadata from the catalog", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "CharacterView.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const CHARACTER_PRESET_META = {
+    "I'm ready to assist.": { name: "Rin", avatarIndex: 1, voicePresetId: "alice" },
+};
+const visibleCharacterRoster = characterRoster.slice(0, 4);
+const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreMiladyCharacterViewPatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        '"I\'m here to help you.": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" }',
+      );
+      expect(updated).toContain("characterRoster.slice(0, 2)");
+      expect(updated).toContain("(index % 4) + 1");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchAppCoreMiladyAssets patches app-core runtime files and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const rootPkgDir = join(tmp, "node_modules", "@elizaos", "app-core");
+      const cachedPkgDir = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+app-core@2.0.0-alpha.53",
+        "node_modules",
+        "@elizaos",
+        "app-core",
+      );
+
+      for (const pkgDir of [rootPkgDir, cachedPkgDir]) {
+        mkdirSync(join(pkgDir, "state"), { recursive: true });
+        mkdirSync(join(pkgDir, "components", "avatar"), { recursive: true });
+        mkdirSync(join(pkgDir, "components", "onboarding"), {
+          recursive: true,
+        });
+        writeFileSync(join(pkgDir, "state", "vrm.js"), "// upstream", "utf8");
+        writeFileSync(
+          join(pkgDir, "state", "vrm.d.ts"),
+          "export declare const VRM_COUNT = 1;\n",
+          "utf8",
+        );
+        writeFileSync(
+          join(pkgDir, "components", "avatar", "VrmViewer.js"),
+          'const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/eliza-1.vrm.gz");\n',
+          "utf8",
+        );
+        writeFileSync(
+          join(pkgDir, "components", "onboarding", "IdentityStep.js"),
+          "const IDENTITY_PRESETS = {};\nstyles.slice(0, 4);\n",
+          "utf8",
+        );
+        writeFileSync(
+          join(pkgDir, "components", "CharacterView.js"),
+          "const CHARACTER_PRESET_META = {};\nconst visibleCharacterRoster = characterRoster.slice(0, 4);\nconst avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;\n",
+          "utf8",
+        );
+      }
+
+      const logs: string[] = [];
+      const patched = patchAppCoreMiladyAssets(
+        tmp,
+        (msg) => logs.push(msg),
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      expect(
+        logs.some((line) => line.includes("@elizaos/app-core state/vrm.js")),
+      ).toBe(true);
+      expect(
+        logs.some((line) =>
+          line.includes("@elizaos/app-core components/avatar/VrmViewer.js"),
+        ),
+      ).toBe(true);
+      expect(
+        logs.some((line) =>
+          line.includes(
+            "@elizaos/app-core components/onboarding/IdentityStep.js",
+          ),
+        ),
+      ).toBe(true);
+      expect(
+        logs.some((line) =>
+          line.includes("@elizaos/app-core components/CharacterView.js"),
+        ),
+      ).toBe(true);
+      expect(
+        readFileSync(join(rootPkgDir, "state", "vrm.js"), "utf8"),
+      ).toContain('vrmPath: resolveAppAssetUrl("vrms/milady-1.vrm.gz")');
+      expect(
+        readFileSync(join(rootPkgDir, "state", "vrm.d.ts"), "utf8"),
+      ).toContain("export declare const VRM_COUNT = 4;");
+      expect(
+        readFileSync(
+          join(rootPkgDir, "components", "onboarding", "IdentityStep.js"),
+          "utf8",
+        ),
+      ).toContain("styles.slice(0, 2);");
+      expect(
+        readFileSync(
+          join(rootPkgDir, "components", "CharacterView.js"),
+          "utf8",
+        ),
+      ).toContain(
+        `"I'm here to help you.": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" }`,
+      );
+      expect(
+        readFileSync(
+          join(cachedPkgDir, "components", "avatar", "VrmViewer.js"),
+          "utf8",
+        ),
+      ).toContain("vrms/milady-1.vrm.gz");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAutonomousMiladyOnboardingPresetsPatch replaces upstream presets with Milady's source", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "autonomous",
+        "packages",
+        "autonomous",
+        "src",
+        "onboarding-presets.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(filePath, 'export const STYLE_PRESETS = ["upstream"];\n');
+
+      const miladySource =
+        'export const SHARED_STYLE_RULES = ["Keep responses brief."];\nexport const STYLE_PRESETS = ["milady"];\n';
+      const patched = applyAutonomousMiladyOnboardingPresetsPatch(
+        filePath,
+        miladySource,
+      );
+
+      expect(patched).toBe(true);
+      expect(readFileSync(filePath, "utf8")).toBe(miladySource);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchAutonomousMiladyOnboardingPresets patches installed autonomous copies and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const rootSourcePath = join(tmp, "src", "onboarding-presets.ts");
+      const rootPkgPath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "autonomous",
+        "packages",
+        "autonomous",
+        "src",
+        "onboarding-presets.js",
+      );
+      const tsPkgPath = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+autonomous@2.0.0-alpha.74",
+        "node_modules",
+        "@elizaos",
+        "autonomous",
+        "src",
+        "onboarding-presets.ts",
+      );
+      const cachedPkgPath = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+autonomous@2.0.0-alpha.53",
+        "node_modules",
+        "@elizaos",
+        "autonomous",
+        "packages",
+        "autonomous",
+        "src",
+        "onboarding-presets.js",
+      );
+
+      mkdirSync(join(rootSourcePath, ".."), { recursive: true });
+      mkdirSync(join(rootPkgPath, ".."), { recursive: true });
+      mkdirSync(join(tsPkgPath, ".."), { recursive: true });
+      mkdirSync(join(cachedPkgPath, ".."), { recursive: true });
+
+      const miladySource =
+        'export const SHARED_STYLE_RULES = ["Keep responses brief."] as const;\nexport const CHARACTER_PRESET_META: Record<string, { avatarIndex: number }> = { chen: { avatarIndex: 1 } };\n';
+      writeFileSync(rootSourcePath, miladySource, "utf8");
+      writeFileSync(
+        rootPkgPath,
+        'export const STYLE_PRESETS = ["upstream"];\n',
+      );
+      writeFileSync(tsPkgPath, 'export const STYLE_PRESETS = ["upstream"];\n');
+      writeFileSync(
+        cachedPkgPath,
+        'export const STYLE_PRESETS = ["upstream"];\n',
+      );
+
+      const logs: string[] = [];
+      const patched = patchAutonomousMiladyOnboardingPresets(tmp, (msg) =>
+        logs.push(msg),
+      );
+
+      expect(patched).toBe(true);
+      const patchedJsSource = readFileSync(rootPkgPath, "utf8");
+      expect(patchedJsSource).toContain(
+        'export const SHARED_STYLE_RULES = ["Keep responses brief."];',
+      );
+      expect(patchedJsSource).toContain(
+        "export const CHARACTER_PRESET_META = { chen: { avatarIndex: 1 } };",
+      );
+      expect(patchedJsSource).not.toContain("as const");
+      expect(patchedJsSource).not.toContain("Record<");
+      expect(readFileSync(cachedPkgPath, "utf8")).toBe(patchedJsSource);
+      expect(readFileSync(tsPkgPath, "utf8")).toBe(miladySource);
+      expect(
+        logs.some((line) =>
+          line.includes(
+            "@elizaos/autonomous packages/autonomous/src/onboarding-presets.js",
+          ),
+        ),
+      ).toBe(true);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAgentSkillsCatalogFetchPatch coalesces catalog fetches and softens 429 logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "plugin-agent-skills",
+        "dist",
+        "index.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `class AgentSkillsService {
+  // Tracks the last catalog fetch failure timestamp for backoff.
+  lastFetchErrorAt = 0;
+  async getCatalog(options = {}) {
+    const ttl = options.notOlderThan ?? CACHE_TTL.CATALOG;
+    if (!options.forceRefresh && this.catalogCache) {
+      const age = Date.now() - this.catalogCache.cachedAt;
+      if (age < ttl) {
+        return this.catalogCache.data;
+      }
+    }
+    const sinceLastError = Date.now() - this.lastFetchErrorAt;
+    if (this.lastFetchErrorAt > 0 && sinceLastError < FETCH_ERROR_COOLDOWN) {
+      return this.catalogCache?.data ?? [];
+    }
+    try {
+      throw new Error("Catalog fetch failed: 429");
+    } catch (error) {
+      this.lastFetchErrorAt = Date.now();
+      this.runtime.logger.warn(\`AgentSkills: Catalog fetch failed (will retry after cooldown): \${error}\`);
+      if (!this.catalogCache) {
+        this.catalogCache = { data: [], cachedAt: Date.now() };
+      }
+      return this.catalogCache.data;
+    }
+  }
+  /**
+   * Search ClawHub for skills.
+   */
+  async search() {}
+}
+`,
+        "utf8",
+      );
+
+      const patched = applyAgentSkillsCatalogFetchPatch(filePath);
+      expect(patched).toBe(true);
+
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain("catalogFetchInFlight = null;");
+      expect(updated).toContain("catalogFetchCooldownUntil = 0;");
+      expect(updated).toContain(
+        'statusError.retryAfter = response.headers.get("retry-after");',
+      );
+      expect(updated).toContain("this.catalogFetchInFlight = (async () => {");
+      expect(updated).toContain("Catalog rate limited (429)");
+      expect(updated).not.toContain(
+        "const sinceLastError = Date.now() - this.lastFetchErrorAt;",
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchAgentSkillsCatalogFetch patches Bun-installed copies and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+plugin-agent-skills@2.0.0-alpha.11",
+        "node_modules",
+        "@elizaos",
+        "plugin-agent-skills",
+        "dist",
+        "index.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `class AgentSkillsService {
+  // Tracks the last catalog fetch failure timestamp for backoff.
+  lastFetchErrorAt = 0;
+  async getCatalog(options = {}) {
+    return [];
+  }
+  /**
+   * Search ClawHub for skills.
+   */
+  async search() {}
+}
+`,
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchAgentSkillsCatalogFetch(tmp, (msg) =>
+        logs.push(msg),
+      );
+      expect(patched).toBe(true);
+      expect(logs.some((l) => l.includes("plugin-agent-skills"))).toBe(true);
+
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain("catalogFetchCooldownUntil = 0;");
+      expect(updated).toContain("Catalog rate limited (429)");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyProperLockfileSignalExitCompat supports signal-exit v3 and v4 shapes", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "proper-lockfile",
+        "lib",
+        "lockfile.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        "const onExit = require('signal-exit');\nonExit(() => {});\n",
+        "utf8",
+      );
+
+      const patched = applyProperLockfileSignalExitCompat(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain("const signalExit = require('signal-exit');");
+      expect(updated).toContain(
+        "const onExit = typeof signalExit === 'function' ? signalExit : signalExit.onExit;",
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchProperLockfileSignalExitCompat patches discovered copies and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "proper-lockfile@4.1.2",
+        "node_modules",
+        "proper-lockfile",
+        "lib",
+        "lockfile.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        "const onExit = require('signal-exit');\nonExit(() => {});\n",
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchProperLockfileSignalExitCompat(tmp, (msg) =>
+        logs.push(msg),
+      );
+      expect(patched).toBe(true);
+      expect(logs.some((l) => l.includes("proper-lockfile"))).toBe(true);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});

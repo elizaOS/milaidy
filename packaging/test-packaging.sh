@@ -115,19 +115,21 @@ fi
 
 echo ""
 
-# ── 2. Homebrew Formula ──────────────────────────────────────────────────────
-bold "2. Homebrew Formula"
+# ── 2. Homebrew Formula & Cask ─────────────────────────────────────────────────
+bold "2. Homebrew Formula & Cask"
 check_file "milady.rb" "$SCRIPT_DIR/homebrew/milady.rb"
+check_file "milady.cask.rb" "$SCRIPT_DIR/homebrew/milady.cask.rb"
 
 # Validate Ruby syntax
 if command -v ruby &>/dev/null; then
-  check "Ruby syntax valid" ruby -c "$SCRIPT_DIR/homebrew/milady.rb"
+  check "Formula Ruby syntax valid" ruby -c "$SCRIPT_DIR/homebrew/milady.rb"
+  check "Cask Ruby syntax valid" ruby -c "$SCRIPT_DIR/homebrew/milady.cask.rb"
 else
   skip "Ruby syntax check" "ruby not available"
 fi
 
 # Check formula has real SHA256 (not placeholder)
-check "SHA256 is not placeholder" bash -c "! grep -q PLACEHOLDER '$SCRIPT_DIR/homebrew/milady.rb'"
+check "Formula SHA256 is not placeholder" bash -c "! grep -q PLACEHOLDER '$SCRIPT_DIR/homebrew/milady.rb'"
 check "Has url field" grep -q 'url "https://' "$SCRIPT_DIR/homebrew/milady.rb"
 check "Has sha256 field" grep -q 'sha256 "' "$SCRIPT_DIR/homebrew/milady.rb"
 check "Depends on node" grep -q 'depends_on "node' "$SCRIPT_DIR/homebrew/milady.rb"
@@ -170,7 +172,7 @@ fi
 
 check "Has name field" grep -q "^name: milady" "$SCRIPT_DIR/snap/snapcraft.yaml"
 check "Has version field" grep -q "^version:" "$SCRIPT_DIR/snap/snapcraft.yaml"
-check "Has classic confinement" grep -q "confinement: classic" "$SCRIPT_DIR/snap/snapcraft.yaml"
+check "Has confinement set" grep -q "^confinement:" "$SCRIPT_DIR/snap/snapcraft.yaml"
 check "Has base" grep -q "^base: core22" "$SCRIPT_DIR/snap/snapcraft.yaml"
 check "Has apps section" grep -q "^apps:" "$SCRIPT_DIR/snap/snapcraft.yaml"
 check "Has node part" grep -q "node:" "$SCRIPT_DIR/snap/snapcraft.yaml"

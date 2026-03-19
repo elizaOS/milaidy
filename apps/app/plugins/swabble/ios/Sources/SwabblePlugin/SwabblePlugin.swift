@@ -415,7 +415,7 @@ public class SwabblePlugin: CAPPlugin, CAPBridgedPlugin {
             ]
         }
 
-        var gateConfig: GateConfig {
+        fileprivate var gateConfig: GateConfig {
             GateConfig(triggers: triggers, minPostTriggerGap: minPostTriggerGap,
                        minCommandLength: minCommandLength)
         }
@@ -1031,7 +1031,7 @@ public class SwabblePlugin: CAPPlugin, CAPBridgedPlugin {
     private func configureAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .measurement, options: [
-            .duckOthers, .mixWithOthers, .allowBluetoothHFP, .defaultToSpeaker,
+            .duckOthers, .mixWithOthers, .allowBluetooth, .defaultToSpeaker,
         ])
         try session.setActive(true, options: [])
     }

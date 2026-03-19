@@ -1,7 +1,36 @@
-FROM node:22-bookworm
+# ==============================================================================
+# Stage 1: Builder — install all deps and build
+# ==============================================================================
+FROM node:22-bookworm AS builder
 
 # Install Bun (primary package manager and build tool)
-RUN curl -fsSL https://bun.sh/install | bash
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.9"
+ENV PATH="/root/.bun/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy dependency manifests first for better layer caching
+COPY package.json bun.lock* .npmrc ./
+COPY apps/app/package.json ./apps/app/package.json
+COPY scripts ./scripts
+
+# Install ALL dependencies (dev + prod) for the build step.
+RUN bun install --frozen-lockfile
+
+# Copy source and build (includes apps/app/dist UI bundle)
+COPY . .
+RUN bun run build
+
+# Re-install with production-only dependencies for the runtime image.
+RUN rm -rf node_modules && bun install --frozen-lockfile --production
+
+# ==============================================================================
+# Stage 2: Runtime — lean production image without dev deps or source
+# ==============================================================================
+FROM node:22-bookworm AS runtime
+
+# Install Bun (needed at runtime for bun-native modules)
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.9"
 ENV PATH="/root/.bun/bin:${PATH}"
 
 WORKDIR /app
@@ -14,17 +43,24 @@ RUN if [ -n "$MILADY_DOCKER_APT_PACKAGES" ]; then \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     fi
 
-# Copy dependency manifests first for better layer caching
-COPY package.json bun.lock* .npmrc ./
-COPY apps/app/package.json ./apps/app/package.json
-COPY scripts ./scripts
+# Copy production node_modules (no devDependencies)
+COPY --from=builder /app/node_modules ./node_modules
 
-# Install dependencies using the committed lockfile only.
-RUN bun install --frozen-lockfile
+# Copy build outputs
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/apps/app/dist ./apps/app/dist
 
-# Copy source and build (includes apps/app/dist UI bundle)
-COPY . .
-RUN bun run build
+# Copy entrypoint and runtime scripts
+COPY --from=builder /app/milady.mjs ./milady.mjs
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/scripts ./scripts
+
+# Copy static assets (VRMs, animations, etc.)
+COPY --from=builder /app/apps/app/public ./apps/app/public
+
+# Copy workspace package.json files so Node module resolution works
+COPY --from=builder /app/apps/app/package.json ./apps/app/package.json
+COPY --from=builder /app/apps/app/node_modules ./apps/app/node_modules
 
 ENV NODE_ENV=production
 

@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { terminalAction } from "../../actions/terminal";
+import { createElizaPlugin } from "../../runtime/eliza-plugin";
 
 function mockResponse(response: { ok: boolean }): Response {
   return {
     ok: response.ok,
-  } as unknown as Response;
+  } as Partial<Response> as Response;
 }
 
 describe("terminalAction", () => {
@@ -32,6 +33,16 @@ describe("terminalAction", () => {
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 
+  it("is registered on the Eliza plugin", () => {
+    const plugin = createElizaPlugin();
+    const actionNames = (plugin.actions ?? []).map((action) => action.name);
+    expect(actionNames).toContain("RUN_IN_TERMINAL");
+  });
+
+  it("supports CALL_MCP_TOOL compatibility alias", () => {
+    expect(terminalAction.similes).toContain("CALL_MCP_TOOL");
+  });
+
   it("fails when API returns error", async () => {
     vi.mocked(fetch).mockResolvedValue(mockResponse({ ok: false }));
 
@@ -46,7 +57,13 @@ describe("terminalAction", () => {
     expect(result.text).toBe("");
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       "http://localhost:2138/api/terminal/run",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          command: "ls -la",
+          clientId: "runtime-terminal-action",
+        }),
+      }),
     );
   });
 
@@ -63,6 +80,43 @@ describe("terminalAction", () => {
     expect(result.success).toBe(true);
     expect(result.text).toBe("Running in terminal: `bun --version`");
     expect(result.data).toEqual({ command: "bun --version" });
+  });
+
+  it("extracts command from natural language message when params are missing", async () => {
+    vi.mocked(fetch).mockResolvedValue(mockResponse({ ok: true }));
+
+    const result = await terminalAction.handler(
+      undefined,
+      { roomId: "room", content: { text: "Can you run ls -la in the shell?" } },
+      undefined,
+      {},
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ command: "ls -la" });
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      "http://localhost:2138/api/terminal/run",
+      expect.objectContaining({
+        body: JSON.stringify({
+          command: "ls -la",
+          clientId: "runtime-terminal-action",
+        }),
+      }),
+    );
+  });
+
+  it("extracts command from MCP-style JSON arguments", async () => {
+    vi.mocked(fetch).mockResolvedValue(mockResponse({ ok: true }));
+
+    const result = await terminalAction.handler(
+      undefined,
+      { roomId: "room", content: { text: "" } },
+      undefined,
+      { parameters: { arguments: '{"command":"ls -la"}' } },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ command: "ls -la" });
   });
 
   it("handles fetch exceptions", async () => {

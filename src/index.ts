@@ -1,8 +1,8 @@
 /**
- * Public entry point for the milady package.
+ * Public entry point for the eliza package.
  *
  * Config types are the primary public API surface.
- * @module milady
+ * @module eliza
  */
 
 export * from "./config/types";

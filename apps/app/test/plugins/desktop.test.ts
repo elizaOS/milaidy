@@ -1,14 +1,87 @@
+// @vitest-environment jsdom
 /**
- * Tests for @milady/capacitor-desktop — web fallbacks, window ops, clipboard, events.
+ * Tests for @miladyai/capacitor-desktop — web fallbacks, window ops, clipboard, events.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DesktopWeb } from "../../plugins/desktop/src/web";
 
-describe("@milady/capacitor-desktop", () => {
+describe("@miladyai/capacitor-desktop", () => {
   let d: DesktopWeb;
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    // jsdom doesn't provide navigator.clipboard — stub it
+    if (!navigator.clipboard) {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: vi.fn(async () => {}),
+          readText: vi.fn(async () => ""),
+          read: vi.fn(async () => []),
+          write: vi.fn(async () => {}),
+        },
+        writable: true,
+        configurable: true,
+      });
+    } else {
+      // Ensure methods exist on already-stubbed clipboard
+      if (!navigator.clipboard.writeText) {
+        Object.defineProperty(navigator.clipboard, "writeText", {
+          value: vi.fn(async () => {}),
+          writable: true,
+          configurable: true,
+        });
+      }
+      if (!navigator.clipboard.readText) {
+        Object.defineProperty(navigator.clipboard, "readText", {
+          value: vi.fn(async () => ""),
+          writable: true,
+          configurable: true,
+        });
+      }
+    }
+
+    // jsdom doesn't provide AudioContext — stub it for beep()
+    const gainNode = {
+      gain: {
+        setValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn(),
+        exponentialRampToValueAtTime: vi.fn(),
+      },
+      connect: vi.fn(),
+    };
+    gainNode.connect.mockReturnValue(gainNode);
+    const dest = {};
+    (globalThis as unknown as Record<string, unknown>).AudioContext = class {
+      createOscillator() {
+        const osc = {
+          type: "sine",
+          frequency: { value: 0, setValueAtTime: vi.fn() },
+          connect: vi.fn().mockReturnValue(gainNode),
+          start: vi.fn(),
+          stop: vi.fn(),
+        };
+        return osc;
+      }
+      createGain() {
+        return gainNode;
+      }
+      get destination() {
+        return dest;
+      }
+      get currentTime() {
+        return 0;
+      }
+    };
+
+    // jsdom location.reload is read-only; replace location entirely
+    (window as unknown as Record<string, unknown>).location = new URL(
+      "http://localhost/",
+    ) as Location;
+    (window as unknown as Record<string, unknown>).location = {
+      ...(window as unknown as Record<string, unknown>).location,
+      reload: vi.fn(),
+    };
+
     d = new DesktopWeb();
   });
 
@@ -75,7 +148,9 @@ describe("@milady/capacitor-desktop", () => {
 
     it("closeWindow/showWindow/focusWindow call window methods", async () => {
       const closeSpy = vi.spyOn(window, "close");
-      const focusSpy = vi.spyOn(window, "focus");
+      const focusSpy = vi
+        .spyOn(window, "focus")
+        .mockImplementation(() => {}); /* avoid jsdom "Not implemented" */
       await d.closeWindow();
       await d.showWindow();
       await d.focusWindow();
@@ -129,9 +204,9 @@ describe("@milady/capacitor-desktop", () => {
   // -- App info --
 
   describe("app info", () => {
-    it("getVersion has N/A for electron/node on web", async () => {
+    it("getVersion has N/A for runtime/node on web", async () => {
       const v = await d.getVersion();
-      expect(v.electron).toBe("N/A");
+      expect(v.runtime).toBe("N/A");
       expect(v.node).toBe("N/A");
     });
 
@@ -196,7 +271,9 @@ describe("@milady/capacitor-desktop", () => {
   // -- Shell --
 
   it("openExternal opens URL in new tab", async () => {
-    const spy = vi.spyOn(window, "open");
+    const spy = vi
+      .spyOn(window, "open")
+      .mockImplementation(() => null); /* avoid jsdom "Not implemented" */
     await d.openExternal({ url: "https://example.com" });
     expect(spy).toHaveBeenCalledWith("https://example.com", "_blank");
   });

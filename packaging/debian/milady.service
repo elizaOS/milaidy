@@ -1,0 +1,15 @@
+[Unit]
+Description=Milady — Personal AI Assistant
+Documentation=https://github.com/milady-ai/milady
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/milady start
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target

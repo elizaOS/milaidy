@@ -11,6 +11,43 @@ import {
   ToolsMediaSchema,
 } from "./zod-schema.core";
 
+const AgentMessageExampleContentSchema = z
+  .object({
+    text: z.string(),
+    actions: z.array(z.string()).optional(),
+  })
+  .strict();
+
+const AgentMessageExampleGroupSchema = z
+  .object({
+    examples: z.array(
+      z
+        .object({
+          name: z.string(),
+          content: AgentMessageExampleContentSchema,
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
+const AgentLegacyMessageExampleSchema = z
+  .object({
+    user: z.string().optional(),
+    name: z.string().optional(),
+    content: AgentMessageExampleContentSchema,
+  })
+  .strict();
+
+const AgentCharacterStyleSchema = z
+  .object({
+    all: z.array(z.string()).optional(),
+    chat: z.array(z.string()).optional(),
+    post: z.array(z.string()).optional(),
+  })
+  .strict()
+  .optional();
+
 export const HeartbeatSchema = z
   .object({
     every: z.string().optional(),
@@ -458,6 +495,7 @@ export const AgentEntrySchema = z
     id: z.string(),
     default: z.boolean().optional(),
     name: z.string().optional(),
+    username: z.string().max(50).optional(),
     workspace: z.string().optional(),
     agentDir: z.string().optional(),
     model: AgentModelSchema.optional(),
@@ -467,6 +505,21 @@ export const AgentEntrySchema = z
     heartbeat: HeartbeatSchema,
     identity: IdentitySchema,
     groupChat: GroupChatSchema,
+    bio: z.array(z.string()).optional(),
+    system: z.string().max(10000).optional(),
+    style: AgentCharacterStyleSchema,
+    adjectives: z.array(z.string().min(1).max(100)).optional(),
+    topics: z.array(z.string()).optional(),
+    postExamples: z.array(z.string()).optional(),
+    postExamples_zhCN: z.array(z.string()).optional(),
+    messageExamples: z
+      .array(
+        z.union([
+          AgentMessageExampleGroupSchema,
+          z.array(AgentLegacyMessageExampleSchema),
+        ]),
+      )
+      .optional(),
     subagents: z
       .object({
         allowAgents: z.array(z.string()).optional(),
@@ -619,9 +672,6 @@ export const AgentDefaultsSchema = z
       )
       .optional(),
     repoRoot: z.string().optional(),
-    skipBootstrap: z.boolean().optional(),
-    bootstrapMaxChars: z.number().int().positive().optional(),
-    enableBootstrapProviders: z.boolean().optional(),
     userTimezone: z.string().optional(),
     timeFormat: z
       .union([z.literal("auto"), z.literal("12"), z.literal("24")])

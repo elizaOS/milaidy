@@ -11,7 +11,7 @@ milady-adapter (Python client)
     |  (HTTP requests)
 server.ts (this directory)
     |  (canonical message pipeline)
-ElizaOS AgentRuntime
+elizaOS AgentRuntime
 ```
 
 This directory contains:
@@ -19,9 +19,11 @@ This directory contains:
 | File | Purpose |
 |---|---|
 | `server.ts` | HTTP server for benchmark traffic. Initializes `AgentRuntime`, handles benchmark sessions, and routes each message through `runtime.messageService.handleMessage(...)`. |
-| `mock-plugin.ts` | Optional mock services for local debugging. |
+| `mock-plugin-base.ts` | Tracked deterministic mock plugin used by benchmark unit tests and CI smoke checks. |
+| `mock-plugin.ts` | Optional local override (gitignored) loaded first when `MILADY_BENCH_MOCK=true`. |
+| `TESTING_PROTOCOL.md` | Benchmark action/testing protocol (required checks + CUA-bench compatibility commands). |
 
-The Python client side lives in [`benchmarks/milady-adapter/`](../../../benchmarks/milaidy-adapter/).
+The Python client side can live in a local adapter directory such as `benchmarks/milady-adapter/`.
 
 ## Start the server
 
@@ -34,6 +36,22 @@ node --import tsx src/benchmark/server.ts
 ```
 
 The server prints `MILADY_BENCH_READY port=<port>` when ready.
+
+## Testing
+
+```bash
+# benchmark-focused unit tests
+bunx vitest run src/benchmark/*.test.ts
+
+# watch a live benchmark smoke run end-to-end
+bun run benchmark:watch
+
+# watch live CUA execution in LUME VM (requires CUA_HOST + model credentials)
+CUA_HOST=localhost:8000 OPENAI_API_KEY=sk-... CUA_COMPUTER_USE_MODEL=computer-use-preview bun run benchmark:cua:watch
+
+# see the full benchmark testing/checklist protocol
+cat src/benchmark/TESTING_PROTOCOL.md
+```
 
 ## HTTP API
 
@@ -60,6 +78,29 @@ Response:
 ```json
 { "status": "ok", "room_id": "<uuid>", "task_id": "webshop-42", "benchmark": "agentbench" }
 ```
+
+### `GET /api/benchmark/cua/status`
+
+Returns CUA service status when CUA benchmark mode is enabled (`MILADY_ENABLE_CUA=1`).
+
+### `POST /api/benchmark/cua/run`
+
+Runs a live CUA task in the configured LUME/cloud sandbox.
+
+Request:
+
+```json
+{
+  "goal": "Open ChatGPT and close extra tabs",
+  "room_id": "optional-room-id",
+  "auto_approve": true,
+  "include_screenshots": false
+}
+```
+
+### `GET /api/benchmark/cua/screenshot`
+
+Captures the current sandbox screenshot (`base64 png`) via the CUA service.
 
 ### `POST /api/benchmark/message`
 
@@ -97,6 +138,10 @@ Response:
 |---|---|---|
 | `MILADY_BENCH_PORT` | `3939` | Port to listen on |
 | `MILADY_ENABLE_COMPUTERUSE` | unset | If set, loads local computeruse plugin |
+| `MILADY_ENABLE_CUA` | unset | If set (or CUA env is configured), loads `@elizaos/plugin-cua` |
+| `CUA_HOST` | unset | Local CUA/LUME host (e.g. `localhost:8000`) |
+| `CUA_API_KEY` + `CUA_SANDBOX_NAME` | unset | Cloud CUA mode alternative to `CUA_HOST` |
+| `CUA_COMPUTER_USE_MODEL` | `auto` | Set `computer-use-preview` to force OpenAI computer-use runner |
 | `MILADY_BENCH_MOCK` | unset | Enables inline mock benchmark plugin |
 
 ## Notes

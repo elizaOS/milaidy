@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
   handlePermissionRoutes,
@@ -14,7 +14,7 @@ describe("permission routes", () => {
   beforeEach(() => {
     state = {
       runtime: null,
-      config: {} as MiladyConfig,
+      config: {} as ElizaConfig,
     };
     saveConfig = vi.fn();
     scheduleRuntimeRestart = vi.fn();
@@ -58,8 +58,8 @@ describe("permission routes", () => {
 
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({
-      permissions: {},
-      shellEnabled: true,
+      _shellEnabled: true,
+      _platform: process.platform,
     });
   });
 
@@ -121,6 +121,35 @@ describe("permission routes", () => {
     expect(result.payload).toMatchObject({ updated: true });
   });
 
+  test("does not schedule a restart during startup permission sync", async () => {
+    state.runtime = {} as never;
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/permissions/state",
+      body: {
+        startup: true,
+        permissions: {
+          accessibility: {
+            id: "accessibility",
+            status: "granted",
+            lastChecked: 123,
+            canRequest: true,
+          },
+          "screen-recording": {
+            id: "screen-recording",
+            status: "granted",
+            lastChecked: 124,
+            canRequest: true,
+          },
+        },
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(saveConfig).toHaveBeenCalledWith(state.config);
+    expect(scheduleRuntimeRestart).not.toHaveBeenCalled();
+  });
+
   test("rejects invalid nested permission id path", async () => {
     const result = await invoke({
       method: "GET",
@@ -129,5 +158,114 @@ describe("permission routes", () => {
 
     expect(result.status).toBe(400);
     expect(result.payload).toMatchObject({ error: "Invalid permission ID" });
+  });
+
+  // ── GET /api/permissions/:id — existing permission ──────────────────
+  test("returns existing permission by id", async () => {
+    state.permissionStates = {
+      microphone: {
+        id: "microphone",
+        status: "granted",
+        lastChecked: 1000,
+        canRequest: true,
+      },
+    };
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/permissions/microphone",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      id: "microphone",
+      status: "granted",
+      canRequest: true,
+    });
+  });
+
+  // ── GET /api/permissions/:id — unknown permission ───────────────────
+  test("returns not-applicable for unknown permission", async () => {
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/permissions/bluetooth",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      id: "bluetooth",
+      status: "not-applicable",
+      canRequest: false,
+    });
+  });
+
+  // ── POST /api/permissions/refresh ───────────────────────────────────
+  test("requests permission refresh", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/permissions/refresh",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      action: "ipc:permissions:refresh",
+    });
+  });
+
+  // ── POST /api/permissions/:id/request ───────────────────────────────
+  test("requests a specific permission", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/permissions/camera/request",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      action: "ipc:permissions:request:camera",
+    });
+  });
+
+  // ── POST /api/permissions/:id/open-settings ─────────────────────────
+  test("opens settings for a specific permission", async () => {
+    const result = await invoke({
+      method: "POST",
+      pathname: "/api/permissions/accessibility/open-settings",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      action: "ipc:permissions:openSettings:accessibility",
+    });
+  });
+
+  // ── PUT /api/permissions/shell — disable without runtime ────────────
+  test("disables shell without triggering restart when no runtime", async () => {
+    // state.runtime is null by default (from beforeEach)
+    const result = await invoke({
+      method: "PUT",
+      pathname: "/api/permissions/shell",
+      body: { enabled: false },
+    });
+
+    expect(result.status).toBe(200);
+    expect(state.shellEnabled).toBe(false);
+    expect(state.config.features).toMatchObject({ shellEnabled: false });
+    expect(saveConfig).toHaveBeenCalledWith(state.config);
+    // No runtime → no restart scheduled
+    expect(scheduleRuntimeRestart).not.toHaveBeenCalled();
+  });
+
+  // ── GET /api/permissions/shell — default enabled ────────────────────
+  test("returns shell enabled by default", async () => {
+    const result = await invoke({
+      method: "GET",
+      pathname: "/api/permissions/shell",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.payload).toMatchObject({
+      enabled: true,
+      id: "shell",
+      status: "granted",
+    });
   });
 });

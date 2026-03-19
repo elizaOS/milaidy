@@ -1,5 +1,5 @@
 /**
- * Tests for @milady/capacitor-gateway — WebSocket RPC and discovery.
+ * Tests for @miladyai/capacitor-gateway — WebSocket RPC and discovery.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GatewayWeb } from "../../plugins/gateway/src/web";
@@ -21,14 +21,14 @@ type Internals = GatewayWeb & {
   handleClose: (code: number, reason: string) => void;
 };
 
-describe("@milady/capacitor-gateway", () => {
+describe("@miladyai/capacitor-gateway", () => {
   let gw: GatewayWeb;
   let priv: Internals;
 
   beforeEach(() => {
     vi.useFakeTimers();
     gw = new GatewayWeb();
-    priv = gw as unknown as Internals;
+    priv = gw as Internals;
   });
 
   afterEach(() => vi.useRealTimers());

@@ -92,7 +92,7 @@ function resolveProfileStateDir(
   homedir: () => string,
 ): string {
   const suffix = profile.toLowerCase() === "default" ? "" : `-${profile}`;
-  return path.join(homedir(), `.milady${suffix}`);
+  return path.join(homedir(), `.eliza${suffix}`);
 }
 
 export function applyCliProfileEnv(params: {
@@ -108,19 +108,19 @@ export function applyCliProfileEnv(params: {
   }
 
   // Convenience only: fill defaults, never override explicit env values.
-  env.MILADY_PROFILE = profile;
+  env.ELIZA_PROFILE = profile;
 
   const stateDir =
-    env.MILADY_STATE_DIR?.trim() || resolveProfileStateDir(profile, homedir);
-  if (!env.MILADY_STATE_DIR?.trim()) {
-    env.MILADY_STATE_DIR = stateDir;
+    env.ELIZA_STATE_DIR?.trim() || resolveProfileStateDir(profile, homedir);
+  if (!env.ELIZA_STATE_DIR?.trim()) {
+    env.ELIZA_STATE_DIR = stateDir;
   }
 
-  if (!env.MILADY_CONFIG_PATH?.trim()) {
-    env.MILADY_CONFIG_PATH = path.join(stateDir, "milady.json");
+  if (!env.ELIZA_CONFIG_PATH?.trim()) {
+    env.ELIZA_CONFIG_PATH = path.join(stateDir, "eliza.json");
   }
 
-  if (profile === "dev" && !env.MILADY_GATEWAY_PORT?.trim()) {
-    env.MILADY_GATEWAY_PORT = "19001";
+  if (profile === "dev" && !env.ELIZA_GATEWAY_PORT?.trim()) {
+    env.ELIZA_GATEWAY_PORT = "19001";
   }
 }

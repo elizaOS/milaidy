@@ -4,23 +4,20 @@ import type { AgentPlugin, AgentStatus, ChatResult } from "./definitions";
 /**
  * Web fallback implementation.
  *
- * On non-Electron platforms (iOS, Android, web), the agent runtime runs
+ * On non-desktop platforms (iOS, Android, web), the agent runtime runs
  * on a server. This implementation delegates to the HTTP API.
  *
- * In Electron the Capacitor plugin bridge calls the native (main-process)
- * implementation via IPC instead — this web fallback is only used when
- * no native plugin is available.  If the page is served from a non-HTTP
- * origin (e.g. capacitor-electron://), relative fetches would hit the
+ * In Electrobun the desktop bridge calls the native main-process
+ * implementation via RPC instead — this web fallback is only used when
+ * no native plugin is available. If the page is served from a non-HTTP
+ * origin (e.g. electrobun://), relative fetches would hit the
  * app shell HTML, so we bail early.
  */
 export class AgentWeb extends WebPlugin implements AgentPlugin {
-  private electronLocalFallbackBase(): string {
+  private desktopLocalFallbackBase(): string {
     if (typeof window === "undefined") return "";
     const proto = window.location.protocol;
-    if (proto === "capacitor-electron:") {
-      return "http://localhost:2138";
-    }
-    if (proto === "file:" && /\bElectron\b/i.test(window.navigator.userAgent)) {
+    if (proto === "electrobun:" || proto === "file:") {
       return "http://localhost:2138";
     }
     return "";
@@ -32,7 +29,7 @@ export class AgentWeb extends WebPlugin implements AgentPlugin {
         ? (window as unknown as Record<string, unknown>).__MILADY_API_BASE__
         : undefined;
     if (typeof global === "string" && global.trim().length > 0) return global;
-    return this.electronLocalFallbackBase();
+    return this.desktopLocalFallbackBase();
   }
 
   private apiToken(): string | null {

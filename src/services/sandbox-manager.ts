@@ -10,8 +10,6 @@ import {
   type SandboxEngineType,
 } from "./sandbox-engine";
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
 export type SandboxMode = "off" | "light" | "standard" | "max";
 
 export type SandboxState =
@@ -24,45 +22,30 @@ export type SandboxState =
   | "recovering";
 
 export interface SandboxManagerConfig {
-  /** Sandbox mode. */
   mode: SandboxMode;
-  /** Docker image for sandbox containers. */
   image?: string;
-  /** Container name prefix. */
   containerPrefix?: string;
-  /** Container workdir mount path. */
   workdir?: string;
-  /** Run rootfs read-only. */
   readOnlyRoot?: boolean;
-  /** Container network mode. */
   network?: string;
-  /** Container user (uid:gid). */
   user?: string;
-  /** Drop Linux capabilities. */
   capDrop?: string[];
-  /** Environment variables for sandbox. */
   env?: Record<string, string>;
-  /** Container memory limit. */
   memory?: string;
-  /** Container CPU limit. */
   cpus?: number;
-  /** PIDs limit. */
   pidsLimit?: number;
-  /** Root directory for sandbox workspaces. */
   workspaceRoot?: string;
-  /** Additional bind mounts. */
   binds?: string[];
-  /** DNS servers. */
   dns?: string[];
-  /** Container engine type: "docker", "apple-container", or "auto" (default). */
   engineType?: SandboxEngineType;
-  /** Browser sandbox settings. */
   browser?: {
     enabled?: boolean;
     image?: string;
     cdpPort?: number;
     vncPort?: number;
+    noVncPort?: number;
     headless?: boolean;
+    enableNoVnc?: boolean;
     autoStart?: boolean;
     autoStartTimeoutMs?: number;
   };
@@ -98,8 +81,6 @@ export interface SandboxEvent {
   metadata?: Record<string, string | number | boolean>;
 }
 
-// ── Implementation ───────────────────────────────────────────────────────────
-
 export class SandboxManager {
   private state: SandboxState = "uninitialized";
   private config: SandboxManagerConfig;
@@ -110,8 +91,8 @@ export class SandboxManager {
 
   constructor(config: SandboxManagerConfig) {
     this.config = {
-      image: "milady-sandbox:bookworm-slim",
-      containerPrefix: "milady-sandbox",
+      image: "eliza-sandbox:bookworm-slim",
+      containerPrefix: "eliza-sandbox",
       workdir: "/workspace",
       network: "none",
       user: "1000:1000",
@@ -146,8 +127,8 @@ export class SandboxManager {
     user: string;
     wsRoot: string;
   } {
-    const image = this.config.image ?? "milady-sandbox:bookworm-slim";
-    const containerPrefix = this.config.containerPrefix ?? "milady-sandbox";
+    const image = this.config.image ?? "eliza-sandbox:bookworm-slim";
+    const containerPrefix = this.config.containerPrefix ?? "eliza-sandbox";
     const workdir = this.config.workdir ?? "/workspace";
     const network = this.config.network ?? "none";
     const user = this.config.user ?? "1000:1000";
@@ -155,7 +136,7 @@ export class SandboxManager {
       this.config.workspaceRoot ??
       join(
         process.env.HOME ?? process.env.USERPROFILE ?? os.tmpdir(),
-        ".milady",
+        ".eliza",
         "sandbox-workspace",
       );
     mkdirSync(wsRoot, { recursive: true });
@@ -206,12 +187,10 @@ export class SandboxManager {
     }
 
     if (this.config.mode === "light") {
-      // Light mode: no container, just tokenization + fetch proxy
       this.setState("ready");
       return;
     }
 
-    // Standard / Max: create container
     this.setState("initializing");
 
     try {
@@ -233,7 +212,6 @@ export class SandboxManager {
         }
       }
 
-      // Cleanup orphans from previous runs
       const orphans = this.engine.listContainers(config.containerPrefix);
       for (const id of orphans) {
         await this.engine.stopContainer(id);
@@ -248,7 +226,6 @@ export class SandboxManager {
         detail: `Container started: ${this.containerId}`,
       });
 
-      // Start browser container if configured
       if (this.config.browser?.enabled && this.config.browser?.autoStart) {
         try {
           this.browserContainerId = await this.createBrowserContainer();
@@ -256,13 +233,13 @@ export class SandboxManager {
           this.emitEvent({
             timestamp: Date.now(),
             type: "error",
-            detail: `Browser container start failed: ${err instanceof Error ? err.message : String(err)}`,
+            detail: `Browser container start failed: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
           });
-          // Non-fatal: sandbox can work without browser
         }
       }
 
-      // Health check
       const healthy = await this.healthCheck();
       if (healthy) {
         this.setState("ready");
@@ -273,7 +250,9 @@ export class SandboxManager {
       this.emitEvent({
         timestamp: Date.now(),
         type: "error",
-        detail: `Sandbox start failed: ${err instanceof Error ? err.message : String(err)}`,
+        detail: `Sandbox start failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       });
       this.setState("degraded");
       throw err;
@@ -282,7 +261,7 @@ export class SandboxManager {
 
   async recover(): Promise<void> {
     if (this.state !== "degraded") {
-      return; // Only recover from degraded
+      return;
     }
 
     this.setState("recovering");
@@ -317,7 +296,9 @@ export class SandboxManager {
       this.emitEvent({
         timestamp: Date.now(),
         type: "error",
-        detail: `Recovery failed: ${err instanceof Error ? err.message : String(err)}`,
+        detail: `Recovery failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       });
       this.setState("degraded");
     }
@@ -335,7 +316,9 @@ export class SandboxManager {
       this.emitEvent({
         timestamp: Date.now(),
         type: "error",
-        detail: `Sandbox stop error: ${err instanceof Error ? err.message : String(err)}`,
+        detail: `Sandbox stop error: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       });
     }
 
@@ -346,7 +329,6 @@ export class SandboxManager {
     const start = Date.now();
 
     if (this.config.mode === "off" || this.config.mode === "light") {
-      // In off/light mode, refuse sandbox exec — caller must use local
       return {
         exitCode: 1,
         stdout: "",
@@ -397,7 +379,9 @@ export class SandboxManager {
       return {
         exitCode: 1,
         stdout: "",
-        stderr: `Exec error: ${err instanceof Error ? err.message : String(err)}`,
+        stderr: `Exec error: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
         durationMs: Date.now() - start,
         executedInSandbox: false,
       };
@@ -416,25 +400,48 @@ export class SandboxManager {
     return `ws://localhost:${port}`;
   }
 
+  getBrowserNoVncEndpoint(): string | null {
+    if (!this.browserContainerId) return null;
+
+    const noVncEnabled = this.config.browser?.enableNoVnc ?? false;
+    const headless = this.config.browser?.headless ?? false;
+    if (!noVncEnabled || headless) return null;
+
+    const port = this.config.browser?.noVncPort ?? 6080;
+    return `http://localhost:${port}/vnc.html?autoconnect=true&resize=scale&view_only=true`;
+  }
+
   private async createBrowserContainer(): Promise<string> {
     const name = `${this.config.containerPrefix}-browser-${Date.now()}`;
     const cdpPort = this.config.browser?.cdpPort ?? 9222;
     const vncPort = this.config.browser?.vncPort ?? 5900;
+    const noVncPort = this.config.browser?.noVncPort ?? 6080;
+    const enableNoVnc = this.config.browser?.enableNoVnc ?? false;
+    const headless = this.config.browser?.headless ?? false;
     const image =
-      this.config.browser?.image ?? "milady-sandbox-browser:bookworm-slim";
+      this.config.browser?.image ?? "eliza-sandbox-browser:bookworm-slim";
 
     return this.engine.runContainer({
       image,
       name,
       detach: true,
       mounts: [],
-      env: {},
+      env: {
+        ELIZA_BROWSER_CDP_PORT: String(cdpPort),
+        ELIZA_BROWSER_VNC_PORT: String(vncPort),
+        ELIZA_BROWSER_NOVNC_PORT: String(noVncPort),
+        ELIZA_BROWSER_ENABLE_NOVNC: enableNoVnc ? "1" : "0",
+        ELIZA_BROWSER_HEADLESS: headless ? "1" : "0",
+      },
       network: "bridge",
       user: "1000:1000",
       capDrop: [],
       ports: [
-        { host: cdpPort, container: 9222 },
-        { host: vncPort, container: 5900 },
+        { host: cdpPort, container: cdpPort },
+        { host: vncPort, container: vncPort },
+        ...(enableNoVnc && !headless
+          ? [{ host: noVncPort, container: noVncPort }]
+          : []),
       ],
     });
   }
@@ -452,7 +459,6 @@ export class SandboxManager {
 
   private emitEvent(event: SandboxEvent): void {
     this.eventLog.push(event);
-    // Keep bounded
     if (this.eventLog.length > 1000) {
       this.eventLog = this.eventLog.slice(-500);
     }

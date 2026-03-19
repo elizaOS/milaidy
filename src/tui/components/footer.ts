@@ -1,4 +1,4 @@
-import { type Component, visibleWidth } from "@elizaos/tui";
+import { type Component, visibleWidth } from "@mariozechner/pi-tui";
 import chalk from "chalk";
 
 export interface KeyHint {
@@ -39,6 +39,19 @@ export class FooterComponent implements Component {
         break;
       }
       result = candidate;
+    }
+
+    // If nothing fits (ultra-narrow terminal), hard-truncate the first hint.
+    if (!result && parts.length > 0) {
+      const first = parts[0];
+      // Walk characters until we hit the width limit.
+      let truncated = "";
+      for (const ch of first) {
+        const next = truncated + ch;
+        if (visibleWidth(next) > width) break;
+        truncated = next;
+      }
+      return [truncated];
     }
 
     return [result];

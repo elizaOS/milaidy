@@ -1,10 +1,24 @@
 {
-  "name": "@milady/capacitor-camera",
+  "name": "@miladyai/capacitor-camera",
   "version": "1.0.0",
-  "description": "Milady Camera Plugin for Capacitor - Photo and video capture with advanced controls",
+  "description": "Captures photos, records video, and streams camera preview with manual controls.",
+  "keywords": [
+    "camera",
+    "capture",
+    "media",
+    "vision"
+  ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./src/index.ts",
-  "types": "./dist/plugin.d.ts",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/plugin.cjs.js"
+    },
+    "./package.json": "./package.json"
+  },
   "unpkg": "dist/plugin.js",
   "files": [
     "android/src/main/",
@@ -12,7 +26,7 @@
     "dist/",
     "ios/Sources/",
     "ios/Plugin.xcodeproj/",
-    "electron/",
+    "electrobun/",
     "*.podspec"
   ],
   "author": "Milady",
@@ -38,9 +52,13 @@
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "capacitor": {
     "ios": {
-      "src": "ios"
+      "src": "ios",
+      "podName": "MiladyCapacitorCamera"
     },
     "android": {
       "src": "android"
@@ -54,7 +72,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Full support via MediaDevices API (camera preview, photo/video capture, permissions)",
-      "node": "Full support via Electron native modules with macOS/Windows/Linux camera access",
+      "node": "Full support via Electrobun native modules with macOS/Windows/Linux camera access",
       "ios": true,
       "android": true
     }

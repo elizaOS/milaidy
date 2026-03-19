@@ -14,14 +14,14 @@ dependencies {
     implementation project(':capacitor-keyboard')
     implementation project(':capacitor-preferences')
     implementation project(':capacitor-status-bar')
-    implementation project(':milady-capacitor-camera')
-    implementation project(':milady-capacitor-canvas')
-    implementation project(':milady-capacitor-gateway')
-    implementation project(':milady-capacitor-location')
-    implementation project(':milady-capacitor-screencapture')
-    implementation project(':milady-capacitor-swabble')
-    implementation project(':milady-capacitor-agent')
-    implementation project(':milady-capacitor-talkmode')
+    implementation project(':miladyai-capacitor-agent')
+    implementation project(':miladyai-capacitor-camera')
+    implementation project(':miladyai-capacitor-canvas')
+    implementation project(':miladyai-capacitor-gateway')
+    implementation project(':miladyai-capacitor-location')
+    implementation project(':miladyai-capacitor-screencapture')
+    implementation project(':miladyai-capacitor-swabble')
+    implementation project(':miladyai-capacitor-talkmode')
 
 }
 

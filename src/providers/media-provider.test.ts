@@ -73,7 +73,7 @@ import type {
   MediaConfig,
   VideoConfig,
   VisionConfig,
-} from "../config/types.milady";
+} from "../config/types.eliza";
 import {
   type AudioGenerationOptions,
   createAudioProvider,
@@ -746,7 +746,7 @@ describe("Audio Generation Providers", () => {
   };
 
   const defaultAudioOptions: AudioGenerationOptions = {
-    prompt: "An upbeat electronic dance track",
+    prompt: "An upbeat synth dance track",
     duration: 30,
     instrumental: true,
   };
@@ -756,7 +756,7 @@ describe("Audio Generation Providers", () => {
       fetchMock.mockResolvedValue(
         jsonResponse({
           audioUrl: "https://example.com/generated-audio.mp3",
-          title: "Electronic Vibes",
+          title: "Synth Vibes",
           duration: 30,
         }),
       );
@@ -770,7 +770,7 @@ describe("Audio Generation Providers", () => {
       expect(result.data?.audioUrl).toBe(
         "https://example.com/generated-audio.mp3",
       );
-      expect(result.data?.title).toBe("Electronic Vibes");
+      expect(result.data?.title).toBe("Synth Vibes");
     });
   });
 
@@ -947,7 +947,7 @@ describe("Configuration defaults", () => {
     await provider.analyze({ imageUrl: "https://example.com/image.jpg" });
 
     const [url] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://www.elizacloud.ai/api/v1/media/vision/analyze");
+    expect(url).toBe("https://elizacloud.ai/api/v1/media/vision/analyze");
   });
 
   it("uses default OpenAI model when not specified", async () => {
@@ -1084,5 +1084,110 @@ describe("Request payload construction", () => {
     expect(body.duration).toBe(60);
     expect(body.instrumental).toBe(true);
     expect(body.genre).toBe("jazz");
+  });
+});
+
+// ===========================================================================
+// CLOUD MEDIA DISABLED TESTS
+// ===========================================================================
+
+describe("cloudMediaDisabled flag", () => {
+  const disabledOptions: MediaProviderFactoryOptions = {
+    elizaCloudBaseUrl: "https://test.elizacloud.ai/api/v1",
+    elizaCloudApiKey: "test-api-key",
+    cloudMediaDisabled: true,
+  };
+
+  describe("when cloudMediaDisabled=true and no own-key config", () => {
+    it("createImageProvider throws instead of falling back to cloud", () => {
+      expect(() => createImageProvider(undefined, disabledOptions)).toThrow(
+        /cloud media is disabled/,
+      );
+    });
+
+    it("createVideoProvider throws instead of falling back to cloud", () => {
+      expect(() => createVideoProvider(undefined, disabledOptions)).toThrow(
+        /cloud media is disabled/,
+      );
+    });
+
+    it("createAudioProvider throws instead of falling back to cloud", () => {
+      expect(() => createAudioProvider(undefined, disabledOptions)).toThrow(
+        /cloud media is disabled/,
+      );
+    });
+
+    it("createVisionProvider throws instead of falling back to cloud", () => {
+      expect(() => createVisionProvider(undefined, disabledOptions)).toThrow(
+        /cloud media is disabled/,
+      );
+    });
+  });
+
+  describe("when cloudMediaDisabled=true but own-key is configured", () => {
+    it("createImageProvider uses own-key provider (FAL)", () => {
+      const config: ImageConfig = {
+        mode: "own-key",
+        provider: "fal",
+        fal: { apiKey: "fal-key" },
+      };
+      const provider = createImageProvider(config, disabledOptions);
+      expect(provider.name).toBe("fal");
+    });
+
+    it("createVisionProvider uses own-key provider (OpenAI)", () => {
+      const config: VisionConfig = {
+        mode: "own-key",
+        provider: "openai",
+        openai: { apiKey: "sk-key" },
+      };
+      const provider = createVisionProvider(config, disabledOptions);
+      expect(provider.name).toBe("openai");
+    });
+  });
+
+  describe("when cloudMediaDisabled=false (default)", () => {
+    const enabledOptions: MediaProviderFactoryOptions = {
+      elizaCloudBaseUrl: "https://test.elizacloud.ai/api/v1",
+      elizaCloudApiKey: "test-api-key",
+      cloudMediaDisabled: false,
+    };
+
+    it("createImageProvider falls back to Eliza Cloud", () => {
+      const provider = createImageProvider(undefined, enabledOptions);
+      expect(provider.name).toBe("eliza-cloud");
+    });
+
+    it("createVideoProvider falls back to Eliza Cloud", () => {
+      const provider = createVideoProvider(undefined, enabledOptions);
+      expect(provider.name).toBe("eliza-cloud");
+    });
+
+    it("createAudioProvider falls back to Eliza Cloud", () => {
+      const provider = createAudioProvider(undefined, enabledOptions);
+      expect(provider.name).toBe("eliza-cloud");
+    });
+
+    it("createVisionProvider falls back to Eliza Cloud", () => {
+      const provider = createVisionProvider(undefined, enabledOptions);
+      expect(provider.name).toBe("eliza-cloud");
+    });
+  });
+
+  it("defaults mode to 'local' when cloudMediaDisabled and no explicit mode", () => {
+    // If no config.mode and cloudMediaDisabled, mode defaults to "local"
+    // which means provider falls through switch and hits the throw
+    expect(() => createImageProvider({}, disabledOptions)).toThrow(
+      /cloud media is disabled/,
+    );
+  });
+
+  it("respects explicit mode='cloud' even when cloudMediaDisabled", () => {
+    // Explicit cloud mode but no own-key → still throws because disabled
+    const config: ImageConfig = { mode: "cloud" };
+    // mode=cloud → provider=cloud → falls through switch → hits disabled check
+    expect(() => createImageProvider(config, disabledOptions)).toThrow(
+      /cloud media is disabled/,
+    );
   });
 });

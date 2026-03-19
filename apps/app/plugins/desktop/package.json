@@ -1,14 +1,28 @@
 {
-  "name": "@milady/capacitor-desktop",
+  "name": "@miladyai/capacitor-desktop",
   "version": "1.0.0",
-  "description": "Milady Desktop Plugin for Capacitor - System tray, global shortcuts, auto-launch for Electron",
+  "description": "Adds tray icons, global shortcuts, notifications, and other desktop-only controls.",
+  "keywords": [
+    "desktop",
+    "electrobun",
+    "shortcuts",
+    "notifications"
+  ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./src/index.ts",
-  "types": "./dist/plugin.d.ts",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/plugin.cjs.js"
+    },
+    "./package.json": "./package.json"
+  },
   "unpkg": "dist/plugin.js",
   "files": [
     "dist/",
-    "electron/"
+    "electrobun/"
   ],
   "author": "Milady",
   "license": "MIT",
@@ -31,6 +45,9 @@
   "peerDependencies": {
     "@capacitor/core": "^8.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "milady": {
     "platforms": [
       "browser",
@@ -39,7 +56,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Limited support with graceful fallbacks (notifications via Web API, clipboard, basic window ops). System tray, global shortcuts, and auto-launch unavailable.",
-      "node": "Full support via Electron (system tray, global shortcuts, auto-launch, window management, power monitoring, native notifications)",
+      "node": "Full support via Electrobun (system tray, global shortcuts, auto-launch, window management, power monitoring, native notifications)",
       "ios": false,
       "android": false
     }
