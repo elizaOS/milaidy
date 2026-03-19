@@ -43,7 +43,7 @@ vi.mock("@miladyai/app-core/platform", () => ({
     return mockIsNativeFn.value;
   },
   isWebPlatform: () => false,
-  isElectronPlatform: () => true,
+  isDesktopPlatform: () => true,
   isIOS: false,
   isAndroid: false,
   platform: "web",

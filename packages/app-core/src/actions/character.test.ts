@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { CharacterData } from "../api/client";
-import { prepareDraftForSave } from "./character";
+import {
+  normalizeGeneratedMessageExamples,
+  prepareDraftForSave,
+} from "./character";
 
 describe("prepareDraftForSave", () => {
   it("builds a strict payload and preserves message actions", () => {
@@ -135,5 +138,47 @@ describe("prepareDraftForSave", () => {
       name: "Marisa",
       username: "Marisa",
     });
+  });
+
+  it("normalizes fenced chat example JSON into message example groups", () => {
+    const generated = `\`\`\`json
+[
+  [
+    { "user": "{{user1}}", "content": { "text": "hello there" } },
+    { "role": "assistant", "content": { "text": "I am ready." } }
+  ]
+]
+\`\`\``;
+
+    expect(normalizeGeneratedMessageExamples(generated, "Milady")).toEqual([
+      {
+        examples: [
+          { name: "{{user1}}", content: { text: "hello there" } },
+          { name: "Milady", content: { text: "I am ready." } },
+        ],
+      },
+    ]);
+  });
+
+  it("normalizes object-shaped messageExamples payloads", () => {
+    const generated = {
+      messageExamples: [
+        {
+          examples: [
+            { name: "User", content: { text: "status?" } },
+            { name: "{{agentName}}", content: { text: "On track." } },
+          ],
+        },
+      ],
+    };
+
+    expect(normalizeGeneratedMessageExamples(generated, "Sakuya")).toEqual([
+      {
+        examples: [
+          { name: "{{user1}}", content: { text: "status?" } },
+          { name: "Sakuya", content: { text: "On track." } },
+        ],
+      },
+    ]);
   });
 });

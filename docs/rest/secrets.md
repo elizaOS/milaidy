@@ -78,3 +78,14 @@ Update one or more secrets. Values are written to the config file and injected i
 ```
 
 Setting or clearing a provider key may require a restart for the runtime to pick up the change. The UI typically prompts the user accordingly.
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 400 | `RESERVED_KEY` | Attempted to set a reserved or system environment variable |
+| 404 | `KEY_NOT_FOUND` | Secret key does not exist |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

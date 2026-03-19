@@ -76,7 +76,7 @@ The `authDir` is where Baileys stores session credentials. Create this directory
 ### Step 2: Start Milady
 
 ```bash
-npm start -- --character=./your-character.json
+milady start -- --character=./your-character.json
 ```
 
 ### Step 3: Scan the QR Code

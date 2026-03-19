@@ -223,3 +223,15 @@ Export private keys in plaintext. Requires explicit confirmation. This action is
   }
 }
 ```
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 400 | `INVALID_KEY` | Private key format is invalid |
+| 403 | `EXPORT_FORBIDDEN` | Export is not permitted without proper confirmation |
+| 500 | `INSUFFICIENT_BALANCE` | Wallet balance is insufficient for the operation |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

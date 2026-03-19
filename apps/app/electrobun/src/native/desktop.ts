@@ -1,7 +1,7 @@
 /**
  * Desktop Native Module for Electrobun
  *
- * Ports the Electron DesktopManager to use Electrobun APIs:
+ * Implements the desktop manager on top of Electrobun APIs:
  * - System tray management (Tray)
  * - Global keyboard shortcuts (GlobalShortcut)
  * - Window management (BrowserWindow)
@@ -11,7 +11,7 @@
  * - App lifecycle (Utils.quit)
  * - Path resolution (Utils.paths)
  *
- * Key differences from Electron version:
+ * Key differences from the prior desktop runtime:
  * - No ipcMain — methods are called directly from rpc-handlers.ts
  * - Uses sendToWebview callback instead of mainWindow.webContents.send()
  * - No powerMonitor — power state read via platform CLI tools
@@ -93,7 +93,7 @@ interface ElectrobunEventTarget {
 }
 
 // ============================================================================
-// Path name mapping: Electron path names → Utils.paths equivalents
+// Path name mapping: legacy desktop path names -> Utils.paths equivalents
 // ============================================================================
 
 const PATH_NAME_MAP: Record<string, string | (() => string)> = {
@@ -121,7 +121,7 @@ const PATH_NAME_MAP: Record<string, string | (() => string)> = {
 /**
  * Desktop Manager — handles all native desktop features for Electrobun.
  *
- * Unlike the Electron version, this does NOT register IPC handlers.
+ * This implementation does not register IPC handlers.
  * Methods are called directly from rpc-handlers.ts. Push events to the
  * webview are sent via the sendToWebview callback.
  */
@@ -135,6 +135,9 @@ export class DesktopManager {
   private _windowHidden = false;
   private _focusPoller: ReturnType<typeof setInterval> | null = null;
   private _appActive = false;
+
+  // Callback to open the settings window (set by index.ts)
+  private openSettingsCallback: (() => void) | null = null;
 
   // Track menu items for context-menu-clicked matching
   private trayMenuItems: Map<string, TrayMenuItem> = new Map();
@@ -167,6 +170,20 @@ export class DesktopManager {
    */
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
+  }
+
+  /**
+   * Set the callback used to open the settings window from menus.
+   */
+  setOpenSettingsCallback(cb: () => void): void {
+    this.openSettingsCallback = cb;
+  }
+
+  /**
+   * Open the settings window via the registered callback.
+   */
+  openSettings(): void {
+    this.openSettingsCallback?.();
   }
 
   private getWindow(): BrowserWindow {
@@ -338,7 +355,13 @@ export class DesktopManager {
       this.applicationMenuHandler,
     );
 
-    this.contextMenuHandler = (action: string) => {
+    // Tray menu item clicks fire "tray-clicked" on the global event bus
+    // (NOT "context-menu-clicked" — that's for right-click context menus).
+    // The event data shape is { data: { id, action, data? } }.
+    this.contextMenuHandler = (e: { data?: { action?: string } }) => {
+      const action = e?.data?.action;
+      if (!action) return;
+
       // Native actions
       if (action === "show") {
         void this.showWindow().catch((err: unknown) => {
@@ -348,6 +371,8 @@ export class DesktopManager {
         triggerAgentRestart();
       } else if (action === "quit") {
         Utils.quit();
+      } else if (action === "open-settings") {
+        this.openSettingsCallback?.();
       }
 
       // Renderer notification for all items
@@ -360,7 +385,7 @@ export class DesktopManager {
         });
       }
     };
-    Electrobun.events.on("context-menu-clicked", this.contextMenuHandler);
+    Electrobun.events.on("tray-clicked", this.contextMenuHandler);
   }
 
   private teardownTrayEvents(): void {
@@ -372,7 +397,7 @@ export class DesktopManager {
     );
     this.removeEventHandler(
       Electrobun.events,
-      "context-menu-clicked",
+      "tray-clicked",
       this.contextMenuHandler,
     );
     this.trayClickHandler = null;

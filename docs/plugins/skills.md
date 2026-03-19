@@ -536,7 +536,7 @@ set -e
 echo "Checking my-tool installation..."
 if ! command -v my-tool &> /dev/null; then
     echo "Installing my-tool..."
-    npm install -g my-tool
+    bun install -g my-tool
 fi
 
 echo "my-tool is ready!"

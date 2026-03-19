@@ -25,5 +25,5 @@
     "src/**/*.tsx",
     "../../packages/app-core/src/types/react-test-renderer.d.ts"
   ],
-  "exclude": ["node_modules", "dist", "ios", "android", "electron"]
+  "exclude": ["node_modules", "dist", "ios", "android", "electrobun"]
 }

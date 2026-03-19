@@ -316,7 +316,24 @@ async function waitForHealthy(
         signal: AbortSignal.timeout(2_000),
       });
       if (response.ok) {
-        return true;
+        const health = (await response.json().catch(() => null)) as {
+          ready?: boolean;
+          agentState?: string;
+          startup?: { phase?: string };
+        } | null;
+        if (!health) {
+          return true;
+        }
+        if (typeof health.ready === "boolean") {
+          if (health.ready) {
+            return true;
+          }
+        } else if (
+          health.agentState !== "starting" &&
+          health.agentState !== "restarting"
+        ) {
+          return true;
+        }
       }
     } catch {
       // Server not ready yet

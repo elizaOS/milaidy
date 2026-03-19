@@ -140,6 +140,7 @@
     "@elizaos/plugin-elevenlabs": "2.0.0-alpha.9",
     "@elizaos/plugin-elizacloud": "2.0.0-alpha.7",
     "@elizaos/plugin-experience": "2.0.0-alpha.9",
+    "@elizaos/plugin-farcaster": "2.0.0-alpha.8",
     "@elizaos/plugin-form": "2.0.0-alpha.10",
     "@elizaos/plugin-google-genai": "2.0.0-alpha.6",
     "@elizaos/plugin-groq": "2.0.0-alpha.7",

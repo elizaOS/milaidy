@@ -514,3 +514,15 @@ Get the signer's Ethereum address.
   "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
 }
 ```
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 503 | `DOCKER_UNAVAILABLE` | Docker daemon is not running or not available |
+| 422 | `EXECUTION_FAILED` | Command execution failed with non-zero exit code |
+| 504 | `TIMEOUT` | Sandbox execution exceeded the timeout limit |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

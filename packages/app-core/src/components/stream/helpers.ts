@@ -102,7 +102,7 @@ export const IS_POPOUT = (() => {
   return params.has("popout");
 })();
 
-/** Toggle always-on-top for the current window (Electron only). */
+/** Toggle always-on-top for the current desktop window. */
 export async function toggleAlwaysOnTop(pinned: boolean): Promise<boolean> {
   try {
     // Try Capacitor Desktop plugin
@@ -128,7 +128,7 @@ export async function toggleAlwaysOnTop(pinned: boolean): Promise<boolean> {
       return pinned;
     }
   } catch {
-    // Non-fatal — may not be in Electron
+    // Non-fatal — may not be running in the desktop shell
   }
   return false;
 }

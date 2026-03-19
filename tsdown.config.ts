@@ -59,7 +59,7 @@ export default [
     // Disable code splitting to prevent circular chunk dependencies.
     // Without this, rolldown places the __exportAll runtime helper in the
     // entry chunk and shared chunks import it back, creating a circular
-    // import that fails when Electron loads server.js via dynamic import().
+    // import that fails when the desktop runtime loads server.js via dynamic import().
     outputOptions: { codeSplitting: false },
   },
   {

@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getPluginCapabilities,
   isAndroid,
-  isElectron,
+  isDesktop,
   isFeatureAvailable,
   isIOS,
   isMacOS,
@@ -25,8 +25,8 @@ describe("plugin-bridge", () => {
     expect(isNative).toBe(false);
     expect(isIOS).toBe(false);
     expect(isAndroid).toBe(false);
-    expect(isElectron()).toBe(false);
-    expect(isMacOS()).toBe(isElectron());
+    expect(isDesktop()).toBe(false);
+    expect(isMacOS()).toBe(isDesktop());
   });
 
   // -- Capabilities --

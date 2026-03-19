@@ -193,14 +193,25 @@ function createMockStorage(): Storage {
   } as Storage;
 }
 
-if (typeof globalThis.localStorage === "undefined") {
+function hasStorageApi(value: unknown): value is Storage {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      typeof (value as Storage).getItem === "function" &&
+      typeof (value as Storage).setItem === "function" &&
+      typeof (value as Storage).removeItem === "function" &&
+      typeof (value as Storage).clear === "function",
+  );
+}
+
+if (!hasStorageApi(globalThis.localStorage)) {
   Object.defineProperty(globalThis, "localStorage", {
     value: createMockStorage(),
     writable: true,
     configurable: true,
   });
 }
-if (typeof globalThis.sessionStorage === "undefined") {
+if (!hasStorageApi(globalThis.sessionStorage)) {
   Object.defineProperty(globalThis, "sessionStorage", {
     value: createMockStorage(),
     writable: true,
@@ -230,16 +241,16 @@ if (typeof globalThis.window === "undefined") {
   });
 } else {
   const win = globalThis.window as unknown as Record<string, unknown>;
-  if (!win.sessionStorage) {
+  if (!hasStorageApi(win.sessionStorage)) {
     Object.defineProperty(win, "sessionStorage", {
-      value: createMockStorage(),
+      value: globalThis.sessionStorage,
       writable: true,
       configurable: true,
     });
   }
-  if (!win.localStorage) {
+  if (!hasStorageApi(win.localStorage)) {
     Object.defineProperty(win, "localStorage", {
-      value: createMockStorage(),
+      value: globalThis.localStorage,
       writable: true,
       configurable: true,
     });

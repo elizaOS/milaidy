@@ -45,8 +45,15 @@ const isNative = Capacitor.isNativePlatform();
 const isIOS = platform === "ios";
 const isAndroid = platform === "android";
 
-function isElectronPlatform(): boolean {
-  return platform === "electron" || isElectrobunRuntime();
+function isDesktopPlatform(): boolean {
+  return isElectrobunRuntime();
+}
+
+function isSettingsShell(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    new URLSearchParams(window.location.search).get("shell") === "settings"
+  );
 }
 
 function isWebPlatform(): boolean {
@@ -114,7 +121,7 @@ async function initializePlatform(): Promise<void> {
   initializeCapacitorBridge();
 
   if (isIOS || isAndroid) {
-    // Configure status bar for mobile platforms (not available on Electron)
+    // Configure status bar for mobile platforms (not available on desktop)
     await initializeStatusBar();
 
     // Configure keyboard behavior
@@ -124,11 +131,11 @@ async function initializePlatform(): Promise<void> {
     initializeAppLifecycle();
   }
 
-  if (isElectronPlatform()) {
-    // Electron-specific initialization
-    await initializeElectron();
+  if (isDesktopPlatform()) {
+    // Electrobun-specific initialization
+    await initializeDesktopShell();
   } else {
-    // On Electron the main process owns runtime startup; avoid an extra early
+    // On desktop the main process owns runtime startup; avoid an extra early
     // plugin status probe that can race backend boot and spam fetch errors.
     await initializeAgent();
   }
@@ -290,17 +297,17 @@ function handleDeepLink(url: string): void {
 }
 
 /**
- * Initialize Electron-specific features
+ * Initialize desktop shell-specific features
  */
-async function initializeElectron(): Promise<void> {
-  document.body.classList.add("electron");
+async function initializeDesktopShell(): Promise<void> {
+  document.body.classList.add("desktop");
 
   try {
     const version = await Desktop.getVersion();
     const desktopNativeReady =
-      typeof version.electron === "string" &&
-      version.electron !== "N/A" &&
-      version.electron !== "unknown";
+      typeof version.runtime === "string" &&
+      version.runtime !== "N/A" &&
+      version.runtime !== "unknown";
     if (!desktopNativeReady) {
       return;
     }
@@ -396,7 +403,7 @@ function isPopoutWindow(): boolean {
 
 /**
  * In popout mode, inject the API base from the URL query string so the
- * client can connect without the Electron main-process injection.
+ * client can connect without the desktop main-process injection.
  */
 function injectPopoutApiBase(): void {
   const params = new URLSearchParams(
@@ -465,6 +472,31 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (isSettingsShell()) {
+    // Settings shell — inject the API base from URL params so the client
+    // connects to the same agent backend as the main window.
+    const settingsParams = new URLSearchParams(window.location.search);
+    const settingsApiBase = settingsParams.get("apiBase");
+    if (settingsApiBase) {
+      window.__MILADY_API_BASE__ = settingsApiBase;
+    }
+    // Apply stored theme (default to dark)
+    try {
+      const stored = localStorage.getItem("milady:ui-theme");
+      const theme = stored === "light" ? "light" : "dark";
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch {
+      document.documentElement.classList.add("dark");
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+    // Initialize storage and bridge so AppProvider can read cached auth state.
+    await initializeStorageBridge();
+    initializeCapacitorBridge();
+    mountReactApp();
+    return;
+  }
+
   // Mount the React app
   mountReactApp();
 
@@ -482,7 +514,7 @@ if (document.readyState === "loading") {
 // Export platform utilities for use by other modules
 export {
   isAndroid,
-  isElectronPlatform as isElectron,
+  isDesktopPlatform as isDesktop,
   isIOS,
   isNative,
   isWebPlatform as isWeb,

@@ -170,3 +170,14 @@ Raw binary body — not JSON. The first 4 bytes encode the password length as a 
   "ok": true
 }
 ```
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 409 | `STATE_CONFLICT` | Agent is in an invalid state for this operation |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |
+| 500 | `AGENT_NOT_FOUND` | Agent runtime not found or not initialized |

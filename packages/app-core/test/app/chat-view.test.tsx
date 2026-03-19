@@ -52,7 +52,7 @@ interface ChatViewContextStub {
   ptySessions: unknown[];
 }
 
-const { mockClient, mockUseApp, mockUseVoiceChat, mockIsElectronPlatform } =
+const { mockClient, mockUseApp, mockUseVoiceChat, mockIsDesktopPlatform } =
   vi.hoisted(() => ({
     mockClient: {
       getCodingAgentStatus: vi.fn(async () => null),
@@ -60,7 +60,7 @@ const { mockClient, mockUseApp, mockUseVoiceChat, mockIsElectronPlatform } =
     },
     mockUseApp: vi.fn(),
     mockUseVoiceChat: vi.fn(),
-    mockIsElectronPlatform: vi.fn(() => false),
+    mockIsDesktopPlatform: vi.fn(() => false),
   }));
 
 vi.mock("@miladyai/app-core/state", () => ({
@@ -69,7 +69,7 @@ vi.mock("@miladyai/app-core/state", () => ({
 }));
 
 vi.mock("@miladyai/app-core/platform", () => ({
-  isElectronPlatform: () => mockIsElectronPlatform(),
+  isDesktopPlatform: () => mockIsDesktopPlatform(),
 }));
 
 vi.mock("@miladyai/app-core/hooks", async () => {
@@ -153,7 +153,7 @@ describe("ChatView", () => {
   beforeEach(() => {
     mockUseApp.mockReset();
     mockUseVoiceChat.mockReset();
-    mockIsElectronPlatform.mockReset();
+    mockIsDesktopPlatform.mockReset();
     mockClient.getConfig.mockReset();
     Object.defineProperty(window, "dispatchEvent", {
       value: vi.fn(),
@@ -178,7 +178,7 @@ describe("ChatView", () => {
       stopSpeaking: vi.fn(),
     });
     mockClient.getConfig.mockResolvedValue({});
-    mockIsElectronPlatform.mockReturnValue(false);
+    mockIsDesktopPlatform.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -307,7 +307,7 @@ describe("ChatView", () => {
 
   it("does not auto-play assistant speech in desktop chat view", async () => {
     const queueAssistantSpeech = vi.fn();
-    mockIsElectronPlatform.mockReturnValue(true);
+    mockIsDesktopPlatform.mockReturnValue(true);
     mockUseVoiceChat.mockReturnValue({
       supported: false,
       isListening: false,
@@ -342,7 +342,7 @@ describe("ChatView", () => {
   });
 
   it("does not render top-center voice or new chat controls in desktop chat view", async () => {
-    mockIsElectronPlatform.mockReturnValue(true);
+    mockIsDesktopPlatform.mockReturnValue(true);
     mockUseVoiceChat.mockReturnValue({
       supported: true,
       isListening: false,
@@ -382,7 +382,7 @@ describe("ChatView", () => {
   });
 
   it("does not render a global agent voice toggle in default chat", async () => {
-    mockIsElectronPlatform.mockReturnValue(false);
+    mockIsDesktopPlatform.mockReturnValue(false);
     mockUseVoiceChat.mockReturnValue({
       supported: true,
       isListening: false,

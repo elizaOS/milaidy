@@ -29,7 +29,10 @@ export const CompanionHeader = memo(function CompanionHeader(
   } = props;
 
   return (
-    <header className="pointer-events-none absolute inset-x-0 top-0 z-10">
+    <header
+      className="absolute inset-x-0 top-0 z-10"
+      data-no-camera-drag="true"
+    >
       <ShellHeaderControls
         activeShellView={activeShellView}
         onShellViewChange={onShellViewChange}

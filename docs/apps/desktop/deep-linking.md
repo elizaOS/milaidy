@@ -4,21 +4,21 @@ sidebarTitle: "Deep Linking"
 description: "Handle milady:// custom URL scheme links to open the desktop app and share content from external applications."
 ---
 
-The Milady desktop app registers the `milady://` custom URL protocol so that external applications, browsers, and OS-level actions can open and communicate with the running app. Protocol registration is handled by Capacitor's Electron deep linking module and is set up during app initialization before the main window loads.
+The Milady desktop app registers the `milady://` custom URL protocol so that external applications, browsers, and OS-level actions can open and communicate with the running app. Protocol registration is handled by the Electrobun deep linking integration and is set up during app initialization before the main window loads.
 
-When an external application opens a `milady://` URL while the app is already running, Electron routes the URL to the main process. If the main window is not yet ready (still loading), incoming payloads are queued and flushed to the renderer once the `did-finish-load` event fires. Events are dispatched to the renderer as `milady:share-target` custom DOM events.
+When an external application opens a `milady://` URL while the app is already running, Electrobun routes the URL to the native runtime. If the main window is not yet ready (still loading), incoming payloads are queued and flushed to the renderer once the `did-finish-load` event fires. Events are dispatched to the renderer as `milady:share-target` custom DOM events.
 
 ## Features
 
 - `milady://share` URL handler for sharing text, URLs, and files from external apps or browsers
-- File drag-and-drop via Electron's `open-file` OS event (macOS)
+- File drag-and-drop via the desktop runtime `open-file` OS event (macOS)
 - Payload queuing when the renderer is not yet ready
 - DOM event dispatch (`milady:share-target`) for consumption by the web UI
 - Fuzzy parameter parsing — `title`, `text`, `url`, and one or more `file` path parameters
 
 ## Configuration
 
-No configuration file is required. The protocol is registered automatically at startup via the Capacitor Electron plugin. The URL scheme is `milady://` and cannot be changed without rebuilding the app.
+No configuration file is required. The protocol is registered automatically at startup via the Electrobun integration. The URL scheme is `milady://` and cannot be changed without rebuilding the app.
 
 **Share URL format:**
 

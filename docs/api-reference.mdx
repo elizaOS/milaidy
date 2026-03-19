@@ -144,6 +144,7 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/status` | Get current agent status, name, model, uptime, autonomy state, and pending restart info |
+| `GET` | `/api/health` | Structured subsystem health check (runtime, database, plugins, connectors, readiness) |
 | `GET` | `/api/runtime` | Get runtime details (loaded plugins, services, capabilities) |
 
 ---
@@ -539,7 +540,7 @@ Conversations are scoped to the web-chat interface. Each conversation maps to an
 | `GET` | `/api/permissions/:id` | Get a single permission state |
 | `GET` | `/api/permissions/shell` | Get shell access toggle status |
 | `PUT` | `/api/permissions/shell` | Toggle shell access on/off |
-| `PUT` | `/api/permissions/state` | Update permission states from Electron IPC |
+| `PUT` | `/api/permissions/state` | Update permission states from Electrobun RPC |
 | `POST` | `/api/permissions/refresh` | Force refresh all permission states |
 | `POST` | `/api/permissions/:id/request` | Request a specific system permission |
 | `POST` | `/api/permissions/:id/open-settings` | Open system settings for a permission |

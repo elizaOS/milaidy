@@ -2,7 +2,7 @@
  * Gateway Native Module for Electrobun
  *
  * Provides mDNS/Bonjour discovery for local gateway servers.
- * Direct port from Electron — bonjour-service works in Bun runtime.
+ * Direct port to Electrobun — bonjour-service works in the Bun runtime.
  */
 
 import { EventEmitter } from "node:events";

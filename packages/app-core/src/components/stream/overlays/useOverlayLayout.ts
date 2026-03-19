@@ -77,7 +77,7 @@ function saveLayoutServer(
   destinationId?: string | null,
 ): void {
   client.saveOverlayLayout(layout, destinationId).catch(() => {
-    // Server may be unavailable (e.g. Electron dev mode) — ignore
+    // Server may be unavailable (e.g. desktop dev mode) — ignore
   });
 }
 

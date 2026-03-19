@@ -56,4 +56,231 @@ description: The latest updates and improvements to Milady.
 
 - Cloud API keys are now scrubbed from the process environment after use, preventing exposure to other modules.
 - Wallet key export now enforces rate limiting, audit logging, and a confirmation delay.
+description: What's new in Milady — features, improvements, and fixes.
+---
+
+<Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
+## API key validation for model providers
+
+The desktop app now automatically validates your API keys for eight model providers — including OpenAI, Anthropic, Groq, Google GenAI, OpenRouter, and xAI. Keys are scanned on startup and verified in the background so you know immediately if a provider is misconfigured. You can also test connections on demand from the tray menu. See [model providers](/model-providers) for setup details.
+
+## Dedicated settings window
+
+A new standalone Settings window gives you quick access to General, Providers, Advanced, and About tabs without navigating away from your current view. The window syncs with your dark mode preference and connects directly to the API for real-time configuration changes. Open it from the tray menu or the application menu bar.
+
+## Application menu overhaul
+
+The menu bar has been reorganized with a new Agent menu that gives you one-click access to [Knowledge](/guides/knowledge), [Skills](/plugins/skills), [Plugins](/plugins/overview), and [Social Connectors](/guides/connectors). File, View, and Window menus have also been expanded for quicker navigation.
+
+## Interactive tray provider management
+
+The system tray now includes interactive submenus for each model provider. You can set a provider as active, test its connection, or enable it — all from the tray icon without opening the dashboard.
+
+## Bug fixes
+
+- Character view no longer crashes when no character draft is loaded
+- Character editor dark mode now renders correctly across the notebook frame and decorative elements
+</Update>
+
+<Update label="2026-03-19" description="Week of March 14–19" tags={["Feature", "Update", "Security", "Fix"]}>
+## Cloud control plane dashboard
+
+You can now manage cloud agents directly from the Milady homepage. The new dashboard includes agent lifecycle controls (provision, suspend, resume, delete), snapshots and backups, credits and billing, container metrics, and log streaming — all without leaving the app. Local and remote agents are auto-discovered alongside cloud agents. See [Cloud deployment](/deployment#cloud-agent-deployment) for details.
+
+## Cloud-first onboarding
+
+Running `milady start` for the first time now asks "Where should your agent live?" with [Eliza Cloud](/guides/cloud) as the recommended option. Choose cloud for a hosted runtime with no local setup, or local to run on your own machine. Cloud configuration is saved automatically so subsequent launches reconnect without prompting. See the [cloud guide](/guides/cloud) for details.
+
+## Game-style notebook character editor
+
+The [character editor](/agents/character-interface) has been redesigned as an interactive notebook UI. Sidebar tabs let you navigate between About Me, Directions, and Style Rules sections. Each section supports Core/Examples switching, and the editor works in both light and dark mode. You can now also edit character topics and the character name directly from the editor.
+
+## Scratch workspace controls for coding agents
+
+Coding agent sessions now show keep, promote, and delete controls for scratch workspaces. When a coding session ends, you can decide whether to retain the temporary workspace, promote it to a permanent one, or clean it up — directly from the dashboard. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Official Docker images
+
+Pre-built Docker images are now published to GitHub Container Registry on every release, optimized at roughly half the size of a manual build. Pull `ghcr.io/milady-ai/agent` to deploy without building from source. See the [deployment guide](/deployment) for Docker Compose setup and environment variables.
+
+## VRM wave greeting and smooth loading transitions
+
+Your VRM avatar now plays a wave greeting animation after loading on app launch and character swaps. The loading screen transitions smoothly with animated progress and a fade-out instead of a hard cut.
+
+## Dashboard UI redesign
+
+Several [dashboard](/apps/dashboard) tabs have been rebuilt with a cleaner two-panel layout:
+
+- **Settings** — section navigation on the left, active section on the right
+- **Heartbeats** — trigger list on the left, create/edit form on the right with a friendlier duration picker
+- **Wallets** — portfolio and chain selector on the left, token table on the right
+- **Social and Plugins** — channel/plugin list on the left, configuration detail on the right
+- **Apps** — game-style phone and tablet device UI for browsing and launching apps
+
+## Homepage redesign
+
+The homepage now features platform download icons with hover labels that always link to the latest release, a typewriter hero animation, and a streamlined footer. Download links are fetched from the latest GitHub release at build time so they stay current.
+
+## Electrobun desktop migration
+
+The [desktop app](/apps/desktop) has fully migrated from Electron to Electrobun — a lighter, faster native shell. This reduces memory usage and startup time. Auto-updates continue to work through the Electrobun updater. See [desktop updates](/self-updates#electrobun-desktop-updates) for details.
+
+## Faster page loads
+
+Three.js and the 3D avatar stack (~1.7 MB) are now lazy-loaded — they only download when you open the companion view. The stream view is also lazy-loaded. Together, these changes cut the initial page load significantly.
+
+## Smaller prompts, faster responses
+
+Default workspace boilerplate files are no longer injected into every prompt — only files you've customized are included. Emote definitions have also been moved out of the prompt context and into action parameters. Together, these changes reduce prompt size by roughly 4,000 characters per turn, which means faster responses and lower token costs.
+
+## Wallet key export security
+
+Wallet private key exports now require a 10-second confirmation delay, are rate-limited to one export per 10 minutes, and generate an audit log entry for every attempt. This protects against instant key extraction from compromised sessions. See the [wallet guide](/guides/wallet) for details.
+
+## Cloud API key protection
+
+Cloud API keys are no longer stored in `process.env` after login. They are scrubbed immediately and held in a sealed, non-enumerable store — preventing leakage through crash dumps, child processes, or environment inspection.
+
+## Windows desktop crash fix
+
+The Windows desktop app no longer crashes on startup due to an embedding initialization issue. Fatal startup errors are now written to a log file for easier diagnosis.
+
+## Character editor bug fixes
+
+- Character topics are now properly loaded and saved when editing
+- Saving a character no longer fails with a 422 error from extra fields in the payload
+- Raw translation keys (e.g., `characterview.StyleRules`) now display as proper English text
+- Save and Customize buttons are now visible when using companion mode, with a frosted glass backdrop
+- The Etherscan link from the character view now points to the correct wallet address page
+
+## Additional fixes
+
+- Dark mode navigation tabs are now visible in all dashboard views
+- Empty conversations are automatically cleaned up when you navigate away
+- Password field toggle no longer erases entered API keys or bot tokens
+- Wallet RPC selection is now consistent across onboarding, settings, and runtime
+- Onboarding configuration persists correctly across app relaunches
+- Avatar index parsing now validates input range, preventing display errors
+- Voice defaults are now consistent — `autoSpeak` no longer appears enabled while voice is off
+- Oversized voice API requests are properly rejected with a 413 error
+- Performance improved for LLM turns and streaming by eliminating redundant sorting and string allocations
+- Character saves no longer fail when voice configuration cannot be saved
+- Server startup now detects and kills stale processes holding the default port, preventing indefinite hangs
+- Desktop app correctly discovers plugins in packaged builds, resolving silent startup failures on Windows
+- Cloud dashboard now correctly displays agents after Eliza Cloud login
+- API server errors are now surfaced to stderr in desktop mode for easier troubleshooting
+</Update>
+
+<Update label="2026-03-13" description="Week of March 8–13" tags={["Feature", "Security", "Fix"]}>
+## Game-style onboarding redesign
+
+First-run setup has been rebuilt as a streamlined six-step experience (down from ten) with a three-column glassmorphism layout and a dark game-style theme applied consistently across all modals and overlays.
+
+## New CLI commands — doctor, db reset, and interactive setup
+
+Three new CLI commands ship this week:
+
+- **`milady doctor`** — runs a full environment health check, flagging missing dependencies, port conflicts, and configuration issues
+- **`milady db reset`** — safely resets the database with a confirmation prompt
+- **`milady setup`** — an interactive wizard that walks you through model provider selection with support for nine providers
+
+See the [CLI reference](/cli/overview) for details.
+
+## Distribution across six new package managers
+
+Milady is now available through significantly more installation channels:
+
+- **Homebrew** — `brew install milaidy` (CLI) or `brew install --cask milaidy` (desktop)
+- **Snap Store** — `snap install milady` with strict confinement
+- **Flatpak / Flathub** — production-ready Flatpak with AppStream metadata
+- **APT** — Debian/Ubuntu users can install via APT and run as a systemd service with auto-restart
+- **Google Play Store** — Android app with signed releases
+- **iOS and Mac App Store** — available via TestFlight and App Store Connect
+
+See the [installation guide](/installation) for platform-specific instructions.
+
+## Native GPU companion rendering
+
+Desktop builds now include WebGPU-powered native rendering infrastructure for companion visuals, providing an alternative to the webview-based renderer with improved performance for GPU-accelerated scenes.
+
+## Game client canvas windows
+
+Game clients on desktop now open in a dedicated native window with isolated cookies and storage instead of an embedded iframe. This improves stability and security for in-app game experiences. Web and dev mode still use iframe fallback.
+
+## Streaming controls in companion mode
+
+You can now manage live streaming directly from companion mode with destination and source pickers, stream settings, and new agent actions including go live, go offline, and speak on stream. See the [stream guide](/dashboard/stream) for details.
+
+## NFA wallet flow
+
+A new identity and NFA wallet flow adds an identity card surface, wallet-style confirmation UX, and public BSC RPC defaults wired through the plugin and API layers. See the [wallet guide](/guides/wallet) for details.
+
+## Link sanitization for chat messages
+
+Chat message links are now sanitized to block `javascript:`, `data:`, and `vbscript:` URI schemes, preventing XSS through untrusted content. Normal links and relative paths continue to work as expected.
+
+## Wallet transfer guard in manual-key mode
+
+Agent-originated wallet transfer requests can no longer bypass the manual-local-key confirmation guard. All transfers now correctly require explicit user signature approval.
+
+## Desktop bug fixes
+
+- Window position is now restored correctly after hide/show on desktop
+- Clipboard image encoding works reliably across platforms
+- TTS interruption now fully stops in-flight audio processes
+- Navigation guard blocks external URLs from loading in the main app window
+- VRM avatar face orientation no longer flips incorrectly
+- Companion UI regressions in settings, stream navigation, VRM loading, and shell close flows are resolved
+
+## Additional fixes
+
+- Voice and agent-mode dropdowns are no longer hidden behind other elements
+- Settings sidebar now shows section labels for easier navigation
+- Avatar selector prevents double-click during load
+- Duplicate "++" label on the add-post button is fixed
+- Conversation sidebar now shows title on the left and timestamp on the right
+- Cloud model provider no longer re-enables itself on restart after you switch away
+- Remote server access works correctly with wildcard bind and reverse proxy path prefixes
+- Marketplace-installed skills now appear in the UI (dot-prefix directories were being skipped)
+- Action blocks in coordinator chat display are stripped cleanly without affecting user JSON
+</Update>
+
+<Update label="2026-03-07" description="Week of March 1–7" tags={["Feature", "Update", "Fix"]}>
+## Companion wallet trading panel
+
+The companion view now includes a full trading panel. You can swap tokens on BNB Chain via PancakeSwap, send BNB and tokens with address validation, browse your multi-chain portfolio, view NFT collectibles, and check P&L analytics — all without leaving the companion. See the [wallet guide](/guides/wallet) for details.
+
+## Telegram message chunking and draft-stream
+
+The Telegram connector now automatically splits long agent responses into properly chunked messages instead of truncating them. A new draft-stream mode lets you see message composition in real time as the agent generates its reply.
+
+## Agent activity box
+
+A new sticky status bar in the dashboard shows real-time activity for each coding agent session — including which tool is running, approval status, and errors. Routine status messages (auto-approvals, idle nudges, turn completions) are now filtered out of chat history so conversations stay clean on reload. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Pi AI model provider
+
+You can now use Pi AI as a model provider with streaming support. Configure it in the [model providers](/model-providers) settings alongside your existing providers.
+
+## NFA learning provenance
+
+The BNB identity plugin now supports BAP-578 NFA (Non-Fungible Agent) learning provenance. You can mint NFAs, update Merkle roots for your agent's learning history, and query NFA status — all from chat actions or the REST API. See the [wallet guide](/guides/wallet) for details.
+
+## Improved upload error messages
+
+Document uploads exceeding 32 MB now return a clear, human-readable error message explaining the limit, instead of a raw byte-limit error.
+
+## Swarm completion summaries
+
+Multi-agent coding swarm runs now produce a synthesis message when all tasks are complete, giving you a structured summary of what was accomplished across agent sessions.
+
+## Additional fixes
+
+- WhatsApp session credentials are now properly saved before disconnecting, preventing unnecessary QR re-scans on restart
+- Model provider dropdown no longer defaults to the wrong provider on page load — your saved choice is respected
+- System warning banners auto-dismiss after 20 seconds and no longer permanently cover the navigation bar
+- Stale database lock files from crashed processes are automatically cleaned up on restart, preventing data loss
+- Model provider detection now prioritizes your explicit configuration over auto-detected plugins
+- Terminal output no longer flashes or scrolls from the top when resuming a session
+- Triggers no longer fire during agent restart, preventing once-only triggers from being consumed without executing
 </Update>

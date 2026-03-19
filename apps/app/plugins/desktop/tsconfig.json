@@ -15,5 +15,5 @@
     "isolatedModules": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "electron"]
+  "exclude": ["node_modules", "dist", "electrobun"]
 }

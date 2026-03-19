@@ -128,22 +128,32 @@ $installer = $null
 $installerProcess = $null
 $launcherProcess = $null
 $launcherStarted = $false
+$requireInstaller = $env:MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER -eq "1"
+$installerRoot = if ($env:MILADY_TEST_WINDOWS_INSTALL_DIR) {
+  $env:MILADY_TEST_WINDOWS_INSTALL_DIR
+} else {
+  Join-Path $env:RUNNER_TEMP ("milady-windows-installed-" + [Guid]::NewGuid().ToString("N"))
+}
+if ($requireInstaller) {
+  $launcher = $null
+  $launcherSource = $null
+}
 
-if ($resolvedBuildDir) {
+if (-not $requireInstaller -and $resolvedBuildDir) {
   $launcher = Find-Launcher $resolvedBuildDir
   if ($launcher) {
     $launcherSource = "build"
   }
 }
 
-if (-not $launcher) {
+if (-not $requireInstaller -and -not $launcher) {
   $launcher = Find-Launcher $resolvedArtifactsDir
   if ($launcher) {
     $launcherSource = "artifacts"
   }
 }
 
-if (-not $launcher) {
+if (-not $requireInstaller -and -not $launcher) {
   $packagedTarball = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*.tar.zst" -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
@@ -171,12 +181,21 @@ if (-not $launcher) {
     $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
     $launcherStarted = $true
   } else {
-    $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+    $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "Milady-Setup-*.exe" -ErrorAction SilentlyContinue |
       Select-Object -First 1
 
     if (-not $installer) {
-      $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.zip" -ErrorAction SilentlyContinue |
+      $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    }
+
+    if (-not $installer) {
+      $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "Milady-Setup-*.exe.zip" -ErrorAction SilentlyContinue |
         Select-Object -First 1
+      if (-not $installerZip) {
+        $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.zip" -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+      }
       if (-not $installerZip) {
         throw "No launcher.exe, packaged .tar.zst, installer .exe, or installer .zip found under $resolvedArtifactsDir"
       }
@@ -191,8 +210,34 @@ if (-not $launcher) {
       throw "No installer executable found for Windows smoke test."
     }
 
-    Write-Host "Using installer: $($installer.FullName)"
-    $installerProcess = Start-Process -FilePath $installer.FullName -WorkingDirectory (Split-Path -Parent $installer.FullName) -PassThru
+    Write-Host "Installing via Inno Setup: $($installer.FullName)"
+    Remove-Item $installerRoot -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $installerRoot | Out-Null
+
+    $installerArgs = @(
+      "/VERYSILENT",
+      "/SUPPRESSMSGBOXES",
+      "/NORESTART",
+      "/SP-",
+      "/DIR=$installerRoot"
+    )
+
+    $installerProcess = Start-Process -FilePath $installer.FullName -ArgumentList $installerArgs -WorkingDirectory (Split-Path -Parent $installer.FullName) -PassThru -Wait
+    if ($installerProcess.ExitCode -ne 0) {
+      throw "Windows installer exited with code $($installerProcess.ExitCode)"
+    }
+
+    $launcher = Find-Launcher $installerRoot
+    if (-not $launcher) {
+      throw "Installed launcher.exe not found under $installerRoot"
+    }
+
+    $launcherSource = "installed Inno package"
+    $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir
+    Write-Host "Using $launcherSource launcher: $($launcher.FullName)"
+    $launcherDir = Split-Path -Parent $launcher.FullName
+    $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
+    $launcherStarted = $true
   }
 } else {
   $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir

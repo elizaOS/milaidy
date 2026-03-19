@@ -3,7 +3,7 @@
  *
  * Maps each RPC request method from MiladyRPCSchema.bun.requests
  * to the corresponding native module method. This is the Bun-side
- * equivalent of Electron's ipcMain.handle() registration.
+ * equivalent of main-process request handler registration.
  *
  * Called once during app startup after the BrowserView is created.
  */
@@ -12,6 +12,10 @@ import { Updater } from "electrobun/bun";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
+import {
+  scanAndValidateProviderCredentials,
+  scanProviderCredentials,
+} from "./native/credentials";
 import { getDesktopManager } from "./native/desktop";
 import { getGatewayDiscovery } from "./native/gateway";
 import { getGpuWindowManager } from "./native/gpu-window";
@@ -172,6 +176,9 @@ export function registerRpcHandlers(
     desktopGetPath: async (params: Parameters<typeof desktop.getPath>[0]) =>
       desktop.getPath(params),
     desktopBeep: async () => desktop.beep(),
+    desktopOpenSettingsWindow: async () => {
+      desktop.openSettings();
+    },
 
     // ---- Desktop: Screen ----
     desktopGetPrimaryDisplay: async () => desktop.getPrimaryDisplay(),
@@ -395,6 +402,26 @@ export function registerRpcHandlers(
     },
     contextMenuSaveAsCommand: async (params: { text: string }) => {
       sendToWebview("contextMenu:saveAsCommand", { text: params.text });
+    },
+
+    // ---- Credentials Auto-Detection ----
+    credentialsScanProviders: async (params?: { context?: string }) => {
+      if (
+        !params?.context ||
+        !["onboarding", "tray-refresh"].includes(params.context)
+      ) {
+        throw new Error("credentials:scanProviders requires a valid context");
+      }
+      return { providers: await scanProviderCredentials() };
+    },
+    credentialsScanAndValidate: async (params?: { context?: string }) => {
+      if (
+        !params?.context ||
+        !["onboarding", "tray-refresh"].includes(params.context)
+      ) {
+        throw new Error("credentialsScanAndValidate requires a valid context");
+      }
+      return { providers: await scanAndValidateProviderCredentials() };
     },
 
     // ---- GPU Window ----

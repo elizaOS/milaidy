@@ -26,7 +26,7 @@ import { detectEmbeddingPreset } from "./embedding-presets.js";
 //
 // IMPORTANT: We use `unknown` types here instead of `typeof import("node-llama-cpp")`
 // to prevent bundlers from hoisting the dynamic import to a static one.
-// The native module must remain a runtime-only import for Electron packaging.
+// The native module must remain a runtime-only import for desktop packaging.
 
 // biome-ignore lint/suspicious/noExplicitAny: dynamic llama.cpp import types
 type LlamaInstance = any;

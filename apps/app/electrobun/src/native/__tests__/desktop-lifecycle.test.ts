@@ -135,7 +135,7 @@ describe("DesktopManager lifecycle cleanup", () => {
       expect.any(Function),
     );
     expect(mockEvents.off).toHaveBeenCalledWith(
-      "context-menu-clicked",
+      "tray-clicked",
       expect.any(Function),
     );
   });
@@ -176,7 +176,7 @@ describe("DesktopManager lifecycle cleanup", () => {
       expect.any(Function),
     );
     expect(mockEvents.off).toHaveBeenCalledWith(
-      "context-menu-clicked",
+      "tray-clicked",
       expect.any(Function),
     );
   });

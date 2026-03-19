@@ -29,8 +29,8 @@ const isNative = Capacitor.isNativePlatform();
 const isIOS = platform === "ios";
 const isAndroid = platform === "android";
 
-function isElectronPlatform(): boolean {
-  return platform === "electron" || isElectrobunRuntime();
+function isDesktopPlatform(): boolean {
+  return isElectrobunRuntime();
 }
 
 function isWebPlatform(): boolean {
@@ -44,7 +44,7 @@ export interface CapacitorCapabilities {
   /** Whether we're running in a native container */
   native: boolean;
   /** Platform identifier */
-  platform: "ios" | "android" | "electron" | "web";
+  platform: "ios" | "android" | "electrobun" | "web";
   /** Haptic feedback support */
   haptics: boolean;
   /** Camera capture support */
@@ -69,18 +69,18 @@ export interface CapacitorCapabilities {
  * Get the current platform capabilities
  */
 export function getCapabilities(): CapacitorCapabilities {
-  const isElectron = isElectronPlatform();
+  const isDesktop = isDesktopPlatform();
   return {
     native: isNative,
-    platform: platform as CapacitorCapabilities["platform"],
+    platform: (isDesktop ? "electrobun" : platform) as CapacitorCapabilities["platform"],
     haptics: isNative && (isIOS || isAndroid),
     camera: isNative,
     microphone: isNative,
-    screenCapture: isNative && !isElectron, // Electron needs different handling
+    screenCapture: isNative && !isDesktop, // Desktop uses a separate capture path
     fileSystem: isNative,
     notifications: isNative,
     geolocation: true, // Available on web too via browser API
-    background: isNative && !isElectron,
+    background: isNative && !isDesktop,
     voiceWake: isNative && (isIOS || isAndroid), // macOS via Swabble handled separately
   };
 }
@@ -222,7 +222,7 @@ export interface MiladyBridge {
     isNative: boolean;
     isIOS: boolean;
     isAndroid: boolean;
-    isElectron: boolean;
+    isDesktop: boolean;
     isWeb: boolean;
     isMacOS: boolean;
   };
@@ -232,7 +232,7 @@ export interface MiladyBridge {
  * Create the global bridge object
  */
 function createBridge(): MiladyBridge {
-  const isElectron = isElectronPlatform();
+  const isDesktop = isDesktopPlatform();
   return {
     capabilities: getCapabilities(),
     pluginCapabilities: getPluginCapabilities(),
@@ -247,9 +247,9 @@ function createBridge(): MiladyBridge {
       isNative,
       isIOS,
       isAndroid,
-      isElectron,
+      isDesktop,
       isWeb: isWebPlatform(),
-      isMacOS: isElectron, // Electron is used for macOS/desktop
+      isMacOS: isDesktop, // Electrobun is used for macOS/desktop
     },
   };
 }

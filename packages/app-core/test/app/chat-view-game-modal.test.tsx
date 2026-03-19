@@ -52,7 +52,7 @@ vi.mock("@miladyai/app-core/state", () => ({
 }));
 
 vi.mock("@miladyai/app-core/platform", () => ({
-  isElectronPlatform: () => false,
+  isDesktopPlatform: () => false,
 }));
 
 vi.mock("@miladyai/app-core/hooks", async () => {

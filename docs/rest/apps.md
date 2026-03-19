@@ -282,3 +282,14 @@ Get available quick actions for a Hyperscape agent.
 **Response**
 
 Proxied response from the Hyperscape API.
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 500 | `REGISTRY_ERROR` | Failed to fetch from app registry |
+| 500 | `APP_ALREADY_RUNNING` | App is already running and cannot be launched again |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

@@ -245,6 +245,8 @@
   "characterview.core": "Base",
   "characterview.style": "Estilo",
   "characterview.examples": "Ejemplos",
+  "characterview.chatExamples": "Ejemplos de chat",
+  "characterview.noChatExamplesYet": "Aún no hay ejemplos de chat.",
   "characterview.aboutMe": "Sobre mí",
   "characterview.directionsAndThing": "Instrucciones y cosas para recordar",
   "characterview.StyleRules": "Reglas de estilo",

@@ -147,21 +147,16 @@ const LENS_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
  * Uses both CJS require.resolve and a direct node_modules check for ESM-only packages.
  */
 export function resolveLensPluginImportSpecifier(): string | null {
-  // Try canonical package name first (matches CONNECTOR_PLUGINS map)
   if (isPackageImportResolvable(LENS_PLUGIN_PACKAGE_NAME)) {
     return LENS_PLUGIN_PACKAGE_NAME;
   }
-  // Fallback: the community plugin package (may be installed during transition)
   if (isPackageImportResolvable(LENS_PLUGIN_FALLBACK_PACKAGE)) {
     return LENS_PLUGIN_FALLBACK_PACKAGE;
   }
 
-  // ESM-only packages may fail require.resolve — check node_modules directly.
-  // Use the source entry to avoid bun eagerly resolving lazy chunks' imports.
   const helperDir = path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = path.resolve(helperDir, "..", "..");
 
-  // Check @elizaos-plugins/client-lens (fallback package)
   const nodeModulesSourceEntry = path.resolve(
     packageRoot,
     "node_modules",
@@ -186,6 +181,34 @@ export function resolveLensPluginImportSpecifier(): string | null {
   }
 
   for (const relativeEntryPath of LENS_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
+const FARCASTER_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-farcaster";
+const FARCASTER_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-farcaster/typescript/dist/index",
+  "../plugins/plugin-farcaster/dist/index",
+] as const;
+
+/**
+ * Resolve the Farcaster plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveFarcasterPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(FARCASTER_PLUGIN_PACKAGE_NAME)) {
+    return FARCASTER_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  for (const relativeEntryPath of FARCASTER_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
     const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
     if (existsSync(absoluteEntryPath)) {
       return pathToFileURL(absoluteEntryPath).href;

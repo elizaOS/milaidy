@@ -2,7 +2,7 @@
  * Permission Manager for Electrobun
  *
  * Unified permission checking across macOS, Windows, and Linux.
- * Port from Electron — same logic, no Electron-specific APIs used.
+ * Shared implementation ported forward to Electrobun; no runtime-specific APIs required.
  */
 
 import type {

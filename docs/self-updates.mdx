@@ -51,7 +51,7 @@ Version comparison uses the `compareSemver()` utility from `src/services/version
 - A positive number if the current version is newer
 - `null` if either version string is not valid semver
 
-Pre-release tags (e.g., `2.0.0-alpha.26`) are handled correctly per the semver specification.
+Pre-release tags (e.g., `2.0.0-alpha.87`) are handled correctly per the semver specification.
 
 ## Release Channels
 
@@ -509,6 +509,6 @@ between @elizaos/core and your model provider plugins.
 
 This helps users understand that they may need to update their plugins alongside the CLI, or pin to a compatible version combination.
 
-## Electron Desktop Updates
+## Electrobun Desktop Updates
 
-The Electron desktop app (`apps/app/electron/`) uses `electron-updater` for native auto-update support, which is separate from the CLI update system. Desktop updates are delivered through platform-native mechanisms (DMG on macOS, NSIS on Windows, AppImage on Linux) and handled by the Electron shell rather than the npm registry.
+The Electrobun desktop app (`apps/app/electrobun/`) uses the Electrobun updater for native auto-update support, which is separate from the CLI update system. Desktop updates are delivered through platform-native mechanisms (DMG on macOS, NSIS on Windows, AppImage on Linux) and handled by the Electrobun shell rather than the npm registry.

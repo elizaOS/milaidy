@@ -27,13 +27,15 @@ function detectPlatform(): { platform: string; isNative: boolean } {
 
 const detected = detectPlatform();
 
-export const platform = detected.platform;
+export const platform = isElectrobunRuntime()
+  ? "electrobun"
+  : detected.platform;
 export const isNative = detected.isNative;
-export const isIOS = detected.platform === "ios";
-export const isAndroid = detected.platform === "android";
+export const isIOS = platform === "ios";
+export const isAndroid = platform === "android";
 
-export function isElectronPlatform(): boolean {
-  return detected.platform === "electron" || isElectrobunRuntime();
+export function isDesktopPlatform(): boolean {
+  return platform === "electrobun";
 }
 
 export function isWebPlatform(): boolean {
@@ -57,6 +59,7 @@ export interface ShareTargetPayload {
 
 declare global {
   interface Window {
+    __MILADY_API_BASE__?: string;
     __MILADY_SHARE_QUEUE__?: ShareTargetPayload[];
   }
 }

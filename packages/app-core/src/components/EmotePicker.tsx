@@ -352,9 +352,9 @@ export function EmotePicker() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [emotePickerOpen, openEmotePicker, closeEmotePicker]);
 
-  // Electron IPC listener
+  // Desktop bridge listener
   useEffect(() => {
-    const handleElectronToggle = () => {
+    const handleDesktopToggle = () => {
       if (emotePickerOpen) {
         closeEmotePicker();
       } else {
@@ -362,9 +362,9 @@ export function EmotePicker() {
       }
     };
 
-    document.addEventListener(EMOTE_PICKER_EVENT, handleElectronToggle);
+    document.addEventListener(EMOTE_PICKER_EVENT, handleDesktopToggle);
     return () =>
-      document.removeEventListener(EMOTE_PICKER_EVENT, handleElectronToggle);
+      document.removeEventListener(EMOTE_PICKER_EVENT, handleDesktopToggle);
   }, [emotePickerOpen, openEmotePicker, closeEmotePicker]);
 
   // Focus search input on open

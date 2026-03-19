@@ -242,10 +242,6 @@ export default defineConfig({
         find: "@elizaos/plugin-form",
         replacement: path.join(repoRoot, "test", "stubs", "empty-module.mjs"),
       },
-      {
-        find: "electron",
-        replacement: path.join(repoRoot, "test", "stubs", "electron-module.ts"),
-      },
     ],
   },
   test: {

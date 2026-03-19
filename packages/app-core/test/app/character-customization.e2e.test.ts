@@ -1100,6 +1100,9 @@ describe("CharacterView UI", () => {
       postExamples: ["Mission remains on schedule."],
     });
     expect(client.updateConfig).toHaveBeenNthCalledWith(1, {
+      ui: { avatarIndex: 4 },
+    });
+    expect(client.updateConfig).toHaveBeenNthCalledWith(2, {
       messages: {
         tts: {
           provider: "elevenlabs",
@@ -1110,9 +1113,183 @@ describe("CharacterView UI", () => {
         },
       },
     });
-    expect(client.updateConfig).toHaveBeenNthCalledWith(2, {
-      ui: { avatarIndex: 4 },
+  });
+
+  it("still saves the character when voice config persistence fails", async () => {
+    mockUseApp.mockReset();
+    mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
+      ...state,
+      setTab: vi.fn((tab: CharacterState["tab"]) => {
+        state.tab = tab;
+      }),
+      loadCharacter: vi.fn(),
+      loadRegistryStatus: vi.fn(),
+      loadDropStatus: vi.fn(),
+      handleSaveCharacter: async () => {
+        _saveCharacterCalled = true;
+        const characterDraft = state.characterDraft;
+        if (!characterDraft) {
+          throw new Error("Character draft is required before saving");
+        }
+        const prepared = prepareCharacterDraftForSave(characterDraft);
+        const { agentName } = await client.updateCharacter(
+          prepared as unknown as CharacterData,
+        );
+        await client.updateConfig({
+          ui: { avatarIndex: state.selectedVrmIndex },
+        });
+        state.characterSaving = false;
+        state.characterDirty = false;
+        state.characterSaveSuccess = "Character saved successfully.";
+        if (agentName) {
+          const fallbackCharacterData =
+            state.characterData ?? createCharacterUIState().characterData;
+          if (!fallbackCharacterData) {
+            throw new Error("Character data is required after saving");
+          }
+          state.characterData = {
+            ...fallbackCharacterData,
+            ...(prepared as CharacterData),
+            name: agentName,
+          };
+        }
+      },
+      handleCharacterFieldInput: (field: string, value: unknown) => {
+        if (state.characterDraft) {
+          (state.characterDraft as Record<string, unknown>)[field] = value;
+          state.characterDirty = true;
+        }
+      },
+      handleCharacterArrayInput: vi.fn(),
+      handleCharacterStyleInput: vi.fn(),
+      setState: vi.fn((key: string, value: unknown) => {
+        (state as Record<string, unknown>)[key] = value;
+      }),
+    }));
+
+    vi.mocked(client.updateCharacter).mockResolvedValue({
+      ok: true,
+      character: {} as CharacterData,
+      agentName: "Fallback Save",
     });
+    vi.mocked(client.updateConfig)
+      .mockResolvedValueOnce({ ok: true })
+      .mockRejectedValueOnce(new Error("Voice config failed"));
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CharacterView));
+    });
+
+    state.characterDraft = {
+      name: "Fallback Save",
+      bio: "Voice save failed but character should persist",
+      system: "Stay resilient.",
+      adjectives: ["calm"],
+      style: {
+        all: ["Keep going"],
+        chat: [],
+        post: [],
+      },
+      messageExamples: [],
+      postExamples: [],
+    };
+    state.selectedVrmIndex = 2;
+
+    const saveButton = tree?.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.children.some(
+          (child) => typeof child === "string" && child === "Save Character",
+        ),
+    );
+
+    await act(async () => {
+      saveButton?.props.onClick();
+    });
+
+    expect(_saveCharacterCalled).toBe(true);
+    expect(client.updateCharacter).toHaveBeenCalledWith({
+      name: "Fallback Save",
+      username: "Fallback Save",
+      bio: ["Voice save failed but character should persist"],
+      system: "Stay resilient.",
+      adjectives: ["calm"],
+      style: {
+        all: ["Keep going"],
+      },
+    });
+    expect(client.updateConfig).toHaveBeenNthCalledWith(1, {
+      ui: { avatarIndex: 2 },
+    });
+    expect(client.updateConfig).toHaveBeenNthCalledWith(2, {
+      messages: {
+        tts: {
+          provider: "elevenlabs",
+          elevenlabs: {
+            voiceId: "EXAVITQu4vr4xnSDxMaL",
+            modelId: "eleven_flash_v2_5",
+          },
+        },
+      },
+    });
+  });
+
+  it("blocks save before submit when the character name is missing", async () => {
+    mockUseApp.mockReset();
+    mockUseApp.mockImplementation(() => ({
+      uiLanguage: "en",
+      t: (k: string) => k,
+      ...state,
+      setTab: vi.fn((tab: CharacterState["tab"]) => {
+        state.tab = tab;
+      }),
+      loadCharacter: vi.fn(),
+      loadRegistryStatus: vi.fn(),
+      loadDropStatus: vi.fn(),
+      handleSaveCharacter: async () => {
+        _saveCharacterCalled = true;
+      },
+      handleCharacterFieldInput: vi.fn(),
+      handleCharacterArrayInput: vi.fn(),
+      handleCharacterStyleInput: vi.fn(),
+      setState: vi.fn((key: string, value: unknown) => {
+        (state as Record<string, unknown>)[key] = value;
+      }),
+    }));
+
+    state.characterDraft = {
+      ...createCharacterUIState().characterDraft!,
+      name: "",
+      username: "",
+    };
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(CharacterView));
+    });
+
+    const saveButton = tree?.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.children.some(
+          (child) => typeof child === "string" && child === "Save Character",
+        ),
+    );
+
+    await act(async () => {
+      saveButton?.props.onClick();
+    });
+
+    expect(_saveCharacterCalled).toBe(false);
+    expect(client.updateCharacter).not.toHaveBeenCalled();
+    expect(state.characterSaveError).toBe(
+      "Character name is required before saving.",
+    );
   });
 
   it("shows loading state when characterLoading is true", async () => {

@@ -32,7 +32,7 @@
         "test/**",
         ".storybook/**",
         "src/stories/**",
-        "playwright.electron.packaged.config.ts",
+        "playwright.electrobun.packaged.config.ts",
         "cypress.config.ts",
         "**/*.cy.ts",
         "**/cypress/**",

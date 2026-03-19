@@ -366,7 +366,7 @@ $bmp.Dispose()`;
   /**
    * Start frame capture and POST JPEGs to the stream endpoint.
    *
-   * Two modes (mirrors Electron):
+   * Two modes (mirrors the earlier desktop runtime):
    *  - gameUrl provided: captures a dedicated BrowserWindow loading that URL
    *  - no gameUrl: captures the main webview via JS canvas screenshot
    */
@@ -514,7 +514,7 @@ $bmp.Dispose()`;
 
   /**
    * Game URL capture: creates a BrowserWindow for the game URL and captures
-   * its canvas/video content via JS. Equivalent to Electron's offscreen
+   * its canvas/video content via JS. Equivalent to the earlier offscreen
    * paint-event approach (but polling, since Electrobun has no paint event).
    */
   private async startGameCapture(

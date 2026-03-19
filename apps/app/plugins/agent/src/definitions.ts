@@ -4,7 +4,7 @@
  * Provides a cross-platform interface for starting, stopping, and
  * communicating with the embedded Milady agent.
  *
- * - Electron: IPC to the main-process AgentManager
+ * - Electrobun desktop: RPC to the main-process AgentManager
  * - iOS/Android/Web: HTTP calls to the API server
  */
 

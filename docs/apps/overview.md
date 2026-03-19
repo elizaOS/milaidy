@@ -11,7 +11,7 @@ Milady is available on every platform you work on. Each app connects to the same
 <CardGroup cols={2}>
 
 <Card title="Desktop App" icon="desktop" href="/apps/desktop">
-  Electron-based desktop app for macOS, Windows, and Linux with native OS integration and embedded runtime.
+  Electrobun-based desktop app for macOS, Windows, and Linux with native OS integration and embedded runtime.
 </Card>
 
 <Card title="Mobile App" icon="mobile" href="/apps/mobile">

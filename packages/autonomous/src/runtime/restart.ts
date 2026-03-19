@@ -10,7 +10,7 @@
  *   - **Dev-server / API**: the host registers a handler via
  *     {@link setRestartHandler} that stops the current runtime, creates a new
  *     one, and hot-swaps references.
- *   - **Electron app**: the host registers a handler that calls
+ *   - **Desktop app**: the host registers a handler that calls
  *     `AgentManager.restart()`.
  *
  * @module restart
@@ -41,7 +41,7 @@ let _handler: RestartHandler = () => {
 /**
  * Replace the active restart handler.
  *
- * Call this at startup in non-CLI environments (dev-server, Electron) to
+ * Call this at startup in non-CLI environments (dev-server, desktop shell) to
  * provide an in-process restart strategy.
  */
 export function setRestartHandler(handler: RestartHandler): void {

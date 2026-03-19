@@ -746,7 +746,7 @@ describe("Audio Generation Providers", () => {
   };
 
   const defaultAudioOptions: AudioGenerationOptions = {
-    prompt: "An upbeat electronic dance track",
+    prompt: "An upbeat synth dance track",
     duration: 30,
     instrumental: true,
   };
@@ -756,7 +756,7 @@ describe("Audio Generation Providers", () => {
       fetchMock.mockResolvedValue(
         jsonResponse({
           audioUrl: "https://example.com/generated-audio.mp3",
-          title: "Electronic Vibes",
+          title: "Synth Vibes",
           duration: 30,
         }),
       );
@@ -770,7 +770,7 @@ describe("Audio Generation Providers", () => {
       expect(result.data?.audioUrl).toBe(
         "https://example.com/generated-audio.mp3",
       );
-      expect(result.data?.title).toBe("Electronic Vibes");
+      expect(result.data?.title).toBe("Synth Vibes");
     });
   });
 

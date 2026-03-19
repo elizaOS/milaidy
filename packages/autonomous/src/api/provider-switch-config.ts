@@ -414,15 +414,16 @@ export async function applyOnboardingConnectionConfig(
   ) {
     applySubscriptionProviderConfig(config, normalizedProvider);
 
-    if (
-      normalizedProvider === "anthropic-subscription" &&
-      trimToUndefined(connection.apiKey)?.startsWith("sk-ant-")
-    ) {
-      setEnvValue(
-        config,
-        "ANTHROPIC_API_KEY",
-        trimToUndefined(connection.apiKey),
-      );
+    const setupToken =
+      normalizedProvider === "anthropic-subscription"
+        ? trimToUndefined(connection.apiKey)
+        : undefined;
+
+    if (setupToken?.startsWith("sk-ant-")) {
+      setEnvValue(config, "ANTHROPIC_API_KEY", setupToken);
+      deleteCredentials("anthropic-subscription");
+      deleteCredentials("openai-codex");
+      return;
     }
 
     await applySubscriptionCredentials(config);

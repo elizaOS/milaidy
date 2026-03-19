@@ -167,7 +167,7 @@ Avoid early on:
 
 Known-sensitive areas in this repo:
 
-- Desktop startup error guards in electron agent startup path
+- Desktop startup error guards in the desktop agent startup path
 - `NODE_PATH` setup supporting dynamic plugin imports
 - Bun exports patching logic in dependency patch script
 

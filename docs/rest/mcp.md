@@ -76,7 +76,7 @@ Get full details for a specific MCP server from the marketplace.
     "author": "modelcontextprotocol",
     "homepage": "https://github.com/modelcontextprotocol/servers",
     "config": {
-      "command": "npx",
+      "command": "bunx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"]
     }
   }
@@ -104,11 +104,11 @@ Returns the current MCP server configuration from the Milady config file. Secret
   "ok": true,
   "servers": {
     "filesystem": {
-      "command": "npx",
+      "command": "bunx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home"]
     },
     "brave-search": {
-      "command": "npx",
+      "command": "bunx",
       "args": ["-y", "@modelcontextprotocol/server-brave-search"],
       "env": {
         "BRAVE_API_KEY": "****"
@@ -135,7 +135,7 @@ Add or update a single MCP server configuration. Changes are persisted to the co
 {
   "name": "brave-search",
   "config": {
-    "command": "npx",
+    "command": "bunx",
     "args": ["-y", "@modelcontextprotocol/server-brave-search"],
     "env": {
       "BRAVE_API_KEY": "BSA_xxxx"
@@ -198,7 +198,7 @@ Replace the entire MCP servers configuration object. All existing servers are re
 {
   "servers": {
     "filesystem": {
-      "command": "npx",
+      "command": "bunx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home"]
     }
   }
@@ -254,3 +254,15 @@ Returns the runtime status of all connected MCP servers, including tool and reso
 | `servers[].status` | string | Connection status (`connected`, `disconnected`, etc.) |
 | `servers[].toolCount` | number | Number of tools provided by this server |
 | `servers[].resourceCount` | number | Number of resources provided by this server |
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 400 | `INVALID_CONFIG` | MCP server configuration is invalid |
+| 404 | `SERVER_NOT_FOUND` | MCP server with specified name does not exist |
+| 400 | `RESERVED_NAME` | Attempted to use a reserved server name |
+| 502 | `INTERNAL_ERROR` | Marketplace or server connection error |

@@ -102,7 +102,7 @@ npm login
 ### 2. Build
 
 ```bash
-npm run build
+bun run build
 ```
 
 Verify the `dist/` directory contains the compiled output before publishing.

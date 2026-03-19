@@ -1,6 +1,6 @@
 # Plugin resolution: why NODE_PATH is needed
 
-This doc explains **why** dynamic plugin imports fail without `NODE_PATH` and **how** we fix it across CLI, dev server, and Electron.
+This doc explains **why** dynamic plugin imports fail without `NODE_PATH` and **how** we fix it across CLI, dev server, and Electrobun.
 
 ## The problem
 
@@ -16,10 +16,10 @@ Node resolves this by walking up from the **importing file's directory**. When e
 |---|---|---|---|
 | `bun run dev` | `src/runtime/eliza.ts` | `src/runtime/` | Usually yes (2 levels) |
 | `milady start` (CLI) | `dist/runtime/eliza.js` | `dist/runtime/` | Usually yes (2 levels) |
-| Electron dev | `milady-dist/eliza.js` | `apps/app/electron/milady-dist/` | **No** — walks into `apps/` |
-| Electron packaged | `app.asar.unpacked/milady-dist/eliza.js` | Inside the `.app` bundle | **No** — different filesystem |
+| Electrobun dev | `milady-dist/eliza.js` | `apps/app/electrobun/milady-dist/` | **No** — walks into `apps/` |
+| Electrobun packaged | `app.asar.unpacked/milady-dist/eliza.js` | Inside the `.app` bundle | **No** — different filesystem |
 
-In the Electron cases (and sometimes the built dist case depending on bundler behavior), the walk never reaches the repo root where `@elizaos/plugin-*` packages are installed. The import fails with "Cannot find module".
+In the Electrobun cases (and sometimes the built dist case depending on bundler behavior), the walk never reaches the repo root where `@elizaos/plugin-*` packages are installed. The import fails with "Cannot find module".
 
 ## The fix: NODE_PATH
 
@@ -49,14 +49,14 @@ env.NODE_PATH = ...;
 
 **Why here:** The CLI runner spawns a child process that runs `milady.mjs` → `dist/entry.js` → `dist/eliza.js`. Setting `NODE_PATH` in the child's env ensures the child resolves from root even though `dist/` doesn't have its own `node_modules`.
 
-### 3. `apps/app/electron/src/native/agent.ts` (Electron main process)
+### 3. `apps/app/electrobun/src/native/agent.ts` (Electrobun native runtime)
 
 ```ts
 // Dev: walk up from __dirname to find node_modules
 // Packaged: use ASAR node_modules
 ```
 
-**Why here:** The Electron main process loads `milady-dist/eliza.js` via `dynamicImport()`. In dev mode, `__dirname` is deep inside `apps/app/electron/build/src/native/` — we walk up to find the first `node_modules` directory (the monorepo root). In packaged mode, we use the ASAR's `node_modules` instead.
+**Why here:** The Electrobun native runtime loads `milady-dist/eliza.js` via `dynamicImport()`. In dev mode, `__dirname` is deep inside `apps/app/electrobun/build/src/native/` — we walk up to find the first `node_modules` directory (the monorepo root). In packaged mode, we use the ASAR's `node_modules` instead.
 
 ## Why not just use the bundler?
 
@@ -64,7 +64,7 @@ tsdown with `noExternal: [/.*/]` inlines most dependencies, but `@elizaos/plugin
 
 ## Packaged app: no-op
 
-In the packaged `.app`, `eliza.js` lives at `app.asar.unpacked/milady-dist/eliza.js`. Two levels up is `Contents/Resources/` — no `node_modules` there. The `existsSync` check in `eliza.ts` returns false, so the NODE_PATH code is skipped entirely. The packaged app instead copies runtime packages into `milady-dist/node_modules` during the desktop build (`copy-electron-plugins-and-deps.mjs` for legacy Electron, `copy-runtime-node-modules.ts` for Electrobun) and `agent.ts` sets that packaged `node_modules` directory on `NODE_PATH`.
+In the packaged `.app`, `eliza.js` lives at `app.asar.unpacked/milady-dist/eliza.js`. Two levels up is `Contents/Resources/` — no `node_modules` there. The `existsSync` check in `eliza.ts` returns false, so the NODE_PATH code is skipped entirely. The packaged app instead copies runtime packages into `milady-dist/node_modules` during the desktop build (`copy-runtime-node-modules.ts` for Electrobun) and `agent.ts` sets that packaged `node_modules` directory on `NODE_PATH`.
 
 ## Bun and published package exports
 

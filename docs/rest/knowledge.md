@@ -298,3 +298,15 @@ Uploads up to 100 knowledge documents in a single request. Each document is proc
 Top-level `ok` is `true` only when `failureCount === 0`. `warnings` is present only on successful items when the ingestion emitted warnings.
 
 **Errors:** `400` if `documents` is missing, empty, or exceeds 100 items.
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body exceeds maximum size limit (32 MB for bulk upload) |
+| 500 | `EMBEDDING_FAILED` | Failed to generate embeddings for document content |
+| 500 | `DOCUMENT_TOO_LARGE` | Document content is too large to process |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |
