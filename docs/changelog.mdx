@@ -1,0 +1,50 @@
+---
+title: Changelog
+description: "Weekly updates on what shipped in Milady."
+---
+
+<Update label="2026-03-19" description="Week of March 13–19" tags={["Features", "Security", "Fixes"]}>
+## New features
+
+**Cloud control plane dashboard** — You can now manage your Eliza Cloud agents directly from the Milady homepage at `/#/dashboard`. The dashboard auto-discovers agents from cloud, local, and remote sources, and supports full agent lifecycle management (provision, suspend, resume, delete) without leaving the app. See [cloud guide](/guides/cloud) for setup details.
+
+**Eliza Cloud onboarding** — First-run setup now asks "Where should your agent live?" with Eliza Cloud as a first-class option. Choosing it provisions a hosted runtime automatically, so you can start chatting without configuring local infrastructure.
+
+**Visual workflow builder** — A new graph-based automation editor lets you compose multi-step workflows visually. Create nodes, connect them with edges, configure triggers and actions, then execute workflows directly from the app.
+
+**Game-style character editor** — The character editor has been redesigned as an interactive notebook UI with parchment-textured pages, sidebar section tabs (About Me, Directions, Style Rules), and core/examples switching per section. Full dark mode support included.
+
+**Companion VRM avatar improvements** — Your 3D companion now waves on app launch and character swap, loading transitions are smoother with animated progress bars and fade-out effects instead of hard cuts, and idle settle delays prevent visual pop-in.
+
+**Redesigned dashboard layouts** — Social, Plugins, Settings, Heartbeats, and Wallets tabs all use a new two-panel layout (list on the left, detail on the right). The Apps tab features a game-style phone and iPad device UI for browsing and launching apps.
+
+**Companion wallet trading panel** — A new trading panel in companion mode lets you swap tokens via PancakeSwap, send BNB and tokens, view your multi-chain portfolio, browse NFTs, and review trade history with P&L analytics.
+
+**Homepage redesign** — The homepage now features a typewriter hero animation, icon-only platform download buttons that reveal text on hover, a macOS-style dock bar, and a streamlined footer. Download links are always up to date — they pull the latest GitHub release at runtime.
+
+**Command palette registry** — App commands are now centralized in a dedicated registry. The sidebar status updates via WebSocket instead of polling, making it more responsive.
+
+**Agent activity box** — A new sticky status bar shows real-time per-task activity from your agent, including tool names, approvals, errors, and continuations. Routine status messages are filtered from chat history to reduce noise.
+
+## Security improvements
+
+**Wallet key export hardened** — Exporting wallet private keys now requires a 10-second confirmation delay, is rate-limited to once per 10 minutes, and every attempt is logged with IP and User-Agent for auditing.
+
+**Cloud API key scrubbed from environment** — Cloud secrets are no longer stored in `process.env` where they could be read by other modules or appear in crash dumps. They are now kept in a sealed, non-enumerable store.
+
+## Bug fixes
+
+- **Cloud dashboard agent list** — Fixed agents not appearing after Eliza Cloud login due to an API response format mismatch.
+- **Character save errors** — Resolved HTTP 422 errors when saving characters by sanitizing payloads and including missing fields like `topics`.
+- **Character buttons in companion mode** — Save and Customize buttons are now visible over the 3D VRM scene with a frosted glass backdrop.
+- **Dark mode nav tabs** — Active navigation tabs are now properly visible in dark mode.
+- **Connectors panel** — Desktop layout now correctly filters to show only the selected connector.
+- **Voice defaults** — Auto-speak and voice-enabled settings no longer contradict each other on first launch.
+- **Avatar index parsing** — Invalid avatar index values are now handled gracefully instead of propagating errors.
+- **WhatsApp session persistence** — Credentials are now properly flushed before socket close, preventing session state loss on restart.
+- **Trigger guard on restart** — Once/maxRuns triggers are no longer consumed by errors during agent restart.
+- **Document upload errors** — Uploads exceeding 32 MB now show a clear, human-readable error message.
+- **Wallet RPC state** — Wallet RPC selection is now a single source of truth across onboarding, settings, and runtime.
+- **Onboarding config** — Provider configuration is now unified across onboarding, settings, and subscription flows.
+- **18 QA report fixes** — Resolved 18 bugs from the 0.88 QA cycle, including password field toggle, empty chat persistence, connector collapse behavior, and missing translation fallbacks.
+</Update>

@@ -361,6 +361,15 @@
             "pages": ["cli/environment"]
           }
         ]
+      },
+      {
+        "tab": "Changelog",
+        "groups": [
+          {
+            "group": "Changelog",
+            "pages": ["changelog"]
+          }
+        ]
       }
     ]
   },
