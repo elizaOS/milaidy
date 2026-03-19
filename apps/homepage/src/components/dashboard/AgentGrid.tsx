@@ -1,10 +1,9 @@
 import { useCallback, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
-import { isAuthenticated } from "../../lib/auth";
+import { getToken } from "../../lib/auth";
 import {
   openWebUIDirect,
   openWebUIWithLaunchToken,
-  openWebUIWithPairing,
 } from "../../lib/open-web-ui";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
@@ -106,6 +105,7 @@ export function AgentGrid() {
       {/* Create form */}
       {showCreate && (
         <CreateAgentForm
+          onAuthenticated={() => refresh()}
           onCreated={() => {
             setShowCreate(false);
             refresh();
@@ -152,34 +152,16 @@ export function AgentGrid() {
                   const url = getWebUIUrl(agent);
                   if (!url) return;
 
-                  // Cloud agents with no sandbox match: use cloud pairing token flow
-                  if (
-                    agent.source === "cloud" &&
-                    agent.cloudClient &&
-                    agent.cloudAgentId &&
-                    !agent.webUiUrl
-                  ) {
-                    openWebUIWithPairing(agent.cloudAgentId, agent.cloudClient);
+                  // Non-local agents: if user is authenticated, request a
+                  // signed launch token from the VPS. The VPS validates the
+                  // cloud session and returns an HMAC-signed token.
+                  const cloudToken = getToken();
+                  if (agent.source !== "local" && cloudToken) {
+                    openWebUIWithLaunchToken(url, cloudToken);
                     return;
                   }
 
-                  // Remote/sandbox agents with cloud auth: request a signed
-                  // launch token from the VPS, which validates the cloud
-                  // session before handing out the API key.
-                  if (
-                    agent.source !== "local" &&
-                    agent.cloudClient &&
-                    agent.cloudAgentId
-                  ) {
-                    openWebUIWithLaunchToken(
-                      url,
-                      agent.cloudClient,
-                      agent.cloudAgentId,
-                    );
-                    return;
-                  }
-
-                  // Local agents or agents without cloud auth: open directly
+                  // Local agents or unauthenticated: open directly
                   // (user will see pairing screen if auth is required)
                   openWebUIDirect(url);
                 }}

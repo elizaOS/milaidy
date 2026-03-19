@@ -97,8 +97,7 @@ export function openWebUIDirect(
  */
 export async function openWebUIWithLaunchToken(
   agentUrl: string,
-  cloudClient: CloudClient,
-  _cloudAgentId: string,
+  cloudApiKey: string,
 ): Promise<void> {
   // Open popup synchronously to avoid popup blockers
   const popup = window.open("", "_blank");
@@ -127,7 +126,7 @@ export async function openWebUIWithLaunchToken(
     const launchRes = await fetch(`${target}/api/get-launch-url`, {
       method: "GET",
       headers: {
-        "X-Api-Key": cloudClient.getToken(),
+        "X-Api-Key": cloudApiKey,
       },
     });
 
