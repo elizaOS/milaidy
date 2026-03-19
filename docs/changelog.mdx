@@ -3,6 +3,35 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-05-14" description="Week of May 8–14" tags={["Feature", "Update"]}>
+## Custom actions editor
+
+A visual editor in the dashboard lets you create custom agent actions without writing plugin code. Define actions with HTTP, shell, or code handlers, configure parameters, and test them in place — all from the UI. An AI generation endpoint can scaffold action definitions from a natural language prompt. Actions are hot-registered into the running agent with no restart needed. See the [custom actions guide](/guides/custom-actions) for details.
+
+## Plugin eject system
+
+You can now fork any plugin's source code locally, edit it, and have the runtime load your local copy instead of the npm package. Six agent actions — eject, sync, reinject, and status for both plugins and core — make it easy to customize behavior, test changes, and contribute fixes back upstream. See the [plugin eject guide](/plugins/plugin-eject) for details.
+
+## Secrets vault
+
+A new Secrets view in the dashboard organizes your API keys and credentials by category — AI providers, blockchain, connectors, and authentication. The plugin encrypts secrets at rest with AES-256-GCM and resolves them through a priority chain (agent DB, character file, environment variables, global secrets). You can add, remove, and audit credentials without editing config files. See the [secrets manager plugin docs](/plugin-registry/secrets-manager) for details.
+
+## Media gallery
+
+A new Media tab under the Database section in the dashboard lets you browse all photos, videos, and audio stored across your agent's database. Filter by media type, search by filename, and inspect entries in a lightbox detail view.
+
+## Configuration templates
+
+Eight ready-to-use configuration templates are now available for common deployment scenarios — minimal setup, personal assistant, Discord bot, Telegram bot, trading bot, research agent, privacy-first local (Ollama), and production server. Each template is a complete, annotated config you can copy and customize. See the [config templates guide](/guides/config-templates) for details.
+
+## Updates
+
+- **Database section reorganized** — The Advanced > Database view now has three sub-tabs: Tables (raw table browser), Media (media gallery), and Vectors (embedding explorer), making it easier to find what you need.
+- **Memory and context API** — Two new REST endpoints let you save free-text notes to your agent's persistent memory (`POST /api/memory/remember`) and search across saved notes (`GET /api/memory/search`). See the [Memory API reference](/rest/memory) for details.
+- **Media generation guide** — A new guide documents the media generation abstraction layer with support for five image providers, four video providers, and two audio providers — including FAL, OpenAI, Google, xAI, and Eliza Cloud. See the [media generation guide](/guides/media-generation) for details.
+- **Agent export size estimation** — Before downloading a full agent export, you can now call `GET /api/agent/export/estimate` to preview the archive size and record counts, preventing surprise large downloads.
+</Update>
+
 <Update label="2026-05-07" description="Week of May 1–7" tags={["Feature", "Update"]}>
 ## Agent export and import
 
