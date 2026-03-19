@@ -742,24 +742,32 @@ export class ElizaTUIBridge {
       }
     };
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const drained = drainSseEvents(buffer);
-      buffer = drained.remaining;
+        buffer += decoder.decode(value, { stream: true });
+        const drained = drainSseEvents(buffer);
+        buffer = drained.remaining;
 
-      for (const rawEvent of drained.events) {
-        for (const payload of extractSseDataPayloads(rawEvent)) {
+        for (const rawEvent of drained.events) {
+          for (const payload of extractSseDataPayloads(rawEvent)) {
+            parsePayload(payload);
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        for (const payload of extractSseDataPayloads(buffer)) {
           parsePayload(payload);
         }
       }
-    }
-
-    if (buffer.trim()) {
-      for (const payload of extractSseDataPayloads(buffer)) {
-        parsePayload(payload);
+    } finally {
+      try {
+        reader.cancel();
+      } catch {
+        /* ignore cancel errors */
       }
     }
 
