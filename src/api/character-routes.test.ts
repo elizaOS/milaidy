@@ -325,13 +325,15 @@ describe("character routes", () => {
     });
 
     expect(result.status).toBe(200);
-    const useModel = (state.runtime as unknown as {
-      useModel: ReturnType<typeof vi.fn>;
-    }).useModel;
+    const useModel = (
+      state.runtime as unknown as {
+        useModel: ReturnType<typeof vi.fn>;
+      }
+    ).useModel;
     const call = useModel.mock.calls[0];
     expect(call?.[1]?.prompt).toContain('"examples"');
     expect(call?.[1]?.prompt).toContain('"name"');
-    expect(call?.[1]?.prompt).toContain("Use the \"name\" field");
+    expect(call?.[1]?.prompt).toContain('Use the "name" field');
   });
 
   test("returns error when generation field is unknown", async () => {

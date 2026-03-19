@@ -18,8 +18,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type DetectedProvider,
   invokeDesktopBridgeRequest,
-  scanProviderCredentials,
   scanAndValidateProviderCredentials,
+  scanProviderCredentials,
   subscribeDesktopBridgeEvent,
 } from "../bridge/electrobun-rpc";
 import { isDesktopPlatform } from "../platform";
@@ -121,7 +121,13 @@ interface AgentStatusInfo {
 // ── Menu builder ──────────────────────────────────────────────────────
 
 function buildTrayMenu(state: {
-  plugins: Array<{ id: string; name: string; category: string; enabled: boolean; configured: boolean }>;
+  plugins: Array<{
+    id: string;
+    name: string;
+    category: string;
+    enabled: boolean;
+    configured: boolean;
+  }>;
   detectedProviders: DetectedProvider[];
   agentStatus: AgentStatusInfo | null;
   lastRefreshAt: number | null;
@@ -180,19 +186,33 @@ function buildTrayMenu(state: {
     detectedById.set(normalizeDetectedProviderId(dp.id), dp);
   }
 
-  const enabledProviderIds = new Set(aiProviders.map((p) => normalizeAiProviderPluginId(p.id)));
+  const enabledProviderIds = new Set(
+    aiProviders.map((p) => normalizeAiProviderPluginId(p.id)),
+  );
 
   if (aiProviders.length > 0) {
-    menu.push({ id: "providers-header", label: "AI Providers", type: "normal", enabled: false });
+    menu.push({
+      id: "providers-header",
+      label: "AI Providers",
+      type: "normal",
+      enabled: false,
+    });
     for (const provider of aiProviders) {
       const name = provider.name || normalizeAiProviderPluginId(provider.id);
       const status = provider.enabled
-        ? (provider.configured ? "Active" : "Enabled")
+        ? provider.configured
+          ? "Active"
+          : "Enabled"
         : "Configured";
       const normalizedId = normalizeAiProviderPluginId(provider.id);
       const detected = detectedById.get(normalizedId);
-      const sourceStr = detected ? `  ·  via ${formatSourceLabel(detected.source)}` : "";
-      const validationBadge = detected?.status && STATUS_LABELS[detected.status] ? `  ·  ${STATUS_LABELS[detected.status]}` : "";
+      const sourceStr = detected
+        ? `  ·  via ${formatSourceLabel(detected.source)}`
+        : "";
+      const validationBadge =
+        detected?.status && STATUS_LABELS[detected.status]
+          ? `  ·  ${STATUS_LABELS[detected.status]}`
+          : "";
 
       const submenuItems: TrayMenuItem[] = [
         {
@@ -224,10 +244,18 @@ function buildTrayMenu(state: {
   );
 
   if (detectedOnly.length > 0) {
-    menu.push({ id: "detected-header", label: "Detected Credentials", type: "normal", enabled: false });
+    menu.push({
+      id: "detected-header",
+      label: "Detected Credentials",
+      type: "normal",
+      enabled: false,
+    });
     for (const dp of detectedOnly) {
       const name = dp.id.charAt(0).toUpperCase() + dp.id.slice(1);
-      const validationBadge = dp.status && STATUS_LABELS[dp.status] ? `  ·  ${STATUS_LABELS[dp.status]}` : "";
+      const validationBadge =
+        dp.status && STATUS_LABELS[dp.status]
+          ? `  ·  ${STATUS_LABELS[dp.status]}`
+          : "";
       const detectedSubmenu: TrayMenuItem[] = [
         {
           id: `provider-action:${dp.id}:enable`,
@@ -263,9 +291,10 @@ function buildTrayMenu(state: {
   // ── Cloud Credits section ──
   if (state.elizaCloudEnabled || state.elizaCloudConnected) {
     if (state.elizaCloudConnected) {
-      const credits = state.elizaCloudCredits !== null
-        ? `$${state.elizaCloudCredits.toFixed(2)}`
-        : "Connected";
+      const credits =
+        state.elizaCloudCredits !== null
+          ? `$${state.elizaCloudCredits.toFixed(2)}`
+          : "Connected";
       menu.push({
         id: "cloud-credits",
         label: `☁️  eliza☁️: ${credits}`,
@@ -285,8 +314,16 @@ function buildTrayMenu(state: {
 
   // ── Wallet section ──
   const wb = state.walletBalances as {
-    evm?: { chains: Array<{ nativeValueUsd: string; tokens: Array<{ valueUsd: string }> }> } | null;
-    solana?: { solValueUsd: string; tokens: Array<{ valueUsd: string }> } | null;
+    evm?: {
+      chains: Array<{
+        nativeValueUsd: string;
+        tokens: Array<{ valueUsd: string }>;
+      }>;
+    } | null;
+    solana?: {
+      solValueUsd: string;
+      tokens: Array<{ valueUsd: string }>;
+    } | null;
   } | null;
 
   if (wb) {
@@ -337,7 +374,11 @@ function buildTrayMenu(state: {
   menu.push({ id: "show", label: "Show Milady", type: "normal" });
   menu.push({ id: "open-settings", label: "Settings...", type: "normal" });
   menu.push({ id: "sep-actions1", type: "separator" });
-  menu.push({ id: "check-for-updates", label: "Check for Updates", type: "normal" });
+  menu.push({
+    id: "check-for-updates",
+    label: "Check for Updates",
+    type: "normal",
+  });
   menu.push({ id: "sep-actions2", type: "separator" });
   menu.push({ id: "restart-agent", label: "Restart Agent", type: "normal" });
   menu.push({ id: "sep-actions3", type: "separator" });
@@ -360,7 +401,9 @@ export function useMiladyBar() {
     setTab,
   } = useApp();
 
-  const [scannedProviders, setScannedProviders] = useState<DetectedProvider[]>([]);
+  const [scannedProviders, setScannedProviders] = useState<DetectedProvider[]>(
+    [],
+  );
   const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -411,7 +454,8 @@ export function useMiladyBar() {
   // Merge scanned results with onboarding-detected providers (scan wins on conflict)
   const detectedProviders = useMemo(() => {
     const byId = new Map<string, DetectedProvider>();
-    const onboarding = (onboardingDetectedProviders ?? []) as DetectedProvider[];
+    const onboarding = (onboardingDetectedProviders ??
+      []) as DetectedProvider[];
     for (const dp of onboarding) {
       byId.set(dp.id, dp);
     }
@@ -426,7 +470,9 @@ export function useMiladyBar() {
     (providerId: string, action: string) => {
       if (action === "test") {
         // Test connection by fetching models
-        void fetch(`/api/models?provider=${encodeURIComponent(providerId)}&refresh=true`)
+        void fetch(
+          `/api/models?provider=${encodeURIComponent(providerId)}&refresh=true`,
+        )
           .then(() => runValidatedScan())
           .catch(() => {});
       } else if (action === "enable" || action === "set-active") {
@@ -492,7 +538,13 @@ export function useMiladyBar() {
   const menu = useMemo(
     () =>
       buildTrayMenu({
-        plugins: (plugins ?? []) as Array<{ id: string; name: string; category: string; enabled: boolean; configured: boolean }>,
+        plugins: (plugins ?? []) as Array<{
+          id: string;
+          name: string;
+          category: string;
+          enabled: boolean;
+          configured: boolean;
+        }>,
         detectedProviders,
         agentStatus: (agentStatus as AgentStatusInfo | null) ?? null,
         lastRefreshAt,
@@ -502,7 +554,17 @@ export function useMiladyBar() {
         elizaCloudCredits: elizaCloudCredits ?? null,
         walletBalances,
       }),
-    [plugins, detectedProviders, agentStatus, lastRefreshAt, now, elizaCloudEnabled, elizaCloudConnected, elizaCloudCredits, walletBalances],
+    [
+      plugins,
+      detectedProviders,
+      agentStatus,
+      lastRefreshAt,
+      now,
+      elizaCloudEnabled,
+      elizaCloudConnected,
+      elizaCloudCredits,
+      walletBalances,
+    ],
   );
 
   // Push tray menu updates
@@ -519,7 +581,8 @@ export function useMiladyBar() {
   // Update tray tooltip with agent status
   useEffect(() => {
     if (!isDesktopPlatform()) return;
-    const state = (agentStatus as AgentStatusInfo | null)?.state ?? "not_started";
+    const state =
+      (agentStatus as AgentStatusInfo | null)?.state ?? "not_started";
     const name = (agentStatus as AgentStatusInfo | null)?.agentName ?? "Milady";
     const tooltip = `${name} — ${AGENT_STATE_LABELS[state] ?? state}`;
     void invokeDesktopBridgeRequest({

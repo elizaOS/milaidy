@@ -51,7 +51,9 @@ function isDesktopPlatform(): boolean {
 
 function isSettingsShell(): boolean {
   if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).get("shell") === "settings";
+  return (
+    new URLSearchParams(window.location.search).get("shell") === "settings"
+  );
 }
 
 function isWebPlatform(): boolean {

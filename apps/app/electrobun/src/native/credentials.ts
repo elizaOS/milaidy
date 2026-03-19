@@ -254,7 +254,9 @@ export async function scanProviderCredentials(): Promise<DetectedProvider[]> {
   return Array.from(detected.values());
 }
 
-export async function scanAndValidateProviderCredentials(): Promise<DetectedProvider[]> {
+export async function scanAndValidateProviderCredentials(): Promise<
+  DetectedProvider[]
+> {
   const providers = await scanProviderCredentials();
   return Promise.all(providers.map(validateProvider));
 }
@@ -263,14 +265,20 @@ export async function scanAndValidateProviderCredentials(): Promise<DetectedProv
  * Provider validation endpoints. Each entry maps a provider ID to its
  * models/health endpoint and how to pass the API key.
  */
-const VALIDATION_ENDPOINTS: Record<string, { url: string; authHeader: (key: string) => Record<string, string> }> = {
+const VALIDATION_ENDPOINTS: Record<
+  string,
+  { url: string; authHeader: (key: string) => Record<string, string> }
+> = {
   openai: {
     url: "https://api.openai.com/v1/models",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   anthropic: {
     url: "https://api.anthropic.com/v1/models",
-    authHeader: (key) => ({ "x-api-key": key, "anthropic-version": "2023-06-01" }),
+    authHeader: (key) => ({
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+    }),
   },
   groq: {
     url: "https://api.groq.com/openai/v1/models",
@@ -290,7 +298,9 @@ const VALIDATION_ENDPOINTS: Record<string, { url: string; authHeader: (key: stri
   },
 };
 
-async function validateProvider(p: DetectedProvider): Promise<DetectedProvider> {
+async function validateProvider(
+  p: DetectedProvider,
+): Promise<DetectedProvider> {
   if (!p.apiKey || p.authMode === "oauth") {
     return { ...p, status: "unchecked" };
   }
@@ -304,9 +314,14 @@ async function validateProvider(p: DetectedProvider): Promise<DetectedProvider> 
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) return { ...p, status: "valid" };
-    if (res.status === 401 || res.status === 403) return { ...p, status: "invalid", statusDetail: "API key rejected" };
+    if (res.status === 401 || res.status === 403)
+      return { ...p, status: "invalid", statusDetail: "API key rejected" };
     return { ...p, status: "error", statusDetail: `HTTP ${res.status}` };
   } catch (err) {
-    return { ...p, status: "error", statusDetail: err instanceof Error ? err.message : "Unknown error" };
+    return {
+      ...p,
+      status: "error",
+      statusDetail: err instanceof Error ? err.message : "Unknown error",
+    };
   }
 }

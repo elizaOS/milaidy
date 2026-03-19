@@ -12,7 +12,10 @@ import { Updater } from "electrobun/bun";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
-import { scanProviderCredentials, scanAndValidateProviderCredentials } from "./native/credentials";
+import {
+  scanAndValidateProviderCredentials,
+  scanProviderCredentials,
+} from "./native/credentials";
 import { getDesktopManager } from "./native/desktop";
 import { getGatewayDiscovery } from "./native/gateway";
 import { getGpuWindowManager } from "./native/gpu-window";
@@ -403,13 +406,19 @@ export function registerRpcHandlers(
 
     // ---- Credentials Auto-Detection ----
     credentialsScanProviders: async (params?: { context?: string }) => {
-      if (!params?.context || !["onboarding", "tray-refresh"].includes(params.context)) {
+      if (
+        !params?.context ||
+        !["onboarding", "tray-refresh"].includes(params.context)
+      ) {
         throw new Error("credentials:scanProviders requires a valid context");
       }
       return { providers: await scanProviderCredentials() };
     },
     credentialsScanAndValidate: async (params?: { context?: string }) => {
-      if (!params?.context || !["onboarding", "tray-refresh"].includes(params.context)) {
+      if (
+        !params?.context ||
+        !["onboarding", "tray-refresh"].includes(params.context)
+      ) {
         throw new Error("credentialsScanAndValidate requires a valid context");
       }
       return { providers: await scanAndValidateProviderCredentials() };
