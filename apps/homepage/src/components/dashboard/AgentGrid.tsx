@@ -1,10 +1,7 @@
 import { useCallback, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
-import { getToken } from "../../lib/auth";
-import {
-  openWebUIDirect,
-  openWebUIWithLaunchToken,
-} from "../../lib/open-web-ui";
+import { isAuthenticated } from "../../lib/auth";
+import { openWebUI } from "../../lib/open-web-ui";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 import { CreateAgentForm } from "./CreateAgentForm";
@@ -151,19 +148,7 @@ export function AgentGrid() {
                 onOpenUI={() => {
                   const url = getWebUIUrl(agent);
                   if (!url) return;
-
-                  // Non-local agents: if user is authenticated, request a
-                  // signed launch token from the VPS. The VPS validates the
-                  // cloud session and returns an HMAC-signed token.
-                  const cloudToken = getToken();
-                  if (agent.source !== "local" && cloudToken) {
-                    openWebUIWithLaunchToken(url, cloudToken);
-                    return;
-                  }
-
-                  // Local agents or unauthenticated: open directly
-                  // (user will see pairing screen if auth is required)
-                  openWebUIDirect(url);
+                  openWebUI(url, agent.source);
                 }}
                 selected={selectedId === agent.id}
               />
