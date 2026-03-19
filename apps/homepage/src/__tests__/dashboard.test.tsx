@@ -9,9 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentCard } from "../components/dashboard/AgentCard";
 import { AgentDetail } from "../components/dashboard/AgentDetail";
 import { ConnectionModal } from "../components/dashboard/ConnectionModal";
+import { CreateAgentForm } from "../components/dashboard/CreateAgentForm";
 import { LogsPanel } from "../components/dashboard/LogsPanel";
 import { MetricsPanel } from "../components/dashboard/MetricsPanel";
 import { Sidebar } from "../components/dashboard/Sidebar";
+import * as auth from "../lib/auth";
 import type { AgentStatus } from "../lib/cloud-api";
 
 vi.mock("../lib/AgentProvider", () => ({
@@ -42,6 +44,7 @@ beforeEach(() => localStorage.clear());
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  vi.useRealTimers();
 });
 
 /* ------------------------------------------------------------------ */
@@ -242,27 +245,20 @@ describe("LogsPanel", () => {
 /*  ExportPanel                                                       */
 /* ------------------------------------------------------------------ */
 describe("ExportPanel", () => {
-  it("renders password input and export/import buttons", async () => {
+  it("renders snapshot actions and empty state", async () => {
     const { ExportPanel } = await import("../components/dashboard/ExportPanel");
     const { container } = render(<ExportPanel connectionId="local-default" />);
     const text = container.textContent ?? "";
-    expect(text).toContain("Password");
-    expect(screen.getByText("Export Agent")).toBeTruthy();
-    expect(screen.getByText("Import Agent")).toBeTruthy();
+    expect(text).toContain("Cloud Snapshots");
+    expect(screen.getByText("Take Snapshot")).toBeTruthy();
+    expect(screen.getByText("No backups yet.")).toBeTruthy();
   });
 
-  it("Export button is disabled when password < 4 chars", async () => {
+  it("shows the snapshot action as enabled", async () => {
     const { ExportPanel } = await import("../components/dashboard/ExportPanel");
     render(<ExportPanel connectionId="local-default" />);
-    const exportBtn = screen.getByText("Export Agent");
-    expect(exportBtn).toBeDisabled();
-
-    const pwInput = screen.getByLabelText("Password (min 4 chars)");
-    fireEvent.change(pwInput, { target: { value: "abc" } });
-    expect(screen.getByText("Export Agent")).toBeDisabled();
-
-    fireEvent.change(pwInput, { target: { value: "abcd" } });
-    expect(screen.getByText("Export Agent")).not.toBeDisabled();
+    const snapshotBtn = screen.getByText("Take Snapshot");
+    expect(snapshotBtn).not.toBeDisabled();
   });
 });
 
@@ -347,7 +343,7 @@ describe("AgentDetail", () => {
       />,
     );
     fireEvent.click(screen.getByText("Snapshots"));
-    expect(screen.getByText("Export Agent")).toBeTruthy();
+    expect(screen.getByText("Take Snapshot")).toBeTruthy();
   });
 });
 
@@ -530,5 +526,53 @@ describe("AuthGate", () => {
     });
     expect(result?.queryByText("Sign in with Eliza Cloud")).toBeNull();
     expect(result?.getByText("child")).toBeTruthy();
+  });
+});
+
+describe("CreateAgentForm", () => {
+  it("shows a Sign In button for unauthenticated users", () => {
+    vi.spyOn(auth, "isAuthenticated").mockReturnValue(false);
+
+    render(<CreateAgentForm onCreated={vi.fn()} onCancel={vi.fn()} />);
+
+    expect(screen.getByText("Sign In")).toBeTruthy();
+    expect(screen.queryByLabelText("Agent Name")).toBeNull();
+  });
+
+  it("reuses the cloud sign-in flow and completes auth polling", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(auth, "isAuthenticated").mockReturnValue(false);
+    const loginSpy = vi.spyOn(auth, "cloudLogin").mockResolvedValue({
+      sessionId: "test-session",
+      browserUrl: "https://cloud.example/auth",
+    });
+    const pollSpy = vi.spyOn(auth, "cloudLoginPoll").mockResolvedValue({
+      status: "authenticated",
+      apiKey: "test-key",
+    });
+    const openSpy = vi
+      .spyOn(window, "open")
+      .mockImplementation(() => ({ closed: false }) as Window);
+
+    render(<CreateAgentForm onCreated={vi.fn()} onCancel={vi.fn()} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Sign In"));
+      await Promise.resolve();
+    });
+
+    expect(loginSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://cloud.example/auth",
+      "_blank",
+      "noopener,noreferrer",
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    expect(pollSpy).toHaveBeenCalledWith("test-session");
+    expect(auth.getToken()).toBe("test-key");
   });
 });

@@ -5,6 +5,13 @@ import {
   LEGACY_CLOUD_TOKEN_STORAGE_KEY,
 } from "./runtime-config";
 
+export const CLOUD_AUTH_CHANGED_EVENT = "milady-cloud-auth-changed";
+
+function emitAuthChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(CLOUD_AUTH_CHANGED_EVENT));
+}
+
 function getActiveTokenStorageKey(): string {
   return getCloudTokenStorageKey();
 }
@@ -21,11 +28,13 @@ export function getToken(): string | null {
 export function setToken(token: string): void {
   localStorage.setItem(getActiveTokenStorageKey(), token);
   localStorage.removeItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY);
+  emitAuthChanged();
 }
 
 export function clearToken(): void {
   localStorage.removeItem(getActiveTokenStorageKey());
   localStorage.removeItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY);
+  emitAuthChanged();
 }
 
 export function isAuthenticated(): boolean {
