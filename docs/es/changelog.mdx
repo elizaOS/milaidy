@@ -3,6 +3,63 @@ title: Registro de cambios
 description: Novedades en Milady — funcionalidades, mejoras y correcciones.
 ---
 
+<Update label="2026-05-14" description="Semana del 8 al 14 de mayo" tags={["Feature", "Update"]}>
+<div id="media-generation">
+## Generación de medios
+</div>
+
+Tu agente ahora puede generar imágenes, videos y audio — y analizar imágenes con visión de IA — todo desde el chat. Cuatro nuevas acciones están disponibles: `GENERATE_IMAGE`, `GENERATE_VIDEO`, `GENERATE_AUDIO` y `ANALYZE_IMAGE`. Cada una admite múltiples backends de proveedores, incluyendo FAL.ai, OpenAI, Google, xAI y Eliza Cloud. Elige entre el modo cloud (sin necesidad de clave API) y el modo trae-tu-propia-clave por tipo de medio. Una galería multimedia en el panel te permite explorar todo lo que tu agente ha creado. Consulta la [guía de generación de medios](/es/guides/media-generation) para más detalles.
+
+<div id="event-hooks">
+## Hooks de eventos
+</div>
+
+Ahora puedes extender tu agente con hooks basados en eventos que responden a comandos, eventos de sesión, eventos del ciclo de vida del agente y eventos de gateway. Los hooks se cargan desde disco al inicio — cada hook es un directorio con una configuración frontmatter y un módulo controlador. Usa hooks para agregar comportamiento personalizado sin modificar el código central. Consulta la [guía de hooks](/es/guides/hooks) para más detalles.
+
+<div id="config-includes">
+## Inclusiones de configuración
+</div>
+
+Divide la configuración de tu agente en múltiples archivos con la directiva `$include`. Compón configuraciones base compartidas, separa ajustes específicos por entorno y mantén las configuraciones grandes organizadas. Las claves locales anulan las claves incluidas, para que puedas superponer sobrecargas de forma limpia. Consulta la [guía de inclusiones de configuración](/es/guides/config-includes) para más detalles.
+
+<div id="plugin-eject-system">
+## Sistema de expulsión de plugins
+</div>
+
+Ahora puedes clonar el código fuente de cualquier plugin localmente, editarlo y hacer que el runtime cargue tu versión en lugar del paquete npm. El sistema de expulsión admite la sincronización con cambios upstream, la contribución de ediciones mediante pull requests y la reversión al original en cualquier momento. Pídele a tu agente que expulse un plugin o usa la CLI. Consulta la [guía de expulsión de plugins](/es/plugins/plugin-eject) para más detalles.
+
+<div id="skills-marketplace-with-security-review">
+## Marketplace de habilidades con revisión de seguridad
+</div>
+
+La vista de habilidades ahora incluye un marketplace respaldado por el registro clawhub.ai. Explora, busca e instala habilidades directamente desde el panel. Un sistema de revisión de seguridad integrado escanea las habilidades instaladas y señala problemas — las habilidades en cuarentena se marcan visualmente y las habilidades bloqueadas no se pueden habilitar hasta que sean revisadas.
+
+<div id="six-more-platform-connectors">
+## Seis conectores de plataforma más
+</div>
+
+Tu agente ahora puede conectarse a seis plataformas adicionales:
+
+- **Feishu / Lark** — bots, chats y notificaciones de flujos de trabajo.
+- **Twilio** — mensajería de voz y SMS.
+- **Twitch** — integración de chat en vivo.
+- **Gmail Watch** — monitoreo de correo electrónico Pub/Sub con renovación automática.
+- **Linear** — integración de seguimiento de incidencias.
+- **Zalo** — mensajería en la plataforma de chat más grande de Vietnam.
+
+Instala cualquier conector con `milady plugins install <name>` y configúralo en tus [ajustes sociales](/es/guides/connectors).
+
+<div id="updates">
+## Actualizaciones
+</div>
+
+- **Palabra de activación por voz** — Ahora puedes configurar una palabra de activación (predeterminada: "milady") para que tu agente escuche una frase de activación antes de responder. Ajusta la sensibilidad y el tamaño del modelo Whisper desde el panel de ajustes de voz.
+- **Instalar plugins desde el chat** — Pídele a tu agente que instale un plugin por nombre (por ejemplo, "install the discord plugin") y se encarga de la descarga, instalación y reinicio automáticamente.
+- **Nivel de registro en tiempo de ejecución** — Cambia la verbosidad de los registros de tu agente en tiempo de ejecución pidiéndole que "set log level to debug" (o trace, info, warn, error) sin reiniciar.
+- **Plantillas de configuración** — Ocho plantillas de configuración listas para producción ahora están disponibles para escenarios de despliegue comunes — configuración mínima, bot de Discord, multi-modelo y más. Consulta la [guía de plantillas de configuración](/es/guides/config-templates).
+- **Temas y avatares del panel** — Seis temas visuales y ocho avatares 3D VRM integrados con 29 emotes en seis categorías. Los temas controlan colores, tipografía, bordes y animaciones en todo el panel. Consulta la [guía de temas](/es/guides/themes).
+</Update>
+
 <Update label="2026-05-07" description="Semana del 1 al 7 de mayo" tags={["Feature", "Update"]}>
 <div id="agent-export-and-import">
 ## Exportación e importación de agentes

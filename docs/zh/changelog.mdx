@@ -3,6 +3,63 @@ title: 更新日志
 description: Milady 的最新动态——新功能、改进和修复。
 ---
 
+<Update label="2026-05-14" description="5月8日至14日当周" tags={["Feature", "Update"]}>
+<div id="media-generation">
+## 媒体生成
+</div>
+
+您的代理现在可以生成图像、视频和音频——并使用 AI 视觉分析图像——全部通过聊天完成。四个新操作现已可用：`GENERATE_IMAGE`、`GENERATE_VIDEO`、`GENERATE_AUDIO` 和 `ANALYZE_IMAGE`。每个操作支持多个提供商后端，包括 FAL.ai、OpenAI、Google、xAI 和 Eliza Cloud。按媒体类型在云模式（无需 API 密钥）和自带密钥模式之间选择。仪表板中的媒体库让您可以浏览代理创建的所有内容。详情请参阅[媒体生成指南](/zh/guides/media-generation)。
+
+<div id="event-hooks">
+## 事件钩子
+</div>
+
+您现在可以使用事件驱动的钩子来扩展代理，这些钩子可响应命令、会话事件、代理生命周期事件和网关事件。钩子在启动时从磁盘加载——每个钩子是一个包含 frontmatter 配置和处理程序模块的目录。使用钩子添加自定义行为，无需修改核心代码。详情请参阅[钩子指南](/zh/guides/hooks)。
+
+<div id="config-includes">
+## 配置包含
+</div>
+
+使用 `$include` 指令将代理配置拆分到多个文件中。组合共享基础配置、分离特定环境的设置，并保持大型配置的条理性。本地键会覆盖包含的键，因此您可以干净地叠加覆盖。详情请参阅[配置包含指南](/zh/guides/config-includes)。
+
+<div id="plugin-eject-system">
+## 插件弹出系统
+</div>
+
+您现在可以在本地克隆任何插件的源代码，编辑它，并让运行时加载您的版本而不是 npm 包。弹出系统支持与上游更改同步、通过 pull request 贡献编辑以及随时恢复到原始版本。让您的代理弹出插件或使用 CLI。详情请参阅[插件弹出指南](/zh/plugins/plugin-eject)。
+
+<div id="skills-marketplace-with-security-review">
+## 带安全审查的技能市场
+</div>
+
+技能视图现在包含一个由 clawhub.ai 注册表支持的市场。直接从仪表板浏览、搜索和安装技能。内置的安全审查系统会扫描已安装的技能并标记问题——被隔离的技能会有视觉标记，被阻止的技能在审查通过前无法启用。
+
+<div id="six-more-platform-connectors">
+## 六个新平台连接器
+</div>
+
+您的代理现在可以连接到六个额外的平台：
+
+- **飞书 / Lark** — 机器人、聊天和工作流通知。
+- **Twilio** — 语音和短信消息。
+- **Twitch** — 直播聊天集成。
+- **Gmail Watch** — Pub/Sub 邮件监控，支持自动续期。
+- **Linear** — 问题跟踪集成。
+- **Zalo** — 越南最大聊天平台上的消息服务。
+
+使用 `milady plugins install <name>` 安装任何连接器，并在[社交设置](/zh/guides/connectors)中进行配置。
+
+<div id="updates">
+## 更新
+</div>
+
+- **语音唤醒词** — 您现在可以配置唤醒词（默认："milady"），让代理在响应前先监听触发短语。从语音设置面板调整灵敏度和 Whisper 模型大小。
+- **从聊天中安装插件** — 让代理按名称安装插件（例如，"install the discord plugin"），它会自动处理下载、安装和重启。
+- **运行时日志级别** — 通过让代理"set log level to debug"（或 trace、info、warn、error）在运行时更改日志详细程度，无需重启。
+- **配置模板** — 八个生产就绪的配置模板现已可用于常见部署场景——最小设置、Discord 机器人、多模型等。请参阅[配置模板指南](/zh/guides/config-templates)。
+- **仪表板主题和头像** — 六个视觉主题和八个内置 3D VRM 头像，包含六个类别中的 29 个表情。主题控制整个仪表板的颜色、排版、边框和动画。请参阅[主题指南](/zh/guides/themes)。
+</Update>
+
 <Update label="2026-05-07" description="5月1日至7日当周" tags={["Feature", "Update"]}>
 <div id="agent-export-and-import">
 ## 代理导出与导入
