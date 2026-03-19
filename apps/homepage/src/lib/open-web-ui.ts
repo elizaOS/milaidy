@@ -40,7 +40,10 @@ async function fetchPairingRedirectUrl(
     throw new Error("No redirectUrl in pairing-token response");
   }
 
-  return rewriteAgentUiUrl(redirectUrl);
+  // Don't rewrite the redirect URL — the cloud pairing token is scoped to the
+  // domain in the redirect URL (waifu.fun). Rewriting to milady.ai causes the
+  // cloud backend to reject the token because the Origin header doesn't match.
+  return redirectUrl;
 }
 
 /**

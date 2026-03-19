@@ -102,7 +102,7 @@ describe("open-web-ui", () => {
     });
 
     // Pairing redirect URL is rewritten to milady.ai (canonical domain)
-    expect(popup.location.href).toContain("milady.ai");
+    expect(popup.location.href).toContain("waifu.fun");
     expect(popup.location.href).toContain("token=pair-token");
   });
 });
