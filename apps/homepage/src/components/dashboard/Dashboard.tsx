@@ -19,12 +19,12 @@ export function Dashboard() {
         data-testid="dashboard"
         className="min-h-screen bg-dark text-text-light"
       >
-        <div className="pt-[72px] flex min-h-screen">
+        <div className="pt-[56px] md:pt-[72px] flex min-h-screen flex-col md:flex-row">
           <Sidebar active={section} onChange={setSection} />
           <div className="flex-1 flex flex-col min-w-0">
             <SourceBar />
             <CloudLoginPrompt />
-            <main className="flex-1 px-6 md:px-8 py-6">
+            <main className="flex-1 px-4 sm:px-5 md:px-8 py-4 sm:py-6">
               <DashboardContent section={section} />
             </main>
           </div>

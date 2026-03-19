@@ -15,7 +15,7 @@ import path from "node:path";
 const runs = [
   {
     name: "unit",
-    args: ["vitest", "run", "--config", "vitest.unit.config.ts"],
+    args: ["vitest", "run", "--config", "vitest.config.ts"],
     vitest: true,
     reportFile: path.join(os.tmpdir(), "milady-vitest-unit-report.json"),
   },

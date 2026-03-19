@@ -16,7 +16,7 @@ const OUTPUT_PATH = path.resolve(
 const RELEASES_URL = `https://api.github.com/repos/${REPOSITORY}/releases?per_page=20`;
 const RELEASES_PAGE_URL = `https://github.com/${REPOSITORY}/releases`;
 
-const installBaseUrl = "https://eliza.ai";
+const installBaseUrl = "https://milady.ai";
 const scripts = {
   shell: {
     url: `${installBaseUrl}/install.sh`,

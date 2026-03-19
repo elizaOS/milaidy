@@ -207,6 +207,7 @@ export function CharacterEditor({
 
   const handleFieldEdit = useCallback(
     (field: string, value: unknown) => {
+      if (!suppressDirtyRef.current) setFieldsEdited(true);
       // biome-ignore lint/suspicious/noExplicitAny: typed field key interop
       handleCharacterFieldInput(field as any, value as any);
     },
@@ -215,6 +216,7 @@ export function CharacterEditor({
 
   const handleStyleEdit = useCallback(
     (key: string, value: string) => {
+      if (!suppressDirtyRef.current) setFieldsEdited(true);
       // biome-ignore lint/suspicious/noExplicitAny: typed field key interop
       handleCharacterStyleInput(key as any, value);
     },
@@ -250,6 +252,12 @@ export function CharacterEditor({
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
   );
+  /** The character ID that was last saved or loaded from the server. */
+  const [savedCharacterId, setSavedCharacterId] = useState<string | null>(null);
+  /** Tracks whether character fields have been edited since last save/load. */
+  const [fieldsEdited, setFieldsEdited] = useState(false);
+  /** Ref to suppress dirty-tracking during programmatic field updates. */
+  const suppressDirtyRef = useRef(false);
   const [rosterStyles, setRosterStyles] = useState<OnboardingPreset[]>(
     // biome-ignore lint/suspicious/noExplicitAny: onboardingOptions is untyped API response
     (onboardingOptions as any)?.styles ?? [],
@@ -317,6 +325,21 @@ export function CharacterEditor({
     if (byName) return byName;
     return characterRoster[0] ?? null;
   })();
+
+  /* ── Seed savedCharacterId from server data on first load ────────── */
+  useEffect(() => {
+    if (savedCharacterId) return; // already set
+    if (!activeCharacterRosterEntry) return;
+    // Only set when derived from server data (no user selection yet)
+    if (!selectedCharacterId) {
+      setSavedCharacterId(activeCharacterRosterEntry.id);
+    }
+  }, [activeCharacterRosterEntry, savedCharacterId, selectedCharacterId]);
+
+  /** True when the user has made changes that haven't been saved yet. */
+  const hasPendingChanges =
+    fieldsEdited ||
+    (selectedCharacterId !== null && selectedCharacterId !== savedCharacterId);
 
   /* ── Load voice config on mount ─────────────────────────────────── */
   useEffect(() => {
@@ -446,7 +469,12 @@ export function CharacterEditor({
       return;
     const entry = activeCharacterRosterEntry ?? characterRoster[0] ?? null;
     if (!entry) return;
+    // Suppress dirty-tracking during programmatic auto-select
+    suppressDirtyRef.current = true;
     commitCharacterSelection(entry, true);
+    suppressDirtyRef.current = false;
+    // Mark this auto-selection as the saved baseline (not a user change)
+    setSavedCharacterId(entry.id);
   }, [
     characterLoading,
     characterRoster,
@@ -518,7 +546,10 @@ export function CharacterEditor({
     }
     setVoiceSaving(false);
     await handleSaveCharacter();
-  }, [handleSaveCharacter, persistVoiceConfig]);
+    // Mark the current selection as saved
+    setSavedCharacterId(selectedCharacterId ?? activeCharacterRosterEntry?.id ?? null);
+    setFieldsEdited(false);
+  }, [handleSaveCharacter, persistVoiceConfig, selectedCharacterId, activeCharacterRosterEntry]);
 
   /* ── Reset to defaults ──────────────────────────────────────────── */
   const handleResetToDefaults = useCallback(() => {
@@ -698,7 +729,7 @@ export function CharacterEditor({
         <div className="ce-roster-wrap">
           <CharacterRoster
             entries={characterRoster}
-            selectedId={selectedCharacterId}
+            selectedId={selectedCharacterId ?? activeCharacterRosterEntry?.id ?? null}
             onSelect={handleSelectCharacter}
           />
         </div>
@@ -1202,11 +1233,11 @@ export function CharacterEditor({
         )}
 
         <div className="ce-footer-actions">
-          {/* Save Character */}
+          {/* Save Character — centered; transparent when nothing to save */}
           <Button
             size="sm"
-            className="ce-save-btn"
-            disabled={characterSaving || voiceSaving}
+            className={`ce-save-btn ${!hasPendingChanges ? "ce-save-btn--idle" : ""}`}
+            disabled={characterSaving || voiceSaving || !hasPendingChanges}
             onClick={() => void handleSaveAll()}
           >
             {characterSaving || voiceSaving ? "saving..." : "Save"}
@@ -1218,7 +1249,7 @@ export function CharacterEditor({
               type="button"
               variant="default"
               size="sm"
-              className="ce-save-btn"
+              className="ce-save-btn ce-save-btn--secondary"
               onClick={() => {
                 setCustomizing(false);
                 setTab("character-select");
@@ -1228,7 +1259,7 @@ export function CharacterEditor({
             </Button>
           )}
 
-          {/* Customize Character — only in roster view */}
+          {/* Customize Character — only in roster view, positioned right */}
           {!customizing && (
             <Button
               type="button"

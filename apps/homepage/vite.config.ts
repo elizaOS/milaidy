@@ -8,7 +8,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   root: here,
-  base: "./",
+  base: "/",
   publicDir: path.resolve(here, "public"),
   plugins: [tailwindcss(), react()],
   build: {

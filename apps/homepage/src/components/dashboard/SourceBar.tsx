@@ -22,47 +22,48 @@ export function SourceBar() {
   const authed = isAuthenticated();
 
   return (
-    <div className="px-6 md:px-8 py-3 border-b border-border flex items-center gap-5 text-xs">
-      {/* Source filter tabs */}
-      <div className="flex items-center gap-1">
-        <SourceTab
-          label="All"
-          count={agents.length}
-          active={sourceFilter === "all"}
-          onClick={() => setSourceFilter("all")}
-        />
-        <SourceTab
-          label="Local"
-          count={localCount}
-          active={sourceFilter === "local"}
-          onClick={() => setSourceFilter("local")}
-          dotColor={localCount > 0 ? "bg-emerald-400" : "bg-text-muted/30"}
-        />
-        {authed && (
+    <div className="px-4 sm:px-5 md:px-8 py-3 border-b border-border flex flex-wrap items-center gap-3 text-xs">
+      <div className="order-2 md:order-1 w-full md:w-auto overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-max">
           <SourceTab
-            label="Cloud"
-            count={cloudCount}
-            active={sourceFilter === "cloud"}
-            onClick={() => setSourceFilter("cloud")}
-            dotColor={cloudCount > 0 ? "bg-emerald-400" : "bg-amber-400"}
+            label="All"
+            count={agents.length}
+            active={sourceFilter === "all"}
+            onClick={() => setSourceFilter("all")}
           />
-        )}
-        {remoteCount > 0 && (
           <SourceTab
-            label="Remote"
-            count={remoteCount}
-            active={sourceFilter === "remote"}
-            onClick={() => setSourceFilter("remote")}
-            dotColor="bg-emerald-400"
+            label="Local"
+            count={localCount}
+            active={sourceFilter === "local"}
+            onClick={() => setSourceFilter("local")}
+            dotColor={localCount > 0 ? "bg-emerald-400" : "bg-text-muted/30"}
           />
-        )}
+          {authed && (
+            <SourceTab
+              label="Cloud"
+              count={cloudCount}
+              active={sourceFilter === "cloud"}
+              onClick={() => setSourceFilter("cloud")}
+              dotColor={cloudCount > 0 ? "bg-emerald-400" : "bg-amber-400"}
+            />
+          )}
+          {remoteCount > 0 && (
+            <SourceTab
+              label="Remote"
+              count={remoteCount}
+              active={sourceFilter === "remote"}
+              onClick={() => setSourceFilter("remote")}
+              dotColor="bg-emerald-400"
+            />
+          )}
+        </div>
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="order-1 md:order-2 ml-auto flex items-center gap-2">
         <button
           type="button"
           onClick={() => setShowAddRemote(true)}
-          className="text-text-muted hover:text-text-light px-3 py-1.5 rounded-lg
+          className="text-text-muted hover:text-text-light px-3 py-2 rounded-lg
             hover:bg-surface transition-all duration-150 text-xs"
         >
           + Connect
@@ -70,7 +71,7 @@ export function SourceBar() {
         <button
           type="button"
           onClick={() => refresh()}
-          className={`text-text-muted hover:text-text-light px-3 py-1.5 rounded-lg
+          className={`text-text-muted hover:text-text-light px-3 py-2 rounded-lg
             hover:bg-surface transition-all duration-150 text-xs
             ${loading ? "animate-pulse" : ""}`}
         >
@@ -108,7 +109,7 @@ function SourceTab({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 ${
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all duration-150 ${
         active
           ? "bg-surface text-text-light"
           : "text-text-muted hover:text-text-light hover:bg-surface/50"

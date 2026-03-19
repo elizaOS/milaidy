@@ -12,92 +12,17 @@ import {
 
 const ONBOARDING_STEP_STORAGE_KEY = "eliza:onboarding:step";
 
-const { mockClient } = vi.hoisted(() => ({
-  mockClient: {
-    hasToken: vi.fn(() => false),
-    setToken: vi.fn(),
-    getAuthStatus: vi.fn(async () => ({
-      required: false,
-      pairingEnabled: false,
-      expiresAt: null,
-    })),
-    getOnboardingStatus: vi.fn(async () => ({ complete: false })),
-    getOnboardingOptions: vi.fn(async () => ({
-      names: ["Milady"],
-      styles: [
-        {
-          catchphrase: "chaotic",
-          hint: "chaotic good",
-          bio: ["bio"],
-          system: "You are {{name}}",
-          style: { all: ["all"], chat: ["chat"], post: ["post"] },
-          adjectives: ["curious"],
-          postExamples: ["example"],
-          messageExamples: [[{ name: "Milady", content: { text: "hello" } }]],
-        },
-      ],
-      providers: [],
-      cloudProviders: [],
-      models: { small: [], large: [] },
-      sharedStyleRules: "",
-    })),
-    listConversations: vi.fn(async () => ({
-      conversations: [
-        {
-          id: "conv-1",
-          title: "Chat",
-          roomId: "room-1",
-          createdAt: "2026-02-01T00:00:00.000Z",
-          updatedAt: "2026-02-01T00:00:00.000Z",
-        },
-      ],
-    })),
-    getConversationMessages: vi.fn(async () => ({
-      messages: [
-        {
-          id: "msg-1",
-          role: "assistant",
-          text: "hello",
-          timestamp: Date.now(),
-        },
-      ],
-    })),
-    sendWsMessage: vi.fn(),
-    connectWs: vi.fn(),
-    disconnectWs: vi.fn(),
-    onWsEvent: vi.fn(() => () => {}),
-    getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
-    getStatus: vi.fn(async () => ({
-      state: "running",
-      agentName: "Milady",
-      model: undefined,
-      startedAt: undefined,
-      uptime: undefined,
-    })),
-    restartAgent: vi.fn(async () => ({
-      state: "running",
-      agentName: "Milady",
-      model: undefined,
-      startedAt: undefined,
-      uptime: undefined,
-    })),
-    getWalletAddresses: vi.fn(async () => null),
-    getConfig: vi.fn(async () => ({})),
-    submitOnboarding: vi.fn(async () => undefined),
-    getCloudStatus: vi.fn(async () => ({ enabled: false, connected: false })),
-    getCodingAgentStatus: vi.fn(async () => null),
-    getWorkbenchOverview: vi.fn(async () => ({
-      tasks: [],
-      triggers: [],
-      todos: [],
-    })),
-  },
-}));
+import { client, type MiladyClient } from "@elizaos/app-core/api/client";
 
-vi.mock("@elizaos/app-core/api", () => ({
-  client: mockClient,
-  SkillScanReportSummary: {},
-}));
+// We use vi.spyOn against the real client singleton instead of a module mock,
+// because AppContext imports client via a relative path that vi.mock might not intercept.
+vi.mock("@elizaos/app-core/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@elizaos/app-core/api/client")>();
+  return {
+    ...actual,
+    SkillScanReportSummary: {},
+  };
+});
 
 import type { OnboardingStep } from "@elizaos/app-core/state";
 import { AppProvider, useApp } from "@elizaos/app-core/state";
@@ -114,6 +39,8 @@ type ProbeApi = {
 
 function Probe({ onReady }: { onReady: (api: ProbeApi) => void }) {
   const app = useApp();
+  console.log("PROBE RENDER:", app.onboardingLoading, app.onboardingStep, app.onboardingRunMode, app.onboardingCloudProvider);
+  console.log("APP STATE:", app.startupPhase, app.startupStatus, app.startupError);
 
   useEffect(() => {
     onReady({
@@ -140,9 +67,14 @@ async function flushEffects() {
   await act(async () => {
     await Promise.resolve();
   });
+  // Extra yield for macro tasks
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("AppProvider onboarding step resume", () => {
+  let getAuthStatusSpy: any;
+  let getOnboardingStatusSpy: any;
+
   beforeEach(() => {
     Object.assign(window, {
       clearInterval: globalThis.clearInterval,
@@ -152,27 +84,29 @@ describe("AppProvider onboarding step resume", () => {
     });
     Object.assign(document.documentElement, { setAttribute: vi.fn() });
     localStorage.clear();
-    // The startup flow skips backend polling (and the getConfig call) when
-    // neither a persisted connection mode nor an API base is present. Set the
-    // API base so the startup reaches the onboarding-options/config fetch.
-    (window as Record<string, unknown>).__MILADY_API_BASE__ =
-      "http://localhost:31337";
+    (window as unknown as Record<string, unknown>).__MILADY_API_BASE__ =
+      "https://api.elizacloud.ai";
+    sessionStorage.setItem("eliza:api_base", "https://api.elizacloud.ai");
 
-    for (const fn of Object.values(mockClient)) {
-      if (typeof fn === "function" && "mockReset" in fn) {
-        (fn as { mockReset: () => void }).mockReset();
+    // Reset all spies on the client
+    for (const key of Object.keys(client) as Array<keyof MiladyClient>) {
+      const fn = client[key];
+      if (typeof fn === "function" && "mockRestore" in fn) {
+        (fn as { mockRestore: () => void }).mockRestore();
       }
     }
 
-    mockClient.hasToken.mockReturnValue(false);
-    mockClient.setToken.mockImplementation(() => {});
-    mockClient.getAuthStatus.mockResolvedValue({
+    vi.spyOn(client, "hasToken").mockReturnValue(false);
+    vi.spyOn(client, "setToken").mockImplementation(() => {});
+    getAuthStatusSpy = vi.spyOn(client, "getAuthStatus").mockResolvedValue({
       required: false,
       pairingEnabled: false,
       expiresAt: null,
     });
-    mockClient.getOnboardingStatus.mockResolvedValue({ complete: false });
-    mockClient.getOnboardingOptions.mockResolvedValue({
+    getOnboardingStatusSpy = vi.spyOn(client, "getOnboardingStatus").mockResolvedValue({
+      complete: false,
+    });
+    vi.spyOn(client, "getOnboardingOptions").mockResolvedValue({
       names: ["Milady"],
       styles: [
         {
@@ -183,15 +117,16 @@ describe("AppProvider onboarding step resume", () => {
           style: { all: ["all"], chat: ["chat"], post: ["post"] },
           adjectives: ["curious"],
           postExamples: ["example"],
-          messageExamples: [[{ name: "Milady", content: { text: "hello" } }]],
+          messageExamples: [[{ user: "Milady", content: { text: "hello" } }]],
         },
       ],
       providers: [],
+      inventoryProviders: [],
       cloudProviders: [],
       models: { small: [], large: [] },
       sharedStyleRules: "",
     });
-    mockClient.listConversations.mockResolvedValue({
+    vi.spyOn(client, "listConversations").mockResolvedValue({
       conversations: [
         {
           id: "conv-1",
@@ -202,7 +137,7 @@ describe("AppProvider onboarding step resume", () => {
         },
       ],
     });
-    mockClient.getConversationMessages.mockResolvedValue({
+    vi.spyOn(client, "getConversationMessages").mockResolvedValue({
       messages: [
         {
           id: "msg-1",
@@ -212,37 +147,39 @@ describe("AppProvider onboarding step resume", () => {
         },
       ],
     });
-    mockClient.sendWsMessage.mockImplementation(() => {});
-    mockClient.connectWs.mockImplementation(() => {});
-    mockClient.disconnectWs.mockImplementation(() => {});
-    mockClient.onWsEvent.mockReturnValue(() => {});
-    mockClient.getAgentEvents.mockResolvedValue({
+    vi.spyOn(client, "sendWsMessage").mockImplementation(() => {});
+    vi.spyOn(client, "connectWs").mockImplementation(() => {});
+    vi.spyOn(client, "disconnectWs").mockImplementation(() => {});
+    vi.spyOn(client, "onWsEvent").mockReturnValue(() => {});
+    vi.spyOn(client, "getAgentEvents").mockResolvedValue({
       events: [],
       latestEventId: null,
+      totalBuffered: 0,
+      replayed: false,
     });
-    mockClient.getStatus.mockResolvedValue({
+    vi.spyOn(client, "getStatus").mockResolvedValue({
       state: "running",
       agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
     });
-    mockClient.restartAgent.mockResolvedValue({
+    vi.spyOn(client, "restartAgent").mockResolvedValue({
       state: "running",
       agentName: "Milady",
       model: undefined,
       startedAt: undefined,
       uptime: undefined,
     });
-    mockClient.getWalletAddresses.mockResolvedValue(null);
-    mockClient.getConfig.mockResolvedValue({});
-    mockClient.submitOnboarding.mockResolvedValue(undefined);
-    mockClient.getCloudStatus.mockResolvedValue({
+    vi.spyOn(client, "getWalletAddresses").mockResolvedValue(null as any);
+    vi.spyOn(client, "getConfig").mockResolvedValue({});
+    vi.spyOn(client, "submitOnboarding").mockResolvedValue(undefined);
+    vi.spyOn(client, "getCloudStatus").mockResolvedValue({
       enabled: false,
       connected: false,
     });
-    mockClient.getCodingAgentStatus.mockResolvedValue(null);
-    mockClient.getWorkbenchOverview.mockResolvedValue({
+    vi.spyOn(client, "getCodingAgentStatus").mockResolvedValue(null);
+    vi.spyOn(client, "getWorkbenchOverview").mockResolvedValue({
       tasks: [],
       triggers: [],
       todos: [],
@@ -251,7 +188,7 @@ describe("AppProvider onboarding step resume", () => {
   });
 
   it("reopens on senses when partial onboarding connection config already exists", async () => {
-    mockClient.getConfig.mockResolvedValue({
+    const getConfigSpy = vi.spyOn(client, "getConfig").mockResolvedValue({
       cloud: { enabled: true, apiKey: "sk-test" },
     });
 
@@ -272,8 +209,8 @@ describe("AppProvider onboarding step resume", () => {
       );
     });
     await flushEffects();
-
-    expect(api?.getSnapshot()).toEqual({
+    console.log("TEST FINISH, SPY CALLS:", getAuthStatusSpy.mock.calls.length, getOnboardingStatusSpy.mock.calls.length, getConfigSpy.mock.calls.length);
+    expect(api!.getSnapshot()).toEqual({
       onboardingLoading: false,
       onboardingStep: "senses",
       onboardingRunMode: "cloud",
@@ -459,7 +396,7 @@ describe("AppProvider onboarding step resume", () => {
     });
     await flushEffects();
 
-    expect(api?.getSnapshot().onboardingStep).toBe("identity");
+    expect(api!.getSnapshot().onboardingStep).toBe("identity");
 
     await act(async () => {
       await api?.next();
@@ -468,7 +405,7 @@ describe("AppProvider onboarding step resume", () => {
     expect(localStorage.getItem(ONBOARDING_STEP_STORAGE_KEY)).toBe(
       "connection",
     );
-    expect(api?.getSnapshot().onboardingStep).toBe("connection");
+    expect(api!.getSnapshot().onboardingStep).toBe("connection");
 
     await act(async () => {
       tree?.unmount();
@@ -492,7 +429,7 @@ describe("AppProvider onboarding step resume", () => {
     });
     await flushEffects();
 
-    expect(api?.getSnapshot()).toEqual({
+    expect(api!.getSnapshot()).toEqual({
       onboardingLoading: false,
       onboardingStep: "connection",
       onboardingRunMode: "",
@@ -506,7 +443,7 @@ describe("AppProvider onboarding step resume", () => {
 
   it("clears the stored onboarding step once onboarding is complete", async () => {
     localStorage.setItem(ONBOARDING_STEP_STORAGE_KEY, "senses");
-    mockClient.getOnboardingStatus.mockResolvedValue({ complete: true });
+    vi.spyOn(client, "getOnboardingStatus").mockResolvedValue({ complete: true });
 
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
@@ -528,7 +465,7 @@ describe("AppProvider onboarding step resume", () => {
   // doesn't complete within flushEffects(). Re-enable once the upstream
   // test utilities support awaiting the full startup lifecycle.
   it.skip("submits the resumed onboarding connection from senses without forcing reconnection", async () => {
-    mockClient.getConfig.mockResolvedValue({
+    vi.spyOn(client, "getConfig").mockResolvedValue({
       cloud: {
         enabled: true,
         apiKey: "[REDACTED]",
@@ -538,9 +475,12 @@ describe("AppProvider onboarding step resume", () => {
         large: "anthropic/claude-sonnet-4.5",
       },
     });
-    mockClient.restartAgent.mockResolvedValue({
+    vi.spyOn(client, "restartAgent").mockResolvedValue({
       state: "running",
       agentName: "Milady",
+      model: undefined,
+      startedAt: undefined,
+      uptime: undefined,
     });
 
     let api: ProbeApi | null = null;
@@ -564,7 +504,7 @@ describe("AppProvider onboarding step resume", () => {
     await flushEffects();
     await flushEffects();
 
-    expect(api?.getSnapshot().onboardingStep).toBe("senses");
+    expect(api!.getSnapshot().onboardingStep).toBe("senses");
 
     await act(async () => {
       await api?.next({ allowPermissionBypass: true });
@@ -572,7 +512,7 @@ describe("AppProvider onboarding step resume", () => {
     await flushEffects();
     await flushEffects();
 
-    expect(mockClient.submitOnboarding).toHaveBeenCalledWith(
+    expect(client.submitOnboarding).toHaveBeenCalledWith(
       expect.objectContaining({
         connection: {
           kind: "cloud-managed",
