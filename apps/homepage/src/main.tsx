@@ -1,7 +1,7 @@
 import "./styles.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { HashRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import { Nav } from "./components/Nav";
 import { AppRoutes } from "./router";
 
@@ -10,9 +10,9 @@ if (!root) throw new Error("No root element");
 
 createRoot(root).render(
   <StrictMode>
-    <HashRouter>
+    <BrowserRouter>
       <Nav />
       <AppRoutes />
-    </HashRouter>
+    </BrowserRouter>
   </StrictMode>,
 );

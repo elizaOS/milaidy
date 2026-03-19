@@ -50,6 +50,8 @@ const MILADY_BRANDING: Partial<BrandingConfig> = {
   hashtag: "#MiladyAgent",
   fileExtension: ".milady-agent",
   packageScope: "miladyai",
+  // Cloud-only in production; local dev mode allows running a local backend.
+  cloudOnly: !import.meta.env.DEV,
 };
 
 /**
@@ -98,6 +100,23 @@ declare global {
 
 // Register custom character editor for app-core's ViewRouter to pick up
 window.__MILADY_CHARACTER_EDITOR__ = CharacterEditor;
+
+// Point Eliza Cloud API to the correct base URL (default is api.eliza.ai).
+(window as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ =
+  "https://www.elizacloud.ai";
+
+// Override the VRM asset roster with Milady characters so avatar URLs
+// resolve to milady-*.vrm.gz instead of the upstream eliza-*.vrm.gz.
+window.__APP_VRM_ASSETS__ = [
+  { title: "Chen", slug: "milady-1" },
+  { title: "Jin", slug: "milady-2" },
+  { title: "Kei", slug: "milady-3" },
+  { title: "Momo", slug: "milady-4" },
+  { title: "Rin", slug: "milady-5" },
+  { title: "Ryu", slug: "milady-6" },
+  { title: "Satoshi", slug: "milady-7" },
+  { title: "Yuki", slug: "milady-8" },
+];
 
 function dispatchShareTarget(payload: ShareTargetPayload): void {
   if (!window.__MILADY_SHARE_QUEUE__) {
