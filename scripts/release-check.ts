@@ -53,7 +53,7 @@ const requiredWorkflowSnippets = [
   "Upload macOS smoke diagnostics",
   "wrapper-diagnostics.json",
   "Install Inno Setup 6.7.1",
-  "innosetup-6.7.1.exe",
+  "jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe",
   "Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing",
   "Build Inno Setup installer",
   "packaging/inno/build-inno.ps1",

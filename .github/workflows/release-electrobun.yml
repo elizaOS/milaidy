@@ -564,7 +564,7 @@ jobs:
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
-          $url = "https://files.jrsoftware.org/is/6/innosetup-6.7.1.exe"
+          $url = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe"
           $installer = Join-Path $env:RUNNER_TEMP "innosetup-6.7.1.exe"
           Write-Host "Downloading Inno Setup 6.7.1..."
           Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
