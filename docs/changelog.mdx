@@ -3,62 +3,6 @@ title: Changelog
 description: The latest updates and improvements to Milady.
 ---
 
-<Update label="2026-03-19" description="Week of March 14–19">
-## Cloud dashboard and new distribution channels
-
-### New features
-
-- **Cloud control plane dashboard** — You can now manage your agents directly from the Milady homepage at `/#/dashboard`. View agent status, monitor heartbeats, and control your cloud-hosted agents without leaving the app. See the [dashboard guide](/apps/dashboard) for details.
-
-- **Game-style character editor** — The character editor has been redesigned with a notebook-style UI featuring a parchment-textured page layout and organized tabbed sections. Editing your agent's personality and behavior is now more visual and intuitive. Learn more in the [character interface docs](/agents/character-interface).
-
-- **VRM wave greeting** — Your 3D character now waves when the app launches or when you swap characters, with smooth loading transitions that prevent visual glitches.
-
-- **Eliza Cloud onboarding** — When you run `milady start` for the first time, you can now connect to Eliza Cloud as a hosted runtime. This simplifies setup for users who prefer a managed infrastructure.
-
-- **Redesigned settings and social panels** — The settings, social connectors, and plugins tabs now use a cleaner two-panel layout with a section list on the left and configuration details on the right. The apps tab features a phone-style preview UI.
-
-- **Homepage redesign** — The download experience has been streamlined with a macOS-style dock bar, platform-specific download icons, and a typewriter hero section.
-
-- **New distribution channels** — Milady is now available through additional package managers and app stores:
-  - [Homebrew](/installation) (`brew install milady`)
-  - Snap Store (Linux)
-  - Flatpak / Flathub (Linux)
-  - APT repository (Debian/Ubuntu)
-  - Google Play Store (Android)
-  - iOS and Mac App Store
-  - Windows MSIX packaging
-  - [Docker images via GHCR](/deployment)
-
-### Updates
-
-- **Companion mode polish** — Character save and customize buttons are now properly visible in companion mode with a frosted glass backdrop. The companion shell startup has been hardened for reliability.
-
-- **Character config persistence** — Your agent's username, topics, and other metadata now persist correctly across settings changes and runtime restarts.
-
-- **Wallet state unified** — Wallet RPC selection is now a single source of truth across onboarding, settings, and runtime, preventing configuration drift between flows.
-
-- **Performance improvements** — Redundant sorting and string allocations in hot paths have been eliminated, and Three.js is now lazy-loaded to reduce initial bundle size.
-
-### Bug fixes
-
-- Fixed 18 bugs from the 0.88 QA report, including critical issues with empty chat persistence and connector UI behavior.
-- Fixed character save returning HTTP 422 errors due to unsanitized payload fields.
-- Fixed topics not being preserved when editing and saving characters.
-- Fixed cloud dashboard not displaying agents after login.
-- Fixed Windows desktop crash caused by embedding model initialization.
-- Fixed schema validation bypass where invalid character data could pass validation.
-- Fixed connectors panel showing all connectors instead of only the selected one.
-- Fixed dark mode nav tab styling inconsistencies.
-- Fixed avatar index parsing errors and inconsistent voice defaults.
-
-### Security
-
-- Cloud API keys are now scrubbed from the process environment after use, preventing exposure to other modules.
-- Wallet key export now enforces rate limiting, audit logging, and a confirmation delay.
-description: What's new in Milady — features, improvements, and fixes.
----
-
 <Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
 ## API key validation for model providers
 
@@ -317,6 +261,10 @@ Agent-originated wallet transfer requests can no longer bypass the manual-local-
 - VRM avatar face orientation no longer flips incorrectly
 - Companion UI regressions in settings, stream navigation, VRM loading, and shell close flows are resolved
 
+## Command palette and real-time sidebar
+
+The command palette now uses a centralized command registry, making it easier to discover and access actions. The conversation sidebar also updates in real time via WebSocket events instead of polling, so new messages and status changes appear instantly.
+
 ## Additional fixes
 
 - Voice and agent-mode dropdowns are no longer hidden behind other elements
@@ -391,6 +339,8 @@ This week includes a broad set of security fixes:
 - The avatar panel in the sidebar is now collapsible, giving more vertical space to terminal panes during swarm sessions
 - Skills remain visible in the UI even when the catalog API returns a rate-limit error
 - A crash on Bun 1.3.9 on Linux is mitigated by automatically falling back to Node
+</Update>
+
 <Update label="2026-03-07" description="Week of March 1–7" tags={["Feature", "Update", "Fix"]}>
 ## Companion wallet trading panel
 
@@ -415,6 +365,18 @@ The BNB identity plugin now supports BAP-578 NFA (Non-Fungible Agent) learning p
 ## Improved upload error messages
 
 Document uploads exceeding 32 MB now return a clear, human-readable error message explaining the limit, instead of a raw byte-limit error.
+
+## Opinion markets plugin
+
+A new opinion markets plugin lets your agent trade on prediction markets through a central limit order book (CLOB). You can get market details, list available markets, place bets, cancel orders, check positions, and redeem winnings — all from chat actions or the REST API.
+
+## BNB identity plugin
+
+A new BNB Chain identity plugin gives your agent on-chain identity management. This is the foundation for the NFA learning provenance feature and other blockchain-based identity workflows. See the [wallet guide](/guides/wallet) for details.
+
+## Agent self-awareness
+
+Your agent can now introspect its own state using the new self-awareness system. A `GET_SELF_STATUS` action returns a unified view of runtime health, wallet state, cloud connectivity, active connectors, and plugin health — helping your agent make context-aware decisions.
 
 ## Swarm completion summaries
 
