@@ -2,6 +2,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import {
+  getAppCoreConnectionStepEntry,
+  getAppCoreOnboardingConfigEntry,
   getAppCoreSourceRoot,
   getAutonomousSourceRoot,
   getElizaCoreEntry,
@@ -12,6 +14,12 @@ const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 const elizaCoreEntry = getElizaCoreEntry(repoRoot);
 const autonomousSourceRoot = getAutonomousSourceRoot(repoRoot);
 const appCoreSourceRoot = getAppCoreSourceRoot(repoRoot);
+const appCoreAliasRoot =
+  path.basename(appCoreSourceRoot ?? "") === "src"
+    ? appCoreSourceRoot
+    : undefined;
+const appCoreConnectionStepEntry = getAppCoreConnectionStepEntry(repoRoot);
+const appCoreOnboardingConfigEntry = getAppCoreOnboardingConfigEntry(repoRoot);
 const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const isWindows = process.platform === "win32";
 const localWorkers = 2;
@@ -114,21 +122,24 @@ export default defineConfig({
             },
           ]
         : []),
-      ...(appCoreSourceRoot
+      ...(appCoreConnectionStepEntry
         ? [
             {
               find: "@milady/upstream-app-core-connection-step",
-              replacement: path.join(
-                appCoreSourceRoot,
-                "components",
-                "onboarding",
-                "ConnectionStep.tsx",
-              ),
+              replacement: appCoreConnectionStepEntry,
             },
+          ]
+        : []),
+      ...(appCoreOnboardingConfigEntry
+        ? [
             {
               find: "@milady/upstream-app-core-onboarding-config",
-              replacement: path.join(appCoreSourceRoot, "onboarding-config.ts"),
+              replacement: appCoreOnboardingConfigEntry,
             },
+          ]
+        : []),
+      ...(appCoreAliasRoot
+        ? [
             {
               find: "@elizaos/app-core/bridge/electrobun-rpc",
               replacement: path.join(
@@ -158,28 +169,30 @@ export default defineConfig({
             },
             {
               find: /^@elizaos\/app-core\/(.*)/,
-              replacement: path.join(appCoreSourceRoot, "$1"),
+              replacement: path.join(appCoreAliasRoot, "$1"),
             },
             {
               find: "@elizaos/app-core",
               replacement: resolveModuleEntry(
-                path.join(appCoreSourceRoot, "index"),
+                path.join(appCoreAliasRoot, "index"),
               ),
             },
           ]
-        : [
-            {
-              // Stub app-core when workspace is absent — its npm dist has
-              // extensionless JS imports that break under vitest/vite.
-              find: /^@elizaos\/app-core(\/.*)?$/,
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "plugin-stub.mjs",
-              ),
-            },
-          ]),
+        : appCoreSourceRoot
+          ? []
+          : [
+              {
+                // Stub app-core when workspace is absent — its npm dist has
+                // extensionless JS imports that break under vitest/vite.
+                find: /^@elizaos\/app-core(\/.*)?$/,
+                replacement: path.join(
+                  repoRoot,
+                  "test",
+                  "stubs",
+                  "plugin-stub.mjs",
+                ),
+              },
+            ]),
     ],
   },
   test: {
@@ -209,8 +222,6 @@ export default defineConfig({
       "apps/chrome-extension/**/*.test.ts",
       "apps/chrome-extension/**/*.test.tsx",
       "apps/app/test/app/api-client-timeout.test.ts",
-      "apps/app/test/app/startup-backend-missing.e2e.test.ts",
-      "apps/app/test/app/startup-token-401.e2e.test.ts",
       "test/api-server.e2e.test.ts",
       "test/format-error.test.ts",
       "test/trajectory-database.e2e.test.ts",

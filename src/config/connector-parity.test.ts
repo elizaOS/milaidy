@@ -43,6 +43,11 @@ import {
 } from "./plugin-auto-enable";
 import { CONNECTOR_IDS } from "./schema";
 
+const INTERNAL_CONNECTOR_PLUGIN_OVERRIDES: Record<string, string> = {
+  signal: "@miladyai/plugin-signal",
+  whatsapp: "@miladyai/plugin-whatsapp",
+};
+
 function sorted(values: Iterable<string>): string[] {
   return [...values].sort();
 }
@@ -59,7 +64,9 @@ describe("connector map parity", () => {
 
   it("keeps runtime and auto-enable package mappings aligned", () => {
     for (const [connectorId, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
-      expect(CHANNEL_PLUGIN_MAP[connectorId]).toBe(pluginName);
+      expect(CHANNEL_PLUGIN_MAP[connectorId]).toBe(
+        INTERNAL_CONNECTOR_PLUGIN_OVERRIDES[connectorId] ?? pluginName,
+      );
     }
   });
 
@@ -67,7 +74,10 @@ describe("connector map parity", () => {
     for (const [connectorId, pluginName] of Object.entries(
       CHANNEL_PLUGIN_MAP,
     )) {
-      expect(CONNECTOR_PLUGINS[connectorId]).toBe(pluginName);
+      expect(pluginName).toBe(
+        INTERNAL_CONNECTOR_PLUGIN_OVERRIDES[connectorId] ??
+          CONNECTOR_PLUGINS[connectorId],
+      );
     }
   });
 
@@ -83,7 +93,7 @@ describe("connector map parity", () => {
   });
 
   it("uses valid package name prefixes for all plugin mappings", () => {
-    const validPrefix = /^@(elizaos|elizaai)\//;
+    const validPrefix = /^@(elizaos|elizaai|miladyai)\//;
     for (const pkg of Object.values(CONNECTOR_PLUGINS)) {
       expect(pkg).toMatch(validPrefix);
     }

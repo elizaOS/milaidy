@@ -3,12 +3,20 @@ import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import {
+  getAppCoreConnectionStepEntry,
+  getAppCoreOnboardingConfigEntry,
   getAppCoreSourceRoot,
   resolveModuleEntry,
 } from "../../test/eliza-package-paths";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const appCorePackageRoot = getAppCoreSourceRoot(here);
+const appCoreSourceRoot = getAppCoreSourceRoot(here);
+const appCoreAliasRoot =
+  path.basename(appCoreSourceRoot ?? "") === "src"
+    ? appCoreSourceRoot
+    : undefined;
+const upstreamConnectionStepPath = getAppCoreConnectionStepEntry(here);
+const upstreamOnboardingConfigPath = getAppCoreOnboardingConfigEntry(here);
 
 const bridgeStubPath = path.join(
   here,
@@ -123,32 +131,32 @@ export default defineConfig({
         find: "react-dom",
         replacement: path.join(here, "node_modules/react-dom"),
       },
-      ...(appCorePackageRoot
+      ...(upstreamConnectionStepPath
         ? [
             {
               find: "@milady/upstream-app-core-connection-step",
-              replacement: path.join(
-                appCorePackageRoot,
-                "components",
-                "onboarding",
-                "ConnectionStep.tsx",
-              ),
+              replacement: upstreamConnectionStepPath,
             },
+          ]
+        : []),
+      ...(upstreamOnboardingConfigPath
+        ? [
             {
               find: "@milady/upstream-app-core-onboarding-config",
-              replacement: path.join(
-                appCorePackageRoot,
-                "onboarding-config.ts",
-              ),
+              replacement: upstreamOnboardingConfigPath,
             },
+          ]
+        : []),
+      ...(appCoreAliasRoot
+        ? [
             {
               find: /^@elizaos\/app-core\/(.*)/,
-              replacement: path.join(appCorePackageRoot, "$1"),
+              replacement: path.join(appCoreAliasRoot, "$1"),
             },
             {
               find: "@elizaos/app-core",
               replacement: resolveModuleEntry(
-                path.join(appCorePackageRoot, "index"),
+                path.join(appCoreAliasRoot, "index"),
               ),
             },
           ]

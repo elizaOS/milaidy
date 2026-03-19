@@ -55,6 +55,17 @@ function firstExistingPath(
   );
 }
 
+function resolvePackageCandidate(
+  packageRoot: string,
+  candidates: string[],
+): string {
+  return (
+    firstExistingPath(
+      candidates.map((candidate) => path.join(packageRoot, candidate)),
+    ) ?? path.join(packageRoot, candidates[0])
+  );
+}
+
 export function resolveModuleEntry(basePath: string): string {
   if (existsSync(basePath)) {
     return basePath;
@@ -138,4 +149,38 @@ export function getAppCoreSourceRoot(repoRoot: string): string | undefined {
 
   const sourceRoot = path.join(packageRoot, "src");
   return existsSync(sourceRoot) ? sourceRoot : packageRoot;
+}
+
+export function getAppCoreConnectionStepEntry(
+  repoRoot: string,
+): string | undefined {
+  const packageRoot = getInstalledPackageRoot("@elizaos/app-core", repoRoot);
+  if (!packageRoot) {
+    return undefined;
+  }
+
+  return resolvePackageCandidate(packageRoot, [
+    "src/components/onboarding/ConnectionStep.tsx",
+    "components/onboarding/ConnectionStep.tsx",
+    "src/components/onboarding/ConnectionStep.js",
+    "components/onboarding/ConnectionStep.js",
+    "dist/components/onboarding/ConnectionStep.js",
+  ]);
+}
+
+export function getAppCoreOnboardingConfigEntry(
+  repoRoot: string,
+): string | undefined {
+  const packageRoot = getInstalledPackageRoot("@elizaos/app-core", repoRoot);
+  if (!packageRoot) {
+    return undefined;
+  }
+
+  return resolvePackageCandidate(packageRoot, [
+    "src/onboarding-config.ts",
+    "onboarding-config.ts",
+    "src/onboarding-config.js",
+    "onboarding-config.js",
+    "dist/onboarding-config.js",
+  ]);
 }

@@ -210,11 +210,18 @@ export async function handleCloudRoute(
       return true;
     }
 
+    const loginPollSpan = createIntegrationTelemetrySpan({
+      boundary: "cloud",
+      operation: "login_poll_status",
+      timeoutMs: CLOUD_LOGIN_POLL_TIMEOUT_MS,
+    });
+
     let pollRes: Response;
     try {
       pollRes = await fetchCloudLoginStatus(sessionId, baseUrl);
     } catch (fetchErr) {
       if (isTimeoutError(fetchErr)) {
+        loginPollSpan.failure({ error: fetchErr, statusCode: 504 });
         sendJson(
           res,
           {
@@ -226,6 +233,7 @@ export async function handleCloudRoute(
         return true;
       }
 
+      loginPollSpan.failure({ error: fetchErr, statusCode: 502 });
       sendJson(
         res,
         {
@@ -238,6 +246,10 @@ export async function handleCloudRoute(
     }
 
     if (isRedirectResponse(pollRes)) {
+      loginPollSpan.failure({
+        statusCode: pollRes.status,
+        errorKind: "redirect_response",
+      });
       sendJson(
         res,
         {
@@ -251,6 +263,10 @@ export async function handleCloudRoute(
     }
 
     if (!pollRes.ok) {
+      loginPollSpan.failure({
+        statusCode: pollRes.status,
+        errorKind: "http_error",
+      });
       sendJson(
         res,
         pollRes.status === 404
@@ -263,11 +279,23 @@ export async function handleCloudRoute(
       return true;
     }
 
-    const data = (await pollRes.json()) as {
+    let data: {
       apiKey?: unknown;
       keyPrefix?: unknown;
       status?: unknown;
     };
+    try {
+      data = (await pollRes.json()) as {
+        apiKey?: unknown;
+        keyPrefix?: unknown;
+        status?: unknown;
+      };
+    } catch (parseErr) {
+      loginPollSpan.failure({ error: parseErr, statusCode: pollRes.status });
+      throw parseErr;
+    }
+
+    loginPollSpan.success({ statusCode: pollRes.status });
 
     if (data.status === "authenticated" && typeof data.apiKey === "string") {
       await persistCloudLoginStatus({

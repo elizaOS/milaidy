@@ -13,7 +13,11 @@ export * from "@elizaos/autonomous/api/server";
 import {
   ensureApiTokenForBindHost as upstreamEnsureApiTokenForBindHost,
   resolveCorsOrigin as upstreamResolveCorsOrigin,
+  resolveMcpTerminalAuthorizationRejection as upstreamResolveMcpTerminalAuthorizationRejection,
+  resolveTerminalRunClientId as upstreamResolveTerminalRunClientId,
+  resolveTerminalRunRejection as upstreamResolveTerminalRunRejection,
   resolveWalletExportRejection as upstreamResolveWalletExportRejection,
+  resolveWebSocketUpgradeRejection as upstreamResolveWebSocketUpgradeRejection,
   startApiServer as upstreamStartApiServer,
 } from "@elizaos/autonomous/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
@@ -32,6 +36,10 @@ const BRAND_ENV_ALIASES = [
   ["MILADY_API_BIND", "ELIZA_API_BIND"],
   ["MILADY_PAIRING_DISABLED", "ELIZA_PAIRING_DISABLED"],
   ["MILADY_ALLOWED_ORIGINS", "ELIZA_ALLOWED_ORIGINS"],
+  ["MILADY_ALLOW_NULL_ORIGIN", "ELIZA_ALLOW_NULL_ORIGIN"],
+  ["MILADY_ALLOW_WS_QUERY_TOKEN", "ELIZA_ALLOW_WS_QUERY_TOKEN"],
+  ["MILADY_TERMINAL_RUN_TOKEN", "ELIZA_TERMINAL_RUN_TOKEN"],
+  ["MILADY_WALLET_EXPORT_TOKEN", "ELIZA_WALLET_EXPORT_TOKEN"],
   ["MILADY_USE_PI_AI", "ELIZA_USE_PI_AI"],
   ["MILADY_STATE_DIR", "ELIZA_STATE_DIR"],
   ["MILADY_CONFIG_PATH", "ELIZA_CONFIG_PATH"],
@@ -43,6 +51,7 @@ const HEADER_ALIASES = [
   ["x-milady-client-id", "x-eliza-client-id"],
   ["x-milady-terminal-token", "x-eliza-terminal-token"],
   ["x-milady-ui-language", "x-eliza-ui-language"],
+  ["x-milady-agent-action", "x-eliza-agent-action"],
 ] as const;
 
 const PACKAGE_ROOT_NAMES = new Set([
@@ -138,107 +147,6 @@ interface CompatPluginRecord {
 const DATABASE_UNAVAILABLE_MESSAGE =
   "Database not available. The agent may not be running or the database adapter is not initialized.";
 
-/** WeakSet to avoid double-patching the same messageService instance. */
-const patchedMessageServices = new WeakSet<object>();
-
-/**
- * Wraps `runtime.messageService.handleMessage` so that every message
- * automatically starts a trajectory (with a step ID), sets that ID on
- * `message.metadata.trajectoryStepId`, and ends the trajectory when the
- * handler completes or throws.
- *
- * Without this, the core runtime never calls `logLlmCall` because the
- * required `trajectoryStepId` is never present in the async-local context.
- */
-function patchMessageServiceForTrajectories(runtime: AgentRuntime): void {
-  const ms = runtime.messageService;
-  if (!ms || typeof ms.handleMessage !== "function") return;
-  if (patchedMessageServices.has(ms as object)) return;
-  patchedMessageServices.add(ms as object);
-
-  const original = ms.handleMessage.bind(ms);
-
-  ms.handleMessage = async (
-    rt: AgentRuntime,
-    message: Parameters<typeof original>[1],
-    callback?: Parameters<typeof original>[2],
-    options?: Parameters<typeof original>[3],
-  ) => {
-    // Resolve the trajectory logger service (may be registered under
-    // "trajectory_logger" service type).
-    const trajLogger = (rt as AgentRuntime).getService("trajectory_logger") as
-      | {
-          isEnabled?: () => boolean;
-          startTrajectory?: (
-            stepIdOrAgentId: string,
-            options?: {
-              agentId?: string;
-              source?: string;
-              metadata?: Record<string, unknown>;
-            },
-          ) => Promise<string>;
-          endTrajectory?: (
-            stepIdOrTrajectoryId: string,
-            status?: string,
-          ) => Promise<void>;
-        }
-      | null
-      | undefined;
-
-    const isEnabled =
-      trajLogger &&
-      (typeof trajLogger.isEnabled !== "function" || trajLogger.isEnabled());
-
-    let stepId: string | undefined;
-
-    if (isEnabled && typeof trajLogger.startTrajectory === "function") {
-      try {
-        const userText =
-          typeof (message as { content?: { text?: string } }).content?.text ===
-          "string"
-            ? (message as { content: { text: string } }).content.text.slice(
-                0,
-                200,
-              )
-            : "";
-        stepId = await trajLogger.startTrajectory(
-          (rt as AgentRuntime).agentId,
-          {
-            agentId: (rt as AgentRuntime).agentId,
-            source: "chat",
-            metadata: { trigger: userText },
-          },
-        );
-      } catch {
-        // Non-fatal — fall through without trajectory tracking.
-      }
-    }
-
-    // Stamp the step ID onto the message metadata so the core runtime's
-    // `handleMessage` → `runWithTrajectoryContext` picks it up.
-    if (stepId) {
-      const msg = message as { metadata?: Record<string, unknown> };
-      msg.metadata = msg.metadata ?? {};
-      msg.metadata.trajectoryStepId = stepId;
-    }
-
-    try {
-      return await original(rt, message, callback, options);
-    } finally {
-      if (
-        stepId &&
-        trajLogger &&
-        typeof trajLogger.endTrajectory === "function"
-      ) {
-        try {
-          await trajLogger.endTrajectory(stepId, "completed");
-        } catch {
-          // Best-effort cleanup.
-        }
-      }
-    }
-  };
-}
 const CAPABILITY_FEATURE_IDS = new Set([
   "vision",
   "browser",
@@ -294,6 +202,14 @@ function extractHeaderValue(
     return value;
   }
   return Array.isArray(value) && typeof value[0] === "string" ? value[0] : null;
+}
+
+function normalizeLegacyElizaReason(reason: string): string {
+  return reason
+    .replaceAll("MILADY_WALLET_EXPORT_TOKEN", "ELIZA_WALLET_EXPORT_TOKEN")
+    .replaceAll("MILADY_TERMINAL_RUN_TOKEN", "ELIZA_TERMINAL_RUN_TOKEN")
+    .replaceAll("X-Milady-Export-Token", "X-Eliza-Export-Token")
+    .replaceAll("X-Milady-Terminal-Token", "X-Eliza-Terminal-Token");
 }
 
 function getCompatApiToken(): string | null {
@@ -1127,6 +1043,79 @@ async function handleMiladyCompatRoute(
 ): Promise<boolean> {
   const method = (req.method ?? "GET").toUpperCase();
   const url = new URL(req.url ?? "/", "http://localhost");
+  const todoCompleteMatch =
+    method === "POST"
+      ? /^\/api\/workbench\/todos\/([^/]+)\/complete$/.exec(url.pathname)
+      : null;
+  const runtimeRecord = state.current as unknown as { db?: unknown } | null;
+
+  if (todoCompleteMatch && state.current && runtimeRecord?.db === undefined) {
+    if (!ensureCompatApiAuthorized(req, res)) {
+      return true;
+    }
+
+    const body = await readCompatJsonBody(req, res);
+    if (body == null) {
+      return true;
+    }
+
+    const runtime = state.current as AgentRuntime & {
+      getTask?: (taskId: string) => Promise<Record<string, unknown> | null>;
+      updateTask?: (
+        taskId: string,
+        update: Record<string, unknown>,
+      ) => Promise<void>;
+    };
+
+    if (
+      typeof runtime.getTask !== "function" ||
+      typeof runtime.updateTask !== "function"
+    ) {
+      sendJsonErrorResponse(res, 503, "Todo store is not available");
+      return true;
+    }
+
+    const todoId = decodeURIComponent(todoCompleteMatch[1]);
+    const todoTask = await runtime.getTask(todoId);
+    if (!todoTask || typeof todoTask.id !== "string") {
+      sendJsonErrorResponse(res, 404, "Todo not found");
+      return true;
+    }
+
+    const isCompleted = body.isCompleted === true;
+    const metadata =
+      todoTask.metadata &&
+      typeof todoTask.metadata === "object" &&
+      !Array.isArray(todoTask.metadata)
+        ? (todoTask.metadata as Record<string, unknown>)
+        : {};
+    const workbenchTodo =
+      metadata.workbenchTodo &&
+      typeof metadata.workbenchTodo === "object" &&
+      !Array.isArray(metadata.workbenchTodo)
+        ? (metadata.workbenchTodo as Record<string, unknown>)
+        : metadata.todo &&
+            typeof metadata.todo === "object" &&
+            !Array.isArray(metadata.todo)
+          ? (metadata.todo as Record<string, unknown>)
+          : {};
+
+    await runtime.updateTask(todoId, {
+      isCompleted,
+      metadata: {
+        ...metadata,
+        isCompleted,
+        workbenchTodo: {
+          ...workbenchTodo,
+          isCompleted,
+        },
+      },
+    });
+
+    sendJsonResponse(res, 200, { ok: true });
+    return true;
+  }
+
   const cloudConfigPath =
     url.pathname === "/api/cloud/status" ||
     url.pathname === "/api/cloud/credits" ||
@@ -1278,7 +1267,56 @@ function patchHttpCreateServerForMiladyCompat(
 export function resolveWalletExportRejection(
   ...args: Parameters<typeof upstreamResolveWalletExportRejection>
 ): { status: number; reason: string } | null {
-  return hardenedGuard(...args);
+  syncElizaEnvToMilady();
+  syncMiladyEnvToEliza();
+  mirrorCompatHeaders(args[0]);
+  const result = hardenedGuard(...args);
+  syncElizaEnvToMilady();
+  if (!result) {
+    return null;
+  }
+  return {
+    ...result,
+    reason: normalizeLegacyElizaReason(result.reason),
+  };
+}
+
+export function resolveTerminalRunRejection(
+  ...args: Parameters<typeof upstreamResolveTerminalRunRejection>
+): ReturnType<typeof upstreamResolveTerminalRunRejection> {
+  syncElizaEnvToMilady();
+  syncMiladyEnvToEliza();
+  mirrorCompatHeaders(args[0]);
+  const result = upstreamResolveTerminalRunRejection(...args);
+  syncElizaEnvToMilady();
+  if (!result) {
+    return null;
+  }
+  return {
+    ...result,
+    reason: normalizeLegacyElizaReason(result.reason),
+  };
+}
+
+export function resolveWebSocketUpgradeRejection(
+  ...args: Parameters<typeof upstreamResolveWebSocketUpgradeRejection>
+): ReturnType<typeof upstreamResolveWebSocketUpgradeRejection> {
+  syncElizaEnvToMilady();
+  syncMiladyEnvToEliza();
+  mirrorCompatHeaders(args[0]);
+  const result = upstreamResolveWebSocketUpgradeRejection(...args);
+  syncElizaEnvToMilady();
+  return result;
+}
+
+export function resolveMcpTerminalAuthorizationRejection(
+  ...args: Parameters<typeof upstreamResolveMcpTerminalAuthorizationRejection>
+): ReturnType<typeof upstreamResolveMcpTerminalAuthorizationRejection> {
+  syncMiladyEnvToEliza();
+  syncElizaEnvToMilady();
+  const result = upstreamResolveMcpTerminalAuthorizationRejection(...args);
+  syncElizaEnvToMilady();
+  return result;
 }
 
 export function findOwnPackageRoot(startDir: string): string {
@@ -1347,7 +1385,6 @@ export async function startApiServer(
   try {
     if (compatState.current) {
       await ensureRuntimeSqlCompatibility(compatState.current);
-      patchMessageServiceForTrajectories(compatState.current);
     }
 
     const server = await upstreamStartApiServer(...args);
@@ -1358,7 +1395,6 @@ export async function startApiServer(
     server.updateRuntime = (runtime: AgentRuntime) => {
       compatState.current = runtime;
       void ensureRuntimeSqlCompatibility(runtime);
-      patchMessageServiceForTrajectories(runtime);
       originalUpdateRuntime(runtime);
     };
 
@@ -1368,6 +1404,81 @@ export async function startApiServer(
   } finally {
     restoreCreateServer();
   }
+}
+
+export function injectApiBaseIntoHtml(
+  html: Buffer,
+  externalBase?: string | null,
+): Buffer {
+  const trimmedBase = externalBase?.trim();
+  if (!trimmedBase) {
+    return html;
+  }
+
+  const headCloseTag = "</head>";
+  const headCloseIndex = html.indexOf(headCloseTag);
+  if (headCloseIndex < 0) {
+    return html;
+  }
+
+  const serializedBase = JSON.stringify(trimmedBase);
+  const injection = Buffer.from(
+    `<script>window.__MILADY_API_BASE__=${serializedBase};window.__ELIZA_API_BASE__=${serializedBase};</script>`,
+  );
+
+  return Buffer.concat([
+    html.subarray(0, headCloseIndex),
+    injection,
+    html.subarray(headCloseIndex),
+  ]);
+}
+
+export function resolveTerminalRunClientId(
+  ...args: Parameters<typeof upstreamResolveTerminalRunClientId>
+): ReturnType<typeof upstreamResolveTerminalRunClientId> {
+  mirrorCompatHeaders(args[0]);
+  return upstreamResolveTerminalRunClientId(...args);
+}
+
+const RESET_STATE_ALLOWED_SEGMENTS = new Set([
+  ".milady",
+  "milady",
+  ".eliza",
+  "eliza",
+]);
+
+function hasAllowedResetSegment(resolvedState: string): boolean {
+  return resolvedState
+    .split(path.sep)
+    .some((segment) =>
+      RESET_STATE_ALLOWED_SEGMENTS.has(segment.trim().toLowerCase()),
+    );
+}
+
+export function isSafeResetStateDir(
+  resolvedState: string,
+  homeDir: string,
+): boolean {
+  const normalizedState = path.resolve(resolvedState);
+  const normalizedHome = path.resolve(homeDir);
+  const parsedRoot = path.parse(normalizedState).root;
+  if (normalizedState === parsedRoot) {
+    return false;
+  }
+  if (normalizedState === normalizedHome) {
+    return false;
+  }
+
+  const relativeToHome = path.relative(normalizedHome, normalizedState);
+  const isUnderHome =
+    relativeToHome.length > 0 &&
+    !relativeToHome.startsWith("..") &&
+    !path.isAbsolute(relativeToHome);
+  if (!isUnderHome) {
+    return false;
+  }
+
+  return hasAllowedResetSegment(normalizedState);
 }
 
 /**

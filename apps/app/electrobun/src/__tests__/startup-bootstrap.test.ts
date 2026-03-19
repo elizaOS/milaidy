@@ -3,6 +3,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const INDEX_PATH = path.resolve(import.meta.dirname, "..", "index.ts");
+const BACKGROUND_NOTICE_PATH = path.resolve(
+  import.meta.dirname,
+  "..",
+  "background-notice.ts",
+);
 
 describe("Electrobun startup bootstrap", () => {
   it("logs a structured startup environment block", () => {
@@ -53,12 +58,13 @@ describe("Electrobun startup bootstrap", () => {
 
   it("shows a one-time background notice after recreating the minimized window", () => {
     const source = fs.readFileSync(INDEX_PATH, "utf8");
+    const noticeSource = fs.readFileSync(BACKGROUND_NOTICE_PATH, "utf8");
     const minimizeIndex = source.indexOf("replacementWindow.minimize();");
-    const noticeIndex = source.indexOf("showBackgroundRunNoticeOnce();");
+    const noticeIndex = source.indexOf("showBackgroundNoticeOnce({");
 
     expect(minimizeIndex).toBeGreaterThan(-1);
     expect(noticeIndex).toBeGreaterThan(minimizeIndex);
-    expect(source).toContain("Milady Is Still Running");
-    expect(source).toContain("background after you close the window");
+    expect(noticeSource).toContain("Milady Is Still Running");
+    expect(noticeSource).toContain("background after you close the window");
   });
 });

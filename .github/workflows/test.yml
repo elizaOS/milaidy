@@ -223,10 +223,10 @@ jobs:
       - name: Run app startup/onboarding tests
         run: >
           bunx vitest run
-          packages/app-core/test/app/startup-chat.e2e.test.ts
-          packages/app-core/test/app/startup-onboarding.e2e.test.ts
-          packages/app-core/test/app/startup-backend-missing.e2e.test.ts
-          packages/app-core/test/app/startup-token-401.e2e.test.ts
+          apps/app/electrobun/src/__tests__/startup-bootstrap.test.ts
+          apps/app/electrobun/src/deferred-agent-startup.test.ts
+          apps/app/test/app/desktop-onboarding-runtime.test.tsx
+          apps/app/test/app/onboarding-step-resume.test.tsx
 
   # Desktop build/packaging validation lives in release-electrobun.yml.
   # The old electron-ui-e2e and electron-packaged-dmg-e2e jobs were removed

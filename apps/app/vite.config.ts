@@ -5,20 +5,20 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
-import { getAppCoreSourceRoot } from "../../test/eliza-package-paths";
+import {
+  getAppCoreConnectionStepEntry,
+  getAppCoreOnboardingConfigEntry,
+} from "../../test/eliza-package-paths";
 import { MILADY_CHARACTER_ASSETS } from "./src/character-catalog";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const miladyRoot = path.resolve(here, "../..");
-const appCoreRoot = getAppCoreSourceRoot(miladyRoot);
-const upstreamConnectionStep = path.resolve(
-  appCoreRoot ?? here,
-  "components/onboarding/ConnectionStep.tsx",
-);
-const upstreamOnboardingConfig = path.resolve(
-  appCoreRoot ?? here,
-  "onboarding-config.ts",
-);
+const upstreamConnectionStep =
+  getAppCoreConnectionStepEntry(miladyRoot) ??
+  path.resolve(here, "components/onboarding/ConnectionStep.tsx");
+const upstreamOnboardingConfig =
+  getAppCoreOnboardingConfigEntry(miladyRoot) ??
+  path.resolve(here, "onboarding-config.ts");
 
 // The dev script sets MILADY_API_PORT; default to 31337 for standalone vite dev.
 const apiPort = Number(process.env.MILADY_API_PORT) || 31337;

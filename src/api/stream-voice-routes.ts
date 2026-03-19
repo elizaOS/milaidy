@@ -9,6 +9,7 @@ import {
   ttsStreamBridge,
 } from "../services/tts-stream-bridge";
 import { sanitizeSpeechText } from "../utils/spoken-text";
+import { readRequestBody, sendJson, sendJsonError } from "./http-helpers";
 import { readStreamSettings, writeStreamSettings } from "./stream-persistence";
 import type { StreamRouteState } from "./stream-route-state";
 
@@ -65,6 +66,73 @@ export async function handleStreamVoiceRoute(
   method: string,
   state: StreamRouteState,
 ): Promise<boolean> {
+  if (pathname === "/api/stream/voice" && method === "GET") {
+    try {
+      const settings = readRouteStreamSettings();
+      const ttsConf = state.config?.messages?.tts;
+      const providerStatus = getRouteTtsProviderStatus(ttsConf);
+      sendJson(res, {
+        ok: true,
+        enabled: settings.voice?.enabled === true,
+        autoSpeak: settings.voice?.autoSpeak !== false,
+        provider: providerStatus.resolvedProvider,
+        configuredProvider: providerStatus.configuredProvider,
+        hasApiKey: providerStatus.hasApiKey,
+        isSpeaking: ttsBridgeAdapter.isSpeaking(),
+        isAttached: ttsBridgeAdapter.isAttached(),
+      });
+    } catch (err) {
+      sendJsonError(
+        res,
+        err instanceof Error ? err.message : "Failed to read voice config",
+        500,
+      );
+    }
+    return true;
+  }
+
+  if (pathname === "/api/stream/voice" && method === "POST") {
+    try {
+      const body = await readRequestBody(req, {
+        maxBytes: 4_096,
+        returnNullOnTooLarge: true,
+      });
+      if (body === null) {
+        sendJsonError(res, "Request body too large", 413);
+        return true;
+      }
+
+      const parsed = typeof body === "string" ? JSON.parse(body) : body;
+      const current = readRouteStreamSettings();
+      const voice = {
+        enabled: current.voice?.enabled ?? false,
+        autoSpeak: current.voice?.autoSpeak ?? true,
+        provider: current.voice?.provider,
+      };
+
+      if (typeof parsed?.enabled === "boolean") {
+        voice.enabled = parsed.enabled;
+      }
+      if (typeof parsed?.autoSpeak === "boolean") {
+        voice.autoSpeak = parsed.autoSpeak;
+      }
+      if (typeof parsed?.provider === "string") {
+        voice.provider = parsed.provider;
+      }
+
+      current.voice = voice;
+      writeRouteStreamSettings(current);
+      sendJson(res, { ok: true, voice });
+    } catch (err) {
+      sendJsonError(
+        res,
+        err instanceof Error ? err.message : "Failed to save voice settings",
+        500,
+      );
+    }
+    return true;
+  }
+
   return handleAutonomousStreamVoiceRoute({
     req,
     res,

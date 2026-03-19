@@ -53,6 +53,11 @@ import {
 } from "./plugin-auto-enable";
 import { CONNECTOR_IDS } from "./schema";
 
+const INTERNAL_CONNECTOR_PLUGIN_OVERRIDES: Record<string, string> = {
+  signal: "@miladyai/plugin-signal",
+  whatsapp: "@miladyai/plugin-whatsapp",
+};
+
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
@@ -665,7 +670,9 @@ describe("CONNECTOR_PLUGINS", () => {
 
   it("CONNECTOR_PLUGINS values match CHANNEL_PLUGIN_MAP for every connector", () => {
     for (const id of Object.keys(CONNECTOR_PLUGINS)) {
-      expect(CONNECTOR_PLUGINS[id]).toBe(CHANNEL_PLUGIN_MAP[id]);
+      expect(CHANNEL_PLUGIN_MAP[id]).toBe(
+        INTERNAL_CONNECTOR_PLUGIN_OVERRIDES[id] ?? CONNECTOR_PLUGINS[id],
+      );
     }
   });
 
