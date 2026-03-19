@@ -692,10 +692,7 @@ export async function startBenchmarkServer() {
   }
 
   // Load mock plugin for testing (file is gitignored for local-only use)
-  if (
-    process.env.MILADY_BENCH_MOCK === "true" ||
-    process.env.MILADY_BENCH_MOCK === "true"
-  ) {
+  if (process.env.MILADY_BENCH_MOCK === "true") {
     try {
       const mockLocation = "./mock-plugin.ts";
       const { mockPlugin } = await import(mockLocation);
