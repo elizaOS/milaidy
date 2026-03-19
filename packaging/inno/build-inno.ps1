@@ -167,15 +167,19 @@ $generated = $generated.Replace("__DEFAULT_DIR_NAME__", (Escape-InnoValue $defau
 $generated = $generated.Replace("__DEFAULT_GROUP_NAME__", (Escape-InnoValue $appName))
 $generated = $generated.Replace("__OUTPUT_DIR__", (Escape-InnoValue (Resolve-Path $OutputDir).Path))
 $generated = $generated.Replace("__OUTPUT_BASE_FILENAME__", (Escape-InnoValue $outputBaseFilename))
-$generated = $generated.Replace("__SOURCE_DIR__", (Escape-InnoValue $sourceDir))
-$generated = $generated.Replace("__ICON_FILE__", (Escape-InnoValue $iconPath))
+$generated = $generated.Replace("__SOURCE_DIR__", (Escape-InnoValue (Resolve-Path $sourceDir).Path))
+$generated = $generated.Replace("__ICON_FILE__", (Escape-InnoValue (Resolve-Path $iconPath).Path))
 $generated = $generated.Replace("__SIGN_SETUP_LINES__", $signSection)
 
 $generatedIssPath = Join-Path $env:RUNNER_TEMP "milady-$normalizedChannel-installer.iss"
 Set-Content -Path $generatedIssPath -Value $generated -Encoding utf8
 
+Write-Host "--- Generated ISS (first 40 lines) ---"
+Get-Content $generatedIssPath -TotalCount 40 | ForEach-Object { Write-Host $_ }
+Write-Host "--- End ISS preview ---"
+
 try {
-  & $isccPath "/Qp" $generatedIssPath
+  & $isccPath $generatedIssPath
   if ($LASTEXITCODE -ne 0) {
     throw "ISCC.exe failed with exit code $LASTEXITCODE"
   }
