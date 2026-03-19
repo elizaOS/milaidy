@@ -3,6 +3,33 @@ title: 更新日志
 description: Milady 的最新动态——新功能、改进和修复。
 ---
 
+<Update label="2026-04-30" description="4月24日至30日当周" tags={["Feature", "Update"]}>
+<div id="streaming-response-recovery">
+## 流式响应恢复
+</div>
+
+当聊天响应在流式传输过程中中断时——无论是由于网络故障还是超时——消息现在会被标记为已中断，并显示重试按钮。你可以重新请求响应，而不是停留在一条不完整的消息上。
+
+<div id="orchestrator-trajectory-tagging">
+## 编排器轨迹标记
+</div>
+
+由[集群编排器](/zh/guides/coding-swarms)发起的 LLM 调用现在在[轨迹查看器](/zh/advanced/trajectories)中带有紫色的"orchestrator"标记。每条记录包含决策类型、会话 ID 和任务标签等元数据，使你在多代理运行期间更容易区分编排器推理和单个代理调用。
+
+<div id="training-backend-auto-detection">
+## 训练后端自动检测
+</div>
+
+[微调](/zh/guides/training)系统现在会在启动训练任务前检测可用的 ML 后端——Apple Silicon 上的 MLX、NVIDIA GPU 上的 CUDA，以及 CPU 作为后备方案。如果请求的后端不可用，你会收到清晰的错误提示，而不是在运行过程中遇到难以理解的失败。
+
+<div id="updates">
+## 更新
+</div>
+
+- **角色元数据在重启后持久保存** — 你的代理的用户名和主题现在可以在重启后保留。此前，这些字段被视为仅运行时数据，重启后会恢复为默认值。详情请参阅[角色编辑器](/zh/agents/character-interface)。
+- **重连进度指示器** — 当 WebSocket 连接断开时，仪表板现在会显示琥珀色的"正在重连..."横幅，并显示当前尝试次数，然后才升级为红色的失败状态，让你实时了解恢复进度。
+</Update>
+
 <Update label="2026-04-23" description="4月17日至23日当周" tags={["Update", "Fix"]}>
 <div id="telegram-connector-reliability">
 ## Telegram 连接器可靠性
