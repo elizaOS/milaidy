@@ -160,7 +160,6 @@ return {
     createSessionKeyProvider({ defaultAgentId: agentId }),
     ...getSessionProviders({ storePath: sessionStorePath }),
     uiCatalogProvider,
-    emoteProvider,
     customActionsProvider,
   ],
 };
