@@ -782,6 +782,7 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   "custom-rtmp": "@milady/plugin-custom-rtmp",
   "pumpfun-streaming": "@elizaos/plugin-pumpfun-streaming",
   "x-streaming": "@elizaos/plugin-x-streaming",
+  jeju: "@milady/plugin-jeju",
 };
 
 function looksLikePlugin(value: unknown): value is Plugin {
@@ -1125,6 +1126,10 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   }
   if (isPluginExplicitlyDisabled("@elizaos/plugin-agent-orchestrator")) {
     pluginsToLoad.delete("@elizaos/plugin-agent-orchestrator");
+  }
+  // Dashboard disable for Jeju overrides plugins.allow
+  if (isPluginExplicitlyDisabled("@milady/plugin-jeju")) {
+    pluginsToLoad.delete("@milady/plugin-jeju");
   }
 
   return pluginsToLoad;

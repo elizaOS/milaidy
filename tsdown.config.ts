@@ -72,4 +72,14 @@ export default [
     inlineOnly: false,
     external: nativeExternals,
   },
+  {
+    entry: "src/plugins/jeju/index.ts",
+    outDir: "dist/plugins/jeju",
+    env,
+    fixedExtension: false,
+    platform: "node",
+    unbundle: true,
+    inlineOnly: false,
+    external: [...nativeExternals, "ethers"],
+  },
 ];

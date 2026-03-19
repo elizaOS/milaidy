@@ -13,7 +13,7 @@ import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   type AgentRuntime,
   ChannelType,
@@ -1285,6 +1285,97 @@ export function discoverInstalledPlugins(
 
 // applyWhatsAppQrOverride is imported from ./whatsapp-routes
 
+/** Milady-bundled plugins (not on npm) — correct package id for logs and resolution. */
+const MILADY_BUNDLED_PLUGIN_PACKAGE: Readonly<Record<string, string>> = {
+  jeju: "@milady/plugin-jeju",
+  "custom-rtmp": "@milady/plugin-custom-rtmp",
+  whatsapp: "@milady/plugin-whatsapp",
+};
+
+/**
+ * Jeju/Bazaar — ships with Milady; toggled via Settings → Plugins (no npm install).
+ */
+function buildBundledJejuPluginEntry(): PluginEntry {
+  const pluginParameters: Record<string, Record<string, unknown>> = {
+    JEJU_RPC_URL: {
+      type: "string",
+      description:
+        "Jeju L2 JSON-RPC URL (default: http://127.0.0.1:6546 for localnet)",
+      required: false,
+      sensitive: false,
+    },
+    JEJU_CHAIN_ID: {
+      type: "string",
+      description: "Chain ID (default: 31337)",
+      required: false,
+      sensitive: false,
+    },
+    JEJU_ROUTER_ADDRESS: {
+      type: "string",
+      description: "XLPRouter contract (override if your localnet differs)",
+      required: false,
+      sensitive: false,
+    },
+    JEJU_WETH_ADDRESS: {
+      type: "string",
+      description: "WETH token address (optional override)",
+      required: false,
+      sensitive: false,
+    },
+    JEJU_USDC_ADDRESS: {
+      type: "string",
+      description: "USDC token address (optional override)",
+      required: false,
+      sensitive: false,
+    },
+  };
+  const parameters = buildParamDefs(pluginParameters);
+  const paramInfos: PluginParamInfo[] = parameters.map((pd) => ({
+    key: pd.key,
+    required: pd.required,
+    sensitive: pd.sensitive,
+    type: pd.type,
+    description: pd.description,
+    default: pd.default,
+  }));
+  const validation = validatePluginConfig(
+    "jeju",
+    "feature",
+    null,
+    Object.keys(pluginParameters),
+    undefined,
+    paramInfos,
+  );
+  return {
+    id: "jeju",
+    name: "Jeju / Bazaar",
+    description:
+      "Connect your agent to Jeju localnet: dedicated wallet (~/.milady/jeju-wallet.json), ETH/WETH/USDC balances, and ETH↔USDC swaps. Start Jeju dev, enable here, then fund the logged wallet address.",
+    enabled: false,
+    configured: true,
+    envKey: null,
+    category: "feature",
+    source: "bundled",
+    configKeys: Object.keys(pluginParameters),
+    parameters,
+    validationErrors: validation.errors,
+    validationWarnings: validation.warnings,
+    configUiHints: {
+      JEJU_RPC_URL: { label: "RPC URL", group: "Network", width: "full" },
+      JEJU_CHAIN_ID: { label: "Chain ID", group: "Network", width: "half" },
+      JEJU_ROUTER_ADDRESS: {
+        label: "Router",
+        group: "Contracts",
+        width: "full",
+      },
+      JEJU_WETH_ADDRESS: { label: "WETH", group: "Contracts", width: "full" },
+      JEJU_USDC_ADDRESS: { label: "USDC", group: "Contracts", width: "full" },
+    },
+    icon: null,
+    setupGuideUrl: undefined,
+  };
+}
+
 /**
  * Discover available plugins from the bundled plugins.json manifest.
  * Falls back to filesystem scanning for monorepo development.
@@ -1378,6 +1469,11 @@ export function discoverPluginsFromManifest(): PluginEntry[] {
         .sort((a, b) => a.name.localeCompare(b.name));
 
       applyWhatsAppQrOverride(entries, resolveDefaultAgentWorkspaceDir());
+
+      if (!entries.some((e) => e.id === "jeju")) {
+        entries.push(buildBundledJejuPluginEntry());
+      }
+      entries.sort((a, b) => a.name.localeCompare(b.name));
 
       return entries;
     } catch (err) {
@@ -8079,6 +8175,90 @@ async function handleRequest(
     return;
   }
 
+  // ── GET /api/jeju/status ───────────────────────────────────────────────
+  if (method === "GET" && pathname === "/api/jeju/status") {
+    let freshConfig = state.config;
+    try {
+      freshConfig = loadMiladyConfig();
+    } catch {
+      /* keep state.config */
+    }
+    const entries = (
+      freshConfig.plugins as Record<string, unknown> | undefined
+    )?.entries as Record<string, { enabled?: boolean }> | undefined;
+    const allow = freshConfig.plugins?.allow ?? [];
+    const jejuInAllow =
+      Array.isArray(allow) &&
+      allow.some((x) => x === "jeju" || x === "@milady/plugin-jeju");
+    const jejuEnabled =
+      entries?.jeju?.enabled === true ||
+      jejuInAllow ||
+      Boolean(state.runtime?.plugins.some((p) => p.name === "jeju"));
+
+    if (!jejuEnabled) {
+      json(res, {
+        ok: true,
+        active: false,
+        message:
+          "Enable **Jeju / Bazaar** in Settings → Plugins, then restart if prompted.",
+      });
+      return;
+    }
+
+    const serverDir =
+      import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
+    const packageRoot = findOwnPackageRoot(serverDir);
+    const clientModPath = path.join(packageRoot, "dist/plugins/jeju/client.js");
+    if (!fs.existsSync(clientModPath)) {
+      json(res, {
+        ok: false,
+        active: true,
+        error:
+          "Jeju plugin files missing — rebuild Milady (dist/plugins/jeju).",
+      });
+      return;
+    }
+    try {
+      const mod = (await import(pathToFileURL(clientModPath).href)) as {
+        getJejuClient: () => {
+          address: string;
+          config: { rpcUrl: string; chainId: number; explorerUrl: string };
+        };
+        getJejuBalances: (c: unknown) => Promise<{
+          eth: string;
+          weth: string;
+          usdc: string;
+          error?: string;
+        }>;
+      };
+      const client = mod.getJejuClient();
+      const balances = await mod.getJejuBalances(client);
+      json(res, {
+        ok: true,
+        active: true,
+        pluginLoaded: Boolean(
+          state.runtime?.plugins.some((p) => p.name === "jeju"),
+        ),
+        address: client.address,
+        rpcUrl: client.config.rpcUrl,
+        chainId: client.config.chainId,
+        explorerBase: client.config.explorerUrl,
+        eth: balances.eth,
+        weth: balances.weth,
+        usdc: balances.usdc,
+        balanceError: balances.error,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      json(res, {
+        ok: false,
+        active: true,
+        error: msg,
+      });
+    }
+    return;
+  }
+
   // ── PUT /api/plugins/:id ────────────────────────────────────────────────
   if (method === "PUT" && pathname.startsWith("/api/plugins/")) {
     const pluginId = pathname.slice("/api/plugins/".length);
@@ -8215,7 +8395,9 @@ async function handleRequest(
 
     // Update config.plugins.entries so the runtime loads/skips this plugin
     if (body.enabled !== undefined) {
-      const packageName = `@elizaos/plugin-${pluginId}`;
+      const packageName =
+        MILADY_BUNDLED_PLUGIN_PACKAGE[pluginId] ??
+        `@elizaos/plugin-${pluginId}`;
 
       if (!state.config.plugins) {
         state.config.plugins = {};
@@ -8343,6 +8525,120 @@ async function handleRequest(
   if (pluginTestMatch) {
     const pluginId = decodeURIComponent(pluginTestMatch[1]);
     const startMs = Date.now();
+
+    // Jeju: test RPC + wallet without requiring the plugin to be loaded in runtime.
+    if (pluginId === "jeju") {
+      console.log("[milady-api] Jeju plugin test connection requested");
+      let freshConfig = state.config;
+      try {
+        freshConfig = loadMiladyConfig();
+      } catch {
+        /* keep state.config */
+      }
+      const entries = (
+        freshConfig.plugins as Record<string, unknown> | undefined
+      )?.entries as Record<string, { enabled?: boolean }> | undefined;
+      const allow = freshConfig.plugins?.allow ?? [];
+      const jejuInAllow =
+        Array.isArray(allow) &&
+        allow.some((x) => x === "jeju" || x === "@milady/plugin-jeju");
+      const jejuEnabled =
+        entries?.jeju?.enabled === true ||
+        jejuInAllow ||
+        Boolean(state.runtime?.plugins?.some((p) => p.name === "jeju"));
+
+      if (!jejuEnabled) {
+        console.log(
+          "[milady-api] Jeju test skipped — plugin not enabled in config",
+        );
+        json(res, {
+          success: false,
+          pluginId: "jeju",
+          message:
+            "Enable Jeju / Bazaar in Settings → Plugins and save, then try again.",
+          durationMs: Date.now() - startMs,
+        });
+        return;
+      }
+
+      const serverDir =
+        import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
+      const packageRoot = findOwnPackageRoot(serverDir);
+      const clientModPath = path.join(
+        packageRoot,
+        "dist/plugins/jeju/client.js",
+      );
+      if (!fs.existsSync(clientModPath)) {
+        console.warn(
+          "[milady-api] Jeju test failed — dist/plugins/jeju/client.js not found",
+        );
+        json(res, {
+          success: false,
+          pluginId: "jeju",
+          error:
+            "Jeju plugin not built. Rebuild Milady so dist/plugins/jeju exists.",
+          durationMs: Date.now() - startMs,
+        });
+        return;
+      }
+      try {
+        const mod = (await import(pathToFileURL(clientModPath).href)) as {
+          getJejuClient: () => {
+            address: string;
+            config: { rpcUrl: string; chainId: number };
+          };
+          getJejuBalances: (c: unknown) => Promise<{
+            eth?: string;
+            weth?: string;
+            usdc?: string;
+            error?: string;
+          }>;
+        };
+        const client = mod.getJejuClient();
+        const balances = await mod.getJejuBalances(client);
+        const durationMs = Date.now() - startMs;
+        if (balances.error) {
+          console.warn(
+            `[milady-api] Jeju test failed (RPC): ${balances.error}`,
+          );
+          json(res, {
+            success: false,
+            pluginId: "jeju",
+            message: `Wallet ready, but RPC error: ${balances.error}`,
+            error: balances.error,
+            durationMs,
+          });
+        } else {
+          // Same terminal as "Server running" — use console.log so it appears there.
+          console.log("[milady-api] ── Jeju connection test OK ──");
+          console.log(
+            `[milady-api] Jeju wallet (fund this address): ${client.address}`,
+          );
+          console.log(
+            `[milady-api] Jeju RPC: ${client.config.rpcUrl}  chainId: ${client.config.chainId}`,
+          );
+          console.log(
+            `[milady-api] Jeju balances — ETH: ${balances.eth ?? "?"}  WETH: ${balances.weth ?? "?"}  USDC: ${balances.usdc ?? "?"}`,
+          );
+          json(res, {
+            success: true,
+            pluginId: "jeju",
+            message: `Jeju OK. Wallet ${client.address} — ETH ${balances.eth ?? "?"} / USDC ${balances.usdc ?? "?"}`,
+            durationMs,
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[milady-api] Jeju test failed: ${msg}`);
+        json(res, {
+          success: false,
+          pluginId: "jeju",
+          error: msg,
+          durationMs: Date.now() - startMs,
+        });
+      }
+      return;
+    }
 
     try {
       // Find the plugin in the runtime
