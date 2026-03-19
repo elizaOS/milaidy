@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getToken, setToken } from "../lib/auth";
 import { CloudApiClient, CloudClient } from "../lib/cloud-api";
 
 const mockFetch = vi.fn();
@@ -394,6 +395,19 @@ describe("CloudClient", () => {
       json: () => Promise.resolve({ error: "forbidden" }),
     });
     await expect(cc.listAgents()).rejects.toThrow("Cloud API 403");
+  });
+
+  it("clears stored token when backend returns auth failure", async () => {
+    setToken("stale-key");
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: "Invalid or expired API key" }),
+      text: () => Promise.resolve("Invalid or expired API key"),
+    });
+
+    await expect(cc.listAgents()).rejects.toThrow("Invalid or expired API key");
+    expect(getToken()).toBeNull();
   });
 
   it("deleteAgent() calls DELETE", async () => {

@@ -8,6 +8,10 @@ import {
   isAuthenticated,
   setToken,
 } from "../lib/auth";
+import {
+  getCloudTokenStorageKey,
+  LEGACY_CLOUD_TOKEN_STORAGE_KEY,
+} from "../lib/runtime-config";
 
 beforeEach(() => {
   localStorage.clear();
@@ -22,6 +26,14 @@ describe("auth", () => {
   it("stores and retrieves token", () => {
     setToken("test-api-key");
     expect(getToken()).toBe("test-api-key");
+  });
+
+  it("stores token under a cloud-scoped storage key", () => {
+    setToken("test-api-key");
+    expect(localStorage.getItem(getCloudTokenStorageKey())).toBe(
+      "test-api-key",
+    );
+    expect(localStorage.getItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY)).toBeNull();
   });
 
   it("clears token", () => {

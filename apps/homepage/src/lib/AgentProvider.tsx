@@ -17,6 +17,7 @@ import {
   getSandboxDiscoveryUrls,
   LOCAL_AGENT_BASE,
   rewriteAgentUiUrl,
+  shouldAllowPublicSandboxDiscoveryFallback,
 } from "./runtime-config";
 
 export type AgentSource = "cloud" | "local" | "remote";
@@ -158,11 +159,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     }
 
     // 2. Milady self-hosted agents (auto-discovery)
-    //    The sandbox discovery endpoint (sandboxes.waifu.fun/agents) returns ALL
-    //    sandboxes across all orgs — it does NOT support auth-based filtering.
-    //    To scope to the current user, we cross-reference with the Cloud API
-    //    (/api/v1/milady/agents) which IS org-scoped. Only sandboxes whose
-    //    agent_name matches a cloud agent name (or whose id matches) are shown.
+    //    The public sandbox discovery endpoint returns ALL sandboxes across orgs.
+    //    On hosted milady.ai, never use that as an unauthenticated fallback.
+    //    Only use discovery there to enrich already-authenticated cloud agents.
     const discoveredIds = new Set<string>();
     let sandboxes: Array<{
       id: string;
@@ -172,24 +171,29 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       node_id?: string;
       last_heartbeat_at?: string;
     }> = [];
-    const _authToken = getToken();
-    for (const url of getSandboxDiscoveryUrls()) {
-      try {
-        const sandboxRes = await fetch(url, {
-          signal: AbortSignal.timeout(5000),
-        });
-        if (sandboxRes.ok) {
-          sandboxes = await sandboxRes.json();
-          break; // Use first successful response
+    const allowPublicSandboxFallback =
+      shouldAllowPublicSandboxDiscoveryFallback();
+    const shouldFetchSandboxes = cloudAuthOk || allowPublicSandboxFallback;
+
+    if (shouldFetchSandboxes) {
+      for (const url of getSandboxDiscoveryUrls()) {
+        try {
+          const sandboxRes = await fetch(url, {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (sandboxRes.ok) {
+            sandboxes = await sandboxRes.json();
+            break; // Use first successful response
+          }
+        } catch {
+          // try next URL
         }
-      } catch {
-        // try next URL
       }
     }
 
     // Build a set of cloud agent names/ids for cross-referencing.
-    // When cloud auth succeeded, use cross-reference to scope sandbox agents to this user.
-    // When cloud auth failed, show ALL discovered sandboxes (fallback for self-hosted setups).
+    // When cloud auth succeeds, sandbox discovery is only used to enrich or match
+    // the authenticated user's agents. Public hosted fallback is localhost-only.
     const cloudAgentNames = new Set(
       results
         .filter((a) => a.source === "cloud")
@@ -200,18 +204,17 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     );
 
     if (sandboxes.length > 0) {
-      // When cloud auth succeeded and returned agents, filter sandboxes to only matching ones.
-      // When cloud auth failed (or returned 0 agents), show all sandboxes as fallback.
-      const ownedSandboxes =
-        cloudAuthOk && cloudAgentNames.size > 0
-          ? sandboxes.filter((sb) => {
-              const nameMatch = cloudAgentNames.has(
-                (sb.agent_name || "").toLowerCase(),
-              );
-              const idMatch = cloudAgentIds.has(sb.id);
-              return nameMatch || idMatch;
-            })
-          : sandboxes;
+      const ownedSandboxes = cloudAuthOk
+        ? sandboxes.filter((sb) => {
+            const nameMatch = cloudAgentNames.has(
+              (sb.agent_name || "").toLowerCase(),
+            );
+            const idMatch = cloudAgentIds.has(sb.id);
+            return nameMatch || idMatch;
+          })
+        : allowPublicSandboxFallback
+          ? sandboxes
+          : [];
 
       // Build a lookup from cloud agent name (lowercase) → index in results
       const cloudAgentIndexByName = new Map<string, number>();

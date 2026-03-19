@@ -268,6 +268,112 @@ function patchAutonomousResetAllowedSegments() {
 patchAutonomousResetAllowedSegments();
 
 /**
+ * Patch @elizaos/autonomous server CORS handling so same-host browser origins
+ * like https://<agent>.milady.ai are allowed without needing every wildcard host
+ * pre-listed in ELIZA_ALLOWED_ORIGINS / MILADY_ALLOWED_ORIGINS.
+ *
+ * This preserves the explicit allowlist for cross-host access while fixing the
+ * new wildcard pair flow on hosted agent domains.
+ * Remove once upstream allows exact same-host origins by default.
+ */
+function patchAutonomousSameHostCors() {
+  const searchDirs = [resolve(root, "node_modules/@elizaos/autonomous")];
+  const bunCacheDir = resolve(root, "node_modules/.bun");
+  if (existsSync(bunCacheDir)) {
+    try {
+      for (const entry of readdirSync(bunCacheDir)) {
+        if (entry.startsWith("@elizaos+autonomous@")) {
+          searchDirs.push(
+            resolve(bunCacheDir, entry, "node_modules/@elizaos/autonomous"),
+          );
+        }
+      }
+    } catch {}
+  }
+
+  const targets = [
+    {
+      relativePath: "packages/autonomous/src/api/server.ts",
+      stripNeedle:
+        '/** Strip an optional port suffix from a hostname string. */\nfunction stripPort(host: string): string {\n  return host.replace(/:\\d+$/, "");\n}\n',
+      stripReplacement:
+        '/** Strip an optional port suffix from a hostname string. */\nfunction stripPort(host: string): string {\n  return host.replace(/:\\d+$/, "");\n}\n\nfunction normalizeRequestHost(host?: string | null): string | null {\n  if (!host) return null;\n  const trimmed = host.trim().toLowerCase();\n  if (!trimmed) return null;\n\n  if (trimmed.startsWith("[")) {\n    const close = trimmed.indexOf("]");\n    return close > 0 ? trimmed.slice(1, close) : trimmed.slice(1);\n  }\n\n  if ((trimmed.match(/:/g) || []).length >= 2) {\n    return trimmed;\n  }\n\n  return stripPort(trimmed);\n}\n',
+      resolveNeedle:
+        "export function resolveCorsOrigin(origin?: string): string | null {\n  if (!origin) return null;\n  const trimmed = origin.trim();\n  if (!trimmed) return null;\n",
+      resolveReplacement:
+        "export function resolveCorsOrigin(\n  origin?: string,\n  requestHost?: string | null,\n): string | null {\n  if (!origin) return null;\n  const trimmed = origin.trim();\n  if (!trimmed) return null;\n\n  const normalizedRequestHost = normalizeRequestHost(requestHost);\n  if (normalizedRequestHost) {\n    try {\n      const originHost = normalizeRequestHost(new URL(trimmed).host);\n      if (originHost === normalizedRequestHost) return trimmed;\n    } catch {}\n  }\n",
+      applyNeedle:
+        'function applyCors(\n  req: http.IncomingMessage,\n  res: http.ServerResponse,\n): boolean {\n  const origin =\n    typeof req.headers.origin === "string" ? req.headers.origin : undefined;\n  const allowed = resolveCorsOrigin(origin);\n',
+      applyReplacement:
+        'function applyCors(\n  req: http.IncomingMessage,\n  res: http.ServerResponse,\n): boolean {\n  const origin =\n    typeof req.headers.origin === "string" ? req.headers.origin : undefined;\n  const requestHost =\n    typeof req.headers.host === "string" ? req.headers.host : undefined;\n  const allowed = resolveCorsOrigin(origin, requestHost);\n',
+      wsNeedle:
+        '  const origin =\n    typeof req.headers.origin === "string" ? req.headers.origin : undefined;\n  const allowedOrigin = resolveCorsOrigin(origin);\n',
+      wsReplacement:
+        '  const origin =\n    typeof req.headers.origin === "string" ? req.headers.origin : undefined;\n  const requestHost =\n    typeof req.headers.host === "string" ? req.headers.host : undefined;\n  const allowedOrigin = resolveCorsOrigin(origin, requestHost);\n',
+    },
+    {
+      relativePath: "packages/autonomous/src/api/server.js",
+      stripNeedle:
+        'function stripPort(host) {\n  return host.replace(/:\\d+$/, "");\n}\n',
+      stripReplacement:
+        'function stripPort(host) {\n  return host.replace(/:\\d+$/, "");\n}\n\nfunction normalizeRequestHost(host) {\n  if (!host) return null;\n  const trimmed = host.trim().toLowerCase();\n  if (!trimmed) return null;\n\n  if (trimmed.startsWith("[")) {\n    const close = trimmed.indexOf("]");\n    return close > 0 ? trimmed.slice(1, close) : trimmed.slice(1);\n  }\n\n  if ((trimmed.match(/:/g) || []).length >= 2) {\n    return trimmed;\n  }\n\n  return stripPort(trimmed);\n}\n',
+      resolveNeedle:
+        "function resolveCorsOrigin(origin) {\n  if (!origin) return null;\n  const trimmed = origin.trim();\n  if (!trimmed) return null;\n",
+      resolveReplacement:
+        "function resolveCorsOrigin(origin, requestHost) {\n  if (!origin) return null;\n  const trimmed = origin.trim();\n  if (!trimmed) return null;\n\n  const normalizedRequestHost = normalizeRequestHost(requestHost);\n  if (normalizedRequestHost) {\n    try {\n      const originHost = normalizeRequestHost(new URL(trimmed).host);\n      if (originHost === normalizedRequestHost) return trimmed;\n    } catch {}\n  }\n",
+      applyNeedle:
+        'function applyCors(req, res) {\n  const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;\n  const allowed = resolveCorsOrigin(origin);\n',
+      applyReplacement:
+        'function applyCors(req, res) {\n  const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;\n  const requestHost = typeof req.headers.host === "string" ? req.headers.host : undefined;\n  const allowed = resolveCorsOrigin(origin, requestHost);\n',
+      wsNeedle:
+        '  const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;\n  const allowedOrigin = resolveCorsOrigin(origin);\n',
+      wsReplacement:
+        '  const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;\n  const requestHost = typeof req.headers.host === "string" ? req.headers.host : undefined;\n  const allowedOrigin = resolveCorsOrigin(origin, requestHost);\n',
+    },
+  ];
+
+  let patched = 0;
+  for (const dir of searchDirs) {
+    for (const target of targets) {
+      const file = resolve(dir, target.relativePath);
+      if (!existsSync(file)) continue;
+
+      let src = readFileSync(file, "utf8");
+      if (
+        src.includes("normalizeRequestHost(requestHost)") &&
+        src.includes("resolveCorsOrigin(origin, requestHost)")
+      ) {
+        continue;
+      }
+
+      if (
+        !src.includes(target.stripNeedle) ||
+        !src.includes(target.resolveNeedle)
+      ) {
+        continue;
+      }
+
+      src = src.replace(target.stripNeedle, target.stripReplacement);
+      src = src.replace(target.resolveNeedle, target.resolveReplacement);
+      src = src.replace(target.applyNeedle, target.applyReplacement);
+      src = src.replace(target.wsNeedle, target.wsReplacement);
+      writeFileSync(file, src, "utf8");
+      patched++;
+      console.log(
+        `[patch-deps] Applied autonomous same-host CORS patch: ${file}`,
+      );
+    }
+  }
+
+  if (patched > 0) {
+    console.log(
+      `[patch-deps] autonomous: fixed ${patched} same-host CORS file(s).`,
+    );
+  }
+}
+patchAutonomousSameHostCors();
+
+/**
  * Patch @elizaos/app-core AvatarLoader to use a linear determinate progress bar
  * that fills from 0% to 100% before the world is shown, instead of the upstream
  * indeterminate sine-wave animation.

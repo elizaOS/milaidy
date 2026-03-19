@@ -1,17 +1,31 @@
-import { CLOUD_BASE } from "./runtime-config";
+import {
+  CLOUD_BASE,
+  getCloudTokenStorageKey,
+  isHostedRuntime,
+  LEGACY_CLOUD_TOKEN_STORAGE_KEY,
+} from "./runtime-config";
 
-const TOKEN_KEY = "milady-cloud-token";
+function getActiveTokenStorageKey(): string {
+  return getCloudTokenStorageKey();
+}
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  const scopedToken = localStorage.getItem(getActiveTokenStorageKey());
+  if (scopedToken != null) return scopedToken;
+  if (!isHostedRuntime()) {
+    return localStorage.getItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY);
+  }
+  return null;
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(getActiveTokenStorageKey(), token);
+  localStorage.removeItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY);
 }
 
 export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(getActiveTokenStorageKey());
+  localStorage.removeItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY);
 }
 
 export function isAuthenticated(): boolean {
