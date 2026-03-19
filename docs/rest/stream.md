@@ -176,18 +176,28 @@ POST /api/stream/unmute
 GET /api/streaming/destinations
 ```
 
-Returns all available streaming destinations from installed plugins.
+Returns all configured streaming destinations from the multi-destination registry. Each destination indicates whether it is the currently active target.
 
 **Response:**
 ```json
 {
   "ok": true,
   "destinations": [
-    { "id": "twitch", "name": "Twitch" },
-    { "id": "youtube", "name": "YouTube" }
+    { "id": "twitch", "name": "Twitch", "active": true },
+    { "id": "youtube", "name": "YouTube", "active": false },
+    { "id": "pumpfun", "name": "pump.fun", "active": false },
+    { "id": "x", "name": "X/Twitter", "active": false }
   ]
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `destinations[].id` | string | Unique destination identifier |
+| `destinations[].name` | string | Human-readable destination name |
+| `destinations[].active` | boolean | Whether this destination is currently selected for streaming |
+
+The active destination defaults to the first registered destination when no explicit selection has been made.
 
 ### Set Active Destination
 
@@ -195,15 +205,32 @@ Returns all available streaming destinations from installed plugins.
 POST /api/streaming/destination
 ```
 
+Switches the active streaming destination at runtime. The selected destination is used for subsequent `POST /api/stream/live` calls to resolve RTMP credentials automatically.
+
 **Request body:**
 ```json
 { "destinationId": "twitch" }
 ```
 
-**Response:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `destinationId` | string | yes | ID of the destination to activate (must match a registered destination) |
+
+**Response (200):**
 ```json
-{ "ok": true }
+{
+  "ok": true,
+  "destination": { "id": "twitch", "name": "Twitch" }
+}
 ```
+
+**Errors:**
+
+| Status | Body | Condition |
+|--------|------|-----------|
+| `400` | `{ "error": "destinationId is required" }` | Missing or empty `destinationId` |
+| `404` | `{ "error": "Unknown destination: <id>" }` | No registered destination matches the provided ID |
+| `500` | `{ "error": "<message>" }` | Unexpected server error |
 
 ## Overlays
 
