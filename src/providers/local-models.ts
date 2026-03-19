@@ -324,6 +324,8 @@ export class LocalModelManager {
         : files.map((f) => f.rfilename);
 
     let totalDownloaded = 0;
+    const downloadedFiles: string[] = [];
+
     for (const filename of downloadList) {
       const fileUrl = `https://huggingface.co/${modelId}/resolve/main/${filename}`;
       const filePath = join(modelPath, filename);
@@ -347,6 +349,7 @@ export class LocalModelManager {
       const arrayBuffer = await fileResponse.arrayBuffer();
       writeFileSync(filePath, Buffer.from(arrayBuffer));
 
+      downloadedFiles.push(filename);
       totalDownloaded++;
       onProgress?.({
         modelId,
@@ -355,6 +358,21 @@ export class LocalModelManager {
         total: downloadList.length,
         percent: (totalDownloaded / downloadList.length) * 100,
       });
+    }
+
+    // Validate required files were downloaded
+    const hasWeightFile = downloadedFiles.some((f) =>
+      /\.(safetensors|bin|gguf|onnx)$/.test(f),
+    );
+    const hasConfig = downloadedFiles.some(
+      (f) => f === "config.json" || f.endsWith("/config.json"),
+    );
+    if (!hasWeightFile || !hasConfig) {
+      const { rm } = await import("node:fs/promises");
+      await rm(modelPath, { recursive: true, force: true });
+      throw new Error(
+        `Model download incomplete for ${modelId}: missing ${!hasConfig ? "config.json" : "weight files"}`,
+      );
     }
 
     // Update manifest
