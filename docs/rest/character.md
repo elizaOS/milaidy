@@ -18,6 +18,7 @@ Get the current character data from the running agent runtime.
 {
   "character": {
     "name": "Milady",
+    "username": "milady",
     "bio": ["An AI agent with a unique personality."],
     "system": "You are Milady, a helpful and witty assistant.",
     "adjectives": ["curious", "witty", "helpful"],
@@ -27,6 +28,12 @@ Get the current character data from the running agent runtime.
       "chat": ["Use casual language"],
       "post": ["Keep posts under 280 characters"]
     },
+    "messageExamples": [
+      [
+        { "name": "{{user1}}", "content": { "text": "Hey, what do you think about AI?" } },
+        { "name": "Milady", "content": { "text": "Oh, I have thoughts..." } }
+      ]
+    ],
     "postExamples": ["Just shipped a new feature~"]
   },
   "agentName": "Milady"
@@ -44,6 +51,7 @@ Update character fields. The body is validated against the `CharacterSchema`. On
 ```json
 {
   "name": "Milady",
+  "username": "milady",
   "bio": "An AI agent with a unique personality.",
   "system": "You are Milady, a helpful assistant.",
   "adjectives": ["curious", "witty"],
@@ -53,6 +61,12 @@ Update character fields. The body is validated against the `CharacterSchema`. On
     "chat": ["Use casual language"],
     "post": ["Keep it short"]
   },
+  "messageExamples": [
+    [
+      { "name": "{{user1}}", "content": { "text": "What's new?" } },
+      { "name": "Milady", "content": { "text": "Just shipped something cool~" } }
+    ]
+  ],
   "postExamples": ["Just shipped something cool~"]
 }
 ```
@@ -60,11 +74,13 @@ Update character fields. The body is validated against the `CharacterSchema`. On
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `name` | string | No | Agent display name (max 100 characters) |
+| `username` | string | No | Agent username for platforms (max 50 characters) |
 | `bio` | string \| string[] | No | Biography — single string or array of points |
 | `system` | string | No | System prompt defining core behavior (max 10,000 characters) |
 | `adjectives` | string[] | No | Personality adjectives (e.g., curious, witty) |
 | `topics` | string[] | No | Topics the agent is knowledgeable about |
 | `style` | object | No | Communication style with `all`, `chat`, and `post` sub-arrays |
+| `messageExamples` | array | No | Example conversations demonstrating the agent's voice |
 | `postExamples` | string[] | No | Example social media posts |
 
 **Response**
