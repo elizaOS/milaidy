@@ -3,61 +3,24 @@ title: Changelog
 description: The latest updates and improvements to Milady.
 ---
 
-<Update label="2026-03-19" description="Week of March 14–19">
-## Cloud dashboard and new distribution channels
+<Update label="2026-04-02" description="Week of March 27 – April 2" tags={["Feature", "Update", "Fix"]}>
+## Windows standalone installer
 
-### New features
+The Windows download is now a proper one-click installer built with Inno Setup. The previous download required a separate payload archive to run — this one installs and launches on its own. MSIX packaging remains available as a secondary option. See the [installation guide](/installation) for details.
 
-- **Cloud control plane dashboard** — You can now manage your agents directly from the Milady homepage at `/#/dashboard`. View agent status, monitor heartbeats, and control your cloud-hosted agents without leaving the app. See the [dashboard guide](/apps/dashboard) for details.
+## Intel Mac desktop support
 
-- **Game-style character editor** — The character editor has been redesigned with a notebook-style UI featuring a parchment-textured page layout and organized tabbed sections. Editing your agent's personality and behavior is now more visual and intuitive. Learn more in the [character interface docs](/agents/character-interface).
+The macOS DMG for Intel Macs now ships correctly. Previous releases could fail to launch because the packaged native binaries were built for Apple Silicon only. Both Intel (x64) and Apple Silicon (arm64) DMGs are now published with every release.
 
-- **VRM wave greeting** — Your 3D character now waves when the app launches or when you swap characters, with smooth loading transitions that prevent visual glitches.
+## Desktop startup resilience
 
-- **Eliza Cloud onboarding** — When you run `milady start` for the first time, you can now connect to Eliza Cloud as a hosted runtime. This simplifies setup for users who prefer a managed infrastructure.
+If the agent runtime fails to load — for example, due to a missing native module — the desktop app now keeps the API server running and shows a clear error message instead of a blank screen. You can retry loading from the UI without restarting the app.
 
-- **Redesigned settings and social panels** — The settings, social connectors, and plugins tabs now use a cleaner two-panel layout with a section list on the left and configuration details on the right. The apps tab features a phone-style preview UI.
+## Bug fixes
 
-- **Homepage redesign** — The download experience has been streamlined with a macOS-style dock bar, platform-specific download icons, and a typewriter hero section.
-
-- **New distribution channels** — Milady is now available through additional package managers and app stores:
-  - [Homebrew](/installation) (`brew install milady`)
-  - Snap Store (Linux)
-  - Flatpak / Flathub (Linux)
-  - APT repository (Debian/Ubuntu)
-  - Google Play Store (Android)
-  - iOS and Mac App Store
-  - Windows MSIX packaging
-  - [Docker images via GHCR](/deployment)
-
-### Updates
-
-- **Companion mode polish** — Character save and customize buttons are now properly visible in companion mode with a frosted glass backdrop. The companion shell startup has been hardened for reliability.
-
-- **Character config persistence** — Your agent's username, topics, and other metadata now persist correctly across settings changes and runtime restarts.
-
-- **Wallet state unified** — Wallet RPC selection is now a single source of truth across onboarding, settings, and runtime, preventing configuration drift between flows.
-
-- **Performance improvements** — Redundant sorting and string allocations in hot paths have been eliminated, and Three.js is now lazy-loaded to reduce initial bundle size.
-
-### Bug fixes
-
-- Fixed 18 bugs from the 0.88 QA report, including critical issues with empty chat persistence and connector UI behavior.
-- Fixed character save returning HTTP 422 errors due to unsanitized payload fields.
-- Fixed topics not being preserved when editing and saving characters.
-- Fixed cloud dashboard not displaying agents after login.
-- Fixed Windows desktop crash caused by embedding model initialization.
-- Fixed schema validation bypass where invalid character data could pass validation.
-- Fixed connectors panel showing all connectors instead of only the selected one.
-- Fixed dark mode nav tab styling inconsistencies.
-- Fixed avatar index parsing errors and inconsistent voice defaults.
-
-### Security
-
-- Cloud API keys are now scrubbed from the process environment after use, preventing exposure to other modules.
-- Wallet key export now enforces rate limiting, audit logging, and a confirmation delay.
-description: What's new in Milady — features, improvements, and fixes.
----
+- Safe avatar index validation prevents display errors when `STREAM_AVATAR_INDEX` is out of range
+- Oversized voice API requests are now properly rejected with a 413 error and clear size limits
+</Update>
 
 <Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
 ## API key validation for model providers
@@ -391,6 +354,8 @@ This week includes a broad set of security fixes:
 - The avatar panel in the sidebar is now collapsible, giving more vertical space to terminal panes during swarm sessions
 - Skills remain visible in the UI even when the catalog API returns a rate-limit error
 - A crash on Bun 1.3.9 on Linux is mitigated by automatically falling back to Node
+</Update>
+
 <Update label="2026-03-07" description="Week of March 1–7" tags={["Feature", "Update", "Fix"]}>
 ## Companion wallet trading panel
 
