@@ -40,7 +40,11 @@ async function fetchPairingRedirectUrl(
     throw new Error("No redirectUrl in pairing-token response");
   }
 
-  return rewriteAgentUiUrl(redirectUrl);
+  // Don't rewrite the pairing redirect URL — the cloud backend returns
+  // waifu.fun URLs and the waifu.fun /pair handler correctly validates
+  // cloud tokens. The milady.ai nginx has a static /pair page that
+  // doesn't understand cloud tokens and fails with "Invalid pairing code".
+  return redirectUrl;
 }
 
 /**
