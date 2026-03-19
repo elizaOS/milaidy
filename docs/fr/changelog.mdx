@@ -3,6 +3,33 @@ title: Journal des modifications
 description: Nouveautés de Milady — fonctionnalités, améliorations et correctifs.
 ---
 
+<Update label="2026-04-30" description="Semaine du 24 au 30 avril" tags={["Feature", "Update"]}>
+<div id="streaming-response-recovery">
+## Récupération des réponses en streaming
+</div>
+
+Lorsqu'une réponse de chat est interrompue en cours de diffusion — que ce soit à cause d'un problème réseau ou d'un délai dépassé — le message est désormais marqué comme interrompu avec un bouton Réessayer. Vous pouvez redemander la réponse au lieu de rester avec un message partiel.
+
+<div id="orchestrator-trajectory-tagging">
+## Étiquetage des trajectoires de l'orchestrateur
+</div>
+
+Les appels LLM effectués par l'[orchestrateur d'essaim](/fr/guides/coding-swarms) sont désormais identifiés par un badge violet « orchestrateur » dans le [visualiseur de trajectoires](/fr/advanced/trajectories). Chaque entrée inclut des métadonnées telles que le type de décision, l'ID de session et le libellé de la tâche, ce qui facilite la distinction entre le raisonnement de l'orchestrateur et les appels individuels des agents lors d'exécutions multi-agents.
+
+<div id="training-backend-auto-detection">
+## Détection automatique du backend d'entraînement
+</div>
+
+Le système de [réglage fin](/fr/guides/training) détecte désormais les backends ML disponibles — MLX sur Apple Silicon, CUDA sur GPU NVIDIA et CPU en solution de repli — avant de lancer un travail d'entraînement. Si le backend demandé n'est pas disponible, vous obtenez une erreur claire au lieu d'un échec cryptique en cours d'exécution.
+
+<div id="updates">
+## Mises à jour
+</div>
+
+- **Les métadonnées du personnage persistent entre les redémarrages** — Le nom d'utilisateur et les sujets de votre agent survivent désormais aux redémarrages. Auparavant, ces champs étaient traités comme des données d'exécution uniquement et revenaient aux valeurs par défaut après un redémarrage. Consultez l'[éditeur de personnage](/fr/agents/character-interface) pour plus de détails.
+- **Indicateur de progression de reconnexion** — Lorsque la connexion WebSocket est interrompue, le tableau de bord affiche désormais une bannière ambre « Reconnexion... » avec le nombre de tentatives en cours avant de passer à l'état d'échec rouge, vous offrant une visibilité en temps réel sur la progression de la récupération.
+</Update>
+
 <Update label="2026-04-23" description="Semaine du 17 au 23 avril" tags={["Update", "Fix"]}>
 <div id="telegram-connector-reliability">
 ## Fiabilité du connecteur Telegram

@@ -3,6 +3,33 @@ title: Registro de cambios
 description: Novedades en Milady — funcionalidades, mejoras y correcciones.
 ---
 
+<Update label="2026-04-30" description="Semana del 24 al 30 de abril" tags={["Feature", "Update"]}>
+<div id="streaming-response-recovery">
+## Recuperación de respuestas en streaming
+</div>
+
+Cuando una respuesta de chat se interrumpe a mitad de transmisión — ya sea por un problema de red o un tiempo de espera agotado — el mensaje ahora se marca como interrumpido con un botón de Reintentar. Puedes volver a solicitar la respuesta en lugar de quedarte con un mensaje parcial.
+
+<div id="orchestrator-trajectory-tagging">
+## Etiquetado de trayectorias del orquestador
+</div>
+
+Las llamadas LLM realizadas por el [orquestador de enjambre](/es/guides/coding-swarms) ahora están etiquetadas con una insignia púrpura de "orquestador" en el [visor de trayectorias](/es/advanced/trajectories). Cada entrada incluye metadatos como tipo de decisión, ID de sesión y etiqueta de tarea, lo que facilita distinguir el razonamiento del orquestador de las llamadas individuales de los agentes durante ejecuciones multi-agente.
+
+<div id="training-backend-auto-detection">
+## Detección automática del backend de entrenamiento
+</div>
+
+El sistema de [ajuste fino](/es/guides/training) ahora detecta los backends de ML disponibles — MLX en Apple Silicon, CUDA en GPUs NVIDIA y CPU como respaldo — antes de iniciar un trabajo de entrenamiento. Si el backend solicitado no está disponible, obtienes un error claro en lugar de un fallo críptico a mitad de ejecución.
+
+<div id="updates">
+## Actualizaciones
+</div>
+
+- **Los metadatos del personaje persisten entre reinicios** — El nombre de usuario y los temas de tu agente ahora sobreviven a los reinicios. Anteriormente, estos campos se trataban solo como datos de tiempo de ejecución y volvían a los valores predeterminados después de un reinicio. Consulta el [editor de personajes](/es/agents/character-interface) para más detalles.
+- **Indicador de progreso de reconexión** — Cuando la conexión WebSocket se pierde, el panel ahora muestra un banner ámbar de "Reconectando..." con el número de intento actual antes de escalar al estado rojo de fallo, brindándote visibilidad en tiempo real del progreso de recuperación.
+</Update>
+
 <Update label="2026-04-23" description="Semana del 17 al 23 de abril" tags={["Update", "Fix"]}>
 <div id="telegram-connector-reliability">
 ## Fiabilidad del conector de Telegram
