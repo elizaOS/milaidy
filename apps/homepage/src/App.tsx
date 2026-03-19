@@ -16,20 +16,24 @@ export function Homepage() {
 
       {/* Main scrolling container */}
       <div className="relative w-full">
-        {/* LAYER 1: Background Layout (The massive typography, moves with scroll) */}
-        <div className="relative z-10 w-full min-h-screen pointer-events-none">
+        {/* LAYER 1: Hero with CTA */}
+        <div className="relative z-10 w-full min-h-screen">
           <HeroBackground />
-        </div>
-
-        {/* LAYER 2: Foreground UI (Download Icons) */}
-        <div className="absolute top-0 left-0 right-0 z-30 pointer-events-none">
-          <div className="w-full min-h-screen flex items-end justify-center pb-6 sm:pb-10 px-4 pointer-events-auto">
-            <DownloadIcons />
-          </div>
         </div>
 
         {/* Content sections below Hero */}
         <main className="relative z-30 pointer-events-auto bg-dark">
+          {/* Download section */}
+          <section id="install" className="py-16 sm:py-24 flex flex-col items-center px-4">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-light mb-3 text-center">
+              Get the App
+            </h2>
+            <p className="text-text-muted text-sm mb-8 text-center max-w-md">
+              Run Milady locally on any platform. Your agents stay on your machine.
+            </p>
+            <DownloadIcons />
+          </section>
+
           <Privacy />
           <Features />
           <Comparison />
