@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -8,6 +8,8 @@ import { MILADY_CHARACTER_ASSETS } from "../../src/character-catalog";
 const TEST_DIR = fileURLToPath(new URL(".", import.meta.url));
 const APP_DIR = join(TEST_DIR, "../..");
 const PUBLIC_DIR = join(APP_DIR, "public");
+const REPO_ROOT = join(APP_DIR, "../..");
+const SOURCE_PREVIEW_DIR = join(REPO_ROOT, "assets/avatars/vrms/previews");
 const PROVIDER_LOGOS = [
   "logos/anthropic-icon-white.png",
   "logos/anthropic-icon.png",
@@ -108,6 +110,31 @@ describe("app public bundle assets", () => {
 
     for (const relPath of archivedCandidates) {
       expect(existsSync(join(APP_DIR, relPath))).toBe(true);
+    }
+  });
+
+  it("keeps tracked public milady avatar previews aligned with canonical local previews when available", () => {
+    if (!existsSync(SOURCE_PREVIEW_DIR)) {
+      return;
+    }
+
+    const trackedPreviewAssets = MILADY_CHARACTER_ASSETS.filter((asset) =>
+      existsSync(join(PUBLIC_DIR, asset.previewPath.replace(/^\//, ""))),
+    );
+
+    expect(trackedPreviewAssets.length).toBeGreaterThan(0);
+
+    for (const asset of trackedPreviewAssets) {
+      const publicPreviewPath = join(
+        PUBLIC_DIR,
+        asset.previewPath.replace(/^\//, ""),
+      );
+      const sourcePreviewPath = join(SOURCE_PREVIEW_DIR, `${asset.slug}.png`);
+
+      expect(existsSync(sourcePreviewPath)).toBe(true);
+      expect(readFileSync(publicPreviewPath)).toEqual(
+        readFileSync(sourcePreviewPath),
+      );
     }
   });
 });
