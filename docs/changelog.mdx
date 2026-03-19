@@ -245,6 +245,67 @@ Agent-originated wallet transfer requests can no longer bypass the manual-local-
 - Action blocks in coordinator chat display are stripped cleanly without affecting user JSON
 </Update>
 
+<Update label="2026-02-28" description="Week of February 22–28" tags={["Feature", "Security", "Fix"]}>
+## Agent voice streaming
+
+Your agent can now speak on live streams. A new TTS-to-RTMP bridge generates voice audio server-side (supporting ElevenLabs, OpenAI, and Edge providers) and pipes it into the stream's audio track. When voice is enabled and the stream is live, the agent speaks automatically as it responds. See the [stream guide](/dashboard/stream) for details.
+
+## Cross-platform streaming capture
+
+Streaming capture now auto-detects the best mode for your platform — native pipe on desktop, X11 on Linux, AVFoundation on macOS, and CDP on web. Audio source selection supports system audio, microphone, and file playback with per-source volume control.
+
+## Multi-agent swarm orchestration
+
+A new swarm coordinator decomposes complex tasks into parallel sub-tasks and routes them to available coding agents. Live terminal output appears in embedded panes in the dashboard, and a ranked agent selection mode automatically picks the best-performing agent based on success rate and speed. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Bulk knowledge import
+
+You can now upload multiple files and folders at once in the [knowledge](/guides/knowledge) view. Uploads stream in rolling batches to handle large imports without running out of memory.
+
+## In-app bug report
+
+A bug report modal is now accessible from the header bug icon or the command palette. When a GitHub token is configured, reports submit directly to GitHub Issues with screenshots attached. Otherwise, the report is copied to your clipboard with a pre-filled GitHub URL.
+
+## iMessage and SMS connector
+
+The new Blooio connector lets your agent communicate over iMessage and SMS. Configure your API key and phone number in the [social settings](/guides/connectors) to get started.
+
+## Slash, hash, and dollar commands
+
+You can now use `/`, `#`, and `$` command prefixes in chat to trigger actions, reference conversations, and access variables directly from the message input.
+
+## Emote animations restored
+
+All 30 VRM emote animations have been replaced with working Mixamo files — the previous animations were broken Git LFS stubs that failed silently. You can also now drag and drop custom VRM avatars directly onto the avatar selector.
+
+## Security hardening
+
+This week includes a broad set of security fixes:
+
+- **DNS rebinding protection** — the API server now validates Host headers to block DNS rebinding attacks against your local instance
+- **Environment variable lockdown** — critical env vars (TLS settings, proxy configuration, terminal tokens) are now blocked from being overwritten via the config API
+- **SQL query guard** — the read-only SQL endpoint now blocks dangerous built-in functions that could modify server state
+- **Config injection blocked** — the `$include` directive can no longer be injected via the config API to read local files
+- **Custom action gating** — shell and code action handlers now require explicit authorization and run in a hardened sandbox
+- **Plugin install safety** — all plugin installs now run with `--ignore-scripts` to prevent malicious postinstall execution
+- **Electron IPC validation** — shell open and file path IPC handlers now validate inputs to block untrusted URL schemes
+- **Terminal step-up auth** — terminal command execution now requires a dedicated step-up token, separate from the main API token
+
+## Additional fixes
+
+- Custom VRM avatar uploads now persist across page refreshes instead of reverting to the default
+- Deleting a conversation now requires confirmation before proceeding
+- Emojis have been replaced with SVG icons for consistent rendering across all platforms
+- Settings model dropdowns now correctly show your configured model when using local providers like Ollama
+- Agent loading no longer hangs indefinitely on startup — retry traps and stalled states are resolved
+- Startup failures now fast-fail with clear guidance instead of spinning on a 404
+- A boot-blocking plugin resolution bug that prevented the server from starting has been fixed
+- Embedding inputs that exceed the model's context window are now truncated automatically, preventing a crash
+- The settings reset button is now functional — it was previously a non-working placeholder
+- Stream popout windows now route correctly, and TTS audio plays reliably in popout mode
+- The avatar panel in the sidebar is now collapsible, giving more vertical space to terminal panes during swarm sessions
+- Skills remain visible in the UI even when the catalog API returns a rate-limit error
+- A crash on Bun 1.3.9 on Linux is mitigated by automatically falling back to Node
 <Update label="2026-03-07" description="Week of March 1–7" tags={["Feature", "Update", "Fix"]}>
 ## Companion wallet trading panel
 
