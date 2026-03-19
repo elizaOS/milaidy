@@ -144,6 +144,7 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/status` | Get current agent status, name, model, uptime, autonomy state, and pending restart info |
+| `GET` | `/api/health` | Structured subsystem health check (runtime, database, plugins, connectors, readiness) |
 | `GET` | `/api/runtime` | Get runtime details (loaded plugins, services, capabilities) |
 
 ---
