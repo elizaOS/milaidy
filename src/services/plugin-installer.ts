@@ -679,15 +679,21 @@ async function gitCloneInstall(
       }
       throw err;
     }
-    await execFileAsync(pm, ["run", "build"], { cwd: tsDir }).catch(
-      (buildErr: Error) => {
-        logger.warn(
-          `[plugin-installer] build step failed for ${info.name}: ${buildErr.message}`,
-        );
-      },
-    );
-    // Copy built typescript dir as the install target
-    await fs.cp(tsDir, targetDir, { recursive: true });
+    let buildFailed = false;
+    try {
+      await execFileAsync(pm, ["run", "build"], { cwd: tsDir });
+    } catch (buildErr: unknown) {
+      const msg =
+        buildErr instanceof Error ? buildErr.message : String(buildErr);
+      logger.warn(
+        `[plugin-installer] TypeScript build failed for ${info.name}: ${msg}. Installing raw source.`,
+      );
+      buildFailed = true;
+    }
+    // Copy typescript dir (built or raw) as the install target
+    // If build failed, fall back to the root tempDir which has raw source
+    const sourceDir = buildFailed ? tempDir : tsDir;
+    await fs.cp(sourceDir, targetDir, { recursive: true });
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
