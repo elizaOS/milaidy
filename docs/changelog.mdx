@@ -2,8 +2,30 @@
 title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
-description: The latest updates and improvements to Milady.
----
+
+<Update label="2026-04-16" description="Week of April 10–16" tags={["Feature", "Update"]}>
+## Six new platform connectors
+
+Your agent can now connect to six additional messaging platforms out of the box:
+
+- **Signal** — private messaging via signal-cli with attachment and read receipt support. See the [Signal plugin docs](/plugin-registry/platform/signal).
+- **Farcaster** — decentralized social protocol integration for casting, replying, and reacting on-chain. See the [Farcaster plugin docs](/plugin-registry/platform/farcaster).
+- **Microsoft Teams** — Azure Bot integration with threaded replies and media support. See the [MS Teams plugin docs](/plugin-registry/platform/msteams).
+- **Google Chat** — service account integration with webhook delivery and per-space configuration. See the [Google Chat plugin docs](/plugin-registry/platform/googlechat).
+- **Mattermost** — self-hosted team messaging with bot token auth and mention filtering. See the [Mattermost plugin docs](/plugin-registry/platform/mattermost).
+- **BlueBubbles** — iMessage bridge for non-Apple platforms. See the [BlueBubbles plugin docs](/plugin-registry/platform/bluebubbles).
+
+Install any connector with `milady plugins install <name>` and configure it in your [social settings](/guides/connectors).
+
+## Trajectory archival and optimization
+
+Trajectory data — the full record of every LLM call your agent makes — is now archived durably with compressed exports. The system preserves complete prompt and response text for [training](/guides/training) fidelity while extracting lightweight insights into metadata, reducing storage usage without losing data. Archived trajectories are compressed as JSONL before pruning, so nothing is lost during TTL cleanup. See the [trajectories guide](/advanced/trajectories) for details.
+
+## Updates
+
+- **API docs translated** — The API reference and agent endpoints are now available in Spanish, French, and Simplified Chinese.
+- **Character generation improvements** — The character generation endpoint now supports a `system` field and `context.topics` parameter for more targeted character creation.
+</Update>
 
 <Update label="2026-04-09" description="Week of April 3–9" tags={["Feature", "Update", "Fix"]}>
 ## Opinion markets plugin
