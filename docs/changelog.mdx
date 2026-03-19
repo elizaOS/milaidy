@@ -74,3 +74,77 @@ The Windows desktop app no longer crashes on startup due to a `node-llama-cpp` e
 - Oversized voice API requests are properly rejected with a 413 error
 - Performance improved for LLM turns and streaming by eliminating redundant sorting and string allocations
 </Update>
+
+<Update label="2026-03-13" description="Week of March 8–13" tags={["Feature", "Security", "Fix"]}>
+## Game-style onboarding redesign
+
+First-run setup has been rebuilt as a streamlined six-step experience (down from ten) with a three-column glassmorphism layout and a dark game-style theme applied consistently across all modals and overlays.
+
+## New CLI commands — doctor, db reset, and interactive setup
+
+Three new CLI commands ship this week:
+
+- **`milady doctor`** — runs a full environment health check, flagging missing dependencies, port conflicts, and configuration issues
+- **`milady db reset`** — safely resets the database with a confirmation prompt
+- **`milady setup`** — an interactive wizard that walks you through model provider selection with support for nine providers
+
+See the [CLI reference](/cli/overview) for details.
+
+## Distribution across six new package managers
+
+Milady is now available through significantly more installation channels:
+
+- **Homebrew** — `brew install milaidy` (CLI) or `brew install --cask milaidy` (desktop)
+- **Snap Store** — `snap install milady` with strict confinement
+- **Flatpak / Flathub** — production-ready Flatpak with AppStream metadata
+- **APT** — Debian/Ubuntu users can install via APT and run as a systemd service with auto-restart
+- **Google Play Store** — Android app with signed releases
+- **iOS and Mac App Store** — available via TestFlight and App Store Connect
+
+See the [installation guide](/installation) for platform-specific instructions.
+
+## Native GPU companion rendering
+
+Desktop builds now include WebGPU-powered native rendering infrastructure for companion visuals, providing an alternative to the webview-based renderer with improved performance for GPU-accelerated scenes.
+
+## Game client canvas windows
+
+Game clients on desktop now open in a dedicated native window with isolated cookies and storage instead of an embedded iframe. This improves stability and security for in-app game experiences. Web and dev mode still use iframe fallback.
+
+## Streaming controls in companion mode
+
+You can now manage live streaming directly from companion mode with destination and source pickers, stream settings, and new agent actions including go live, go offline, and speak on stream. See the [stream guide](/dashboard/stream) for details.
+
+## NFA wallet flow
+
+A new identity and NFA wallet flow adds an identity card surface, wallet-style confirmation UX, and public BSC RPC defaults wired through the plugin and API layers. See the [wallet guide](/guides/wallet) for details.
+
+## Link sanitization for chat messages
+
+Chat message links are now sanitized to block `javascript:`, `data:`, and `vbscript:` URI schemes, preventing XSS through untrusted content. Normal links and relative paths continue to work as expected.
+
+## Wallet transfer guard in manual-key mode
+
+Agent-originated wallet transfer requests can no longer bypass the manual-local-key confirmation guard. All transfers now correctly require explicit user signature approval.
+
+## Desktop bug fixes
+
+- Window position is now restored correctly after hide/show on desktop
+- Clipboard image encoding works reliably across platforms
+- TTS interruption now fully stops in-flight audio processes
+- Navigation guard blocks external URLs from loading in the main app window
+- VRM avatar face orientation no longer flips incorrectly
+- Companion UI regressions in settings, stream navigation, VRM loading, and shell close flows are resolved
+
+## Additional fixes
+
+- Voice and agent-mode dropdowns are no longer hidden behind other elements
+- Settings sidebar now shows section labels for easier navigation
+- Avatar selector prevents double-click during load
+- Duplicate "++" label on the add-post button is fixed
+- Conversation sidebar now shows title on the left and timestamp on the right
+- Cloud model provider no longer re-enables itself on restart after you switch away
+- Remote server access works correctly with wildcard bind and reverse proxy path prefixes
+- Marketplace-installed skills now appear in the UI (dot-prefix directories were being skipped)
+- Action blocks in coordinator chat display are stripped cleanly without affecting user JSON
+</Update>
