@@ -1118,13 +1118,16 @@ export async function startBenchmarkServer() {
         body += chunk;
       });
       req.on("end", async () => {
+        let parsed: { text?: unknown; context?: unknown; image?: unknown };
         try {
-          const parsed = JSON.parse(body) as {
-            text?: unknown;
-            context?: unknown;
-            image?: unknown;
-          };
+          parsed = JSON.parse(body);
+        } catch {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON in request body" }));
+          return;
+        }
 
+        try {
           const text =
             typeof parsed.text === "string" ? parsed.text.trim() : "";
           if (!text) {
