@@ -16,7 +16,11 @@ import {
   applyAppCoreMiladyVrmStatePatch,
   applyAppCoreMiladyVrmTypesPatch,
   applyAppCoreMiladyVrmViewerPatch,
+  applyAppCoreConfigPageAuthOnlyPatch,
+  applyAppCoreMediaSettingsAuthOnlyPatch,
   applyAppCoreOnboardingConnectionStepPatch,
+  applyAppCoreProviderSwitcherAuthOnlyPatch,
+  applyAppCoreRpcStepByokOnlyPatch,
   applyAppCoreVoiceConfigApiKeyPersistencePatch,
   applyAppCoreVoiceConfigLanguageScaffoldPatch,
   applyAppCoreVoiceConfigSelectionVisibilityPatch,
@@ -1094,6 +1098,192 @@ return _jsx(Button, { variant: active ? "default" : "outline", size: "sm", class
       expect(updated).toContain('variant: "outline"');
       expect(updated).toContain("bg-[var(--accent)]/20 text-white");
       expect(updated).toContain("shadow-[0_0_0_1px_var(--accent)]");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreProviderSwitcherAuthOnlyPatch prevents cloud default/provider selection", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "ProviderSwitcher.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const [selectedProviderId, setSelectedProviderId] = useState(() => (elizaCloudEnabled ? "__cloud__" : null));
+if (cloudHandlesInference) {
+    if (selectedProviderId !== "__cloud__")
+        setSelectedProviderId("__cloud__");
+}
+const resolvedSelectedId = selectedProviderId === "__cloud__" ? "__cloud__" : cloudHandlesInference ? "__cloud__" : piAiEnabled ? "pi-ai" : null;
+const providerChoices = [
+  { id: "__cloud__", label: t("providerswitcher.elizaCloud"), disabled: false },
+];
+return _jsx("select", { value: resolvedSelectedId ?? "__cloud__", onChange: (e) => {
+    const nextId = e.target.value;
+    if (nextId === "__cloud__") {
+      void handleSelectCloud();
+      return;
+    }
+}});
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreProviderSwitcherAuthOnlyPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        'const [selectedProviderId, setSelectedProviderId] = useState(() => null);',
+      );
+      expect(updated).toContain('label: "Eliza Cloud (Auth only)"');
+      expect(updated).toContain(
+        'value: resolvedSelectedId ?? (providerChoices[0]?.id ?? "")',
+      );
+      expect(updated).toContain('if (nextId === "__cloud__")');
+      expect(updated).not.toContain("void handleSelectCloud()");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMediaSettingsAuthOnlyPatch forces own-key mode defaults", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "MediaSettingsSection.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const CATEGORY_LABELS = {
+  image: "mediasettingssection.ImageGeneration",
+  video: "mediasettingssection.VideoGeneration",
+  audio: "mediasettingssection.AudioMusic",
+  vision: "mediasettingssection.VisionAnalysis",
+};
+const getMode = useCallback((category) => {
+  const cfg = getCategoryConfig(category);
+  return cfg.mode ?? "cloud";
+}, [getCategoryConfig]);
+const getProvider = useCallback((category) => {
+  const cfg = getCategoryConfig(category);
+  return cfg.provider ?? "cloud";
+}, [getCategoryConfig]);
+_jsx(CloudSourceModeToggle, { mode: currentMode, onChange: (mode) => {
+  if (mode === "cloud") {
+    updateCategoryConfig(activeTab, { mode: "cloud", provider: "cloud" });
+    return;
+  }
+  updateCategoryConfig(activeTab, { mode: "own-key" });
+}});
+currentMode === "cloud" && (_jsx(CloudConnectionStatus, { connected: elizaCloudConnected }));
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreMediaSettingsAuthOnlyPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain("const FALLBACK_MEDIA_PROVIDER_BY_CATEGORY =");
+      expect(updated).toContain('cfg.mode === "cloud" ? "own-key"');
+      expect(updated).toContain("const fallbackProvider = FALLBACK_MEDIA_PROVIDER_BY_CATEGORY[category];");
+      expect(updated).toContain("onChange: () => {");
+      expect(updated).not.toContain(
+        'currentMode === "cloud" && (_jsx(CloudConnectionStatus',
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreConfigPageAuthOnlyPatch removes cloud rpc/default cloud services UI", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "ConfigPageView.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `function renderRpcProviderButtons(options, selectedProvider, onSelect, containerClassName, tFallback) {
+  return (_jsx("div", { className: containerClassName, children: options.map((provider) => {
+    return _jsx("button", { onClick: () => onSelect(provider.id) }, provider.id);
+  }) }));
+}
+const [rpcFieldValues, setRpcFieldValues] = useState({});
+const [selectedEvmRpc, setSelectedEvmRpc] = useState(initialRpc.evm);
+const [selectedBscRpc, setSelectedBscRpc] = useState(initialRpc.bsc);
+const [selectedSolanaRpc, setSelectedSolanaRpc] = useState(initialRpc.solana);
+useEffect(() => {
+  const selections = resolveInitialWalletRpcSelections(walletConfig);
+  setSelectedEvmRpc(selections.evm);
+  setSelectedBscRpc(selections.bsc);
+  setSelectedSolanaRpc(selections.solana);
+}, [walletConfig]);
+return _jsxs("div", { children: [elizaCloudConnected && _jsx(CloudServicesSection, {}), secretsOpen && (_jsx("div", {}))] });
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreConfigPageAuthOnlyPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        'options.filter((provider) => provider.id !== "eliza-cloud")',
+      );
+      expect(updated).toContain("const coerceRpcProvider = (value, options)");
+      expect(updated).toContain(
+        "coerceRpcProvider(initialRpc.evm, EVM_RPC_OPTIONS)",
+      );
+      expect(updated).not.toContain(
+        "elizaCloudConnected && _jsx(CloudServicesSection, {})",
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreRpcStepByokOnlyPatch starts RPC onboarding in BYOK mode", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "onboarding",
+        "RpcStep.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        'const [mode, setMode] = useState(elizaCloudReady ? "cloud" : "");\n',
+        "utf8",
+      );
+
+      const patched = applyAppCoreRpcStepByokOnlyPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain('const [mode, setMode] = useState("byok");');
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
