@@ -664,6 +664,44 @@ Conversations are scoped to the web-chat interface. Each conversation maps to an
 
 ---
 
+## Streaming
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/stream/live` | Start streaming using the active destination adapter |
+| `POST` | `/api/stream/offline` | Stop the active stream |
+| `GET` | `/api/stream/status` | Get current stream health and configuration |
+| `POST` | `/api/stream/start` | Start stream with explicit RTMP parameters |
+| `POST` | `/api/stream/stop` | Stop the active FFmpeg process |
+| `POST` | `/api/stream/frame` | Pipe a raw image frame to FFmpeg (pipe capture mode) |
+| `POST` | `/api/stream/volume` | Set audio volume (0–100) |
+| `POST` | `/api/stream/mute` | Mute stream audio |
+| `POST` | `/api/stream/unmute` | Unmute stream audio |
+| `GET` | `/api/streaming/destinations` | List all configured streaming destinations with active status |
+| `POST` | `/api/streaming/destination` | Switch the active streaming destination (`{ destinationId }`) |
+| `GET` | `/api/stream/overlay-layout` | Get overlay layout (optional `destination` query param) |
+| `POST` | `/api/stream/overlay-layout` | Save overlay layout |
+| `GET` | `/api/stream/voice` | Get voice/TTS configuration |
+| `POST` | `/api/stream/voice` | Save voice/TTS settings |
+| `POST` | `/api/stream/voice/speak` | Trigger TTS on the live stream |
+| `GET` | `/api/stream/settings` | Get visual stream settings |
+| `POST` | `/api/stream/settings` | Save visual stream settings |
+
+---
+
+## NFA (Non-Fungible Agent)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/nfa/status` | Get NFA token and on-chain identity status |
+| `GET` | `/api/nfa/learnings` | Get parsed learning entries with Merkle root |
+
+<Info>
+NFA endpoints depend on the optional `@miladyai/plugin-bnb-identity` plugin. When the plugin is not installed, `/api/nfa/status` returns `null` for both `nfa` and `identity` fields, and `/api/nfa/learnings` returns an empty entries array with a default Merkle root.
+</Info>
+
+---
+
 ## Sandbox
 
 | Method | Path | Description |
