@@ -129,7 +129,7 @@ Toggle shell access on or off. When changed while the agent is running, schedule
 
 ### PUT /api/permissions/state
 
-Update permission states in bulk. Used by the Electrobun renderer after receiving updated permission states via IPC.
+Update permission states in bulk. Used by the Electrobun renderer after receiving updated permission states via RPC.
 
 **Request**
 
