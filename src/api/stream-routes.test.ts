@@ -957,6 +957,14 @@ try {
   /* not available */
 }
 
+let hasCustomRtmpPlugin = false;
+try {
+  const mod = await import("@elizaos/plugin-custom-rtmp");
+  hasCustomRtmpPlugin = typeof mod.createCustomRtmpDestination === "function";
+} catch {
+  /* not available */
+}
+
 // ---------------------------------------------------------------------------
 // createRetakeDestination() — destination adapter unit tests
 // ---------------------------------------------------------------------------
@@ -1188,7 +1196,7 @@ describe.skipIf(!hasYoutubePlugin)("createYoutubeDestination()", () => {
 // createCustomRtmpDestination() — destination adapter unit tests
 // ---------------------------------------------------------------------------
 
-describe("createCustomRtmpDestination()", () => {
+describe.skipIf(!hasCustomRtmpPlugin)("createCustomRtmpDestination()", () => {
   it("returns a StreamingDestination with id and name", async () => {
     const { createCustomRtmpDestination } = await import(
       "@elizaos/plugin-custom-rtmp"

@@ -21,7 +21,7 @@ interface WalletExportRequestBody {
   exportToken?: string;
 }
 
-interface WalletExportRejection {
+export interface WalletExportRejection {
   status: 401 | 403 | 429;
   reason: string;
 }
