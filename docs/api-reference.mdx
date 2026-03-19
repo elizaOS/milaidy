@@ -189,6 +189,14 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 
 ---
 
+## Agent Self-Status
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/agent/self-status` | Get a capabilities and self-awareness snapshot (wallet, plugins, permissions, trade readiness) |
+
+---
+
 ## Agent Events
 
 | Method | Path | Description |
@@ -238,6 +246,7 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 | `GET` | `/api/conversations/:id/messages` | Get messages for a conversation |
 | `POST` | `/api/conversations/:id/messages` | Send a message in a conversation |
 | `POST` | `/api/conversations/:id/messages/stream` | Send a message and stream the response in a conversation (SSE) |
+| `POST` | `/api/conversations/:id/messages/truncate` | Truncate message history at a given message |
 | `POST` | `/api/conversations/:id/greeting` | Generate a greeting message for a conversation |
 | `PATCH` | `/api/conversations/:id` | Update conversation metadata (e.g. title) |
 | `DELETE` | `/api/conversations/:id` | Delete a conversation |
@@ -624,6 +633,26 @@ Conversations are scoped to the web-chat interface. Each conversation maps to an
 | `POST` | `/api/wallet/generate` | Generate new wallet(s) for EVM, Solana, or both |
 | `POST` | `/api/wallet/export` | Export private keys (requires confirmation) |
 
+### BSC Trading
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/wallet/trade/preflight` | Check BSC trade readiness (wallet, RPC, chain, gas) |
+| `POST` | `/api/wallet/trade/quote` | Get a BSC trade quote with routing |
+| `POST` | `/api/wallet/trade/execute` | Execute or prepare a BSC trade (unsigned or local-key) |
+| `GET` | `/api/wallet/trade/tx-status` | Check on-chain status of a BSC transaction. Param: `hash` |
+| `GET` | `/api/wallet/trading/profile` | Get trading P&L profile from local ledger. Params: `window`, `source` |
+| `POST` | `/api/wallet/transfer/execute` | Execute or prepare a BNB/ERC-20 token transfer |
+| `POST` | `/api/wallet/production-defaults` | Apply production wallet configuration defaults |
+
+### Privy Wallet
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/privy/status` | Check Privy wallet provisioning status |
+| `POST` | `/api/privy/login` | Start Privy wallet login flow |
+| `POST` | `/api/privy/logout` | Log out of Privy wallet session |
+
 ---
 
 ## Drop / Mint
@@ -684,6 +713,8 @@ Conversations are scoped to the web-chat interface. Each conversation maps to an
 | `GET` | `/api/stream/voice` | Get voice/TTS configuration |
 | `POST` | `/api/stream/voice` | Save voice/TTS settings |
 | `POST` | `/api/stream/voice/speak` | Trigger TTS on the live stream |
+| `GET` | `/api/stream/source` | Get active stream capture source |
+| `POST` | `/api/stream/source` | Set active stream capture source |
 | `GET` | `/api/stream/settings` | Get visual stream settings |
 | `POST` | `/api/stream/settings` | Save visual stream settings |
 

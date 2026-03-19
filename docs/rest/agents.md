@@ -171,6 +171,73 @@ Raw binary body — not JSON. The first 4 bytes encode the password length as a 
 }
 ```
 
+## Agent Self-Status
+
+### GET /api/agent/self-status
+
+Returns a comprehensive snapshot of the agent's current capabilities, wallet state, plugin health, and self-awareness summary. Used internally by action handlers to evaluate permissions and by the self-awareness system to compose a unified view of the agent's operational status.
+
+**Response**
+
+```json
+{
+  "generatedAt": "2026-03-19T10:00:00.000Z",
+  "state": "running",
+  "agentName": "Milady",
+  "model": "claude-sonnet-4-20250514",
+  "provider": "anthropic",
+  "automationMode": "connectors-only",
+  "tradePermissionMode": "user-sign-only",
+  "shellEnabled": true,
+  "wallet": {
+    "hasWallet": true,
+    "hasEvm": true,
+    "hasSolana": false,
+    "evmAddress": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    "evmAddressShort": "0xd8dA...6045",
+    "solanaAddress": null,
+    "solanaAddressShort": null,
+    "localSignerAvailable": true,
+    "managedBscRpcReady": true
+  },
+  "plugins": {
+    "totalActive": 12,
+    "active": ["@elizaos/plugin-anthropic", "..."],
+    "aiProviders": ["@elizaos/plugin-anthropic"],
+    "connectors": ["@elizaos/plugin-discord"]
+  },
+  "capabilities": {
+    "canTrade": true,
+    "canLocalTrade": true,
+    "canAutoTrade": false,
+    "canUseBrowser": false,
+    "canUseComputer": false,
+    "canRunTerminal": true,
+    "canInstallPlugins": true,
+    "canConfigurePlugins": true,
+    "canConfigureConnectors": true
+  },
+  "registrySummary": "Agent is running with 12 plugins..."
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `generatedAt` | string | ISO 8601 timestamp of when the snapshot was generated |
+| `state` | string | Current agent state (`running`, `stopped`, `paused`, `error`) |
+| `agentName` | string | Agent display name |
+| `model` | string \| null | Active model identifier |
+| `provider` | string \| null | AI provider label derived from model |
+| `automationMode` | string | `"connectors-only"` or `"full"` |
+| `tradePermissionMode` | string | Trade permission level (`user-sign-only`, `local-key`, etc.) |
+| `shellEnabled` | boolean | Whether shell access is enabled |
+| `wallet` | object | Wallet state summary |
+| `plugins` | object | Active plugins grouped by category |
+| `capabilities` | object | Boolean capability flags for trade, browser, terminal, etc. |
+| `registrySummary` | string \| null | Composed self-awareness summary from the awareness registry (omitted when unavailable) |
+
+---
+
 ## Common Error Codes
 
 | Status | Code | Description |
