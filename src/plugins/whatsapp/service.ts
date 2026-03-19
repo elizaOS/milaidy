@@ -97,6 +97,7 @@ export class WhatsAppBaileysService extends Service {
   private reconnectDelay = 3000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private saveCreds: (() => Promise<void>) | null = null;
+  private stopped = false;
   private credsHandler?: () => Promise<void>;
   private connectionHandler?: (update: Record<string, unknown>) => void;
   private messagesHandler?: (data: Record<string, unknown>) => void;
@@ -125,6 +126,7 @@ export class WhatsAppBaileysService extends Service {
   // -- Lifecycle -------------------------------------------------------------
 
   private async initialize(): Promise<void> {
+    this.stopped = false;
     const authDir = resolveAuthDir(this.runtime);
     const credsPath = path.join(authDir, "creds.json");
 
@@ -223,6 +225,7 @@ export class WhatsAppBaileysService extends Service {
             this.sock = null;
             this.reconnectTimer = setTimeout(() => {
               this.reconnectTimer = null;
+              if (this.stopped) return;
               connect().catch((err) => {
                 this.runtime.logger.error(
                   `[whatsapp] Reconnect failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -270,6 +273,7 @@ export class WhatsAppBaileysService extends Service {
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
     this.runtime?.logger?.info("[whatsapp] Stopping service...");
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
