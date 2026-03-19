@@ -70,7 +70,7 @@ describeIfPluginAvailable("Farcaster Connector - Basic Validation", () => {
 
     expect(plugin?.actions).toBeDefined();
     expect(Array.isArray(plugin?.actions)).toBe(true);
-    expect(plugin!.actions!.length).toBeGreaterThan(0);
+    expect(plugin?.actions?.length).toBeGreaterThan(0);
   });
 });
 

@@ -245,6 +245,8 @@
   "characterview.core": "기본",
   "characterview.style": "스타일",
   "characterview.examples": "예시",
+  "characterview.chatExamples": "채팅 예시",
+  "characterview.noChatExamplesYet": "아직 채팅 예시가 없습니다.",
   "characterview.aboutMe": "소개",
   "characterview.directionsAndThing": "지침 및 기억할 점",
   "characterview.StyleRules": "스타일 규칙",

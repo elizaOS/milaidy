@@ -1,5 +1,6 @@
 import { useApp } from "@miladyai/app-core/state";
 import { useState } from "react";
+import { FlaminaGuideCard } from "../FlaminaGuide";
 
 type RpcMode = "" | "cloud" | "byok";
 
@@ -9,6 +10,7 @@ export function RpcStep() {
     elizaCloudLoginBusy,
     elizaCloudLoginError,
     onboardingRunMode,
+    onboardingMode,
     onboardingCloudProvider,
     onboardingApiKey,
     handleCloudLogin,
@@ -34,7 +36,7 @@ export function RpcStep() {
 
   const handleSkip = () => {
     // Clear any partial RPC config and advance
-    void handleOnboardingNext();
+    void handleOnboardingNext({ skipTask: "rpc" });
   };
 
   // ── No mode chosen yet — show two option cards ──────────────────────
@@ -49,6 +51,9 @@ export function RpcStep() {
         </div>
         <div className="onboarding-question">{t("onboarding.rpcQuestion")}</div>
         <p className="onboarding-desc">{t("onboarding.rpcDesc")}</p>
+        {onboardingMode === "advanced" && (
+          <FlaminaGuideCard topic="rpc" className="mb-4" />
+        )}
 
         <div
           style={{
@@ -137,6 +142,9 @@ export function RpcStep() {
         <div className="onboarding-divider">
           <div className="onboarding-divider-diamond" />
         </div>
+        {onboardingMode === "advanced" && (
+          <FlaminaGuideCard topic="rpc" className="mb-4" />
+        )}
 
         <div style={{ width: "100%", textAlign: "center" }}>
           {elizaCloudConnected ? (
@@ -274,6 +282,9 @@ export function RpcStep() {
       <div className="onboarding-divider">
         <div className="onboarding-divider-diamond" />
       </div>
+      {onboardingMode === "advanced" && (
+        <FlaminaGuideCard topic="rpc" className="mb-4" />
+      )}
 
       <div
         style={{

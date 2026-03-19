@@ -11,6 +11,7 @@ The system API covers core server operations that don't belong to a specific dom
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/status` | Agent status and health check |
+| GET | `/api/health` | Structured subsystem health check |
 | GET | `/api/runtime` | Deep runtime introspection |
 | POST | `/api/provider/switch` | Switch the active AI provider |
 | POST | `/api/restart` | Restart the server process |
@@ -36,6 +37,10 @@ Returns the agent's current state, name, model, uptime, cloud connection status,
   "agentName": "Milady",
   "model": "@elizaos/plugin-anthropic",
   "uptime": 3600000,
+  "startup": {
+    "phase": "ready",
+    "attempt": 1
+  },
   "cloud": {
     "connectionStatus": "disconnected",
     "activeAgentId": null
@@ -51,8 +56,53 @@ Returns the agent's current state, name, model, uptime, cloud connection status,
 | `agentName` | string | Current agent display name |
 | `model` | string\|undefined | Active model/plugin identifier |
 | `uptime` | number\|undefined | Milliseconds since the agent started |
+| `startup` | object | Startup diagnostics with `phase`, `attempt`, and optional error fields |
 | `pendingRestart` | boolean | Whether configuration changes require a restart |
 | `pendingRestartReasons` | string[] | Descriptions of what changed |
+
+---
+
+### GET /api/health
+
+Structured health check endpoint that returns the status of each subsystem. The `ready` field indicates whether the agent has finished starting and is available to serve requests.
+
+**Response**
+
+```json
+{
+  "ready": true,
+  "runtime": "ok",
+  "database": "ok",
+  "plugins": {
+    "loaded": 12,
+    "failed": 0
+  },
+  "coordinator": "ok",
+  "connectors": {
+    "discord": "connected",
+    "telegram": "configured"
+  },
+  "uptime": 3600,
+  "agentState": "running",
+  "startup": {
+    "phase": "ready",
+    "attempt": 1
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ready` | boolean | `false` while agent state is `starting` or `restarting`, `true` otherwise |
+| `runtime` | string | `"ok"` if the runtime is initialized, `"not_initialized"` otherwise |
+| `database` | string | `"ok"` if the runtime is initialized, `"unknown"` otherwise |
+| `plugins.loaded` | number | Count of enabled plugins |
+| `plugins.failed` | number | Count of plugins that failed to load |
+| `coordinator` | string | `"ok"` if the swarm coordinator service is available, `"not_wired"` otherwise |
+| `connectors` | object | Map of connector name to status string |
+| `uptime` | number | Seconds since the agent started |
+| `agentState` | string | Current agent state (`not_started`, `starting`, `running`, `paused`, `stopped`, `restarting`, `error`) |
+| `startup` | object | Startup diagnostics with `phase`, `attempt`, and optional `lastError`, `lastErrorAt`, `nextRetryAt` fields |
 
 ---
 
@@ -142,16 +192,23 @@ Valid providers: `elizacloud`, `openai-codex`, `openai-subscription`, `anthropic
 
 ### POST /api/restart
 
-Restart the server process. Responds immediately and exits after a 1-second delay.
+Restart the server process. Sets the agent state to `restarting`, broadcasts a status update, responds immediately, and exits after a 1-second delay.
 
 **Response**
 
 ```json
 {
   "ok": true,
-  "message": "Restarting..."
+  "message": "Restarting...",
+  "restarting": true
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | boolean | Always `true` |
+| `message` | string | Human-readable status message |
+| `restarting` | boolean | Confirms the server is entering a restart cycle |
 
 ---
 

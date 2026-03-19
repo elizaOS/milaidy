@@ -445,6 +445,7 @@ describe("pages navigation smoke (e2e)", () => {
       activeGameViewerUrl: null,
       gameOverlayEnabled: false,
       startupPhase: "ready",
+      startupStatus: "ready",
       startupError: null,
       retryStartup: vi.fn(),
       setActionNotice: vi.fn(),
@@ -574,7 +575,11 @@ describe("pages navigation smoke (e2e)", () => {
     }> = [
       {
         name: "loading",
-        patch: { onboardingLoading: true, onboardingComplete: false },
+        patch: {
+          onboardingLoading: true,
+          onboardingComplete: false,
+          startupStatus: "loading",
+        },
         token: "AvatarLoader",
       },
       {
@@ -583,6 +588,7 @@ describe("pages navigation smoke (e2e)", () => {
           onboardingLoading: false,
           onboardingComplete: true,
           authRequired: true,
+          startupStatus: "auth-blocked",
         },
         token: "PairingView",
       },
@@ -592,6 +598,7 @@ describe("pages navigation smoke (e2e)", () => {
           onboardingLoading: false,
           authRequired: false,
           onboardingComplete: false,
+          startupStatus: "onboarding",
         },
         token: "OnboardingWizard",
       },
@@ -633,6 +640,7 @@ describe("pages navigation smoke (e2e)", () => {
         activeGameViewerUrl: null,
         gameOverlayEnabled: false,
         startupPhase: "ready",
+        startupStatus: "ready",
         startupError: null,
         retryStartup: vi.fn(),
         setActionNotice: vi.fn(),

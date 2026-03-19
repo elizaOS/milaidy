@@ -12,7 +12,10 @@ import { Updater } from "electrobun/bun";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
-import { scanProviderCredentials } from "./native/credentials";
+import {
+  scanAndValidateProviderCredentials,
+  scanProviderCredentials,
+} from "./native/credentials";
 import { getDesktopManager } from "./native/desktop";
 import { getGatewayDiscovery } from "./native/gateway";
 import { getGpuWindowManager } from "./native/gpu-window";
@@ -173,6 +176,9 @@ export function registerRpcHandlers(
     desktopGetPath: async (params: Parameters<typeof desktop.getPath>[0]) =>
       desktop.getPath(params),
     desktopBeep: async () => desktop.beep(),
+    desktopOpenSettingsWindow: async () => {
+      desktop.openSettings();
+    },
 
     // ---- Desktop: Screen ----
     desktopGetPrimaryDisplay: async () => desktop.getPrimaryDisplay(),
@@ -399,15 +405,23 @@ export function registerRpcHandlers(
     },
 
     // ---- Credentials Auto-Detection ----
-    credentialsScanProviders: async (params?: { context?: "onboarding" }) => {
-      if (params?.context !== "onboarding") {
-        throw new Error(
-          "credentials:scanProviders is only available during onboarding",
-        );
+    credentialsScanProviders: async (params?: { context?: string }) => {
+      if (
+        !params?.context ||
+        !["onboarding", "tray-refresh"].includes(params.context)
+      ) {
+        throw new Error("credentials:scanProviders requires a valid context");
       }
-      return {
-        providers: await scanProviderCredentials(),
-      };
+      return { providers: await scanProviderCredentials() };
+    },
+    credentialsScanAndValidate: async (params?: { context?: string }) => {
+      if (
+        !params?.context ||
+        !["onboarding", "tray-refresh"].includes(params.context)
+      ) {
+        throw new Error("credentialsScanAndValidate requires a valid context");
+      }
+      return { providers: await scanAndValidateProviderCredentials() };
     },
 
     // ---- GPU Window ----

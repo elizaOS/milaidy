@@ -182,7 +182,6 @@ The `createMiladyPlugin()` function (`src/runtime/milady-plugin.ts`) creates a s
 - `autonomousStateProvider` -- current autonomous agent state
 - `sessionKeyProvider` -- session bridge for cross-channel continuity
 - `uiCatalogProvider` -- available UI components the agent can render
-- `emoteProvider` -- available 3D avatar emote animations (gated by `DISABLE_EMOTES` setting)
 - `customActionsProvider` -- user-defined custom action descriptions
 
 **Actions** (agent-invokable operations):
@@ -196,6 +195,7 @@ The `createMiladyPlugin()` function (`src/runtime/milady-plugin.ts`) creates a s
 - Register trigger task workers
 - Start autonomous state tracking
 - Bind custom action runtime references
+- Remove `PLAY_EMOTE` action when `character.settings.DISABLE_EMOTES` is set
 
 ### Error Boundaries
 
@@ -286,7 +286,7 @@ interface Provider {
 }
 ```
 
-Milady registers 8+ providers through the Milady plugin, plus any providers from loaded plugins.
+Milady registers 7+ providers through the Milady plugin, plus any providers from loaded plugins.
 
 ### Actions
 

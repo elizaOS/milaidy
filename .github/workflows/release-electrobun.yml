@@ -100,25 +100,6 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Install Inno Setup 6.7.1
-        if: matrix.platform.os == 'windows'
-        shell: pwsh
-        run: |
-          winget install --exact --id JRSoftware.InnoSetup --version 6.7.1 --accept-package-agreements --accept-source-agreements --disable-interactivity
-
-          $iscc = @(
-            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-            "C:\Program Files\Inno Setup 6\ISCC.exe"
-          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-          if (-not $iscc) {
-            Write-Error "ISCC.exe not found after installing Inno Setup 6.7.1"
-            exit 1
-          }
-
-          Add-Content -Path $env:GITHUB_ENV -Value "MILADY_INNO_SETUP_COMPILER=$iscc"
-          Write-Host "Using ISCC compiler: $iscc"
-
       - name: Cache Bun install
         uses: actions/cache@v4
         with:
@@ -578,6 +559,25 @@ jobs:
           WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
         shell: pwsh
         run: pwsh -File apps/app/electrobun/scripts/sign-windows.ps1 -ArtifactsDir (Join-Path $PWD "apps/app/electrobun/artifacts") -BuildDir (Join-Path $PWD "apps/app/electrobun/build")
+
+      - name: Install Inno Setup 6.7.1
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          winget install --exact --id JRSoftware.InnoSetup --version 6.7.1 --accept-package-agreements --accept-source-agreements --disable-interactivity
+
+          $iscc = @(
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $iscc) {
+            Write-Error "ISCC.exe not found after installing Inno Setup 6.7.1"
+            exit 1
+          }
+
+          Add-Content -Path $env:GITHUB_ENV -Value "MILADY_INNO_SETUP_COMPILER=$iscc"
+          Write-Host "Using ISCC compiler: $iscc"
 
       - name: Build Inno Setup installer
         if: matrix.platform.os == 'windows'
