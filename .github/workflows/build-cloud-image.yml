@@ -1,0 +1,125 @@
+# build-cloud-image.yml — Build and publish milady/agent:cloud-full-ui
+#
+# Triggers:
+#   - Push of tags matching v* (release tags)
+#   - Manual dispatch with optional version override
+#
+# Publishes to GitHub Container Registry (ghcr.io)
+
+name: Build Cloud Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v2.0.0-alpha.81). Defaults to latest git tag.'
+        required: false
+        type: string
+      push:
+        description: 'Push image to registry'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: milady-ai/milaidy/agent
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need tags for version detection
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="$(git tag --sort=-creatordate | head -1)"
+          fi
+          
+          VERSION_CLEAN="${VERSION#v}"
+          GIT_SHA="$(git rev-parse --short HEAD)"
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_clean=$VERSION_CLEAN" >> $GITHUB_OUTPUT
+          echo "git_sha=$GIT_SHA" >> $GITHUB_OUTPUT
+          
+          echo "Version: $VERSION"
+          echo "Clean: $VERSION_CLEAN"
+          echo "SHA: $GIT_SHA"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Optional: Log in to Docker Hub if DOCKERHUB_TOKEN is set
+      - name: Log in to Docker Hub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=cloud-full-ui
+            type=raw,value=cloud-full-ui-${{ steps.version.outputs.version_clean }}
+            type=raw,value=cloud-full-ui-sha-${{ steps.version.outputs.git_sha }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/Dockerfile.cloud-full-ui
+          platforms: linux/amd64
+          push: ${{ github.event_name == 'push' || inputs.push == true }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_VERSION=${{ steps.version.outputs.version }}
+            BUILD_SHA=${{ steps.version.outputs.git_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image summary
+        run: |
+          echo "## 🐳 Cloud Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| SHA | \`${{ steps.version.outputs.git_sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tags | \`cloud-full-ui\`, \`cloud-full-ui-${{ steps.version.outputs.version_clean }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cloud-full-ui" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,26 @@
+FROM node:22-bookworm
+
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy everything first to avoid workspace resolution issues
+COPY . .
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Build
+RUN bun run build
+
+ENV NODE_ENV=production
+
+# Allow non-root user to write temp files
+RUN chown -R node:node /app
+USER node
+
+ENV MILADY_API_BIND="0.0.0.0"
+
+CMD ["node", "milady.mjs", "start"]

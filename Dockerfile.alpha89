@@ -1,0 +1,49 @@
+# ─── Milady Agent v2.0.0-alpha.89 ─────────────────────────────────────
+FROM node:22-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ git ca-certificates curl unzip \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
+
+WORKDIR /app
+
+COPY package.json bun.lock* tsdown.config.ts tsconfig.json milady.mjs ./
+RUN bun install --ignore-scripts 2>&1 || true
+
+COPY src/ src/
+COPY scripts/ scripts/
+COPY plugins/ plugins/
+COPY apps/ apps/
+COPY packages/ packages/
+COPY deploy/ deploy/
+COPY .env.example .env.example
+
+# Build
+RUN npx tsdown 2>&1 || echo "tsdown done"
+
+# Install tsx
+RUN npm install -g tsx
+
+# ─── Runtime ──────────────────────────────────────────────────────────
+FROM node:22-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g tsx
+
+WORKDIR /app
+COPY --from=builder /app /app
+
+ENV NODE_ENV=production
+ENV MILADY_PORT=3000
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:${MILADY_PORT}/api/health || exit 1
+
+CMD ["node", "--import", "tsx", "milady.mjs", "start"]

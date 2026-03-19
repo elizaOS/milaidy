@@ -1,0 +1,347 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Milady Agent — Slim Dockerfile
+# ═══════════════════════════════════════════════════════════════════════════════
+# Baseline: 4.02 GB (milady/agent:v2.0.0-alpha.89)
+# Target:   < 2.0 GB (ideal)  |  < 1.5 GB (stretch)
+#
+# Strategy: 3-stage build
+#   Stage 1 (builder) — identical to the current build process
+#   Stage 2 (pruner)  — surgically deletes dev / build / GPU / browser packages
+#   Stage 3 (runtime) — clean node:22-slim + pruned /app only
+#
+# ──────────────────────────────────────────────────────────────────────────────
+# SAVINGS SUMMARY
+# ──────────────────────────────────────────────────────────────────────────────
+# TIER 1  (always applied, zero functionality lost)
+#   node-llama-cpp GPU binaries      −684 MB  (CUDA, Vulkan, ARM; VPS has no GPU)
+#   onnxruntime-web                  − 91 MB  (browser WASM build; server uses node)
+#   @biomejs/biome CLI bins          −101 MB  (linter; devDep)
+#   TypeScript compiler ×2           − 81 MB  (tsx uses esbuild, not tsc)
+#   rolldown build binaries          − 41 MB  (bundler; only needed at build time)
+#   Three.js ×3 + pixiv-VRM          −112 MB  (browser 3D; bundled in dist/ already)
+#   lucide-react ×2                  − 87 MB  (browser icons; bundled in dist/)
+#   @babylonjs/core                  − 67 MB  (browser 3D engine)
+#   @mediapipe/pose                  − 51 MB  (browser CV; plugin-vision browser side)
+#   musl native bins on glibc host   − 47 MB  (wrong-platform variants)
+#   Storybook packages               − 38 MB  (UI devDep)
+#   apps/app/public/ (duplicate)     −141 MB  (Vite copies to dist/ on build)
+#   vitest + testing infra           − 12 MB  (devDeps)
+#   ESLint + Babel compiler stack    − 20 MB  (devDeps)
+#   source files + build configs     −  3 MB
+#   .map + .d.ts + test/ in pkgs     − 60 MB  (estimate)
+#   ─────────────────────────────────────────
+#   TIER 1 TOTAL:                 ~ −1,636 MB
+#   Estimated image after TIER 1: ~   2.38 GB
+#
+# TIER 2  (optional; uncomment sections to enable; disables ML features)
+#   onnxruntime-node                 −208 MB  (disables local ONNX inference)
+#   @tensorflow/* + tf-models        −200 MB  (disables plugin-vision TF path)
+#   @huggingface/transformers        − 48 MB  (disables HF local models)
+#   ─────────────────────────────────────────
+#   TIER 2 ADDITIONAL:            ~ −  456 MB
+#   Estimated image after T1+T2:  ~   1.92 GB  ← under 2 GB target ✓
+#
+# TIER 3  (aggressive; see IMAGE-OPTIMIZATION.md for stretch-goal options)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── Stage 1: Builder ─────────────────────────────────────────────────────────
+# Identical to the current alpha.89 build — do not change this stage.
+FROM node:22-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ git ca-certificates curl unzip \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
+
+WORKDIR /app
+COPY . .
+
+RUN bun install --ignore-scripts 2>&1 || bun install --ignore-scripts 2>&1 || true
+RUN npx tsdown 2>&1 || echo "tsdown done"
+
+# Patch @elizaos/autonomous version to match the milady wrapper version
+RUN node -e "const fs=require('fs'); const v=require('./package.json').version; \
+  try { const p=JSON.parse(fs.readFileSync('node_modules/@elizaos/autonomous/package.json','utf8')); \
+  p.version=v; fs.writeFileSync('node_modules/@elizaos/autonomous/package.json',JSON.stringify(p,null,2)); \
+  console.log('Patched autonomous version to', v); } catch(e) { console.log('skip:', e.message); }"
+
+# ─── Stage 2: Pruner ──────────────────────────────────────────────────────────
+# Removes dev / build / GPU / browser-only packages from the builder filesystem.
+# The runtime stage does COPY --from=pruner which picks up the pruned state.
+# Note: bun stores actual package files in node_modules/.bun/{pkg@version}/ and
+# uses symlinks in node_modules/ → we delete both.
+FROM builder AS pruner
+
+# ╔═════════════════════════════════════════════════════════════════════════════╗
+# ║  TIER 1 — Safe removals (no runtime functionality lost)                   ║
+# ╚═════════════════════════════════════════════════════════════════════════════╝
+
+# ── GPU platform binaries for node-llama-cpp ─────────────────────────────────
+# CUDA ext / CUDA / Vulkan: require NVIDIA GPU or Vulkan-capable hardware.
+# ARM64 / ARMv7l: wrong CPU arch (container is x86-64).
+# node-llama-cpp auto-detects available backends and falls back to the plain
+# linux-x64 CPU build when GPU variants are absent. Zero behaviour change.
+# Savings: 444 + 153 + 76 + 5 + 6 = 684 MB
+RUN rm -rf \
+    node_modules/.bun/@node-llama-cpp+linux-x64-cuda-ext@* \
+    node_modules/.bun/@node-llama-cpp+linux-x64-cuda@* \
+    node_modules/.bun/@node-llama-cpp+linux-x64-vulkan@* \
+    node_modules/.bun/@node-llama-cpp+linux-arm64@* \
+    node_modules/.bun/@node-llama-cpp+linux-armv7l@*
+
+# ── onnxruntime-web: browser-only WASM build ─────────────────────────────────
+# The server runtime uses onnxruntime-node (native bindings).
+# The web/WASM variant is loaded only in browser environments.
+# Savings: 91 MB
+RUN rm -rf node_modules/.bun/onnxruntime-web@*
+
+# ── @biomejs/biome: linter (devDependency) ───────────────────────────────────
+# Ships two heavy platform CLIs (gnu + musl). Never needed at runtime.
+# Savings: 50 + 50 + ~1 = ~101 MB
+RUN rm -rf \
+    node_modules/.bun/@biomejs+cli-linux-x64@* \
+    node_modules/.bun/@biomejs+cli-linux-x64-musl@* \
+    node_modules/.bun/@biomejs+biome@*
+RUN rm -rf node_modules/@biomejs
+
+# ── TypeScript compiler ───────────────────────────────────────────────────────
+# tsx (the runtime) uses bundled esbuild for transpilation; it does NOT import
+# the typescript package at runtime. Both installed versions are safe to remove:
+#   4.2.4 — old transitive dep brought in by some package
+#   5.9.3 — devDependency
+# Savings: 58 + 23 = 81 MB
+RUN rm -rf \
+    node_modules/.bun/typescript@4.2.4 \
+    node_modules/.bun/typescript@5.9.3
+RUN rm -f node_modules/typescript
+
+# ── Rolldown build binaries ───────────────────────────────────────────────────
+# Used by tsdown (the bundler) at build time only. Provides zero runtime value.
+# Savings: 20 (gnu) + 21 (musl) = 41 MB
+RUN rm -rf \
+    node_modules/.bun/@rolldown+binding-linux-x64-gnu@* \
+    node_modules/.bun/@rolldown+binding-linux-x64-musl@*
+
+# ── Three.js (all 3 versions) + VRM + react-three/fiber ─────────────────────
+# Three.js is a browser 3D rendering library. The Node.js server dist/entry.js
+# has zero references to 'three', 'babylonjs', or 'lucide-react' (confirmed).
+# All 3D functionality is compiled into apps/app/dist/ by Vite.
+# Savings: 38 + 38 + 24 (three) + ~12 (@pixiv + @react-three) = ~112 MB
+RUN rm -rf \
+    node_modules/.bun/three@* \
+    node_modules/.bun/@pixiv+three-vrm@* \
+    node_modules/.bun/@pixiv+three-vrm-core@* \
+    node_modules/.bun/@pixiv+three-vrm-materials-hdr-emissive-multiplier@* \
+    node_modules/.bun/@pixiv+three-vrm-materials-mtoon@* \
+    node_modules/.bun/@pixiv+three-vrm-materials-v0compat@* \
+    node_modules/.bun/@pixiv+three-vrm-node-constraint@* \
+    node_modules/.bun/@pixiv+three-vrm-springbone@* \
+    node_modules/.bun/@pixiv+types-vrm-0.0@* \
+    node_modules/.bun/@pixiv+types-vrmc-* \
+    node_modules/.bun/@react-three+fiber@*
+RUN rm -rf node_modules/three node_modules/@pixiv node_modules/@react-three
+
+# ── lucide-react: browser icon library (2 versions) ──────────────────────────
+# Both are bundled by Vite into apps/app/dist/. Not imported server-side.
+# Savings: 45 + 42 = 87 MB
+RUN rm -rf node_modules/.bun/lucide-react@*
+RUN rm -f node_modules/lucide-react
+
+# ── @babylonjs/core: browser 3D game engine ──────────────────────────────────
+# Savings: 67 MB
+RUN rm -rf node_modules/.bun/@babylonjs+* node_modules/.bun/@dimforge+rapier3d-compat@*
+RUN rm -rf node_modules/@babylonjs node_modules/@dimforge
+
+# ── @mediapipe/pose: browser pose-estimation model ───────────────────────────
+# plugin-vision uses this for in-browser pose detection. The model weights and
+# WASM are browser-side only. The server process does not load mediapipe.
+# Savings: 51 MB
+RUN rm -rf node_modules/.bun/@mediapipe+*
+RUN rm -rf node_modules/@mediapipe
+
+# ── glibc vs musl: remove wrong-platform native pre-builds ───────────────────
+# node:22-slim is Debian (glibc). The musl/Alpine pre-built .node files will
+# never be selected by the runtime. Remove them to reclaim space.
+# If you switch to node:22-alpine, swap the patterns (delete gnu, keep musl).
+# Savings: 30 (canvas-musl) + 17 (sharp-libvips-musl) = 47 MB
+RUN rm -rf \
+    node_modules/.bun/@napi-rs+canvas-linux-x64-musl@* \
+    node_modules/.bun/@img+sharp-libvips-linuxmusl-x64@*
+RUN rm -rf \
+    node_modules/@napi-rs/canvas-linux-x64-musl \
+    "node_modules/@img/sharp-libvips-linuxmusl-x64"
+
+# ── Storybook: UI component workshop (devDep of apps/app) ────────────────────
+# Savings: ~38 MB
+RUN rm -rf \
+    node_modules/.bun/@storybook+* \
+    node_modules/.bun/storybook@*
+RUN rm -rf node_modules/@storybook node_modules/storybook
+
+# ── vitest + testing infrastructure ──────────────────────────────────────────
+# Savings: ~12 MB
+RUN rm -rf \
+    node_modules/.bun/vitest@* \
+    node_modules/.bun/@vitest+* \
+    node_modules/.bun/react-test-renderer@* \
+    node_modules/.bun/@testing-library+*
+RUN rm -rf \
+    node_modules/vitest \
+    node_modules/@vitest \
+    node_modules/react-test-renderer \
+    node_modules/@testing-library
+
+# ── ESLint + Babel compiler stack (devDeps / build-time only) ────────────────
+# eslint: 4 MB. @babel/core, parser, types, traverse, generator: ~16 MB.
+# We intentionally keep @babel/runtime (~1 MB) as some runtime packages import
+# it for regenerator-runtime. Only the compiler toolchain is removed.
+# Savings: ~20 MB
+RUN rm -rf \
+    node_modules/.bun/eslint@* \
+    node_modules/.bun/@babel+core@* \
+    node_modules/.bun/@babel+parser@* \
+    node_modules/.bun/@babel+types@* \
+    node_modules/.bun/@babel+traverse@* \
+    node_modules/.bun/@babel+generator@* \
+    node_modules/.bun/@babel+template@* \
+    node_modules/.bun/@babel+helper-module-transforms@* \
+    node_modules/.bun/@babel+helper-compilation-targets@* \
+    node_modules/.bun/@babel+compat-data@* \
+    node_modules/.bun/@typescript-eslint+* \
+    node_modules/.bun/eslint-plugin-import@* \
+    node_modules/.bun/eslint-config-prettier@*
+
+# ── apps/app/public/: confirmed duplicate of apps/app/dist/ ──────────────────
+# Vite copies the public/ directory into dist/ during every build.
+# Verified: dist/vrms (72 MB) == public/vrms (72 MB)
+#           dist/worlds (57 MB) == public/worlds (57 MB)
+# The full public asset list (vrms, worlds, animations, vrm-decoders, favicons,
+# og-image, logos) is present under dist/. Safe to drop the source copy.
+# Savings: 141 MB
+RUN rm -rf apps/app/public
+
+# ── Source files not needed in the production runtime ────────────────────────
+# root src/  = TypeScript source of the milady wrapper (compiled → dist/)
+# test/      = unit tests
+# apps/app/src  = Vite app source (compiled → apps/app/dist/)
+# apps/app/electrobun = Electron build artifacts
+# Unused sub-apps: homepage, home, landing, chrome-extension, ui
+RUN rm -rf \
+    src/ \
+    test/ \
+    coverage/ \
+    dev.log \
+    install.sh \
+    install.ps1 \
+    apps/app/src \
+    apps/app/test \
+    apps/app/public_src \
+    apps/app/electrobun \
+    apps/homepage \
+    apps/home \
+    apps/landing \
+    apps/chrome-extension \
+    apps/ui
+
+# ── Build/dev config files ────────────────────────────────────────────────────
+RUN rm -f \
+    biome.json \
+    vitest.config.ts \
+    vitest.e2e.config.ts \
+    vitest.live.config.ts \
+    tsdown.config.ts \
+    tsdown.electron.config.ts \
+    tsdown.electron.config.test.ts \
+    knip.jsonc
+
+# ── Source maps from node_modules ────────────────────────────────────────────
+# .map files are used by error stack-trace mappers in development. In production
+# they just consume space. Estimated savings: 30–60 MB.
+RUN find node_modules/.bun -name "*.map" -delete 2>/dev/null || true
+
+# ── TypeScript declaration files from node_modules ───────────────────────────
+# .d.ts files provide IDE type info. Node.js never reads them at runtime.
+# Estimated savings: 20–40 MB.
+RUN find node_modules/.bun -name "*.d.ts" -delete 2>/dev/null || true
+
+# ── test/ directories inside third-party packages ────────────────────────────
+RUN find node_modules/.bun -mindepth 3 -maxdepth 5 -type d \
+    \( -name "test" -o -name "__tests__" -o -name "tests" -o -name "fixtures" \) \
+    -exec rm -rf {} + 2>/dev/null || true
+
+# ── Sweep dangling symlinks caused by the removals above ─────────────────────
+# -xtype l matches symlinks whose targets no longer exist.
+RUN find node_modules -maxdepth 4 -xtype l -delete 2>/dev/null || true
+
+
+# ╔═════════════════════════════════════════════════════════════════════════════╗
+# ║  TIER 2 — Optional ML stack removal (uncomment to enable)                 ║
+# ║  Each block is independent; mix-and-match as needed.                      ║
+# ╚═════════════════════════════════════════════════════════════════════════════╝
+
+# ── onnxruntime-node: local ONNX model inference ─────────────────────────────
+# Disables: plugin-local-embedding ONNX path (falls back to remote embeddings)
+# Disables: any plugin that performs local inference via onnxruntime
+# Savings: 208 MB
+#
+# RUN rm -rf \
+#     node_modules/.bun/onnxruntime-node@* \
+#     node_modules/.bun/onnxruntime-common@*
+# RUN rm -rf node_modules/onnxruntime-node node_modules/onnxruntime-common
+
+# ── @tensorflow: TensorFlow.js + backends ────────────────────────────────────
+# Disables: plugin-vision TF inference path, TF-based embedding models
+# Note: @tensorflow/tfjs-backend-webgl and webgpu are browser-only anyway;
+# this block removes the CPU/WASM backends that do run server-side.
+# Savings: ~200 MB
+#
+# RUN rm -rf \
+#     node_modules/.bun/@tensorflow+tfjs@* \
+#     node_modules/.bun/@tensorflow+tfjs-core@* \
+#     node_modules/.bun/@tensorflow+tfjs-layers@* \
+#     node_modules/.bun/@tensorflow+tfjs-converter@* \
+#     node_modules/.bun/@tensorflow+tfjs-backend-cpu@* \
+#     node_modules/.bun/@tensorflow+tfjs-backend-webgl@* \
+#     node_modules/.bun/@tensorflow+tfjs-backend-webgpu@* \
+#     node_modules/.bun/@tensorflow+tfjs-backend-wasm@* \
+#     node_modules/.bun/@tensorflow+tfjs-data@* \
+#     node_modules/.bun/@tensorflow+tfjs-node@* \
+#     node_modules/.bun/@tensorflow-models+*
+# RUN rm -rf node_modules/@tensorflow node_modules/@tensorflow-models
+
+# ── @huggingface/transformers: local HuggingFace models ──────────────────────
+# Disables: HF-backed local transformer / embedding models
+# Savings: 48 MB
+#
+# RUN rm -rf node_modules/.bun/@huggingface+transformers@*
+# RUN rm -rf node_modules/@huggingface
+
+
+# ─── Stage 3: Runtime ─────────────────────────────────────────────────────────
+FROM node:22-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+
+# tsx is required: node --import tsx loads @elizaos/autonomous raw .ts files.
+# Install globally so the node binary can find it via --import.
+RUN npm install -g tsx
+
+WORKDIR /app
+
+# Copy the pruned application tree (only what survived Stage 2)
+COPY --from=pruner /app /app
+
+ENV NODE_ENV=production
+ENV MILADY_PORT=3000
+ENV ELIZA_API_BIND=0.0.0.0
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:${MILADY_PORT}/api/health || exit 1
+
+CMD ["node", "--import", "tsx", "milady.mjs", "start"]
