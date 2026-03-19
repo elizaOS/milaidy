@@ -3,6 +3,25 @@ title: 更新日志
 description: Milady 的最新动态——新功能、改进和修复。
 ---
 
+<Update label="2026-06-04" description="5月29日至6月4日当周" tags={["Feature", "Update"]}>
+## Privy 服务器钱包
+
+您的代理现在可以通过 Privy 的服务器端钱包基础设施来配置和管理钱包。三个新的 API 端点 — `/api/privy/status`、`/api/privy/login` 和 `/api/privy/logout` — 自动处理 Ethereum 和 Solana 链的钱包配置。配置您的 Privy 凭据，系统会在您的代理需要时按需创建钱包。详情请参阅[钱包指南](/guides/wallet)。
+
+## 对话历史回滚
+
+您现在可以使用新的 `POST /api/conversations/:id/messages/truncate` 端点从特定消息开始截断对话。传入 `messageId` 可删除该消息及其后的所有内容，让您无需重新开始即可撤销对话中的错误方向。详情请参阅[对话 API 参考](/rest/conversations)。
+
+## 原生 Signal 设备配对
+
+Signal 连接器现在支持通过二维码进行原生设备配对，用专门构建的原生桥接替代了之前对 signal-cli 的依赖。配对通过新的 `/api/signal/*` 端点管理，处理会话生命周期、二维码生成和连接状态 — 使 Signal 的设置更快、更可靠。详情请参阅 [Signal 插件文档](/plugin-registry/platform/signal)。
+
+## 更新
+
+- **旧版 Electron 环境变量已移除** — `MILADY_ELECTRON_API_BASE` 和 `MILADY_ELECTRON_TEST_API_BASE` 不再受支持。Electrobun 迁移已完成 — 请改用当前的 Electrobun 配置路径。详情请参阅[桌面应用指南](/apps/desktop)。
+- **模块化运行时打包** — 核心自主代理服务已提取为独立包，改善了模块边界并减少了轻量级部署的启动开销。
+</Update>
+
 <Update label="2026-05-07" description="5月1日至7日当周" tags={["Feature", "Update"]}>
 <div id="agent-export-and-import">
 ## 代理导出与导入

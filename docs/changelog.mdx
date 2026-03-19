@@ -3,6 +3,25 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-06-04" description="Week of May 29 – June 4" tags={["Feature", "Update"]}>
+## Privy server wallets
+
+Your agent can now provision and manage wallets through Privy's server-side wallet infrastructure. Three new API endpoints — `/api/privy/status`, `/api/privy/login`, and `/api/privy/logout` — handle wallet provisioning for both Ethereum and Solana chains automatically. Configure your Privy credentials and the system creates wallets on demand when your agent needs them. See the [wallet guide](/guides/wallet) for details.
+
+## Conversation history rollback
+
+You can now truncate a conversation from a specific message forward using the new `POST /api/conversations/:id/messages/truncate` endpoint. Pass a `messageId` to remove that message and everything after it, letting you undo a wrong turn in a conversation without starting over. See the [conversations API reference](/rest/conversations) for details.
+
+## Native Signal device linking
+
+The Signal connector now supports native device linking via QR code, replacing the previous signal-cli dependency with a purpose-built native bridge. Pairing is managed through new `/api/signal/*` endpoints that handle session lifecycle, QR code generation, and connection status — making Signal setup faster and more reliable. See the [Signal plugin docs](/plugin-registry/platform/signal) for details.
+
+## Updates
+
+- **Legacy Electron environment variables removed** — `MILADY_ELECTRON_API_BASE` and `MILADY_ELECTRON_TEST_API_BASE` are no longer supported. The Electrobun migration is complete — use the current Electrobun configuration paths instead. See the [desktop app guide](/apps/desktop) for details.
+- **Modular runtime packaging** — Core autonomous agent services have been extracted into a standalone package, improving module boundaries and reducing startup overhead for lightweight deployments.
+</Update>
+
 <Update label="2026-05-28" description="Week of May 22–28" tags={["Feature", "Update"]}>
 ## Talk mode for desktop
 

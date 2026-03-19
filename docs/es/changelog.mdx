@@ -3,6 +3,25 @@ title: Registro de cambios
 description: Novedades en Milady — funcionalidades, mejoras y correcciones.
 ---
 
+<Update label="2026-06-04" description="Semana del 29 de mayo al 4 de junio" tags={["Feature", "Update"]}>
+## Billeteras de servidor Privy
+
+Tu agente ahora puede provisionar y gestionar billeteras a través de la infraestructura de billeteras del lado del servidor de Privy. Tres nuevos endpoints de API — `/api/privy/status`, `/api/privy/login` y `/api/privy/logout` — gestionan el aprovisionamiento de billeteras para las cadenas Ethereum y Solana automáticamente. Configura tus credenciales de Privy y el sistema crea billeteras bajo demanda cuando tu agente las necesite. Consulta la [guía de billeteras](/guides/wallet) para más detalles.
+
+## Reversión del historial de conversaciones
+
+Ahora puedes truncar una conversación desde un mensaje específico en adelante usando el nuevo endpoint `POST /api/conversations/:id/messages/truncate`. Pasa un `messageId` para eliminar ese mensaje y todo lo que viene después, permitiéndote deshacer un giro incorrecto en una conversación sin empezar de nuevo. Consulta la [referencia de la API de conversaciones](/rest/conversations) para más detalles.
+
+## Vinculación nativa de dispositivos Signal
+
+El conector de Signal ahora soporta vinculación nativa de dispositivos mediante código QR, reemplazando la dependencia anterior de signal-cli con un puente nativo específico. El emparejamiento se gestiona a través de nuevos endpoints `/api/signal/*` que manejan el ciclo de vida de la sesión, la generación del código QR y el estado de conexión — haciendo que la configuración de Signal sea más rápida y confiable. Consulta la [documentación del plugin de Signal](/plugin-registry/platform/signal) para más detalles.
+
+## Actualizaciones
+
+- **Variables de entorno heredadas de Electron eliminadas** — `MILADY_ELECTRON_API_BASE` y `MILADY_ELECTRON_TEST_API_BASE` ya no son compatibles. La migración a Electrobun está completa — utiliza las rutas de configuración actuales de Electrobun en su lugar. Consulta la [guía de la aplicación de escritorio](/apps/desktop) para más detalles.
+- **Empaquetado modular del runtime** — Los servicios principales del agente autónomo se han extraído en un paquete independiente, mejorando los límites entre módulos y reduciendo la sobrecarga de inicio para despliegues ligeros.
+</Update>
+
 <Update label="2026-05-07" description="Semana del 1 al 7 de mayo" tags={["Feature", "Update"]}>
 <div id="agent-export-and-import">
 ## Exportación e importación de agentes
