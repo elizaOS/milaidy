@@ -469,6 +469,37 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
   });
 
+  it("loads @milady/plugin-jeju when plugins.entries.jeju is enabled", () => {
+    const config = {
+      plugins: {
+        entries: { jeju: { enabled: true } },
+      },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@milady/plugin-jeju")).toBe(true);
+  });
+
+  it("does not load Jeju when plugins.entries.jeju.enabled is false", () => {
+    const config = {
+      plugins: {
+        entries: { jeju: { enabled: false } },
+      },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@milady/plugin-jeju")).toBe(false);
+  });
+
+  it("does not load Jeju when disabled in entries even if plugins.allow lists jeju", () => {
+    const config = {
+      plugins: {
+        allow: ["jeju"],
+        entries: { jeju: { enabled: false } },
+      },
+    } as unknown as MiladyConfig;
+    const names = collectPluginNames(config);
+    expect(names.has("@milady/plugin-jeju")).toBe(false);
+  });
+
   it("uses the Milady streaming-base package when enabled via plugins.entries", () => {
     const config = {
       plugins: {

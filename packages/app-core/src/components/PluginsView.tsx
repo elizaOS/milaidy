@@ -77,6 +77,7 @@ import {
   Video,
   Volume2,
   Wallet,
+  Landmark,
   Webhook,
   Wrench,
   Zap,
@@ -93,6 +94,7 @@ import { useApp } from "../state";
 import type { ConfigUiHint } from "../types";
 import { openExternalUrl, resolveAppAssetUrl } from "../utils";
 import { autoLabel } from "./labels";
+import { JejuPluginPanel } from "./JejuPluginPanel";
 import { SHOWCASE_PLUGIN } from "./plugins/showcase-data";
 import { WhatsAppQrOverlay } from "./WhatsAppQrOverlay";
 
@@ -703,6 +705,7 @@ const DEFAULT_ICONS: Record<string, LucideIcon> = {
   acp: Construction,
   elizacloud: Cloud,
   twilio: Phone,
+  jeju: Landmark,
 };
 
 /** Resolve display icon: explicit plugin.icon, fallback to default map, or null. */
@@ -761,6 +764,7 @@ const FEATURE_SUBGROUP: Record<string, string> = {
   x402: "blockchain",
   trust: "blockchain",
   iq: "blockchain",
+  jeju: "blockchain",
   // Dev Tools & Infrastructure
   cli: "devtools",
   code: "devtools",
@@ -1301,22 +1305,45 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     });
     try {
       const result = await client.testPluginConnection(pluginId);
+      const failText =
+        result.error ??
+        (!result.success && result.message ? result.message : undefined);
       setTestResults((prev) => {
         const next = new Map(prev);
-        next.set(pluginId, { ...result, loading: false });
+        next.set(pluginId, {
+          ...result,
+          loading: false,
+          // Button UI only read `.error` for failures; mirror `message` into error.
+          error: result.error ?? (!result.success ? result.message : undefined),
+        });
         return next;
       });
+      if (result.success) {
+        setActionNotice(
+          result.message ?? "Connection test passed.",
+          "success",
+          4500,
+        );
+      } else {
+        setActionNotice(
+          failText ?? "Connection test failed.",
+          "error",
+          6000,
+        );
+      }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       setTestResults((prev) => {
         const next = new Map(prev);
         next.set(pluginId, {
           success: false,
-          error: err instanceof Error ? err.message : String(err),
+          error: msg,
           loading: false,
           durationMs: 0,
         });
         return next;
       });
+      setActionNotice(`Test failed: ${msg}`, "error", 6000);
     }
   };
 
@@ -2663,9 +2690,16 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 <button
                   type="button"
                   className="plugins-game-action-btn"
+                  disabled={testResults.get(selectedPlugin.id)?.loading}
                   onClick={() => void handleTestConnection(selectedPlugin.id)}
                 >
-                  {t("pluginsview.TestConnection")}
+                  {testResults.get(selectedPlugin.id)?.loading
+                    ? "Testing…"
+                    : testResults.get(selectedPlugin.id)?.success
+                      ? `\u2713 OK (${testResults.get(selectedPlugin.id)?.durationMs}ms)`
+                      : testResults.get(selectedPlugin.id)?.error
+                        ? `\u2715 ${testResults.get(selectedPlugin.id)?.error}`
+                        : t("pluginsview.TestConnection")}
                 </button>
                 <button
                   type="button"
@@ -2968,6 +3002,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                     {p.id === "whatsapp" && (
                       <WhatsAppQrOverlay accountId="default" />
                     )}
+                    {p.id === "jeju" && (
+                      <JejuPluginPanel enabled={p.enabled} isActive={!!p.isActive} />
+                    )}
                   </div>
                 </div>
 
@@ -2998,7 +3035,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                         {t("pluginsview.PackageBrokenMis")}
                       </span>
                     )}
-                    {p.isActive && (
+                    {(p.isActive || (p.id === "jeju" && p.enabled)) && (
                       <Button
                         variant={
                           testResults.get(p.id)?.success
@@ -3018,7 +3055,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                 : "border-border/40 bg-card/40 backdrop-blur-md shadow-sm hover:border-accent/40"
                         }`}
                         disabled={testResults.get(p.id)?.loading}
-                        onClick={() => handleTestConnection(p.id)}
+                        onClick={() => void handleTestConnection(p.id)}
                       >
                         {testResults.get(p.id)?.loading
                           ? "Testing..."

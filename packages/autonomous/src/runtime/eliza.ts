@@ -767,6 +767,7 @@ const OPTIONAL_PLUGIN_MAP: Readonly<Record<string, string>> = {
   "custom-rtmp": "@miladyai/plugin-custom-rtmp",
   "pumpfun-streaming": "@elizaos/plugin-pumpfun-streaming",
   "x-streaming": "@elizaos/plugin-x-streaming",
+  jeju: "@milady/plugin-jeju",
 };
 
 function looksLikePlugin(value: unknown): value is Plugin {
@@ -1120,6 +1121,9 @@ export function collectPluginNames(config: MiladyConfig): Set<string> {
   if (isPluginExplicitlyDisabled("@elizaos/plugin-agent-orchestrator")) {
     pluginsToLoad.delete("@elizaos/plugin-agent-orchestrator");
   }
+  if (isPluginExplicitlyDisabled("@milady/plugin-jeju")) {
+    pluginsToLoad.delete("@milady/plugin-jeju");
+  }
 
   return pluginsToLoad;
 }
@@ -1267,18 +1271,40 @@ export function resolveMiladyPluginImportSpecifier(
   pluginName: string,
   runtimeModuleUrl = import.meta.url,
 ): string {
-  if (!pluginName.startsWith("@miladyai/plugin-")) {
+  const MILADYAI_PREFIX = "@miladyai/plugin-";
+  const MILADY_PREFIX = "@milady/plugin-";
+
+  let shortName: string | null = null;
+  if (pluginName.startsWith(MILADYAI_PREFIX)) {
+    shortName = pluginName.replace(MILADYAI_PREFIX, "");
+  } else if (pluginName.startsWith(MILADY_PREFIX)) {
+    shortName = pluginName.replace(MILADY_PREFIX, "");
+  } else {
     return pluginName;
   }
+  if (!shortName) return pluginName;
 
-  const shortName = pluginName.replace("@miladyai/plugin-", "");
   const thisDir = path.dirname(fileURLToPath(runtimeModuleUrl));
-  const distRoot = thisDir.endsWith("runtime")
-    ? path.resolve(thisDir, "..")
-    : thisDir;
-  const indexPath = path.resolve(distRoot, "plugins", shortName, "index.js");
+  const distRootCandidates = [
+    // When running compiled JS, thisDir is usually .../dist/runtime
+    thisDir.endsWith("runtime") ? path.resolve(thisDir, "..") : thisDir,
+    // When running from src (tsx on src/runtime/*), fall back to repo dist.
+    path.resolve(thisDir, "..", "..", "dist"),
+    path.resolve(thisDir, "..", "..", "..", "dist"),
+    path.resolve(thisDir, "..", "..", "..", "..", "dist"),
+  ];
 
-  return existsSync(indexPath) ? pathToFileURL(indexPath).href : pluginName;
+  for (const distRoot of distRootCandidates) {
+    const indexPath = path.resolve(
+      distRoot,
+      "plugins",
+      shortName,
+      "index.js",
+    );
+    if (existsSync(indexPath)) return pathToFileURL(indexPath).href;
+  }
+
+  return pluginName;
 }
 
 export function shouldIgnoreMissingPluginExport(pluginName: string): boolean {
@@ -1546,9 +1572,12 @@ async function resolvePlugins(
             }
           }
         }
-      } else if (pluginName.startsWith("@miladyai/plugin-")) {
+      } else if (
+        pluginName.startsWith("@miladyai/plugin-") ||
+        pluginName.startsWith("@milady/plugin-")
+      ) {
         // Milady plugins can resolve either from bundled local wrappers
-        // under milady-dist/plugins/* or from packaged node_modules.
+        // under dist/plugins/* or from packaged node_modules.
         mod = (await import(
           resolveMiladyPluginImportSpecifier(pluginName)
         )) as PluginModuleShape;
