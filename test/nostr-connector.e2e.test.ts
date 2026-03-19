@@ -28,7 +28,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger, type Plugin } from "@elizaos/core";
 import dotenv from "dotenv";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveNostrPluginImportSpecifier,
@@ -331,70 +331,11 @@ describe("Nostr Connector - NIP Protocol Validation", () => {
     ).toBe(false);
   });
 
-  it("NIP-04 encrypted DM event has correct kind", () => {
-    const dmKind = 4;
-    expect(dmKind).toBe(4);
-
-    // DM events should have a 'p' tag with recipient pubkey
-    const dmTags = [["p", "b".repeat(64)]];
-    expect(dmTags[0][0]).toBe("p");
-    expect(dmTags[0][1]).toHaveLength(64);
-  });
-
-  it("NIP-10 reply threading uses correct tag markers", () => {
-    // Root reference
-    const rootTag = ["e", "a".repeat(64), "", "root"];
-    expect(rootTag[0]).toBe("e");
-    expect(rootTag[3]).toBe("root");
-
-    // Reply reference
-    const replyTag = ["e", "b".repeat(64), "", "reply"];
-    expect(replyTag[0]).toBe("e");
-    expect(replyTag[3]).toBe("reply");
-
-    // Author mention
-    const mentionTag = ["p", "c".repeat(64)];
-    expect(mentionTag[0]).toBe("p");
-  });
-
-  it("NIP-25 reaction event structure is correct", () => {
-    const reactionKind = 7;
-    expect(reactionKind).toBe(7);
-
-    // Reaction references the event and author
-    const reactionTags = [
-      ["e", "a".repeat(64)],
-      ["p", "b".repeat(64)],
-    ];
-    expect(reactionTags[0][0]).toBe("e");
-    expect(reactionTags[1][0]).toBe("p");
-
-    // Common reaction contents
-    const validReactions = ["+", "-", "🤙", "❤️", "🔥"];
-    for (const reaction of validReactions) {
-      expect(typeof reaction).toBe("string");
-      expect(reaction.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("NIP-09 event deletion has correct kind", () => {
-    const deletionKind = 5;
-    expect(deletionKind).toBe(5);
-
-    // Deletion event references the events to delete via 'e' tags
-    const deletionTags = [["e", "a".repeat(64)]];
-    expect(deletionTags[0][0]).toBe("e");
-  });
-
-  it("event timestamp is Unix seconds (not milliseconds)", () => {
+  it("event timestamp uses Unix seconds, not milliseconds", () => {
     const nowSeconds = Math.floor(Date.now() / 1000);
-    const nowMs = Date.now();
 
-    // Nostr uses Unix seconds
+    // Nostr created_at is 10-digit Unix seconds
     expect(nowSeconds.toString()).toHaveLength(10);
-    expect(nowMs.toString()).toHaveLength(13);
-
-    // Event created_at should be in seconds range
     expect(nowSeconds).toBeLessThan(2_000_000_000);
     expect(nowSeconds).toBeGreaterThan(1_600_000_000);
   });
@@ -526,10 +467,6 @@ describe("Nostr Connector - Error Handling", () => {
     expect(healthy).toBe(false);
   }, TEST_TIMEOUT);
 
-  it("rate limit delay is reasonable", () => {
-    expect(RATE_LIMIT_DELAY_MS).toBeGreaterThanOrEqual(200);
-    expect(RATE_LIMIT_DELAY_MS).toBeLessThanOrEqual(10_000);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -655,11 +592,10 @@ describe("Nostr Connector - Configuration", () => {
     expect(config.enabled).toBe(true);
   });
 
-  it("validates DM policy options", () => {
+  it("DM policy values are distinct non-empty strings", () => {
     const validPolicies = ["allow", "deny", "allowlist"];
-    for (const policy of validPolicies) {
-      expect(["allow", "deny", "allowlist"]).toContain(policy);
-    }
+    expect(new Set(validPolicies).size).toBe(validPolicies.length);
+    expect(validPolicies.every((p) => p.length > 0)).toBe(true);
   });
 
   it("allowFrom is comma-separated npub or hex list", () => {

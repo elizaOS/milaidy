@@ -147,23 +147,11 @@ describe("Nostr Connector - Protocol Constraints", () => {
     expect(notePattern.test("nevent1abc")).toBe(false);
   });
 
-  it("event kind constants are correct", () => {
-    const EVENT_KINDS = {
-      SET_METADATA: 0,
-      TEXT_NOTE: 1,
-      RECOMMEND_RELAY: 2,
-      CONTACTS: 3,
-      ENCRYPTED_DM: 4,
-      EVENT_DELETION: 5,
-      REACTION: 7,
-      CHANNEL_MESSAGE: 42,
-    } as const;
-
-    expect(EVENT_KINDS.SET_METADATA).toBe(0);
-    expect(EVENT_KINDS.TEXT_NOTE).toBe(1);
-    expect(EVENT_KINDS.ENCRYPTED_DM).toBe(4);
-    expect(EVENT_KINDS.EVENT_DELETION).toBe(5);
-    expect(EVENT_KINDS.REACTION).toBe(7);
+  it("standard event kinds are distinct integers", () => {
+    // NIP-01 defines these standard kinds; verify no accidental collisions
+    const kinds = [0, 1, 2, 3, 4, 5, 7, 42];
+    const unique = new Set(kinds);
+    expect(unique.size).toBe(kinds.length);
   });
 });
 
@@ -185,15 +173,12 @@ describe("Nostr Connector - Configuration", () => {
     expect(validConfig.dmPolicy).toBe("allow");
   });
 
-  it("DM policy accepts valid values", () => {
+  it("DM policy values are mutually exclusive strings", () => {
     const validPolicies = ["allow", "deny", "allowlist"];
 
-    for (const policy of validPolicies) {
-      expect(validPolicies).toContain(policy);
-    }
-
-    expect(validPolicies).not.toContain("block");
-    expect(validPolicies).not.toContain("reject");
+    // Each policy is a distinct non-empty string
+    expect(new Set(validPolicies).size).toBe(validPolicies.length);
+    expect(validPolicies.every((p) => p.length > 0)).toBe(true);
   });
 
   it("parses relay list from comma-separated string", () => {
