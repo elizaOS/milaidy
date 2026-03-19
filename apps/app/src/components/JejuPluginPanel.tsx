@@ -3,7 +3,7 @@
  */
 
 import { Button } from "@milady/ui";
-import { RefreshCw, Copy, ExternalLink } from "lucide-react";
+import { Copy, ExternalLink, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 type JejuStatusResponse = {
@@ -99,7 +99,7 @@ export function JejuPluginPanel({
                 size="sm"
                 className="h-7 px-2"
                 title="Copy address"
-                onClick={() => void navigator.clipboard.writeText(data.address!)}
+                onClick={() => void navigator.clipboard.writeText(data.address)}
               >
                 <Copy className="size-3.5" />
               </Button>
@@ -112,8 +112,8 @@ export function JejuPluginPanel({
 
           {!isActive && data.pluginLoaded === false && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
-              Restart Milady so the agent runtime loads Jeju actions (JEJU_STATUS,
-              JEJU_SWAP).
+              Restart Milady so the agent runtime loads Jeju actions
+              (JEJU_STATUS, JEJU_SWAP).
             </p>
           )}
 
@@ -121,19 +121,19 @@ export function JejuPluginPanel({
             <div className="rounded-lg bg-black/15 px-2 py-2">
               <div className="text-[9px] uppercase text-muted">ETH</div>
               <div className="text-[12px] font-mono font-semibold truncate">
-                {data.balanceError ? "—" : data.eth ?? "—"}
+                {data.balanceError ? "—" : (data.eth ?? "—")}
               </div>
             </div>
             <div className="rounded-lg bg-black/15 px-2 py-2">
               <div className="text-[9px] uppercase text-muted">WETH</div>
               <div className="text-[12px] font-mono font-semibold truncate">
-                {data.balanceError ? "—" : data.weth ?? "—"}
+                {data.balanceError ? "—" : (data.weth ?? "—")}
               </div>
             </div>
             <div className="rounded-lg bg-black/15 px-2 py-2">
               <div className="text-[9px] uppercase text-muted">USDC</div>
               <div className="text-[12px] font-mono font-semibold truncate">
-                {data.balanceError ? "—" : data.usdc ?? "—"}
+                {data.balanceError ? "—" : (data.usdc ?? "—")}
               </div>
             </div>
           </div>

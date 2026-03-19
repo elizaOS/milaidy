@@ -68,9 +68,9 @@ describeIfPluginAvailable("Nostr Connector - Basic Validation", () => {
     } | null;
 
     const hasClients =
-      Array.isArray(plugin?.clients) && plugin!.clients!.length > 0;
+      Array.isArray(plugin?.clients) && plugin?.clients?.length > 0;
     const hasServices =
-      Array.isArray(plugin?.services) && plugin!.services!.length > 0;
+      Array.isArray(plugin?.services) && plugin?.services?.length > 0;
 
     expect(hasClients || hasServices).toBe(true);
   });
@@ -103,7 +103,11 @@ describe("Nostr Connector - Protocol Constraints", () => {
       ),
     ).toBe(true);
     expect(npubPattern.test("npub1short")).toBe(false);
-    expect(npubPattern.test("nsec1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).toBe(false);
+    expect(
+      npubPattern.test(
+        "nsec1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      ),
+    ).toBe(false);
   });
 
   it("hex public key format is valid (64 hex chars)", () => {
@@ -115,7 +119,7 @@ describe("Nostr Connector - Protocol Constraints", () => {
       ),
     ).toBe(true);
     expect(hexPubkeyPattern.test("abc123")).toBe(false);
-    expect(hexPubkeyPattern.test("0x" + "a".repeat(64))).toBe(false);
+    expect(hexPubkeyPattern.test(`0x${"a".repeat(64)}`)).toBe(false);
     // uppercase should fail (Nostr uses lowercase hex)
     expect(
       hexPubkeyPattern.test(
@@ -182,7 +186,8 @@ describe("Nostr Connector - Configuration", () => {
   });
 
   it("parses relay list from comma-separated string", () => {
-    const relayString = "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band";
+    const relayString =
+      "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band";
     const relays = relayString.split(",").map((r) => r.trim());
 
     expect(relays).toHaveLength(3);
@@ -211,7 +216,13 @@ describe("Nostr Connector - Configuration", () => {
   it("NOSTR_PRIVATE_KEY is the only required config key", () => {
     // Per plugins.json: only privateKey is required; relays, dmPolicy, etc. are optional
     const requiredKeys = ["NOSTR_PRIVATE_KEY"];
-    const allKeys = ["NOSTR_PRIVATE_KEY", "NOSTR_RELAYS", "NOSTR_DM_POLICY", "NOSTR_ALLOW_FROM", "NOSTR_ENABLED"];
+    const allKeys = [
+      "NOSTR_PRIVATE_KEY",
+      "NOSTR_RELAYS",
+      "NOSTR_DM_POLICY",
+      "NOSTR_ALLOW_FROM",
+      "NOSTR_ENABLED",
+    ];
 
     expect(requiredKeys).toHaveLength(1);
     expect(allKeys).toHaveLength(5);

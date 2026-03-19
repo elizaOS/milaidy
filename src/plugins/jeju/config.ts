@@ -35,15 +35,10 @@ export function getJejuConfig(env: NodeJS.ProcessEnv = process.env): {
   explorerUrl: string;
 } {
   return {
-    rpcUrl:
-      env[JEJU_ENV_KEYS.RPC_URL]?.trim() || JEJU_DEFAULTS.RPC_URL,
-    chainId: safeParseInt(
-      env[JEJU_ENV_KEYS.CHAIN_ID],
-      JEJU_DEFAULTS.CHAIN_ID,
-    ),
+    rpcUrl: env[JEJU_ENV_KEYS.RPC_URL]?.trim() || JEJU_DEFAULTS.RPC_URL,
+    chainId: safeParseInt(env[JEJU_ENV_KEYS.CHAIN_ID], JEJU_DEFAULTS.CHAIN_ID),
     routerAddress:
-      env[JEJU_ENV_KEYS.ROUTER_ADDRESS]?.trim() ||
-      JEJU_DEFAULTS.ROUTER_ADDRESS,
+      env[JEJU_ENV_KEYS.ROUTER_ADDRESS]?.trim() || JEJU_DEFAULTS.ROUTER_ADDRESS,
     wethAddress:
       env[JEJU_ENV_KEYS.WETH_ADDRESS]?.trim() || JEJU_DEFAULTS.WETH_ADDRESS,
     usdcAddress:

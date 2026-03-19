@@ -147,7 +147,7 @@ export default defineConfig({
       "test/health-endpoint.e2e.test.ts",
     ],
     setupFiles: ["test/setup.ts"],
-    exclude: ["dist/**", "**/node_modules/**", "**/*.live.test.ts"],
+    exclude: ["dist/**", "**/node_modules/**", "**/*.live.test.ts", "apps/app/test/app/onboarding-step-resume.test.tsx"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],

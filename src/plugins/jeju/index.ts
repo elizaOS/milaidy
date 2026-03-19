@@ -8,8 +8,8 @@
 
 import type { IAgentRuntime, Plugin } from "@elizaos/core";
 import { jejuStatusAction, jejuSwapAction } from "./actions";
-import { jejuContextProvider } from "./provider";
 import { getJejuClient } from "./client";
+import { jejuContextProvider } from "./provider";
 
 export const jejuPlugin: Plugin = {
   name: "jeju",

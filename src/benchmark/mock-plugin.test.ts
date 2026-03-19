@@ -2,7 +2,6 @@ import {
   type GenerateTextParams,
   type IAgentRuntime,
   ModelType,
-  type Plugin,
 } from "@elizaos/core";
 import { describe, expect, it } from "vitest";
 import { mockPlugin } from "./mock-plugin-base";

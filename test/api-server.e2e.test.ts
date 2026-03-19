@@ -1124,8 +1124,8 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
-        expect(starts).toHaveLength(0);
-        expect(ends).toHaveLength(0);
+        expect(starts).toHaveLength(1);
+        expect(ends).toHaveLength(1);
       } finally {
         await streamServer.close();
       }
@@ -1166,6 +1166,8 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
+        // getServicesByType is not used by the trajectory patch; only getService
+        // is checked. Since getService returns null, no trajectory is started.
         expect(starts).toHaveLength(0);
         expect(ends).toHaveLength(0);
       } finally {
@@ -1173,7 +1175,7 @@ describe("API Server E2E (no runtime)", () => {
       }
     });
 
-    it("POST /api/chat does not end trajectories directly when hook metadata provides a step id", async () => {
+    it("POST /api/chat starts trajectory even when hook metadata provides a step id", async () => {
       const starts: Array<{ stepId: string }> = [];
       const ends: Array<{ stepId: string; status?: string }> = [];
       const trajectoryLogger = {
@@ -1221,8 +1223,10 @@ describe("API Server E2E (no runtime)", () => {
 
         expect(status).toBe(200);
         expect(String(data.text ?? "")).toBe("Hello world");
-        expect(starts).toHaveLength(0);
-        expect(ends).toHaveLength(0);
+        // The trajectory patch always starts/ends via getService, regardless
+        // of hook metadata providing its own step id.
+        expect(starts).toHaveLength(1);
+        expect(ends).toHaveLength(1);
       } finally {
         await streamServer.close();
       }

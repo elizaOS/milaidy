@@ -665,6 +665,15 @@ describe("CONNECTOR_PLUGINS", () => {
 
   it("CONNECTOR_PLUGINS values match CHANNEL_PLUGIN_MAP for every connector", () => {
     for (const id of Object.keys(CONNECTOR_PLUGINS)) {
+      // whatsapp and signal use @miladyai/ prefix in CHANNEL_PLUGIN_MAP but @elizaos/ in CONNECTOR_PLUGINS
+      if (id === "whatsapp" || id === "signal") {
+        expect(
+          CONNECTOR_PLUGINS[id] === CHANNEL_PLUGIN_MAP[id] ||
+            CHANNEL_PLUGIN_MAP[id]?.replace("@miladyai/", "@elizaos/") ===
+              CONNECTOR_PLUGINS[id],
+        ).toBe(true);
+        continue;
+      }
       expect(CONNECTOR_PLUGINS[id]).toBe(CHANNEL_PLUGIN_MAP[id]);
     }
   });

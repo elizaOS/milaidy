@@ -3,10 +3,10 @@
  * Stored under ~/.milady/jeju-wallet.json so it does not mix with EVM_PRIVATE_KEY.
  */
 
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { ethers } from "ethers";
 
 const WALLET_FILENAME = "jeju-wallet.json";
@@ -33,7 +33,7 @@ function getWalletPath(env: NodeJS.ProcessEnv = process.env): string {
 
 function generatePrivateKey(): string {
   const bytes = crypto.randomBytes(32);
-  return "0x" + bytes.toString("hex");
+  return `0x${bytes.toString("hex")}`;
 }
 
 /**
@@ -85,11 +85,7 @@ export function getOrCreateJejuWallet(): {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(
-      walletPath,
-      JSON.stringify(newData, null, 2),
-      "utf-8",
-    );
+    fs.writeFileSync(walletPath, JSON.stringify(newData, null, 2), "utf-8");
   } catch (err) {
     throw new Error(
       `[jeju] Failed to persist wallet at ${walletPath}: ${err instanceof Error ? err.message : String(err)}`,

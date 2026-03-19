@@ -5,7 +5,6 @@
 import type {
   IAgentRuntime,
   Memory,
-  Plugin,
   Provider,
   ProviderResult,
   State,

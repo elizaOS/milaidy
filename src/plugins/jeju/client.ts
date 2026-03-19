@@ -3,12 +3,12 @@
  */
 
 import { ethers } from "ethers";
+import { ERC20_ABI, ROUTER_ABI } from "./abi";
 import { getJejuConfig } from "./config";
 import { getOrCreateJejuWallet } from "./wallet";
-import { ROUTER_ABI, ERC20_ABI } from "./abi";
 
 const USDC_DECIMALS = 6;
-const WETH_DECIMALS = 18;
+const _WETH_DECIMALS = 18;
 
 export type JejuClient = {
   provider: ethers.JsonRpcProvider;
@@ -52,10 +52,8 @@ export async function getJejuBalances(client: JejuClient): Promise<{
   error?: string;
 }> {
   const { provider, wallet, config } = client;
-  const formatEth = (v: bigint) =>
-    ethers.formatEther(v);
-  const formatUsdc = (v: bigint) =>
-    ethers.formatUnits(v, USDC_DECIMALS);
+  const formatEth = (v: bigint) => ethers.formatEther(v);
+  const formatUsdc = (v: bigint) => ethers.formatUnits(v, USDC_DECIMALS);
 
   try {
     const [ethBalance, wethContract, usdcContract] = await Promise.all([
@@ -92,15 +90,11 @@ export async function executeJejuSwap(
   client: JejuClient,
   direction: "eth_to_usdc" | "usdc_to_eth",
   amountHuman: string,
-  slippageBps: number,
+  _slippageBps: number,
   log: (msg: string) => void,
 ): Promise<{ success: boolean; txHash?: string; message: string }> {
   const { wallet, config } = client;
-  const router = new ethers.Contract(
-    config.routerAddress,
-    ROUTER_ABI,
-    wallet,
-  );
+  const router = new ethers.Contract(config.routerAddress, ROUTER_ABI, wallet);
   const deadline = Math.floor(Date.now() / 1000) + 300; // 5 min
 
   if (direction === "eth_to_usdc") {

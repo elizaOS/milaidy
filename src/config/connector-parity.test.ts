@@ -59,6 +59,17 @@ describe("connector map parity", () => {
 
   it("keeps runtime and auto-enable package mappings aligned", () => {
     for (const [connectorId, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
+      // whatsapp and signal use @miladyai/ prefix in CHANNEL_PLUGIN_MAP but @elizaos/ in CONNECTOR_PLUGINS
+      if (connectorId === "whatsapp" || connectorId === "signal") {
+        expect(
+          CHANNEL_PLUGIN_MAP[connectorId] === pluginName ||
+            CHANNEL_PLUGIN_MAP[connectorId]?.replace(
+              "@miladyai/",
+              "@elizaos/",
+            ) === pluginName,
+        ).toBe(true);
+        continue;
+      }
       expect(CHANNEL_PLUGIN_MAP[connectorId]).toBe(pluginName);
     }
   });
@@ -67,6 +78,15 @@ describe("connector map parity", () => {
     for (const [connectorId, pluginName] of Object.entries(
       CHANNEL_PLUGIN_MAP,
     )) {
+      // whatsapp and signal use @miladyai/ prefix in CHANNEL_PLUGIN_MAP but @elizaos/ in CONNECTOR_PLUGINS
+      if (connectorId === "whatsapp" || connectorId === "signal") {
+        expect(
+          CONNECTOR_PLUGINS[connectorId] === pluginName ||
+            pluginName.replace("@miladyai/", "@elizaos/") ===
+              CONNECTOR_PLUGINS[connectorId],
+        ).toBe(true);
+        continue;
+      }
       expect(CONNECTOR_PLUGINS[connectorId]).toBe(pluginName);
     }
   });
@@ -83,7 +103,7 @@ describe("connector map parity", () => {
   });
 
   it("uses valid package name prefixes for all plugin mappings", () => {
-    const validPrefix = /^@(elizaos|elizaai)\//;
+    const validPrefix = /^@(elizaos|elizaai|miladyai)\//;
     for (const pkg of Object.values(CONNECTOR_PLUGINS)) {
       expect(pkg).toMatch(validPrefix);
     }

@@ -498,7 +498,7 @@ describe("collectPluginNames", () => {
       },
     } as unknown as ElizaConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@milady/plugin-jeju")).toBe(true);
+    expect(names.has("@elizaos/plugin-jeju")).toBe(true);
   });
 
   it("does not load Jeju when plugins.entries.jeju.enabled is false", () => {
@@ -508,7 +508,7 @@ describe("collectPluginNames", () => {
       },
     } as unknown as ElizaConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@milady/plugin-jeju")).toBe(false);
+    expect(names.has("@elizaos/plugin-jeju")).toBe(false);
   });
 
   it("does not load Jeju when disabled in entries even if plugins.allow lists jeju", () => {
@@ -519,7 +519,7 @@ describe("collectPluginNames", () => {
       },
     } as unknown as ElizaConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@milady/plugin-jeju")).toBe(false);
+    expect(names.has("@elizaos/plugin-jeju")).toBe(false);
   });
 
   it("uses the Eliza streaming-base package when enabled via plugins.entries", () => {

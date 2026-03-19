@@ -335,10 +335,10 @@ describe("handleStreamVoiceRoute — voice settings defaults", () => {
     expect(getStatus()).toBe(200);
     const data = getJson();
     expect(data.voice.enabled).toBe(true);
-    expect(data.voice.autoSpeak).toBe(true);
+    expect(data.voice.autoSpeak).toBe(false);
   });
 
-  it("accepts large request bodies without rejecting", async () => {
+  it("rejects large request bodies that exceed the size limit", async () => {
     const { res, getStatus } = createMockHttpResponse();
     const req = createMockIncomingMessage({
       method: "POST",
@@ -349,6 +349,6 @@ describe("handleStreamVoiceRoute — voice settings defaults", () => {
 
     await handleStreamVoiceRoute(req, res, "/api/stream/voice", "POST", state);
 
-    expect(getStatus()).toBe(200);
+    expect(getStatus()).toBe(413);
   });
 });

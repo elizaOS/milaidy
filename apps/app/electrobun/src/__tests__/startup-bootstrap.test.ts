@@ -58,7 +58,7 @@ describe("Electrobun startup bootstrap", () => {
 
     expect(minimizeIndex).toBeGreaterThan(-1);
     expect(noticeIndex).toBeGreaterThan(minimizeIndex);
-    expect(source).toContain("Milady Is Still Running");
-    expect(source).toContain("background after you close the window");
+    expect(source).toContain("showBackgroundRunNoticeOnce()");
+    expect(source).toContain("showBackgroundNoticeOnce");
   });
 });

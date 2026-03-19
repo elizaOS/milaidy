@@ -11,17 +11,76 @@ export * from "@elizaos/autonomous/api/server";
 // Override the wallet export rejection function with the hardened version
 // that adds rate limiting, audit logging, and a forced confirmation delay.
 import {
+  normalizeWsClientId,
   ensureApiTokenForBindHost as upstreamEnsureApiTokenForBindHost,
+  extractAuthToken as upstreamExtractAuthToken,
   resolveCorsOrigin as upstreamResolveCorsOrigin,
-  resolveWalletExportRejection as upstreamResolveWalletExportRejection,
+  // resolveWalletExportRejection replaced by local brand-aware implementation
   startApiServer as upstreamStartApiServer,
 } from "@elizaos/autonomous/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import { createHardenedExportGuard } from "./wallet-export-guard";
 
+/**
+ * Brand-aware base wallet export token validation.
+ * Accepts both ELIZA_* and MILADY_* env vars and header names.
+ */
+function brandAwareWalletExportRejection(
+  req: http.IncomingMessage,
+  body: { confirm?: boolean; exportToken?: string },
+): { status: number; reason: string } | null {
+  if (!body.confirm) {
+    return {
+      status: 403,
+      reason:
+        'Export requires explicit confirmation. Send { "confirm": true } in the request body.',
+    };
+  }
+
+  const expected = (
+    process.env.ELIZA_WALLET_EXPORT_TOKEN ??
+    process.env.MILADY_WALLET_EXPORT_TOKEN
+  )?.trim();
+
+  if (!expected) {
+    return {
+      status: 403,
+      reason:
+        "Wallet export is disabled. Set ELIZA_WALLET_EXPORT_TOKEN to enable secure exports.",
+    };
+  }
+
+  const headerToken =
+    (typeof req.headers["x-eliza-export-token"] === "string"
+      ? req.headers["x-eliza-export-token"].trim()
+      : "") ||
+    (typeof req.headers["x-milady-export-token"] === "string"
+      ? req.headers["x-milady-export-token"].trim()
+      : "");
+  const bodyToken =
+    typeof body.exportToken === "string" ? body.exportToken.trim() : "";
+  const provided = headerToken || bodyToken;
+
+  if (!provided) {
+    return {
+      status: 401,
+      reason:
+        "Missing export token. Provide X-Eliza-Export-Token header or exportToken in request body.",
+    };
+  }
+
+  if (!tokenMatches(expected, provided)) {
+    return { status: 401, reason: "Invalid export token." };
+  }
+
+  return null;
+}
+
 const hardenedGuard = createHardenedExportGuard(
-  upstreamResolveWalletExportRejection,
+  brandAwareWalletExportRejection as Parameters<
+    typeof createHardenedExportGuard
+  >[0],
 );
 const require = createRequire(import.meta.url);
 
@@ -33,6 +92,10 @@ const BRAND_ENV_ALIASES = [
   ["MILADY_USE_PI_AI", "ELIZA_USE_PI_AI"],
   ["MILADY_STATE_DIR", "ELIZA_STATE_DIR"],
   ["MILADY_CONFIG_PATH", "ELIZA_CONFIG_PATH"],
+  ["MILADY_WALLET_EXPORT_TOKEN", "ELIZA_WALLET_EXPORT_TOKEN"],
+  ["MILADY_TERMINAL_RUN_TOKEN", "ELIZA_TERMINAL_RUN_TOKEN"],
+  ["MILADY_ALLOW_NULL_ORIGIN", "ELIZA_ALLOW_NULL_ORIGIN"],
+  ["MILADY_ALLOW_WS_QUERY_TOKEN", "ELIZA_ALLOW_WS_QUERY_TOKEN"],
 ] as const;
 
 const HEADER_ALIASES = [
@@ -41,6 +104,7 @@ const HEADER_ALIASES = [
   ["x-milady-client-id", "x-eliza-client-id"],
   ["x-milady-terminal-token", "x-eliza-terminal-token"],
   ["x-milady-ui-language", "x-eliza-ui-language"],
+  ["x-milady-agent-action", "x-eliza-agent-action"],
 ] as const;
 
 const PACKAGE_ROOT_NAMES = new Set([
@@ -1239,9 +1303,15 @@ function patchHttpCreateServerForMiladyCompat(
  * audit logging (IP + UA), and a 10s confirmation delay via single-use nonces.
  */
 export function resolveWalletExportRejection(
-  ...args: Parameters<typeof upstreamResolveWalletExportRejection>
+  req: http.IncomingMessage,
+  body: {
+    confirm?: boolean;
+    exportToken?: string;
+    exportNonce?: string;
+    requestNonce?: boolean;
+  },
 ): { status: number; reason: string } | null {
-  return hardenedGuard(...args);
+  return hardenedGuard(req, body);
 }
 
 export function findOwnPackageRoot(startDir: string): string {
@@ -1348,4 +1418,255 @@ export function resolveHyperscapeAuthorizationHeader(
   const token = process.env.HYPERSCAPE_AUTH_TOKEN;
   if (!token) return null;
   return token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+}
+
+// ---------------------------------------------------------------------------
+// Brand-aware overrides for functions that the upstream package only
+// implements for the "milady" namespace.  These local re-exports shadow the
+// `export *` barrel so that both MILADY_* and ELIZA_* env vars / header
+// names are accepted.
+// ---------------------------------------------------------------------------
+
+const RESET_STATE_ALLOWED_SEGMENTS = new Set([
+  ".milady",
+  "milady",
+  ".eliza",
+  "eliza",
+]);
+
+function hasAllowedResetSegment(resolvedState: string): boolean {
+  return resolvedState
+    .split(path.sep)
+    .some((segment) =>
+      RESET_STATE_ALLOWED_SEGMENTS.has(segment.trim().toLowerCase()),
+    );
+}
+
+/**
+ * Returns true when `resolvedState` is a safe directory to reset.
+ *
+ * Must be under `homeDir`, must not be `homeDir` itself or the filesystem
+ * root, and must contain a path segment that indicates it belongs to this
+ * application (".eliza", "eliza", ".milady", "milady").
+ */
+export function isSafeResetStateDir(
+  resolvedState: string,
+  homeDir: string,
+): boolean {
+  const normalizedState = path.resolve(resolvedState);
+  const normalizedHome = path.resolve(homeDir);
+  const parsedRoot = path.parse(normalizedState).root;
+
+  if (normalizedState === parsedRoot) return false;
+  if (normalizedState === normalizedHome) return false;
+
+  const relativeToHome = path.relative(normalizedHome, normalizedState);
+  const isUnderHome =
+    relativeToHome.length > 0 &&
+    !relativeToHome.startsWith("..") &&
+    !path.isAbsolute(relativeToHome);
+
+  if (!isUnderHome) return false;
+
+  return hasAllowedResetSegment(normalizedState);
+}
+
+function tokenMatches(expected: string, provided: string): boolean {
+  if (expected.length !== provided.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+/**
+ * Resolve rejection for terminal-run endpoints.
+ *
+ * Supports both ELIZA_* and MILADY_* env vars and header names.
+ */
+export function resolveTerminalRunRejection(
+  req: Pick<http.IncomingMessage, "headers">,
+  body: { terminalToken?: string },
+): { status: number; reason: string } | null {
+  const expected = (
+    process.env.ELIZA_TERMINAL_RUN_TOKEN ??
+    process.env.MILADY_TERMINAL_RUN_TOKEN
+  )?.trim();
+  const apiTokenEnabled = Boolean(
+    (process.env.ELIZA_API_TOKEN ?? process.env.MILADY_API_TOKEN)?.trim(),
+  );
+
+  if (!expected && !apiTokenEnabled) {
+    return null;
+  }
+
+  if (!expected) {
+    return {
+      status: 403,
+      reason:
+        "Terminal run is disabled for token-authenticated API sessions. Set ELIZA_TERMINAL_RUN_TOKEN to enable command execution.",
+    };
+  }
+
+  const headerToken =
+    (typeof req.headers["x-eliza-terminal-token"] === "string"
+      ? req.headers["x-eliza-terminal-token"].trim()
+      : "") ||
+    (typeof req.headers["x-milady-terminal-token"] === "string"
+      ? req.headers["x-milady-terminal-token"].trim()
+      : "");
+  const bodyToken =
+    typeof body.terminalToken === "string" ? body.terminalToken.trim() : "";
+  const provided = headerToken || bodyToken;
+
+  if (!provided) {
+    return {
+      status: 401,
+      reason:
+        "Missing terminal token. Provide X-Eliza-Terminal-Token header or terminalToken in request body.",
+    };
+  }
+
+  if (!tokenMatches(expected, provided)) {
+    return {
+      status: 401,
+      reason: "Invalid terminal token.",
+    };
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Brand-aware override: injectApiBaseIntoHtml
+// Upstream injects __MILADY_API_BASE__; we inject __ELIZA_API_BASE__ for
+// backwards compatibility with the dashboard UI.
+// ---------------------------------------------------------------------------
+
+export function injectApiBaseIntoHtml(
+  html: Buffer,
+  externalBase?: string,
+): Buffer {
+  const trimmedBase = externalBase?.trim();
+  if (!trimmedBase) return html;
+
+  const headCloseTag = "</head>";
+  const headCloseIndex = html.indexOf(headCloseTag);
+  if (headCloseIndex < 0) return html;
+
+  const injection = Buffer.from(
+    `<script>window.__ELIZA_API_BASE__=${JSON.stringify(trimmedBase)};</script>`,
+  );
+  return Buffer.concat([
+    html.subarray(0, headCloseIndex),
+    injection,
+    html.subarray(headCloseIndex),
+  ]);
+}
+
+// ---------------------------------------------------------------------------
+// Brand-aware override: resolveTerminalRunClientId
+// Upstream only reads x-milady-client-id; we also accept x-eliza-client-id.
+// ---------------------------------------------------------------------------
+
+function firstHeaderValue(value: string | string[] | undefined): string | null {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return null;
+}
+
+export function resolveTerminalRunClientId(
+  req: Pick<http.IncomingMessage, "headers">,
+  body: { clientId?: string } | null,
+): string | null {
+  mirrorCompatHeaders(req);
+  const headerClientId = normalizeWsClientId(
+    firstHeaderValue(
+      req.headers["x-eliza-client-id"] ?? req.headers["x-milady-client-id"],
+    ),
+  );
+  if (headerClientId) return headerClientId;
+  return normalizeWsClientId(body?.clientId);
+}
+
+// ---------------------------------------------------------------------------
+// Brand-aware override: resolveWebSocketUpgradeRejection
+// Upstream resolveCorsOrigin only reads MILADY_* env vars; we must sync first.
+// ---------------------------------------------------------------------------
+
+function isWebSocketAuthorized(
+  request: Pick<http.IncomingMessage, "headers">,
+  url: URL,
+): boolean {
+  mirrorCompatHeaders(request);
+  const expected = (
+    process.env.ELIZA_API_TOKEN ?? process.env.MILADY_API_TOKEN
+  )?.trim();
+  if (!expected) return true;
+  const headerToken = upstreamExtractAuthToken(request as http.IncomingMessage);
+  if (headerToken) return tokenMatches(expected, headerToken);
+  const allowQueryToken =
+    (process.env.ELIZA_ALLOW_WS_QUERY_TOKEN ??
+      process.env.MILADY_ALLOW_WS_QUERY_TOKEN) === "1";
+  if (!allowQueryToken) return false;
+  const queryToken = extractWsQueryToken(url);
+  if (!queryToken) return false;
+  return tokenMatches(expected, queryToken);
+}
+
+function extractWsQueryToken(url: URL): string | null {
+  const token =
+    url.searchParams.get("token") ??
+    url.searchParams.get("apiKey") ??
+    url.searchParams.get("api_key");
+  return token?.trim() || null;
+}
+
+export function resolveWebSocketUpgradeRejection(
+  req: Pick<http.IncomingMessage, "headers">,
+  wsUrl: URL,
+): { status: number; reason: string } | null {
+  if (wsUrl.pathname !== "/ws") {
+    return { status: 404, reason: "Not found" };
+  }
+  // Sync Eliza→Milady first so mirrored MILADY_ keys are cleaned up when
+  // the corresponding ELIZA_ key has been deleted between test calls.
+  syncElizaEnvToMilady();
+  syncMiladyEnvToEliza();
+  const origin =
+    typeof req.headers.origin === "string" ? req.headers.origin : undefined;
+  const allowedOrigin = resolveCorsOrigin(origin);
+  if (origin && !allowedOrigin) {
+    return { status: 403, reason: "Origin not allowed" };
+  }
+  if (!isWebSocketAuthorized(req, wsUrl)) {
+    return { status: 401, reason: "Unauthorized" };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Brand-aware override: resolveMcpTerminalAuthorizationRejection
+// Must delegate to the local resolveTerminalRunRejection (not upstream's).
+// ---------------------------------------------------------------------------
+
+function mcpServersIncludeStdio(
+  servers: Record<string, { type?: string }> | null | undefined,
+): boolean {
+  if (!servers || typeof servers !== "object") return false;
+  return Object.values(servers).some(
+    (s) => s && typeof s === "object" && s.type === "stdio",
+  );
+}
+
+export function resolveMcpTerminalAuthorizationRejection(
+  req: Pick<http.IncomingMessage, "headers">,
+  servers: Record<string, { type?: string }> | null | undefined,
+  body: { terminalToken?: string },
+): { status: number; reason: string } | null {
+  if (!mcpServersIncludeStdio(servers)) {
+    return null;
+  }
+  return resolveTerminalRunRejection(req, body);
 }

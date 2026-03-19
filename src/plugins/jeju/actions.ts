@@ -10,10 +10,8 @@ import type {
   HandlerCallback,
   HandlerOptions,
   IAgentRuntime,
-  Memory,
-  State,
 } from "@elizaos/core";
-import { getJejuClient, getJejuBalances, executeJejuSwap } from "./client";
+import { executeJejuSwap, getJejuBalances, getJejuClient } from "./client";
 import { parseJejuSwapFromUserText } from "./swap-parse.js";
 
 function log(runtime: IAgentRuntime, msg: string): void {

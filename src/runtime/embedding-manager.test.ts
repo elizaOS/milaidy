@@ -12,6 +12,68 @@ import {
 } from "vitest";
 
 // ---------------------------------------------------------------------------
+// Shared mutable hardware state for embedding-presets mock
+// ---------------------------------------------------------------------------
+const hw = vi.hoisted(() => {
+  const BYTES_PER_GB = 1024 ** 3;
+  const realRamGB = Math.round(require("node:os").totalmem() / BYTES_PER_GB);
+  return {
+    platform: process.platform as string,
+    arch: process.arch as string,
+    ramGB: realRamGB,
+  };
+});
+
+vi.mock("@elizaos/autonomous/runtime/embedding-presets", () => {
+  const EMBEDDING_PRESETS: Record<string, Record<string, unknown>> = {
+    fallback: {
+      tier: "fallback",
+      label: "Efficient (CPU)",
+      description: "",
+      model: "nomic-embed-text-v1.5.Q4_K_S.gguf",
+      modelRepo: "nomic-ai/nomic-embed-text-v1.5-GGUF",
+      dimensions: 768,
+      gpuLayers: 0,
+      contextSize: 8192,
+      downloadSizeMB: 74,
+    },
+    standard: {
+      tier: "standard",
+      label: "Balanced (Metal GPU)",
+      description: "",
+      model: "nomic-embed-text-v1.5.Q5_K_M.gguf",
+      modelRepo: "nomic-ai/nomic-embed-text-v1.5-GGUF",
+      dimensions: 768,
+      gpuLayers: "auto",
+      contextSize: 8192,
+      downloadSizeMB: 95,
+    },
+    performance: {
+      tier: "performance",
+      label: "Maximum (7B model)",
+      description: "",
+      model: "ggml-e5-mistral-7b-instruct-q4_k_m.gguf",
+      modelRepo: "dranger003/e5-mistral-7b-instruct-GGUF",
+      dimensions: 4096,
+      gpuLayers: "auto",
+      contextSize: 32768,
+      downloadSizeMB: 4200,
+    },
+  };
+  function detectEmbeddingTier(): string {
+    const isMac = hw.platform === "darwin";
+    const isAppleSilicon = isMac && hw.arch === "arm64";
+    if (!isAppleSilicon || hw.ramGB <= 8) return "fallback";
+    if (hw.ramGB >= 128) return "performance";
+    return "standard";
+  }
+  function detectEmbeddingPreset() {
+    return EMBEDDING_PRESETS[detectEmbeddingTier()];
+  }
+  return { EMBEDDING_PRESETS, detectEmbeddingTier, detectEmbeddingPreset };
+});
+
+// ---------------------------------------------------------------------------
 // Mock node-llama-cpp before importing the manager
 // ---------------------------------------------------------------------------
 
@@ -105,7 +167,9 @@ function mockHardware(
 ): void {
   Object.defineProperty(process, "platform", { value: platform });
   Object.defineProperty(process, "arch", { value: arch });
-  vi.spyOn(os, "totalmem").mockReturnValue(ramGB * BYTES_PER_GB);
+  hw.platform = platform;
+  hw.arch = arch;
+  hw.ramGB = ramGB;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +187,9 @@ describe("ElizaEmbeddingManager", () => {
     vi.restoreAllMocks();
     Object.defineProperty(process, "platform", { value: ORIGINAL_PLATFORM });
     Object.defineProperty(process, "arch", { value: ORIGINAL_ARCH });
+    hw.platform = ORIGINAL_PLATFORM;
+    hw.arch = ORIGINAL_ARCH;
+    hw.ramGB = Math.round(require("node:os").totalmem() / BYTES_PER_GB);
   });
 
   afterAll(() => {

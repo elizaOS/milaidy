@@ -212,7 +212,11 @@ describe("applyOnboardingConnectionConfig", () => {
     expect((config.env as Record<string, string>)?.ANTHROPIC_API_KEY).toBe(
       "sk-ant-oat01-test-token",
     );
-    expect(applySubscriptionCredentials).toHaveBeenCalledWith(config);
+    // When the token starts with "sk-ant-", the upstream short-circuits:
+    // it persists the token directly and deletes both credential stores
+    // without calling applySubscriptionCredentials.
+    expect(applySubscriptionCredentials).not.toHaveBeenCalled();
+    expect(deleteCredentials).toHaveBeenCalledWith("anthropic-subscription");
     expect(deleteCredentials).toHaveBeenCalledWith("openai-codex");
   });
 
