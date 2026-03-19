@@ -1072,24 +1072,31 @@ function ArrayFieldInner({ fp: props }: { fp: FieldRenderProps }) {
       data-config-key={props.key}
       data-field-type="array"
     >
-      {items.map((item, index) => (
-        <ArrayItem
-          key={`${index}-${items.length}`}
-          index={index}
-          value={item}
-          total={items.length}
-          hasError={!!props.errors?.length}
-          readonly={props.readonly}
-          onChange={(v) => changeItem(index, v)}
-          onRemove={() => {
-            removeItem(index);
-            fireAction(props, "click");
-          }}
-          onMoveUp={() => moveItem(index, index - 1)}
-          onMoveDown={() => moveItem(index, index + 1)}
-          onBlur={() => fireAction(props, "blur")}
-        />
-      ))}
+      {(() => {
+        const keyOccurrences = new Map<string, number>();
+        return items.map((item, index) => {
+          const seen = (keyOccurrences.get(item) ?? 0) + 1;
+          keyOccurrences.set(item, seen);
+          return (
+            <ArrayItem
+              key={`${item}-${seen}`}
+              index={index}
+              value={item}
+              total={items.length}
+              hasError={!!props.errors?.length}
+              readonly={props.readonly}
+              onChange={(v) => changeItem(index, v)}
+              onRemove={() => {
+                removeItem(index);
+                fireAction(props, "click");
+              }}
+              onMoveUp={() => moveItem(index, index - 1)}
+              onMoveDown={() => moveItem(index, index + 1)}
+              onBlur={() => fireAction(props, "blur")}
+            />
+          );
+        });
+      })()}
       {!props.readonly && (
         <button
           type="button"

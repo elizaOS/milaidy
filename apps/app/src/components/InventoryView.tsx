@@ -496,11 +496,11 @@ export function InventoryView() {
         ) : (
           <table className="w-full border-collapse text-xs">
             <tbody>
-              {rows.map((row, idx) => {
+              {rows.map((row) => {
                 const subIcon = showSubChain ? chainIcon(row.chain) : null;
                 return (
                   <tr
-                    key={`${row.chain}-${row.symbol}-${idx}`}
+                    key={`${row.chain}-${row.symbol}-${row.name}`}
                     className="border-b border-border last:border-b-0"
                   >
                     {showSubChain && (
@@ -576,11 +576,11 @@ export function InventoryView() {
 
     return (
       <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 mt-3 max-h-[60vh] overflow-y-auto">
-        {allNfts.map((nft, idx) => {
+        {allNfts.map((nft) => {
           const icon = chainIcon(nft.chain);
           return (
             <div
-              key={`${nft.chain}-${nft.name}-${idx}`}
+              key={`${nft.chain}-${nft.collectionName}-${nft.name}-${nft.imageUrl}`}
               className="border border-border bg-card overflow-hidden"
             >
               {nft.imageUrl ? (

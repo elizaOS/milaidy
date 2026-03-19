@@ -760,7 +760,7 @@ describe("applyDatabaseConfigToEnv", () => {
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.join("/tmp/milady-workspace", ".eliza", ".elizadb"),
+      path.resolve("/tmp/milady-workspace", ".eliza", ".elizadb"),
     );
   });
 

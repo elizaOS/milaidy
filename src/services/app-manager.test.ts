@@ -441,6 +441,31 @@ describe("Hyperscape Auto-Provisioning", () => {
 
   const HYPERSCAPE_APP_NAME = "@elizaos/app-hyperscape";
   const HYPERSCAPE_PLUGIN_NAME = "@elizaos/plugin-hyperscape";
+  const hyperscapeAppEntry = {
+    name: HYPERSCAPE_APP_NAME,
+    npm: {
+      package: HYPERSCAPE_PLUGIN_NAME,
+      v0Version: null,
+      v1Version: null,
+      v2Version: "1.0.0",
+    },
+    supports: { v0: true, v1: false, v2: false },
+    launchUrl: "https://hyperscape.ai",
+    localPath: null,
+    kind: "app",
+  };
+  const hyperscapePluginEntry = {
+    name: HYPERSCAPE_PLUGIN_NAME,
+    npm: {
+      package: HYPERSCAPE_PLUGIN_NAME,
+      v0Version: null,
+      v1Version: null,
+      v2Version: "1.0.0",
+    },
+    supports: { v0: true, v1: false, v2: false },
+    localPath: null,
+    kind: "plugin",
+  };
 
   beforeEach(async () => {
     // Save original env vars
@@ -466,6 +491,14 @@ describe("Hyperscape Auto-Provisioning", () => {
     pluginManager = new PluginManagerService(runtime, {
       pluginDirectory: pluginsDir,
     });
+    vi.spyOn(pluginManager, "getRegistryPlugin").mockImplementation(
+      async (name: string) => {
+        if (name === HYPERSCAPE_APP_NAME) return hyperscapeAppEntry as any;
+        if (name === HYPERSCAPE_PLUGIN_NAME)
+          return hyperscapePluginEntry as any;
+        return null;
+      },
+    );
 
     process.env.MILADY_STATE_DIR = tempDir;
     appManager = new AppManager();
@@ -495,18 +528,6 @@ describe("Hyperscape Auto-Provisioning", () => {
         ok: true,
         json: async () => ({
           registry: {
-            [HYPERSCAPE_APP_NAME]: {
-              git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
-              npm: {
-                repo: HYPERSCAPE_PLUGIN_NAME,
-                v0: null,
-                v1: null,
-                v2: "1.0.0",
-              },
-              supports: { v0: true, v1: false, v2: false },
-              description: "Hyperscape 3D world",
-              topics: ["app"],
-            },
             [HYPERSCAPE_PLUGIN_NAME]: {
               git: {
                 repo: "elizaos/plugin-hyperscape",
@@ -523,6 +544,20 @@ describe("Hyperscape Auto-Provisioning", () => {
               supports: { v0: true, v1: false, v2: false },
               description: "Hyperscape plugin",
               topics: ["plugin"],
+            },
+          },
+          apps: {
+            [HYPERSCAPE_APP_NAME]: {
+              git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
+              npm: {
+                repo: HYPERSCAPE_APP_NAME,
+                v0: null,
+                v1: null,
+                v2: "1.0.0",
+              },
+              supports: { v0: true, v1: false, v2: false },
+              description: "Hyperscape 3D world",
+              topics: ["app"],
             },
           },
         }),
@@ -557,18 +592,6 @@ describe("Hyperscape Auto-Provisioning", () => {
       ok: true,
       json: async () => ({
         registry: {
-          [HYPERSCAPE_APP_NAME]: {
-            git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
-            npm: {
-              repo: HYPERSCAPE_PLUGIN_NAME,
-              v0: null,
-              v1: null,
-              v2: "1.0.0",
-            },
-            supports: { v0: true, v1: false, v2: false },
-            description: "Hyperscape 3D world",
-            topics: ["app"],
-          },
           [HYPERSCAPE_PLUGIN_NAME]: {
             git: { repo: "elizaos/plugin-hyperscape", v0: {}, v1: {}, v2: {} },
             npm: {
@@ -580,6 +603,20 @@ describe("Hyperscape Auto-Provisioning", () => {
             supports: { v0: true, v1: false, v2: false },
             description: "Hyperscape plugin",
             topics: ["plugin"],
+          },
+        },
+        apps: {
+          [HYPERSCAPE_APP_NAME]: {
+            git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
+            npm: {
+              repo: HYPERSCAPE_APP_NAME,
+              v0: null,
+              v1: null,
+              v2: "1.0.0",
+            },
+            supports: { v0: true, v1: false, v2: false },
+            description: "Hyperscape 3D world",
+            topics: ["app"],
           },
         },
       }),
@@ -611,18 +648,6 @@ describe("Hyperscape Auto-Provisioning", () => {
       ok: true,
       json: async () => ({
         registry: {
-          [HYPERSCAPE_APP_NAME]: {
-            git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
-            npm: {
-              repo: HYPERSCAPE_PLUGIN_NAME,
-              v0: null,
-              v1: null,
-              v2: "1.0.0",
-            },
-            supports: { v0: true, v1: false, v2: false },
-            description: "Hyperscape 3D world",
-            topics: ["app"],
-          },
           [HYPERSCAPE_PLUGIN_NAME]: {
             git: {
               repo: "elizaos/plugin-hyperscape",
@@ -639,6 +664,20 @@ describe("Hyperscape Auto-Provisioning", () => {
             supports: { v0: true, v1: false, v2: false },
             description: "Hyperscape plugin",
             topics: ["plugin"],
+          },
+        },
+        apps: {
+          [HYPERSCAPE_APP_NAME]: {
+            git: { repo: "elizaos/app-hyperscape", v0: {}, v1: {}, v2: {} },
+            npm: {
+              repo: HYPERSCAPE_APP_NAME,
+              v0: null,
+              v1: null,
+              v2: "1.0.0",
+            },
+            supports: { v0: true, v1: false, v2: false },
+            description: "Hyperscape 3D world",
+            topics: ["app"],
           },
         },
       }),

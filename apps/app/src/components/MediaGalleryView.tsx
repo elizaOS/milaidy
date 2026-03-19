@@ -261,10 +261,10 @@ export function MediaGalleryView() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {filtered.map((item, i) => (
+          {filtered.map((item) => (
             <button
               type="button"
-              key={`${item.url}-${i}`}
+              key={item.url}
               className="bg-[var(--card)] border border-[var(--border)] p-0 cursor-pointer text-left hover:border-[var(--accent)] transition-colors group"
               onClick={() => setLightboxItem(item)}
             >

@@ -992,9 +992,9 @@ export function FineTuningView() {
               No live events yet. Start a job to stream progress here.
             </div>
           ) : (
-            trainingEvents.map((event, index) => (
+            trainingEvents.map((event) => (
               <div
-                key={`${event.ts}-${event.kind}-${index}`}
+                key={`${event.ts}-${event.kind}-${event.jobId ?? event.modelId ?? event.datasetId ?? "none"}`}
                 className="px-2 py-1.5 border-b border-border text-xs"
               >
                 <span className="font-mono text-muted mr-2">

@@ -223,12 +223,15 @@ describe("core-eject", () => {
       const tsconfig = JSON.parse(tsconfigRaw) as {
         compilerOptions: { paths: Record<string, string[]> };
       };
-      expect(tsconfig.compilerOptions.paths["@elizaos/core"][0]).toContain(
-        "state/core/eliza/packages/core/dist",
-      );
-      expect(tsconfig.compilerOptions.paths["@elizaos/core/*"][0]).toContain(
-        "state/core/eliza/packages/core/dist",
-      );
+      expect(
+        tsconfig.compilerOptions.paths["@elizaos/core"][0].replace(/\\/g, "/"),
+      ).toContain("state/core/eliza/packages/core/dist");
+      expect(
+        tsconfig.compilerOptions.paths["@elizaos/core/*"][0].replace(
+          /\\/g,
+          "/",
+        ),
+      ).toContain("state/core/eliza/packages/core/dist");
     });
 
     it("returns already ejected when checkout exists", async () => {
@@ -261,7 +264,10 @@ describe("core-eject", () => {
       setExecFileHandler(async (file, args) => {
         if (file === "git" && args[0] === "clone") {
           const targetDir = args[args.length - 1];
-          if (targetDir.includes("/eliza") && !firstCloneFinished) {
+          if (
+            targetDir.replace(/\\/g, "/").endsWith("/eliza") &&
+            !firstCloneFinished
+          ) {
             await firstCloneGate;
             firstCloneFinished = true;
           } else if (!firstCloneFinished) {

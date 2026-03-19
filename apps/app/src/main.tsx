@@ -410,4 +410,4 @@ if (document.readyState === "loading") {
 }
 
 // Export platform utilities for use by other modules
-export { platform, isNative, isIOS, isAndroid, isElectron, isWeb };
+export { isAndroid, isElectron, isIOS, isNative, isWeb, platform };

@@ -303,9 +303,9 @@ export function GameView() {
             No agent activity yet.
           </div>
         ) : (
-          gameLogs.slice(0, 50).map((entry: LogEntry, idx) => (
+          gameLogs.slice(0, 50).map((entry: LogEntry) => (
             <div
-              key={`${entry.timestamp}-${idx}`}
+              key={`${entry.timestamp}-${entry.source}-${entry.level}-${entry.message}`}
               className="py-1 border-b border-border/50 flex flex-col gap-0.5"
             >
               <div className="flex items-center gap-1">

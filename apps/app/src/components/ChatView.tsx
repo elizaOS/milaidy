@@ -474,10 +474,7 @@ export function ChatView() {
           style={{ zIndex: 1 }}
         >
           {chatPendingImages.map((img, i) => (
-            <div
-              key={`${img.name}-${i}`}
-              className="relative group w-16 h-16 shrink-0"
-            >
+            <div key={img.data} className="relative group w-16 h-16 shrink-0">
               <img
                 src={`data:${img.mimeType};base64,${img.data}`}
                 alt={img.name}

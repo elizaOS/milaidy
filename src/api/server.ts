@@ -11353,6 +11353,7 @@ async function handleRequest(
 // headless `startEliza()` path).
 // ---------------------------------------------------------------------------
 import { type captureEarlyLogs, flushEarlyLogs } from "./early-logs";
+
 export type { captureEarlyLogs };
 
 // ---------------------------------------------------------------------------

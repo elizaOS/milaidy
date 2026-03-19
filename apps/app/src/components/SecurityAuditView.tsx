@@ -248,9 +248,9 @@ export function SecurityAuditView() {
             No audit entries found.
           </div>
         ) : (
-          entries.map((entry, index) => (
+          entries.map((entry) => (
             <article
-              key={`${entry.timestamp}-${entry.type}-${entry.summary}-${index}`}
+              key={`${entry.traceId ?? "no-trace"}-${entry.timestamp}-${entry.type}-${entry.summary}`}
               className="border border-border bg-bg/40 p-3 mb-2"
             >
               <div className="flex flex-wrap items-center gap-2 mb-1">

@@ -45,41 +45,38 @@ import type {
 import type { ConfigUiHint } from "./types";
 
 export type {
+  AllPermissionsState,
   AudioGenConfig,
   AudioGenProvider,
   CustomActionDef,
   CustomActionHandler,
   DatabaseProviderType,
+  DropStatus,
+  EvmChainBalance,
+  EvmNft,
+  EvmTokenBalance,
   ImageConfig,
   ImageProvider,
   MediaConfig,
   MediaMode,
+  MintResult,
+  PermissionState,
+  PermissionStatus,
   ReleaseChannel,
+  SolanaNft,
+  SolanaTokenBalance,
+  StylePreset,
+  SystemPermissionDefinition as PermissionDefinition,
+  SystemPermissionId,
+  VerificationResult,
   VideoConfig,
   VideoProvider,
   VisionConfig,
   VisionProvider,
-};
-export type { StylePreset };
-export type {
-  EvmChainBalance,
-  EvmNft,
-  EvmTokenBalance,
-  SolanaNft,
-  SolanaTokenBalance,
   WalletAddresses,
   WalletBalancesResponse,
   WalletConfigStatus,
   WalletNftsResponse,
-};
-export type { DropStatus, MintResult };
-export type { VerificationResult };
-export type {
-  AllPermissionsState,
-  PermissionState,
-  PermissionStatus,
-  SystemPermissionId,
-  SystemPermissionDefinition as PermissionDefinition,
 };
 
 // ---------------------------------------------------------------------------

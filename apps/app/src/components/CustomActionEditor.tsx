@@ -16,6 +16,7 @@ type HandlerType = "http" | "shell" | "code";
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 interface ParamDef {
+  id: string;
   name: string;
   description: string;
   required: boolean;
@@ -38,6 +39,7 @@ interface ParsedGeneration {
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"] as const;
 const METHODS_SET = new Set<string>(HTTP_METHODS);
+const createParamId = () => globalThis.crypto.randomUUID();
 
 const HTTP_METHODS_LIST = HTTP_METHODS;
 
@@ -108,6 +110,7 @@ function parseParameters(value: unknown): ParamDef[] {
       seen.add(name.toLowerCase());
 
       return {
+        id: createParamId(),
         name,
         description: toNonEmptyString(candidate.description) || name,
         required: candidate.required === true,
@@ -362,6 +365,7 @@ export function CustomActionEditor({
       setSimilesInput((action.similes ?? []).join(", "));
       setParameters(
         action.parameters?.map((p) => ({
+          id: createParamId(),
           name: p.name,
           description: p.description || "",
           required: p.required || false,
@@ -492,7 +496,7 @@ export function CustomActionEditor({
   const addParameter = () => {
     setParameters([
       ...parameters,
-      { name: "", description: "", required: false },
+      { id: createParamId(), name: "", description: "", required: false },
     ]);
   };
 
@@ -970,10 +974,7 @@ export function CustomActionEditor({
               </button>
             </div>
             {parameters.map((param, i) => (
-              <div
-                key={`${param.name}-${i}`}
-                className="flex gap-2 items-start"
-              >
+              <div key={param.id} className="flex gap-2 items-start">
                 <input
                   type="text"
                   value={param.name}

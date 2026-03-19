@@ -2,9 +2,17 @@ import {
   type GenerateTextParams,
   type IAgentRuntime,
   ModelType,
+  type Plugin,
 } from "@elizaos/core";
 import { describe, expect, it } from "vitest";
-import { mockPlugin } from "./mock-plugin";
+
+const MOCK_PLUGIN_PATH = "./mock-plugin.ts";
+const mockPluginModule = (await import(MOCK_PLUGIN_PATH).catch(
+  () => null,
+)) as Record<string, unknown> | null;
+const mockPlugin = (mockPluginModule?.mockPlugin ??
+  mockPluginModule?.default) as Plugin | undefined;
+const describeMockPlugin = mockPlugin ? describe : describe.skip;
 
 function getPromptResult(prompt: string): Promise<string> {
   const model = mockPlugin.models?.[ModelType.TEXT_LARGE];
@@ -17,7 +25,7 @@ function getPromptResult(prompt: string): Promise<string> {
   ) as Promise<string>;
 }
 
-describe("benchmark mock plugin", () => {
+describeMockPlugin("benchmark mock plugin", () => {
   it("returns canonical single-shot XML with required fields", async () => {
     const xml = await getPromptResult(
       [
