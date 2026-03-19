@@ -82,7 +82,7 @@ export function HeroBackground() {
   };
 
   return (
-    <section className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 pt-16 sm:pt-12 pointer-events-none overflow-hidden">
+    <section className="absolute inset-0 flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 pt-24 sm:pt-12 pb-44 sm:pb-0 pointer-events-none overflow-hidden">
       <div className="hidden sm:block absolute top-12 left-12 w-6 h-6 border-t-2 border-l-2 border-white/20" />
       <div className="hidden sm:block absolute top-12 right-12 w-6 h-6 border-t-2 border-r-2 border-white/20" />
       <div className="hidden sm:block absolute bottom-12 left-12 w-6 h-6 border-b-2 border-l-2 border-white/20" />
@@ -100,7 +100,7 @@ export function HeroBackground() {
       >
         <motion.h1
           variants={itemVariants}
-          className="text-[18vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.78] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-8 sm:mt-12"
+          className="text-[16vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.76] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-4 sm:mt-12 max-w-[10ch] sm:max-w-none"
         >
           <span>MILADY</span>
           <span className="text-brand drop-shadow-lg text-[13vw] sm:text-inherit">
