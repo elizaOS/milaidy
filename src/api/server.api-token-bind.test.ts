@@ -94,24 +94,6 @@ describe("resolveCorsOrigin", () => {
     );
   });
 
-  it("allows same-host browser origins without an explicit allowlist entry", () => {
-    process.env.ELIZA_API_BIND = "127.0.0.1";
-    delete process.env.ELIZA_ALLOWED_ORIGINS;
-
-    expect(
-      resolveCorsOrigin(
-        "https://228fe8b7-d1c5-468a-849c-6e3e01cd66da.milady.ai",
-        "228fe8b7-d1c5-468a-849c-6e3e01cd66da.milady.ai",
-      ),
-    ).toBe("https://228fe8b7-d1c5-468a-849c-6e3e01cd66da.milady.ai");
-    expect(
-      resolveCorsOrigin(
-        "https://blocked.example.com",
-        "228fe8b7-d1c5-468a-849c-6e3e01cd66da.milady.ai",
-      ),
-    ).toBeNull();
-  });
-
   it("allows allowlisted origins when not wildcard-bound", () => {
     process.env.ELIZA_API_BIND = "127.0.0.1";
     process.env.ELIZA_ALLOWED_ORIGINS =

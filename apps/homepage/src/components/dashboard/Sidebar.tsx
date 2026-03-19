@@ -112,15 +112,15 @@ interface SidebarProps {
 
 export function Sidebar({ active, onChange }: SidebarProps) {
   const authed = isAuthenticated();
+  const visibleSections = SECTIONS.filter(
+    (s) => (s.id !== "credits" && s.id !== "billing") || authed,
+  );
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-56 border-r border-border px-3 py-6 flex-shrink-0">
         <nav className="space-y-1 flex-1">
-          {SECTIONS.filter(
-            (s) => (s.id !== "credits" && s.id !== "billing") || authed,
-          ).map((s) => (
+          {visibleSections.map((s) => (
             <button
               type="button"
               key={s.id}
@@ -140,7 +140,6 @@ export function Sidebar({ active, onChange }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Auth status at bottom */}
         {authed && (
           <div className="pt-4 border-t border-border mt-4">
             <button
@@ -157,24 +156,36 @@ export function Sidebar({ active, onChange }: SidebarProps) {
         )}
       </aside>
 
-      {/* Mobile tab bar */}
-      <div className="md:hidden flex overflow-x-auto border-b border-border px-2 gap-1 bg-dark">
-        {SECTIONS.filter(
-          (s) => (s.id !== "credits" && s.id !== "billing") || authed,
-        ).map((s) => (
-          <button
-            type="button"
-            key={s.id}
-            onClick={() => onChange(s.id)}
-            className={`flex-shrink-0 px-4 py-3 text-xs transition-all duration-150 relative
-              ${active === s.id ? "text-text-light" : "text-text-muted"}`}
-          >
-            {s.label}
-            {active === s.id && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-brand rounded-full" />
-            )}
-          </button>
-        ))}
+      <div className="md:hidden sticky top-[56px] z-30 border-b border-border bg-dark/95 backdrop-blur px-3 py-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {visibleSections.map((s) => (
+            <button
+              type="button"
+              key={s.id}
+              onClick={() => onChange(s.id)}
+              className={`flex-shrink-0 px-3 py-2 text-xs rounded-lg transition-all duration-150 relative
+                ${
+                  active === s.id
+                    ? "text-text-light bg-surface"
+                    : "text-text-muted hover:text-text-light hover:bg-surface/60"
+                }`}
+            >
+              {s.label}
+            </button>
+          ))}
+          {authed && (
+            <button
+              type="button"
+              onClick={() => {
+                clearToken();
+                window.location.reload();
+              }}
+              className="ml-auto flex-shrink-0 px-3 py-2 text-xs rounded-lg text-text-muted hover:text-red-400 hover:bg-surface/60 transition-all duration-150"
+            >
+              Sign out
+            </button>
+          )}
+        </div>
       </div>
     </>
   );

@@ -82,32 +82,28 @@ export function HeroBackground() {
   };
 
   return (
-    <section className="absolute inset-0 flex flex-col items-center justify-center px-6 md:px-12 pointer-events-none overflow-hidden">
-      {/* HUD Frame Elements */}
-      <div className="absolute top-12 left-12 w-6 h-6 border-t-2 border-l-2 border-white/20" />
-      <div className="absolute top-12 right-12 w-6 h-6 border-t-2 border-r-2 border-white/20" />
-      <div className="absolute bottom-12 left-12 w-6 h-6 border-b-2 border-l-2 border-white/20" />
-      <div className="absolute bottom-12 right-12 w-6 h-6 border-b-2 border-r-2 border-white/20" />
+    <section className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 pt-16 sm:pt-12 pointer-events-none overflow-hidden">
+      <div className="hidden sm:block absolute top-12 left-12 w-6 h-6 border-t-2 border-l-2 border-white/20" />
+      <div className="hidden sm:block absolute top-12 right-12 w-6 h-6 border-t-2 border-r-2 border-white/20" />
+      <div className="hidden sm:block absolute bottom-12 left-12 w-6 h-6 border-b-2 border-l-2 border-white/20" />
+      <div className="hidden sm:block absolute bottom-12 right-12 w-6 h-6 border-b-2 border-r-2 border-white/20" />
 
-      {/* Crosshairs & Grid Lines */}
-      <div className="absolute top-0 bottom-0 left-[20%] w-[1px] bg-white/[0.03]" />
-      <div className="absolute top-0 bottom-0 right-[20%] w-[1px] bg-white/[0.03]" />
-      <div className="absolute top-[30%] left-0 right-0 h-[1px] bg-white/[0.03]" />
+      <div className="hidden md:block absolute top-0 bottom-0 left-[20%] w-[1px] bg-white/[0.03]" />
+      <div className="hidden md:block absolute top-0 bottom-0 right-[20%] w-[1px] bg-white/[0.03]" />
+      <div className="hidden md:block absolute top-[30%] left-0 right-0 h-[1px] bg-white/[0.03]" />
 
-      {/* Central Editorial Content */}
       <motion.div
         className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {/* Massive MILADY Title + Typewriter */}
         <motion.h1
           variants={itemVariants}
-          className="text-[10vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.8] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-12"
+          className="text-[18vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.78] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-8 sm:mt-12"
         >
           <span>MILADY</span>
-          <span className="text-brand drop-shadow-lg">
+          <span className="text-brand drop-shadow-lg text-[13vw] sm:text-inherit">
             <TypewriterLoop />
           </span>
         </motion.h1>
@@ -115,8 +111,6 @@ export function HeroBackground() {
     </section>
   );
 }
-
-/* ── Hero Install Dock — version badge + nav links ──────────────── */
 
 export function HeroInstallDock() {
   const tagName = releaseData.release.tagName;
@@ -138,28 +132,26 @@ export function HeroInstallDock() {
 
   return (
     <motion.div
-      className="flex flex-col items-center gap-5"
+      className="flex flex-col items-center gap-3 sm:gap-5 px-4"
       variants={dockVariants}
       initial="hidden"
       animate="visible"
     >
-      {/* Version badge */}
-      <div className="flex items-center gap-2 text-[10px] sm:text-[11px] tracking-wider uppercase font-mono">
+      <div className="flex flex-wrap items-center justify-center gap-2 text-[9px] sm:text-[11px] tracking-wider uppercase font-mono text-center">
         <span className="text-brand/80 border border-brand/25 px-2 py-0.5 bg-brand/5">
           {tagName}
         </span>
         <span className="text-text-muted/40">{publishedAt}</span>
       </div>
 
-      {/* Subtle nav row */}
-      <div className="flex items-center gap-3 text-[10px] sm:text-[11px] tracking-widest uppercase text-text-muted/40">
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] tracking-[0.24em] uppercase text-text-muted/50">
         <Link
           to="/dashboard"
           className="hover:text-brand/70 transition-colors duration-200"
         >
           dashboard
         </Link>
-        <span className="text-white/10">·</span>
+        <span className="text-white/10 hidden sm:inline">·</span>
         <a
           href="https://github.com/milady-ai/milady"
           target="_blank"

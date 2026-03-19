@@ -93,7 +93,7 @@ export function AgentDetail({
   return (
     <div className="rounded-2xl bg-surface border border-border overflow-hidden">
       {/* Tab bar */}
-      <div className="flex items-center border-b border-border px-1">
+      <div className="flex flex-wrap items-center gap-y-2 border-b border-border px-1">
         {TABS.map((t) => (
           <button
             type="button"
@@ -112,7 +112,7 @@ export function AgentDetail({
             )}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-3 pr-4">
+        <div className="ml-auto flex w-full sm:w-auto items-center justify-between sm:justify-end gap-3 pr-4 pb-2 sm:pb-0">
           <span className="text-xs text-text-muted">{agent.agentName}</span>
 
           {webUIUrl && (
@@ -188,7 +188,7 @@ function OverviewTab({
   return (
     <div className="space-y-6">
       {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
         <InfoItem label="Status">
           <span className={stateColors[agent.state] ?? stateColors.unknown}>
             {agent.state.charAt(0).toUpperCase() + agent.state.slice(1)}
@@ -209,7 +209,7 @@ function OverviewTab({
 
       {/* Extended info for cloud agents */}
       {isCloud && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4 border-t border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 pt-4 border-t border-border">
           <InfoItem label="Source">
             <span className="text-brand">Eliza Cloud</span>
           </InfoItem>

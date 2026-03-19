@@ -26,7 +26,7 @@ export function Homepage() {
           id="install"
           className="absolute top-0 left-0 right-0 z-30 pointer-events-none"
         >
-          <div className="w-full min-h-screen flex flex-col items-center justify-end pb-8 sm:pb-12 px-4 gap-6 pointer-events-auto">
+          <div className="w-full min-h-[100svh] flex flex-col items-center justify-end pb-6 sm:pb-10 lg:pb-12 px-4 sm:px-6 gap-4 sm:gap-6 pointer-events-auto">
             <DownloadIcons />
             <HeroInstallDock />
           </div>
