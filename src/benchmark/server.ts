@@ -917,9 +917,7 @@ export async function startBenchmarkServer() {
           agent_name: runtime.character.name ?? "Milady",
           plugins: plugins.length,
           active_session: (() => {
-            const active = lastSessionKey
-              ? sessions.get(lastSessionKey)
-              : null;
+            const active = lastSessionKey ? sessions.get(lastSessionKey) : null;
             return active
               ? {
                   benchmark: active.benchmark,

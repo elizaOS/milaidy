@@ -715,7 +715,10 @@ class GoogleImageProvider implements ImageGenerationProvider {
       };
       const imageData = data.predictions?.[0]?.bytesBase64Encoded;
       if (!imageData) {
-        return { success: false, error: "No image returned from Google Imagen" };
+        return {
+          success: false,
+          error: "No image returned from Google Imagen",
+        };
       }
 
       return {
@@ -823,8 +826,12 @@ class GoogleVisionProvider implements VisionAnalysisProvider {
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
     try {
       const imagePart = options.imageBase64
-        ? { inline_data: { mime_type: "image/jpeg", data: options.imageBase64 } }
-        : { file_data: { file_uri: options.imageUrl, mime_type: "image/jpeg" } };
+        ? {
+            inline_data: { mime_type: "image/jpeg", data: options.imageBase64 },
+          }
+        : {
+            file_data: { file_uri: options.imageUrl, mime_type: "image/jpeg" },
+          };
 
       const response = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
