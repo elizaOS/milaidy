@@ -8,37 +8,28 @@ afterEach(() => {
 });
 
 describe("open-web-ui", () => {
-  it("rewrites waifu.fun URLs to milady.ai with auth bootstrap", () => {
+  it("rewrites waifu.fun URLs to milady.ai without token", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     openWebUIDirect("https://agent-123.waifu.fun");
 
     const url = (openSpy.mock.calls[0]?.[0] as string) ?? "";
     expect(url).toContain("agent-123.milady.ai");
-    expect(url).toContain("token=bootstrap");
     expect(url).not.toContain("waifu.fun");
+    // No token appended without explicit launchToken
+    expect(url).not.toContain("token=");
   });
 
-  it("uses provided api token instead of bootstrap", () => {
+  it("appends signed launch token when provided", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     openWebUIDirect("https://agent-123.waifu.fun", {
-      apiToken: "milady_abc123",
+      launchToken: "signed.token.here",
     });
 
     const url = (openSpy.mock.calls[0]?.[0] as string) ?? "";
     expect(url).toContain("agent-123.milady.ai");
-    expect(url).toContain("token=milady_abc123");
-  });
-
-  it("skips token param for local agents", () => {
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-
-    openWebUIDirect("http://localhost:2138", { isLocal: true });
-
-    const url = (openSpy.mock.calls[0]?.[0] as string) ?? "";
-    expect(url).toContain("localhost:2138");
-    expect(url).not.toContain("token=");
+    expect(url).toContain("token=signed.token.here");
   });
 
   it("rewrites pairing redirect URLs to milady.ai", async () => {

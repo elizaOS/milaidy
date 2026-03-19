@@ -1,7 +1,11 @@
 import { useCallback, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
 import { isAuthenticated } from "../../lib/auth";
-import { openWebUIDirect, openWebUIWithPairing } from "../../lib/open-web-ui";
+import {
+  openWebUIDirect,
+  openWebUIWithLaunchToken,
+  openWebUIWithPairing,
+} from "../../lib/open-web-ui";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 import { CreateAgentForm } from "./CreateAgentForm";
@@ -159,12 +163,25 @@ export function AgentGrid() {
                     return;
                   }
 
-                  // Everything else: open directly with nginx auth bootstrap
-                  // Local agents skip the ?token= param (no nginx Lua router)
-                  openWebUIDirect(url, {
-                    apiToken: agent.apiToken,
-                    isLocal: agent.source === "local",
-                  });
+                  // Remote/sandbox agents with cloud auth: request a signed
+                  // launch token from the VPS, which validates the cloud
+                  // session before handing out the API key.
+                  if (
+                    agent.source !== "local" &&
+                    agent.cloudClient &&
+                    agent.cloudAgentId
+                  ) {
+                    openWebUIWithLaunchToken(
+                      url,
+                      agent.cloudClient,
+                      agent.cloudAgentId,
+                    );
+                    return;
+                  }
+
+                  // Local agents or agents without cloud auth: open directly
+                  // (user will see pairing screen if auth is required)
+                  openWebUIDirect(url);
                 }}
                 selected={selectedId === agent.id}
               />

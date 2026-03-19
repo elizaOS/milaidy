@@ -73,6 +73,11 @@ export class CloudClient {
     this.apiKey = apiKey;
   }
 
+  /** Expose the API key so authenticated launch token requests can use it. */
+  getToken(): string {
+    return this.apiKey;
+  }
+
   private async request<T>(path: string, opts: RequestInit = {}): Promise<T> {
     const headers = new Headers(opts.headers);
     headers.set("X-Api-Key", this.apiKey);

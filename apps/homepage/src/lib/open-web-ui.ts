@@ -67,29 +67,90 @@ export async function openWebUIWithPairing(
 }
 
 /**
- * Opens the Web UI directly, bootstrapping auth via `?token=`.
+ * Opens the Web UI directly for a local or remote agent.
  *
- * For remote/sandbox agents on milady.ai, appending `?token=<anything>`
- * triggers the nginx Lua router to fetch the real MILADY_API_TOKEN from
- * the internal agent-lookup service and inject it into sessionStorage.
- * The actual token value in the URL doesn't matter — it's just a trigger.
+ * For remote agents that have a signed launch token, appends it as
+ * `?token=<signed>` so the nginx Lua router can validate and inject
+ * the real API key into sessionStorage.
  *
- * For local agents (localhost), opens without a token (no nginx Lua router).
+ * Without a launch token, opens the bare URL — the user will see the
+ * agent's built-in pairing screen and can enter the code from logs.
  */
 export function openWebUIDirect(
   url: string,
-  opts?: { apiToken?: string; isLocal?: boolean },
+  opts?: { launchToken?: string },
 ): void {
   let target = rewriteAgentUiUrl(url);
-  if (!opts?.isLocal) {
-    // Remote/sandbox agents: trigger nginx Lua auth bootstrap
-    // The Lua router intercepts /?token=..., fetches the real API key
-    // from the internal agent-lookup service, and injects it.
-    const token = opts?.apiToken || "bootstrap";
+  if (opts?.launchToken) {
     const sep = target.includes("?") ? "&" : "?";
-    target = `${target}${sep}token=${encodeURIComponent(token)}`;
+    target = `${target}${sep}token=${encodeURIComponent(opts.launchToken)}`;
   }
   window.open(target, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Requests a signed launch token from the agent's VPS, then opens the
+ * web UI with it.  The nginx Lua router validates the HMAC-signed token
+ * before injecting the real API key.
+ *
+ * Falls back to opening the bare URL if the launch token request fails.
+ */
+export async function openWebUIWithLaunchToken(
+  agentUrl: string,
+  cloudClient: CloudClient,
+  _cloudAgentId: string,
+): Promise<void> {
+  // Open popup synchronously to avoid popup blockers
+  const popup = window.open("", "_blank");
+  if (!popup) {
+    showToast("Popup blocked. Please allow popups and try again.");
+    return;
+  }
+
+  try {
+    popup.document.title = "Connecting\u2026";
+    popup.document.body.style.margin = "0";
+    popup.document.body.innerHTML =
+      '<div style="font-family:system-ui,-apple-system,sans-serif;background:#09090b;color:#a1a1aa;min-height:100vh;display:flex;align-items:center;justify-content:center">' +
+      '<div style="text-align:center">' +
+      '<div style="width:24px;height:24px;border:2px solid #27272a;border-top-color:#a1a1aa;border-radius:50%;margin:0 auto 16px;animation:s 0.8s linear infinite"></div>' +
+      '<div style="font-size:14px;letter-spacing:0.02em">Connecting to agent\u2026</div>' +
+      "</div></div>" +
+      "<style>@keyframes s{to{transform:rotate(360deg)}}</style>";
+  } catch {
+    // cross-origin write may fail
+  }
+
+  try {
+    // Request a signed launch token from the agent's VPS
+    const target = rewriteAgentUiUrl(agentUrl);
+    const launchRes = await fetch(`${target}/api/get-launch-url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cloudClient.getToken()}`,
+      },
+    });
+
+    if (popup.closed) return;
+
+    if (launchRes.ok) {
+      const data = await launchRes.json();
+      if (data.url) {
+        // data.url is relative like "/?token=<signed>" — prepend the agent base
+        const base = target.replace(/\/+$/, "");
+        popup.location.href = `${base}${data.url}`;
+        return;
+      }
+    }
+
+    // Fallback: open the bare URL (user will see pairing screen)
+    popup.location.href = target;
+  } catch {
+    if (!popup.closed) {
+      popup.location.href = rewriteAgentUiUrl(agentUrl);
+    }
+  }
 }
 
 /** Simple toast — uses sonner if available, falls back to console */
