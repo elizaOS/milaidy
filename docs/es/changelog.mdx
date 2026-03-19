@@ -3,6 +3,51 @@ title: Registro de cambios
 description: Novedades en Milady — funcionalidades, mejoras y correcciones.
 ---
 
+<Update label="2026-05-14" description="Semana del 8 al 14 de mayo" tags={["Feature", "Update"]}>
+## Extensión de Chrome para automatización del navegador
+
+Tu agente ahora puede controlar pestañas del navegador directamente usando la extensión Chrome Milady Browser Relay. La extensión conecta el protocolo DevTools de Chrome con el entorno de ejecución del agente, permitiendo inspección de páginas, ejecución de JavaScript, navegación, captura de pantalla y flujos de navegación autónomos — todo desde un botón en la barra de herramientas. Instálala desde el código fuente con `milady browser extension install`. Consulta la [guía de la extensión de Chrome](/apps/chrome-extension) para más detalles.
+
+## Modo autónomo
+
+Los agentes ahora pueden razonar y actuar de forma independiente entre conversaciones. Cuando está habilitado, un bucle continuo observa el entorno, toma decisiones y ejecuta acciones sin esperar la intervención del usuario — útil para monitoreo en segundo plano, flujos programados y comportamiento proactivo. Actívalo desde el panel o mediante el endpoint `GET /api/agent/autonomy`. Consulta la [guía del modo autónomo](/guides/autonomous-mode) para más detalles.
+
+## Hooks de eventos
+
+Ahora puedes extender tu agente con manejadores basados en eventos que responden a comandos, sesiones, ciclo de vida del agente y eventos del gateway. Coloca un archivo `HOOK.md` en un directorio de hooks, define tu manejador y el agente lo cargará al iniciar. Los hooks permiten lógica personalizada al crear sesiones, al iniciar el agente o ante comandos del usuario — sin necesidad de escribir un plugin completo. Consulta la [guía de hooks](/guides/hooks) para más detalles.
+
+## Marketplace de skills
+
+Las skills — extensiones basadas en Markdown que enseñan al agente a realizar tareas específicas — ahora se pueden explorar, buscar, instalar y gestionar desde el panel. Cada skill es una carpeta con instrucciones que se inyectan en el contexto del agente en tiempo de ejecución. También puedes crear las tuyas. Consulta la [guía de skills](/plugins/skills) para más detalles.
+
+## Generación de medios
+
+Los agentes ahora pueden generar imágenes, video y audio, o analizar imágenes usando visión artificial — todo mediante acciones integradas. Los proveedores compatibles incluyen FAL, OpenAI, Google, xAI y Eliza Cloud (sin necesidad de clave API). Pídele a tu agente que "dibuje un atardecer" o "describa esta imagen" y seleccionará el proveedor automáticamente. Consulta la [guía de generación de medios](/guides/media-generation) para más detalles.
+
+## Triggers y tareas programadas
+
+Ahora puedes programar tareas que despierten al agente en intervalos definidos, en momentos específicos o mediante expresiones cron. Crea triggers desde el panel o mediante la API REST con tres tipos: `interval` para tareas recurrentes, `once` para tareas futuras únicas y `cron` para operaciones programadas con cron. Consulta la [guía de triggers](/guides/triggers) para más detalles.
+
+## Editor de acciones personalizadas
+
+Define nuevas capacidades del agente directamente desde el panel sin escribir código de plugin. Las acciones personalizadas admiten manejadores HTTP, shell y código. Describe la acción, configura los parámetros y el agente podrá invocarla durante las conversaciones. Consulta la [guía de acciones personalizadas](/guides/custom-actions) para más detalles.
+
+## Sistema de eject de plugins
+
+Ahora puedes clonar el código fuente de cualquier plugin localmente, modificarlo y hacer que el entorno de ejecución cargue tu copia local en lugar del paquete npm. El sistema de eject soporta sincronización con upstream, contribución de cambios mediante pull requests y eject de paquetes core para personalización profunda. Consulta la [guía de eject de plugins](/plugins/plugin-eject) para más detalles.
+
+## Aplicación móvil
+
+Milady ya está disponible en iOS y Android a través de una app nativa basada en Capacitor. La experiencia completa del panel se ejecuta dentro de un WebView nativo con acceso al hardware del dispositivo — cámara, hápticos, notificaciones push y más. Consulta la [guía de la app móvil](/apps/mobile) para instrucciones de configuración y compilación.
+
+## Actualizaciones
+
+- **Temas y personalización de avatares** — Seis temas visuales integrados y ocho avatares 3D VRM con 29 emotes ahora son configurables desde Ajustes. Cambia de tema al instante y arrastra avatares VRM personalizados. Consulta la [guía de temas](/guides/themes).
+- **Inclusión de configuraciones** — Divide la configuración del agente en múltiples archivos usando la directiva `$include`. Compón configuraciones modulares para diferentes entornos o comparte configuraciones base entre agentes. Consulta la [guía de config includes](/guides/config-includes).
+- **Soporte de modelos locales** — Ejecuta modelos localmente con Ollama sin enviar datos a proveedores externos. Consulta la [guía de modelos locales](/guides/local-models).
+- **Animaciones de emotes** — Los agentes pueden expresar emociones a través de 30 animaciones VRM de emotes en seis categorías, activadas automáticamente durante las conversaciones o manualmente desde el selector de emotes. Consulta la [guía de emotes](/guides/emotes).
+</Update>
+
 <Update label="2026-05-07" description="Semana del 1 al 7 de mayo" tags={["Feature", "Update"]}>
 <div id="agent-export-and-import">
 ## Exportación e importación de agentes

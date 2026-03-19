@@ -3,6 +3,51 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-05-14" description="Week of May 8–14" tags={["Feature", "Update"]}>
+## Chrome extension for browser automation
+
+Your agent can now control browser tabs directly using the Milady Browser Relay Chrome extension. The extension bridges Chrome's DevTools Protocol to the agent runtime, enabling page inspection, JavaScript execution, navigation, screenshot capture, and autonomous browsing workflows — all from a single-click toolbar toggle. Install it from source via `milady browser extension install`. See the [Chrome extension guide](/apps/chrome-extension) for details.
+
+## Autonomous mode
+
+Agents can now reason and act independently between conversations. When enabled, a continuous loop observes the environment, makes decisions, and executes actions without waiting for user input — useful for background monitoring, scheduled workflows, and proactive behavior. Toggle it from the dashboard or via the `GET /api/agent/autonomy` endpoint. See the [autonomous mode guide](/guides/autonomous-mode) for details.
+
+## Event hooks
+
+You can now extend your agent with event-driven handlers that respond to commands, sessions, agent lifecycle, and gateway events. Drop a `HOOK.md` file into a hook directory, define your handler, and the agent loads it at startup. Hooks enable custom logic on session creation, agent startup, or user commands — without writing a full plugin. See the [hooks guide](/guides/hooks) for details.
+
+## Skills marketplace
+
+Skills — markdown-based extensions that teach the agent how to perform specific tasks — can now be browsed, searched, installed, and managed from the dashboard. Each skill is a folder containing instructions that get injected into the agent's context at runtime. You can also write your own. See the [skills guide](/plugins/skills) for details.
+
+## Media generation
+
+Agents can now generate images, video, and audio, or analyze images using AI vision — all through built-in actions. Supported providers include FAL, OpenAI, Google, xAI, and Eliza Cloud (no API key required). Ask your agent to "draw a sunset" or "describe this image" and it handles provider selection automatically. See the [media generation guide](/guides/media-generation) for details.
+
+## Triggers and scheduled tasks
+
+You can now schedule tasks that wake the agent at defined intervals, at specific times, or via cron expressions. Create triggers from the dashboard or via the REST API with three types: `interval` for recurring tasks, `once` for one-time future tasks, and `cron` for cron-scheduled operations. See the [triggers guide](/guides/triggers) for details.
+
+## Custom actions editor
+
+Define new agent capabilities directly from the dashboard without writing plugin code. Custom actions support HTTP, shell, and code handlers. Describe the action, set parameters, and the agent can invoke it during conversations. See the [custom actions guide](/guides/custom-actions) for details.
+
+## Plugin eject system
+
+You can now clone any plugin's source code locally, modify it, and have the runtime load your local copy instead of the npm package. The eject system supports syncing with upstream, contributing changes back via pull requests, and ejecting core packages for deep customization. See the [plugin eject guide](/plugins/plugin-eject) for details.
+
+## Mobile app
+
+Milady is now available on iOS and Android via a Capacitor-based native app. The full dashboard experience runs inside a native WebView with access to device hardware — camera, haptics, push notifications, and more. See the [mobile app guide](/apps/mobile) for setup and build instructions.
+
+## Updates
+
+- **Themes and avatar customization** — Six built-in visual themes and eight 3D VRM avatars with 29 emotes are now configurable from Settings. Switch themes instantly and drag-and-drop custom VRM avatars. See the [themes guide](/guides/themes).
+- **Config includes** — Split agent configuration across multiple files using the `$include` directive. Compose modular configs for different environments or share base configs across agents. See the [config includes guide](/guides/config-includes).
+- **Local model support** — Run models locally via Ollama without sending data to external providers. See the [local models guide](/guides/local-models).
+- **Emote animations** — Agents can express emotions through 30 VRM emote animations across six categories, triggered automatically during conversations or manually from the emote picker. See the [emotes guide](/guides/emotes).
+</Update>
+
 <Update label="2026-05-07" description="Week of May 1–7" tags={["Feature", "Update"]}>
 ## Agent export and import
 
