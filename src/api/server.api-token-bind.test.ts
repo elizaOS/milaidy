@@ -102,10 +102,6 @@ describe("resolveCorsOrigin", () => {
     expect(resolveCorsOrigin("https://proxy.example.com")).toBe(
       "https://proxy.example.com",
     );
-    // Non-wildcard binds with an allowlist still allow any origin in current behavior
-    const blockedResult = resolveCorsOrigin("https://blocked.example.com");
-    expect(typeof blockedResult === "string" || blockedResult === null).toBe(
-      true,
-    );
+    expect(resolveCorsOrigin("https://blocked.example.com")).toBeNull();
   });
 });
