@@ -1216,6 +1216,222 @@ export function applyAppCoreVoiceConfigSelectionVisibilityPatch(filePath) {
   return true;
 }
 
+export function applyAppCoreProviderSwitcherAuthOnlyPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (
+    compatSource.includes('label: "Eliza Cloud (Auth only)"') &&
+    compatSource.includes("value: resolvedSelectedId ?? (providerChoices[0]?.id ?? \"\")")
+  ) {
+    return false;
+  }
+
+  let updatedSource = compatSource;
+  updatedSource = updatedSource.replace(
+    "const [selectedProviderId, setSelectedProviderId] = useState(() => (elizaCloudEnabled ? \"__cloud__\" : null));",
+    "const [selectedProviderId, setSelectedProviderId] = useState(() => null);",
+  );
+  updatedSource = updatedSource.replace(
+    `        // Only auto-select cloud if cloud handles inference (not just enabled)
+        if (cloudHandlesInference) {
+            if (selectedProviderId !== "__cloud__")
+                setSelectedProviderId("__cloud__");
+        }`,
+    "        // Cloud remains available for auth, but not as auto-selected model provider.",
+  );
+  updatedSource = updatedSource.replace(
+    `                : cloudHandlesInference
+                    ? "__cloud__"
+                    : piAiEnabled`,
+    `                : piAiEnabled`,
+  );
+  updatedSource = updatedSource.replace(
+    /{\s*id:\s*"__cloud__",\s*label:\s*t\("providerswitcher\.elizaCloud"\),\s*disabled:\s*false,\s*},/m,
+    `{
+            id: "__cloud__",
+            label: "Eliza Cloud (Auth only)",
+            disabled: true,
+        },`,
+  );
+  updatedSource = updatedSource.replaceAll(
+    '{ id: "__cloud__", label: t("providerswitcher.elizaCloud"), disabled: false },',
+    '{ id: "__cloud__", label: "Eliza Cloud (Auth only)", disabled: true },',
+  );
+  updatedSource = updatedSource.replace(
+    "value: resolvedSelectedId ?? \"__cloud__\"",
+    'value: resolvedSelectedId ?? (providerChoices[0]?.id ?? "")',
+  );
+  updatedSource = updatedSource.replace(
+    `                            if (nextId === "__cloud__") {
+                                void handleSelectCloud();
+                                return;
+                            }`,
+    `                            if (nextId === "__cloud__") {
+                                return;
+                            }`,
+  );
+  updatedSource = updatedSource.replace(
+    /if \(nextId === "__cloud__"\)\s*\{\s*void handleSelectCloud\(\);\s*return;\s*\}/m,
+    `if (nextId === "__cloud__") {
+                                return;
+                            }`,
+  );
+
+  if (updatedSource === compatSource) return false;
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreMediaSettingsAuthOnlyPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (
+    compatSource.includes("const FALLBACK_MEDIA_PROVIDER_BY_CATEGORY =") &&
+    compatSource.includes("cfg.mode === \"cloud\" ? \"own-key\"")
+  ) {
+    return false;
+  }
+
+  let updatedSource = compatSource;
+  if (!updatedSource.includes("const FALLBACK_MEDIA_PROVIDER_BY_CATEGORY =")) {
+    updatedSource = updatedSource.replace(
+      /const CATEGORY_LABELS = \{[\s\S]*?\};/,
+      (match) =>
+        `${match}
+const FALLBACK_MEDIA_PROVIDER_BY_CATEGORY = {
+    image: "fal",
+    video: "fal",
+    audio: "elevenlabs",
+    vision: "openai",
+};`,
+    );
+  }
+  updatedSource = updatedSource.replace(
+    /return cfg\.mode \?\? "cloud";/,
+    'return cfg.mode === "cloud" ? "own-key" : (cfg.mode ?? "own-key");',
+  );
+  updatedSource = updatedSource.replace(
+    /return cfg\.provider \?\? "cloud";/,
+    `const fallbackProvider = FALLBACK_MEDIA_PROVIDER_BY_CATEGORY[category];
+        if (cfg.provider === "cloud")
+            return fallbackProvider;
+        return cfg.provider ?? fallbackProvider;`,
+  );
+  updatedSource = updatedSource.replace(
+    `onChange: (mode) => {
+                            if (mode === "cloud") {
+                                updateCategoryConfig(activeTab, {
+                                    mode: "cloud",
+                                    provider: "cloud",
+                                });
+                                return;
+                            }
+                            updateCategoryConfig(activeTab, { mode: "own-key" });
+                        }`,
+    `onChange: () => {
+                            updateCategoryConfig(activeTab, { mode: "own-key" });
+                        }`,
+  );
+  updatedSource = updatedSource.replace(
+    /onChange:\s*\(mode\)\s*=>\s*\{[\s\S]*?updateCategoryConfig\(activeTab, \{ mode: "own-key" \}\);\s*\}/m,
+    `onChange: () => {
+                            updateCategoryConfig(activeTab, { mode: "own-key" });
+                        }`,
+  );
+  updatedSource = updatedSource.replace(
+    /currentMode === "cloud" && \(_jsx\(CloudConnectionStatus, \{[\s\S]*?\}\)\),/m,
+    "",
+  );
+  updatedSource = updatedSource.replace(
+    /currentMode === "cloud" && \(_jsx\(CloudConnectionStatus, \{[\s\S]*?\}\)\);?/m,
+    "",
+  );
+
+  if (updatedSource === compatSource) return false;
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreRpcStepByokOnlyPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (compatSource.includes('const [mode, setMode] = useState("byok");')) {
+    return false;
+  }
+
+  const updatedSource = compatSource.replace(
+    'const [mode, setMode] = useState(elizaCloudReady ? "cloud" : "");',
+    'const [mode, setMode] = useState("byok");',
+  );
+
+  if (updatedSource === compatSource) return false;
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreConfigPageAuthOnlyPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (
+    compatSource.includes("const coerceRpcProvider = (value, options)") &&
+    compatSource.includes("options.filter((provider) => provider.id !== \"eliza-cloud\")")
+  ) {
+    return false;
+  }
+
+  let updatedSource = compatSource;
+  updatedSource = updatedSource.replace(
+    "return (_jsx(\"div\", { className: containerClassName, children: options.map((provider) => {",
+    "return (_jsx(\"div\", { className: containerClassName, children: options.filter((provider) => provider.id !== \"eliza-cloud\").map((provider) => {",
+  );
+
+  if (!updatedSource.includes("const coerceRpcProvider = (value, options)")) {
+    updatedSource = updatedSource.replace(
+      "const [rpcFieldValues, setRpcFieldValues] = useState({});",
+      `const [rpcFieldValues, setRpcFieldValues] = useState({});
+    const coerceRpcProvider = (value, options) => value === "eliza-cloud"
+        ? (options.find((option) => option.id !== "eliza-cloud")?.id ?? value)
+        : value;`,
+    );
+  }
+  updatedSource = updatedSource.replace(
+    "const [selectedEvmRpc, setSelectedEvmRpc] = useState(initialRpc.evm);",
+    "const [selectedEvmRpc, setSelectedEvmRpc] = useState(coerceRpcProvider(initialRpc.evm, EVM_RPC_OPTIONS));",
+  );
+  updatedSource = updatedSource.replace(
+    "const [selectedBscRpc, setSelectedBscRpc] = useState(initialRpc.bsc);",
+    "const [selectedBscRpc, setSelectedBscRpc] = useState(coerceRpcProvider(initialRpc.bsc, BSC_RPC_OPTIONS));",
+  );
+  updatedSource = updatedSource.replace(
+    "const [selectedSolanaRpc, setSelectedSolanaRpc] = useState(initialRpc.solana);",
+    "const [selectedSolanaRpc, setSelectedSolanaRpc] = useState(coerceRpcProvider(initialRpc.solana, SOLANA_RPC_OPTIONS));",
+  );
+  updatedSource = updatedSource.replace(
+    "        setSelectedEvmRpc(selections.evm);",
+    "        setSelectedEvmRpc(coerceRpcProvider(selections.evm, EVM_RPC_OPTIONS));",
+  );
+  updatedSource = updatedSource.replace(
+    "        setSelectedBscRpc(selections.bsc);",
+    "        setSelectedBscRpc(coerceRpcProvider(selections.bsc, BSC_RPC_OPTIONS));",
+  );
+  updatedSource = updatedSource.replace(
+    "        setSelectedSolanaRpc(selections.solana);",
+    "        setSelectedSolanaRpc(coerceRpcProvider(selections.solana, SOLANA_RPC_OPTIONS));",
+  );
+  updatedSource = updatedSource.replaceAll(
+    "elizaCloudConnected && _jsx(CloudServicesSection, {}),",
+    "",
+  );
+
+  if (updatedSource === compatSource) return false;
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
 /**
  * Patch App.js ViewRouter to check for a custom character editor component
  * registered on window.__MILADY_CHARACTER_EDITOR__ before falling back to the
@@ -1447,6 +1663,30 @@ export function patchAppCoreMiladyAssets(
         applyAppCoreVoiceConfigSelectionVisibilityPatch(filePath),
       description:
         "selected voice cards now remain visually distinct and readable",
+    },
+    {
+      relativePath: "components/ProviderSwitcher.js",
+      apply: (filePath) => applyAppCoreProviderSwitcherAuthOnlyPatch(filePath),
+      description:
+        "Eliza Cloud remains auth-only in model provider selection flow",
+    },
+    {
+      relativePath: "components/MediaSettingsSection.js",
+      apply: (filePath) => applyAppCoreMediaSettingsAuthOnlyPatch(filePath),
+      description:
+        "media settings default to own-key providers instead of cloud mode",
+    },
+    {
+      relativePath: "components/ConfigPageView.js",
+      apply: (filePath) => applyAppCoreConfigPageAuthOnlyPatch(filePath),
+      description:
+        "RPC and cloud-services config avoids cloud provider defaults and keeps auth separate",
+    },
+    {
+      relativePath: "components/onboarding/RpcStep.js",
+      apply: (filePath) => applyAppCoreRpcStepByokOnlyPatch(filePath),
+      description:
+        "onboarding RPC step defaults to BYOK instead of Eliza Cloud RPC",
     },
   ];
 
