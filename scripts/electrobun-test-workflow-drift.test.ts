@@ -7,8 +7,8 @@ const WORKFLOW_PATH = path.join(ROOT, ".github/workflows/test.yml");
 
 describe("Electrobun test workflow drift", () => {
   // Desktop build/packaging validation (preload bridge, diagnostics, DMG
-  // smoke test) was moved to release-electrobun.yml. The old electron-ui-e2e
-  // and electron-packaged-dmg-e2e jobs were removed from test.yml.
+  // smoke test) was moved to release-electrobun.yml. The old desktop-ui-e2e
+  // and desktop-packaged-dmg-e2e jobs were removed from test.yml.
 
   it("does not rerun postinstall in jobs that already use plain bun install", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");

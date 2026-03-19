@@ -2,7 +2,7 @@
  * Milady RPC Schema for Electrobun
  *
  * Defines the typed RPC contract between the Bun main process and
- * the webview renderer. Replaces the stringly-typed Electron IPC channels
+ * the webview renderer. Replaces the stringly-typed legacy desktop channel surface
  * with compile-time safe typed RPC.
  *
  * Schema structure (from Electrobun's perspective):
@@ -199,6 +199,17 @@ export interface CameraDevice {
   kind: string;
 }
 
+// -- Credentials Auto-Detection --
+export interface DetectedProvider {
+  id: string;
+  source: string;
+  apiKey?: string;
+  authMode?: string;
+  cliInstalled: boolean;
+  status: "valid" | "invalid" | "unchecked" | "error";
+  statusDetail?: string;
+}
+
 // -- Screencapture --
 export interface ScreenSource {
   id: string;
@@ -386,6 +397,7 @@ export type MiladyRPCSchema = {
         response: { path: string };
       };
       desktopBeep: { params: undefined; response: undefined };
+      desktopOpenSettingsWindow: { params: undefined; response: undefined };
 
       // ---- Desktop: Clipboard ----
       desktopWriteToClipboard: {
@@ -729,6 +741,16 @@ export type MiladyRPCSchema = {
         response: undefined;
       };
 
+      // ---- Credentials Auto-Detection ----
+      credentialsScanProviders: {
+        params: { context: "onboarding" | "tray-refresh" };
+        response: { providers: DetectedProvider[] };
+      };
+      credentialsScanAndValidate: {
+        params: { context: "onboarding" | "tray-refresh" };
+        response: { providers: DetectedProvider[] };
+      };
+
       // ---- GPU Window ----
       gpuWindowCreate: {
         params: {
@@ -925,7 +947,7 @@ export type MiladyRPCSchema = {
 // ============================================================================
 
 /**
- * Maps Electron-style colon-separated IPC channel names to camelCase RPC
+ * Maps legacy colon-separated desktop channel names to camelCase RPC
  * method names. Used by the renderer bridge for backward compatibility.
  */
 export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
@@ -994,6 +1016,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "desktop:isPackaged": "desktopIsPackaged",
   "desktop:getPath": "desktopGetPath",
   "desktop:beep": "desktopBeep",
+  "desktop:openSettingsWindow": "desktopOpenSettingsWindow",
 
   // Desktop: Clipboard
   "desktop:writeToClipboard": "desktopWriteToClipboard",
@@ -1108,6 +1131,10 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "contextMenu:quoteInChat": "contextMenuQuoteInChat",
   "contextMenu:saveAsCommand": "contextMenuSaveAsCommand",
 
+  // Credentials
+  "credentials:scanProviders": "credentialsScanProviders",
+  "credentials:scanAndValidate": "credentialsScanAndValidate",
+
   // GPU Window
   "gpuWindow:create": "gpuWindowCreate",
   "gpuWindow:destroy": "gpuWindowDestroy",
@@ -1128,7 +1155,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
 };
 
 /**
- * Maps Electron-style push event channel names to RPC message names.
+ * Maps legacy desktop push channel names to RPC message names.
  * Used by the renderer bridge to subscribe to push events.
  */
 export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
@@ -1172,7 +1199,7 @@ export const PUSH_CHANNEL_TO_RPC_MESSAGE: Record<string, string> = {
 };
 
 /**
- * Reverse mapping: RPC message name → Electron push channel name.
+ * Reverse mapping: RPC message name → legacy desktop push channel name.
  */
 export const RPC_MESSAGE_TO_PUSH_CHANNEL: Record<string, string> =
   Object.fromEntries(

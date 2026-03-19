@@ -6,7 +6,7 @@
  * This approach avoids the pipe bottleneck — FFmpeg reads at its own
  * pace while the browser updates the file independently.
  *
- * Visual parity with Electron:
+ * Visual parity with the desktop shell:
  * - Appends `?popout` to the URL so the app renders StreamView directly
  *   (skips onboarding, auth gates, navigation chrome).
  * - Enables SwiftShader for WebGL so VRM avatar renders identically.
@@ -113,7 +113,7 @@ export async function startBrowserCapture(config: BrowserCaptureConfig) {
   const page = await browser.newPage();
   await page.setViewport({ width, height, deviceScaleFactor: 1 });
 
-  // Seed localStorage before navigation so the first render matches Electron.
+  // Seed localStorage before navigation so the first render matches the desktop shell.
   // Keys must match exactly what the React app reads:
   //   - "milady:theme"                        → ThemeName
   //   - "milady_avatar_index"                 → VRM index (1–8)

@@ -1,0 +1,63 @@
+# Milady Agent — CI Docker Image
+# Pre-built artifacts come from GHA (bun install + tsdown + vite build done before docker)
+ARG VERSION=""
+ARG VERSION_CLEAN=""
+
+FROM node:22-slim AS pruner
+WORKDIR /app
+COPY . .
+
+# Patch plugin-agent-skills getCatalogStats crash (alpha.11 vs alpha.66 interface mismatch)
+RUN sed -i 's/const stats = service.getCatalogStats();/const stats = typeof service.getCatalogStats === "function" ? service.getCatalogStats() : { loaded: 0, total: 0, storageType: "unknown" };/g' node_modules/@elizaos/plugin-agent-skills/dist/index.js 2>/dev/null || true
+ARG VERSION_CLEAN
+
+# Patch autonomous version
+RUN if [ -n "${VERSION_CLEAN}" ]; then \
+      node -e " \
+        const fs = require('fs'); \
+        const v = '${VERSION_CLEAN}'; \
+        try { \
+          const p = JSON.parse(fs.readFileSync('node_modules/@elizaos/autonomous/package.json', 'utf8')); \
+          p.version = v; \
+          fs.writeFileSync('node_modules/@elizaos/autonomous/package.json', JSON.stringify(p, null, 2)); \
+          console.log('Patched autonomous to', v); \
+        } catch(e) { console.log('skip:', e.message); } \
+      "; \
+    fi
+
+# Safe pruning only (GPU binaries + obvious dead weight)
+RUN rm -rf \
+    node_modules/.bun/@node-llama-cpp+linux-x64-cuda-ext@* \
+    node_modules/.bun/@node-llama-cpp+linux-x64-cuda@* \
+    node_modules/.bun/@node-llama-cpp+linux-x64-vulkan@* \
+    node_modules/.bun/@node-llama-cpp+linux-arm64@* \
+    node_modules/.bun/@node-llama-cpp+linux-armv7l@* \
+    node_modules/@storybook \
+    node_modules/storybook \
+    apps/app/public \
+    2>/dev/null || true
+
+# Remove source maps and test dirs
+RUN find node_modules -name '*.map' -delete 2>/dev/null; \
+    find node_modules -type d -name '__tests__' -exec rm -rf {} + 2>/dev/null; \
+    find node_modules -type d -name 'test' -maxdepth 3 -exec rm -rf {} + 2>/dev/null; \
+    true
+
+FROM node:22-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+RUN npm install -g tsx
+
+WORKDIR /app
+COPY --from=pruner /app /app
+
+ENV NODE_ENV=production
+ENV ELIZA_PORT=2138
+ENV ELIZA_API_BIND=0.0.0.0
+ENV ELIZA_ALLOWED_HOSTS=*
+EXPOSE 2138
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+  CMD curl -f http://localhost:${ELIZA_PORT}/api/health || exit 1
+
+CMD ["node", "--import", "tsx", "milady.mjs", "start"]

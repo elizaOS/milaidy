@@ -218,7 +218,7 @@ export class DesktopWeb extends WebPlugin {
   async getVersion(): Promise<{
     version: string;
     name: string;
-    electron: string;
+    runtime: string;
     chrome: string;
     node: string;
   }> {
@@ -227,7 +227,7 @@ export class DesktopWeb extends WebPlugin {
     return {
       version: "unknown", // App version not available on web - would need to be injected at build time
       name: "unknown", // App name not available on web - would need to be injected at build time
-      electron: "N/A", // Not running in Electron
+      runtime: "N/A", // Not running in the desktop runtime
       chrome: navigator.userAgent.match(/Chrome\/([0-9.]+)/)?.[1] ?? "unknown",
       node: "N/A", // Not running in Node
     };

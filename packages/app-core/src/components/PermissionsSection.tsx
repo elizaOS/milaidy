@@ -7,7 +7,7 @@
  *   - Capability toggles (browser, computeruse, vision) that depend on permissions
  *
  * Works cross-platform with platform-specific permission requirements:
- *   - Electron (desktop): OS-level permission prompts and system settings links
+ *   - Electrobun desktop: OS-level permission prompts and system settings links
  *   - Capacitor (mobile): Camera/mic/screen streaming permissions via native plugins
  *   - Web: Informational message only (no OS-level access)
  */
@@ -29,7 +29,7 @@ import {
 } from "../bridge";
 import {
   hasRequiredOnboardingPermissions,
-  isElectronPlatform,
+  isDesktopPlatform,
   isNative,
   isWebPlatform,
 } from "../platform";
@@ -922,7 +922,7 @@ export function PermissionsSection() {
     return <WebPermissionsView />;
   }
 
-  if (isNative && !isElectronPlatform()) {
+  if (isNative && !isDesktopPlatform()) {
     return <MobilePermissionsView />;
   }
 
@@ -997,11 +997,11 @@ export function PermissionsOnboardingSection({
   }
 
   // Mobile (Capacitor): streaming permissions
-  if (isNative && !isElectronPlatform()) {
+  if (isNative && !isDesktopPlatform()) {
     return <MobileOnboardingPermissions onContinue={onContinue} />;
   }
 
-  // Electron / desktop: existing permission flow
+  // Desktop shell: existing permission flow
   return <DesktopOnboardingPermissions onContinue={onContinue} />;
 }
 

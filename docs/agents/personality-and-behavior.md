@@ -117,20 +117,11 @@ Here `config` is the `MiladyPluginConfig` object passed to `createMiladyPlugin()
 
 `createAutonomousStateProvider()` injects the current autonomous mode status so the agent knows whether it's running in interactive or autonomous mode.
 
-### Emote Provider
+### Emote action
 
-The emote provider injects the list of available avatar animation IDs when the agent has a 3D avatar. This tells the model it can use the `PLAY_EMOTE` action:
+Available emote IDs are declared as an `enum` on the `PLAY_EMOTE` action's `emote` parameter. The runtime automatically includes the allowed values in the **Available Actions** section of the prompt, so a separate emote provider is no longer needed.
 
-```
-## Available Emotes
-
-You can play emote animations on your 3D avatar using the PLAY_EMOTE action.
-Use emotes sparingly and naturally during conversation to express yourself.
-
-Available emote IDs: wave, dance, sit, ...
-```
-
-Disabled by setting `character.settings.DISABLE_EMOTES = true`, which saves approximately 300 tokens per turn.
+To disable emotes entirely, set `character.settings.DISABLE_EMOTES = true`. This removes the `PLAY_EMOTE` action at plugin init time so it never appears in the prompt.
 
 ### Custom Actions Provider
 
@@ -169,7 +160,6 @@ return {
     createSessionKeyProvider({ defaultAgentId: agentId }),
     ...getSessionProviders({ storePath: sessionStorePath }),
     uiCatalogProvider,
-    emoteProvider,
     customActionsProvider,
   ],
 };

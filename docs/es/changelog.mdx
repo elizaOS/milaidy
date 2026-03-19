@@ -1,0 +1,706 @@
+---
+title: Registro de cambios
+description: Novedades en Milady — funcionalidades, mejoras y correcciones.
+---
+
+<Update label="2026-06-04" description="Semana del 29 de mayo al 4 de junio" tags={["Feature", "Update"]}>
+## Billeteras de servidor Privy
+
+Tu agente ahora puede provisionar y gestionar billeteras a través de la infraestructura de billeteras del lado del servidor de Privy. Tres nuevos endpoints de API — `/api/privy/status`, `/api/privy/login` y `/api/privy/logout` — gestionan el aprovisionamiento de billeteras para las cadenas Ethereum y Solana automáticamente. Configura tus credenciales de Privy y el sistema crea billeteras bajo demanda cuando tu agente las necesite. Consulta la [guía de billeteras](/guides/wallet) para más detalles.
+
+## Reversión del historial de conversaciones
+
+Ahora puedes truncar una conversación desde un mensaje específico en adelante usando el nuevo endpoint `POST /api/conversations/:id/messages/truncate`. Pasa un `messageId` para eliminar ese mensaje y todo lo que viene después, permitiéndote deshacer un giro incorrecto en una conversación sin empezar de nuevo. Consulta la [referencia de la API de conversaciones](/rest/conversations) para más detalles.
+
+## Vinculación nativa de dispositivos Signal
+
+El conector de Signal ahora soporta vinculación nativa de dispositivos mediante código QR, reemplazando la dependencia anterior de signal-cli con un puente nativo específico. El emparejamiento se gestiona a través de nuevos endpoints `/api/signal/*` que manejan el ciclo de vida de la sesión, la generación del código QR y el estado de conexión — haciendo que la configuración de Signal sea más rápida y confiable. Consulta la [documentación del plugin de Signal](/plugin-registry/platform/signal) para más detalles.
+
+## Actualizaciones
+
+- **Variables de entorno heredadas de Electron eliminadas** — `MILADY_ELECTRON_API_BASE` y `MILADY_ELECTRON_TEST_API_BASE` ya no son compatibles. La migración a Electrobun está completa — utiliza las rutas de configuración actuales de Electrobun en su lugar. Consulta la [guía de la aplicación de escritorio](/apps/desktop) para más detalles.
+- **Empaquetado modular del runtime** — Los servicios principales del agente autónomo se han extraído en un paquete independiente, mejorando los límites entre módulos y reduciendo la sobrecarga de inicio para despliegues ligeros.
+</Update>
+
+<Update label="2026-05-07" description="Semana del 1 al 7 de mayo" tags={["Feature", "Update"]}>
+<div id="agent-export-and-import">
+## Exportación e importación de agentes
+</div>
+
+Ahora puedes migrar tu agente entre máquinas con un solo archivo cifrado. La exportación captura el estado completo del agente — personaje, memorias, conocimiento, relaciones y configuración — en un archivo `.eliza-agent` protegido con contraseña. Impórtalo en otra máquina para restaurar todo. Consulta la [guía de exportación de agentes](/es/guides/agent-export) para más detalles.
+
+<div id="sandbox-and-computer-use">
+## Sandbox y uso de computadora
+</div>
+
+Los agentes ahora pueden ejecutar código, navegar por la web, tomar capturas de pantalla, grabar audio e interactuar con aplicaciones de escritorio dentro de un sandbox de contenedor aislado. El sandbox admite cuatro modos de seguridad configurables (off, light, standard, max), políticas de red, registro de auditoría y un servicio de firma remota que mantiene las claves de billetera en el host mientras los agentes en sandbox envían transacciones. Consulta la [guía de sandbox](/es/guides/sandbox) para más detalles.
+
+<div id="mcp-marketplace">
+## Marketplace de MCP
+</div>
+
+Ahora puedes explorar e instalar servidores del Protocolo de Contexto de Modelo directamente desde el registro oficial de MCP. Busca herramientas por nombre, consulta los detalles e instálalas en un solo paso — la configuración se genera automáticamente. Los servidores MCP amplían tu agente con capacidades externas como acceso a archivos, consultas a bases de datos e integraciones con API. Consulta la [guía del marketplace de MCP](/es/guides/mcp-marketplace) para más detalles.
+
+<div id="custom-actions-editor">
+## Editor de acciones personalizadas
+</div>
+
+Un editor visual en el panel te permite crear acciones de agente personalizadas sin escribir código de plugin. Define acciones con manejadores HTTP, shell o código, configura parámetros y encabezados, y pruébalas — todo desde la interfaz. Consulta la [guía de acciones personalizadas](/es/guides/custom-actions) para más detalles.
+
+<div id="plugin-eject-system">
+## Sistema de expulsión de plugins
+</div>
+
+Ahora puedes bifurcar el código fuente de cualquier plugin localmente, modificarlo y hacer que el runtime cargue tu copia local en lugar del paquete npm. Seis nuevas acciones de agente — eject, reinject, sync y status tanto para plugins como para el core — facilitan personalizar, probar y contribuir cambios de vuelta al proyecto original. Consulta la [guía de expulsión de plugins](/es/plugins/plugin-eject) para más detalles.
+
+<div id="stream-overlay-widgets">
+## Widgets de superposición para transmisiones
+</div>
+
+Las transmisiones en vivo ahora admiten un sistema de superposición personalizable con widgets integrados — conteo de espectadores, burbujas de pensamiento, ventanas emergentes de alertas, tickers de acciones, branding y HTML personalizado. Puedes organizar los widgets con el editor de diseño y guardar diseños por destino. Los plugins externos pueden registrar sus propios widgets de superposición.
+
+<div id="memory-and-embedding-explorer">
+## Explorador de memoria y embeddings
+</div>
+
+Un nuevo navegador de vectores en el panel te permite explorar visualmente el almacén de memoria de tu agente. Navega por las memorias en una lista paginada, busca por contenido e inspecciona entradas individuales. Un gráfico de dispersión 2D y una visualización 3D interactiva muestran cómo se agrupan los embeddings, facilitando la comprensión de lo que tu agente recuerda y cómo se relaciona.
+
+<div id="three-new-platform-connectors">
+## Tres nuevos conectores de plataforma
+</div>
+
+Tu agente ahora puede conectarse a tres plataformas de mensajería adicionales:
+
+- **Matrix** — chat federado con configuración de homeserver, autenticación por token de acceso, unión automática, cifrado de extremo a extremo y modo solo menciones.
+- **Nostr** — red social descentralizada basada en relays con autenticación por clave privada, lista de relays configurable y soporte de mensajes directos.
+- **Nextcloud Talk** — integración de bot basada en webhooks con filtrado por sala.
+
+Instala cualquier conector con `milady plugins install <name>` y configúralo en tus [ajustes sociales](/es/guides/connectors).
+
+<div id="updates">
+## Actualizaciones
+</div>
+
+- **Bóveda de secretos** — Una nueva vista de Secretos en el panel organiza tus claves API y credenciales por categoría (proveedores de IA, blockchain, conectores, autenticación). Puedes agregar, eliminar y gestionar secretos con descubrimiento orientado a plugins que muestra qué plugins necesitan qué claves.
+- **Galería multimedia** — Una nueva galería multimedia en el panel te permite explorar fotos, videos y audio almacenados en la base de datos de tu agente, con filtrado por tipo de medio.
+- **API de diagnósticos y auditoría de seguridad** — Nuevos endpoints exponen registros de ejecución filtrables, reproducción de eventos de autonomía con paginación basada en cursor y un registro de auditoría de seguridad con filtrado por severidad y streaming SSE. Consulta la [referencia de API](/es/api-reference) para más detalles.
+- **Permisos de transmisión en el onboarding** — Los permisos de cámara y micrófono ahora se solicitan durante el asistente de configuración inicial y se pueden gestionar desde Ajustes, para que la transmisión funcione de inmediato tanto en móvil como en escritorio.
+- **Legibilidad de botones en tema oscuro** — Los botones con color de acento ahora usan texto oscuro para mejor contraste, y los efectos hover resaltan el borde en lugar de cambiar el color del texto.
+- **Mejoras en el diseño del onboarding** — El paso de conexión ahora muestra un interruptor Inicio Rápido / Avanzado, tarjetas de proveedores a ancho completo y un botón Continuar siempre visible en el paso de permisos.
+- **Plantillas de configuración** — Ocho plantillas de configuración listas para usar para escenarios de despliegue comunes ya están disponibles. Consulta la [guía de plantillas de configuración](/es/guides/config-templates).
+</Update>
+
+<Update label="2026-04-30" description="Semana del 24 al 30 de abril" tags={["Feature", "Update"]}>
+<div id="streaming-response-recovery">
+## Recuperación de respuestas en streaming
+</div>
+
+Cuando una respuesta de chat se interrumpe a mitad de transmisión — ya sea por un problema de red o un tiempo de espera agotado — el mensaje ahora se marca como interrumpido con un botón de Reintentar. Puedes volver a solicitar la respuesta en lugar de quedarte con un mensaje parcial.
+
+<div id="orchestrator-trajectory-tagging">
+## Etiquetado de trayectorias del orquestador
+</div>
+
+Las llamadas LLM realizadas por el [orquestador de enjambre](/es/guides/coding-swarms) ahora están etiquetadas con una insignia púrpura de "orquestador" en el [visor de trayectorias](/es/advanced/trajectories). Cada entrada incluye metadatos como tipo de decisión, ID de sesión y etiqueta de tarea, lo que facilita distinguir el razonamiento del orquestador de las llamadas individuales de los agentes durante ejecuciones multi-agente.
+
+<div id="training-backend-auto-detection">
+## Detección automática del backend de entrenamiento
+</div>
+
+El sistema de [ajuste fino](/es/guides/training) ahora detecta los backends de ML disponibles — MLX en Apple Silicon, CUDA en GPUs NVIDIA y CPU como respaldo — antes de iniciar un trabajo de entrenamiento. Si el backend solicitado no está disponible, obtienes un error claro en lugar de un fallo críptico a mitad de ejecución.
+
+<div id="updates">
+## Actualizaciones
+</div>
+
+- **Los metadatos del personaje persisten entre reinicios** — El nombre de usuario y los temas de tu agente ahora sobreviven a los reinicios. Anteriormente, estos campos se trataban solo como datos de tiempo de ejecución y volvían a los valores predeterminados después de un reinicio. Consulta el [editor de personajes](/es/agents/character-interface) para más detalles.
+- **Indicador de progreso de reconexión** — Cuando la conexión WebSocket se pierde, el panel ahora muestra un banner ámbar de "Reconectando..." con el número de intento actual antes de escalar al estado rojo de fallo, brindándote visibilidad en tiempo real del progreso de recuperación.
+</Update>
+
+<Update label="2026-04-23" description="Semana del 17 al 23 de abril" tags={["Update", "Fix"]}>
+<div id="telegram-connector-reliability">
+## Fiabilidad del conector de Telegram
+</div>
+
+El conector de Telegram ahora maneja errores inesperados de forma elegante en lugar de hacer que el proceso del agente se bloquee. El historial de conversaciones se restaura con un tiempo de espera para que una respuesta lenta de la API de Telegram ya no bloquee el inicio, y la autenticación se reintenta automáticamente ante fallos transitorios durante el arranque. Estos cambios hacen que los agentes conectados a Telegram sean significativamente más resilientes en producción.
+
+<div id="updates">
+## Actualizaciones
+</div>
+
+- **La pestaña de conectores muestra solo el conector seleccionado** — El panel de configuración de [conectores](/es/guides/connectors) ahora muestra únicamente el conector que seleccionaste en la barra lateral en lugar de mostrar todos los conectores a la vez, facilitando la búsqueda y edición de ajustes.
+- **Identidad en el diálogo de permisos de macOS** — Los mensajes de permisos del sistema en macOS (micrófono, accesibilidad, etc.) ahora muestran correctamente "Milady" como el nombre de la aplicación solicitante en lugar de un identificador genérico o ausente.
+
+<div id="bug-fixes">
+## Correcciones de errores
+</div>
+
+- Se corrigió que el modo companion mostrara un indicador de escritura falso en conversaciones vacías antes de que el usuario enviara un primer mensaje
+</Update>
+
+<Update label="2026-04-16" description="Semana del 10 al 16 de abril" tags={["Feature", "Update"]}>
+<div id="six-new-platform-connectors">
+## Seis nuevos conectores de plataforma
+</div>
+
+Tu agente ahora puede conectarse a seis plataformas de mensajería adicionales de forma inmediata:
+
+- **Signal** — mensajería privada a través de signal-cli con soporte para adjuntos y confirmaciones de lectura. Consulta la [documentación del plugin de Signal](/es/plugin-registry/platform/signal).
+- **Farcaster** — integración con el protocolo social descentralizado para publicar, responder y reaccionar on-chain. Consulta la [documentación del plugin de Farcaster](/es/plugin-registry/platform/farcaster).
+- **Microsoft Teams** — integración con Azure Bot con respuestas en hilos y soporte multimedia. Consulta la [documentación del plugin de MS Teams](/es/plugin-registry/platform/msteams).
+- **Google Chat** — integración con cuenta de servicio con entrega por webhook y configuración por espacio. Consulta la [documentación del plugin de Google Chat](/es/plugin-registry/platform/googlechat).
+- **Mattermost** — mensajería de equipo autoalojada con autenticación por token de bot y filtrado de menciones. Consulta la [documentación del plugin de Mattermost](/es/plugin-registry/platform/mattermost).
+- **BlueBubbles** — puente de iMessage para plataformas que no son Apple. Consulta la [documentación del plugin de BlueBubbles](/es/plugin-registry/platform/bluebubbles).
+
+Instala cualquier conector con `milady plugins install <name>` y configúralo en tus [ajustes sociales](/es/guides/connectors).
+
+<div id="lens-protocol-connector">
+## Conector de Lens Protocol
+</div>
+
+Tu agente ahora puede interactuar en la red social descentralizada Lens Protocol. Publica, responde, reacciona, republica y gestiona notificaciones — todo a través de la API de Lens V3. Configúralo junto con tus otros [conectores sociales](/es/guides/connectors).
+
+<div id="trajectory-archival-and-optimization">
+## Archivado y optimización de trayectorias
+</div>
+
+Los datos de trayectorias — el registro completo de cada llamada LLM que realiza tu agente — ahora se archivan de forma durable con exportaciones comprimidas. El sistema preserva el texto completo de prompts y respuestas para la fidelidad del [entrenamiento](/es/guides/training) mientras extrae información ligera en metadatos, reduciendo el uso de almacenamiento sin perder datos. Las trayectorias archivadas se comprimen como JSONL antes de la poda, por lo que nada se pierde durante la limpieza por TTL. Consulta la [guía de trayectorias](/es/advanced/trajectories) para más detalles.
+
+<div id="updates-1">
+## Actualizaciones
+</div>
+
+- **Cobertura de pruebas de conectores** — Los conectores de Farcaster y Lens Protocol ahora tienen suites completas de pruebas end-to-end verificadas contra APIs en producción, confirmando su preparación para producción.
+- **Documentación de API traducida** — La referencia de API y los endpoints de agentes ahora están disponibles en español, francés y chino simplificado.
+- **Mejoras en la generación de personajes** — El endpoint de generación de personajes ahora soporta un campo `system` y un parámetro `context.topics` para una creación de personajes más dirigida. Consulta la [referencia de API de personajes](/es/rest/character).
+</Update>
+
+<Update label="2026-04-09" description="Semana del 3 al 9 de abril" tags={["Feature", "Update", "Fix"]}>
+<div id="opinion-markets-plugin">
+## Plugin de mercados de opinión
+</div>
+
+Tu agente ahora puede operar en mercados de predicción a través de un nuevo plugin de mercados de opinión. Explora mercados, realiza apuestas, consulta posiciones, cancela órdenes y canjea resultados — todo desde el chat o la API REST. Los datos del mercado en tiempo real se transmiten por WebSocket para que tu agente se mantenga al día con los movimientos de precios.
+
+<div id="agent-self-awareness">
+## Autoconciencia del agente
+</div>
+
+Tu agente ahora puede informar sobre su propio estado. Un nuevo sistema de conciencia agrega señales de salud del runtime, la conexión a la nube, la billetera, los conectores, los plugins y los permisos en una sola vista. Pregunta a tu agente "¿cuál es tu estado?" y devuelve un resumen estructurado de qué funciona, qué está degradado y qué necesita atención.
+
+<div id="coding-agent-settings">
+## Ajustes del agente de código
+</div>
+
+La vista de Ajustes ahora incluye una sección de Agentes de Código donde puedes elegir la estrategia de selección de agentes, el tipo de agente predeterminado, el nivel de permisos y las preferencias de modelo por agente. Estos controles te dan un control más granular sobre cómo se comportan los [enjambres de código](/es/guides/coding-swarms).
+
+<div id="granular-cloud-service-toggles">
+## Controles granulares de servicios en la nube
+</div>
+
+Cuando estás conectado a Eliza Cloud, ahora puedes habilitar o deshabilitar servicios individuales en la nube — inferencia, RPC, medios, TTS y embeddings — en lugar de activar o desactivar toda la conexión a la nube. Esto te permite mantener el RPC en la nube mientras usas un proveedor de modelos local, por ejemplo. Consulta la [guía de la nube](/es/guides/cloud) para más detalles.
+
+<div id="character-generation-api-format-update">
+## Actualización del formato de la API de generación de personajes
+</div>
+
+El endpoint `POST /api/character/generate` ahora devuelve `chatExamples` en el esquema `messageExamples` — grupos de conversación con objetos de mensaje `{name, content}` en lugar del anterior arreglo plano `{user, content}`. El campo de tipo `"system"` también es aceptado ahora. Consulta la [referencia de API de personajes](/es/rest/character) para el formato de respuesta actualizado.
+
+<div id="updates-2">
+## Actualizaciones
+</div>
+
+- **Errores de agotamiento de créditos mostrados claramente** — Los errores de facturación de proveedores en la nube (HTTP 402 y 429) ahora se detectan y se muestran en el panel de control con orientación accionable en lugar de mensajes de error genéricos.
+- **Reintento del servicio de conocimiento** — Cuando el servicio de conocimiento aún se está cargando, las solicitudes devuelven un encabezado `Retry-After` y el cliente reintenta automáticamente con retroceso exponencial, previniendo consultas fallidas durante el inicio.
+- **Banners de advertencia del sistema** — Los fallos de conectores y los problemas de cableado del coordinador ahora se muestran directamente en el panel de control como banners de advertencia descartables para que puedas actuar sobre los problemas de inmediato.
+</Update>
+
+<Update label="2026-04-02" description="Semana del 27 de marzo al 2 de abril" tags={["Feature", "Update", "Fix"]}>
+<div id="multi-destination-streaming-with-pump.fun-and-x/twitter">
+## Transmisión a múltiples destinos con pump.fun y X/Twitter
+</div>
+
+Ahora puedes transmitir a múltiples destinos a la vez y cambiar entre ellos en tiempo de ejecución. Dos nuevos plugins de transmisión se lanzan esta semana:
+
+- **pump.fun** — transmite directamente a pump.fun vía RTMP
+- **X/Twitter** — transmite a X/Twitter vía RTMPS
+
+Configura tus destinos en los [ajustes de transmisión](/es/dashboard/stream) y cambia el destino activo sin reiniciar. Los plugins de transmisión ahora también validan tu URL RTMP al inicio y muestran un error claro si falta.
+
+<div id="windows-standalone-installer">
+## Instalador independiente para Windows
+</div>
+
+La descarga para Windows ahora es un instalador de archivo único construido con Inno Setup. Anteriormente, el `.exe` público era un envoltorio de arranque que requería un archivo de carga útil complementario. El nuevo instalador funciona por sí solo — descarga, ejecuta y listo. MSIX sigue disponible como alternativa. Consulta la [guía de instalación](/es/installation) para más detalles.
+
+<div id="companion-i18n-support">
+## Soporte de internacionalización del companion
+</div>
+
+La interfaz del companion ahora soporta internacionalización. Inglés y chino simplificado (zh-CN) están disponibles en el lanzamiento, con el framework preparado para idiomas adicionales. Los logos de plugins instalados también aparecen en la barra lateral del companion.
+
+<div id="coding-agent-always-available">
+## Agente de código siempre disponible
+</div>
+
+El plugin del agente de código ahora es un plugin central que se carga automáticamente en cada inicio. Ya no necesitas habilitarlo manualmente para usar las funcionalidades de código y terminal. Consulta la [guía de enjambres de código](/es/guides/coding-swarms) para más detalles.
+
+<div id="health-endpoint-and-crash-recovery">
+## Endpoint de salud y recuperación de fallos
+</div>
+
+Un nuevo endpoint `GET /api/health` devuelve el estado estructurado de cada subsistema — runtime, base de datos, plugins, coordinador, conectores y tiempo de actividad. El panel de control muestra un banner de conexión fallida con un botón de reintento cuando el servidor no es accesible, y un error boundary de React previene bloqueos de pantalla en blanco. Consulta la [referencia de API](/es/api-reference) para detalles del endpoint.
+
+<div id="updates-3">
+## Actualizaciones
+</div>
+
+- **Mejora en errores de inicio del escritorio** — Cuando el runtime del agente no puede cargarse, la aplicación de escritorio ahora mantiene el servidor API en ejecución y muestra el mensaje de error real en la interfaz en lugar de un genérico "Failed to fetch." Esto facilita mucho el diagnóstico de problemas de configuración.
+- **Fallback elegante de endpoints NFA** — Los endpoints `/api/nfa/status` y `/api/nfa/learnings` ahora devuelven datos vacíos de forma elegante cuando el plugin de identidad BNB no está instalado, en lugar de fallar. Consulta la [guía de billetera](/es/guides/wallet) para más detalles.
+- **Logos de plugins en la vista companion** — Los plugins instalados ahora muestran sus logos en la interfaz del companion para una identificación más fácil.
+
+<div id="bug-fixes-1">
+## Correcciones de errores
+</div>
+
+- Se corrigió que la aplicación de escritorio para Intel Mac se bloqueara al inicio debido a que se incluían binarios nativos ARM64 en lugar de binarios x64
+- Se corrigieron fallos en la resolución de plugins ("Cannot find module") en CLI, modo de desarrollo del escritorio y carga directa del runtime — no solo en builds empaquetados
+- Se corrigió que el plugin del agente de código no se cargara bajo Bun debido a una exportación de paquete obsoleta que apuntaba a un archivo fuente inexistente
+- El agotamiento de créditos de proveedores de modelos ahora se detecta y se muestra claramente en el panel de control
+- El servicio de conocimiento se reintenta automáticamente con retroceso exponencial cuando no está disponible temporalmente, en lugar de fallar silenciosamente
+- Los errores de inicio de la aplicación de escritorio ahora mantienen el servidor API en ejecución para que puedas ver el mensaje de error real en lugar de un fallo genérico
+- Los endpoints NFA devuelven respuestas vacías elegantes cuando el plugin de identidad BNB no está instalado, en lugar de lanzar errores
+</Update>
+
+<Update label="2026-03-26" description="Semana del 20 al 26 de marzo" tags={["Feature", "Update", "Fix"]}>
+<div id="api-key-validation-for-model-providers">
+## Validación de claves API para proveedores de modelos
+</div>
+
+La aplicación de escritorio ahora valida automáticamente tus claves API para ocho proveedores de modelos — incluyendo OpenAI, Anthropic, Groq, Google GenAI, OpenRouter y xAI. Las claves se escanean al inicio y se verifican en segundo plano para que sepas de inmediato si un proveedor está mal configurado. También puedes probar conexiones bajo demanda desde el menú de la bandeja. Consulta [proveedores de modelos](/es/model-providers) para detalles de configuración.
+
+<div id="dedicated-settings-window">
+## Ventana de ajustes dedicada
+</div>
+
+Una nueva ventana independiente de Ajustes te da acceso rápido a las pestañas General, Proveedores, Avanzado y Acerca de sin alejarte de tu vista actual. La ventana se sincroniza con tu preferencia de modo oscuro y se conecta directamente a la API para cambios de configuración en tiempo real. Ábrela desde el menú de la bandeja o la barra de menú de la aplicación.
+
+<div id="application-menu-overhaul">
+## Renovación del menú de la aplicación
+</div>
+
+La barra de menú ha sido reorganizada con un nuevo menú Agente que te da acceso con un clic a [Conocimiento](/es/guides/knowledge), [Habilidades](/es/plugins/skills), [Plugins](/es/plugins/overview) y [Conectores sociales](/es/guides/connectors). Los menús Archivo, Vista y Ventana también se han ampliado para una navegación más rápida.
+
+<div id="interactive-tray-provider-management">
+## Gestión interactiva de proveedores desde la bandeja
+</div>
+
+La bandeja del sistema ahora incluye submenús interactivos para cada proveedor de modelos. Puedes establecer un proveedor como activo, probar su conexión o habilitarlo — todo desde el icono de la bandeja sin abrir el panel de control.
+
+<div id="bug-fixes-2">
+## Correcciones de errores
+</div>
+
+- La vista de personajes ya no se bloquea cuando no hay un borrador de personaje cargado
+- El modo oscuro del editor de personajes ahora se renderiza correctamente en el marco del cuaderno y los elementos decorativos
+</Update>
+
+<Update label="2026-03-19" description="Semana del 14 al 19 de marzo" tags={["Feature", "Update", "Security", "Fix"]}>
+<div id="cloud-control-plane-dashboard">
+## Panel de control del plano de control en la nube
+</div>
+
+Ahora puedes gestionar agentes en la nube directamente desde la página principal de Milady. El nuevo panel de control incluye controles de ciclo de vida del agente (aprovisionar, suspender, reanudar, eliminar), instantáneas y copias de seguridad, créditos y facturación, métricas de contenedores y transmisión de registros — todo sin salir de la aplicación. Los agentes locales y remotos se descubren automáticamente junto con los agentes en la nube. Consulta [Despliegue en la nube](/es/deployment#cloud-agent-deployment) para más detalles.
+
+<div id="cloud-first-onboarding">
+## Incorporación priorizando la nube
+</div>
+
+Ejecutar `milady start` por primera vez ahora pregunta "¿Dónde debería vivir tu agente?" con [Eliza Cloud](/es/guides/cloud) como la opción recomendada. Elige la nube para un runtime alojado sin configuración local, o local para ejecutar en tu propia máquina. La configuración de la nube se guarda automáticamente para que los lanzamientos posteriores se reconecten sin preguntar. Consulta la [guía de la nube](/es/guides/cloud) para más detalles.
+
+<div id="game-style-notebook-character-editor">
+## Editor de personajes estilo cuaderno con temática de juego
+</div>
+
+El [editor de personajes](/es/agents/character-interface) ha sido rediseñado como una interfaz de cuaderno interactiva. Las pestañas de la barra lateral te permiten navegar entre las secciones Sobre mí, Directrices y Reglas de estilo. Cada sección soporta alternancia entre Principal/Ejemplos, y el editor funciona tanto en modo claro como oscuro. Ahora también puedes editar los temas del personaje y el nombre del personaje directamente desde el editor.
+
+<div id="scratch-workspace-controls-for-coding-agents">
+## Controles de espacio de trabajo temporal para agentes de código
+</div>
+
+Las sesiones de agentes de código ahora muestran controles para mantener, promover y eliminar espacios de trabajo temporales. Cuando una sesión de código termina, puedes decidir si retener el espacio de trabajo temporal, promoverlo a uno permanente o limpiarlo — directamente desde el panel de control. Consulta la [guía de enjambres de código](/es/guides/coding-swarms) para más detalles.
+
+<div id="official-docker-images">
+## Imágenes oficiales de Docker
+</div>
+
+Las imágenes de Docker precompiladas ahora se publican en GitHub Container Registry con cada release, optimizadas a aproximadamente la mitad del tamaño de una compilación manual. Descarga `ghcr.io/milady-ai/agent` para desplegar sin compilar desde el código fuente. Consulta la [guía de despliegue](/es/deployment) para la configuración de Docker Compose y variables de entorno.
+
+<div id="vrm-wave-greeting-and-smooth-loading-transitions">
+## Saludo con onda VRM y transiciones de carga suaves
+</div>
+
+Tu avatar VRM ahora reproduce una animación de saludo con onda después de cargarse al iniciar la aplicación y al cambiar de personaje. La pantalla de carga transiciona suavemente con progreso animado y un desvanecimiento en lugar de un corte abrupto.
+
+<div id="dashboard-ui-redesign">
+## Rediseño de la interfaz del panel de control
+</div>
+
+Varias pestañas del [panel de control](/es/apps/dashboard) han sido reconstruidas con un diseño de dos paneles más limpio:
+
+- **Ajustes** — navegación de secciones a la izquierda, sección activa a la derecha
+- **Latidos** — lista de disparadores a la izquierda, formulario de creación/edición a la derecha con un selector de duración más amigable
+- **Billeteras** — portafolio y selector de cadena a la izquierda, tabla de tokens a la derecha
+- **Social y Plugins** — lista de canales/plugins a la izquierda, detalle de configuración a la derecha
+- **Aplicaciones** — interfaz de dispositivos estilo juego con teléfono y tableta para explorar y lanzar aplicaciones
+
+<div id="homepage-redesign">
+## Rediseño de la página principal
+</div>
+
+La página principal ahora presenta iconos de descarga por plataforma con etiquetas al pasar el cursor que siempre enlazan a la última versión, una animación hero tipo máquina de escribir y un pie de página simplificado. Los enlaces de descarga se obtienen de la última release de GitHub en tiempo de compilación para que se mantengan actualizados.
+
+<div id="electrobun-desktop-migration">
+## Migración del escritorio a Electrobun
+</div>
+
+La [aplicación de escritorio](/es/apps/desktop) ha migrado completamente de Electron a Electrobun — un shell nativo más ligero y rápido. Esto reduce el uso de memoria y el tiempo de inicio. Las actualizaciones automáticas continúan funcionando a través del actualizador de Electrobun. Consulta [actualizaciones del escritorio](/es/self-updates#electrobun-desktop-updates) para más detalles.
+
+<div id="faster-page-loads">
+## Cargas de página más rápidas
+</div>
+
+Three.js y el stack de avatares 3D (~1.7 MB) ahora se cargan de forma diferida — solo se descargan cuando abres la vista companion. La vista de transmisión también se carga de forma diferida. En conjunto, estos cambios reducen significativamente la carga inicial de la página.
+
+<div id="smaller-prompts,-faster-responses">
+## Prompts más pequeños, respuestas más rápidas
+</div>
+
+Los archivos de plantilla predeterminados del espacio de trabajo ya no se inyectan en cada prompt — solo se incluyen los archivos que hayas personalizado. Las definiciones de emotes también se han movido fuera del contexto del prompt y hacia los parámetros de acción. En conjunto, estos cambios reducen el tamaño del prompt en aproximadamente 4,000 caracteres por turno, lo que significa respuestas más rápidas y menores costos de tokens.
+
+<div id="wallet-key-export-security">
+## Seguridad en la exportación de claves de billetera
+</div>
+
+Las exportaciones de claves privadas de billetera ahora requieren un retraso de confirmación de 10 segundos, están limitadas a una exportación cada 10 minutos y generan una entrada de registro de auditoría para cada intento. Esto protege contra la extracción instantánea de claves de sesiones comprometidas. Consulta la [guía de billetera](/es/guides/wallet) para más detalles.
+
+<div id="cloud-api-key-protection">
+## Protección de claves API en la nube
+</div>
+
+Las claves API de la nube ya no se almacenan en `process.env` después del inicio de sesión. Se eliminan inmediatamente y se mantienen en un almacén sellado y no enumerable — previniendo filtraciones a través de volcados de memoria, procesos hijos o inspección del entorno.
+
+<div id="windows-desktop-crash-fix">
+## Corrección de bloqueo del escritorio en Windows
+</div>
+
+La aplicación de escritorio para Windows ya no se bloquea al inicio debido a un problema de inicialización de embeddings. Los errores fatales de inicio ahora se escriben en un archivo de registro para facilitar el diagnóstico.
+
+<div id="character-editor-bug-fixes">
+## Correcciones de errores del editor de personajes
+</div>
+
+- Los temas de personajes ahora se cargan y guardan correctamente al editar
+- Guardar un personaje ya no falla con un error 422 por campos extra en el payload
+- Las claves de traducción sin procesar (p. ej., `characterview.StyleRules`) ahora se muestran como texto en inglés adecuado
+- Los botones Guardar y Personalizar ahora son visibles cuando se usa el modo companion, con un fondo de vidrio esmerilado
+- El enlace de Etherscan desde la vista de personaje ahora apunta a la página de dirección de billetera correcta
+
+<div id="additional-fixes">
+## Correcciones adicionales
+</div>
+
+- La validación de esquema ahora rechaza correctamente datos de personajes inválidos que anteriormente pasaban las verificaciones
+- Las pestañas de navegación en modo oscuro ahora son visibles en todas las vistas del panel de control
+- Las conversaciones vacías se limpian automáticamente cuando navegas fuera de ellas
+- El toggle del campo de contraseña ya no borra las claves API o tokens de bot ingresados
+- La selección de RPC de billetera ahora es consistente entre la incorporación, los ajustes y el runtime
+- La configuración de incorporación persiste correctamente entre reinicios de la aplicación
+- El análisis del índice de avatar ahora valida el rango de entrada, previniendo errores de visualización
+- Los valores predeterminados de voz ahora son consistentes — `autoSpeak` ya no aparece habilitado cuando la voz está desactivada
+- Las solicitudes de API de voz de gran tamaño se rechazan correctamente con un error 413
+- Se mejoró el rendimiento para turnos LLM y transmisión eliminando ordenamientos redundantes y asignaciones de cadenas
+- Los guardados de personajes ya no fallan cuando la configuración de voz no puede guardarse
+- El inicio del servidor ahora detecta y termina procesos obsoletos que mantienen el puerto predeterminado, previniendo bloqueos indefinidos
+- La aplicación de escritorio descubre correctamente los plugins en builds empaquetados, resolviendo fallos silenciosos de inicio en Windows
+- El panel de control en la nube ahora muestra correctamente los agentes después de iniciar sesión en Eliza Cloud
+- Los errores del servidor API ahora se muestran en stderr en modo escritorio para facilitar la solución de problemas
+</Update>
+
+<Update label="2026-03-13" description="Semana del 8 al 13 de marzo" tags={["Feature", "Security", "Fix"]}>
+<div id="game-style-onboarding-redesign">
+## Rediseño de la incorporación estilo juego
+</div>
+
+La configuración inicial ha sido reconstruida como un flujo simplificado de seis pasos con un diseño de tres columnas con efecto glassmorphism y un tema oscuro estilo juego aplicado a todos los modales y superposiciones. Los nuevos pasos — Despertar, Identidad, Idioma, Conexión, Permisos y Activar — reemplazan al asistente anterior de diez pasos.
+
+<div id="new-cli-commands-—-doctor,-db-reset,-and-interactive-setup">
+## Nuevos comandos CLI — doctor, db reset y setup interactivo
+</div>
+
+Tres nuevos comandos CLI se lanzan esta semana:
+
+- **`milady doctor`** — ejecuta una verificación completa de salud del entorno, señalando dependencias faltantes, conflictos de puertos y problemas de configuración. Consulta la [referencia de doctor](/es/cli/doctor).
+- **`milady db reset`** — restablece la base de datos de forma segura con un mensaje de confirmación. Consulta la [referencia de db](/es/cli/db).
+- **`milady setup`** — un asistente interactivo que te guía a través de la selección de proveedores de modelos con soporte para nueve proveedores. Consulta la [referencia de setup](/es/cli/setup).
+
+<div id="distribution-across-six-new-package-managers">
+## Distribución en seis nuevos gestores de paquetes
+</div>
+
+Milady ahora está disponible a través de significativamente más canales de instalación:
+
+- **Homebrew** — `brew install milaidy` (CLI) o `brew install --cask milaidy` (escritorio)
+- **Snap Store** — `snap install milady` con confinamiento estricto
+- **Flatpak / Flathub** — Flatpak listo para producción con metadatos AppStream
+- **APT** — Los usuarios de Debian/Ubuntu pueden instalar vía APT y ejecutar como un servicio systemd con reinicio automático
+- **Google Play Store** — Aplicación Android con releases firmadas
+- **iOS y Mac App Store** — disponible vía TestFlight y App Store Connect
+
+Consulta la [guía de instalación](/es/installation) para instrucciones específicas por plataforma.
+
+<div id="native-gpu-companion-rendering">
+## Renderizado nativo GPU del companion
+</div>
+
+Las compilaciones de escritorio ahora incluyen infraestructura de renderizado nativo con WebGPU para los visuales del companion, proporcionando una alternativa más rápida al renderizador basado en webview para escenas aceleradas por GPU.
+
+<div id="game-client-canvas-windows">
+## Ventanas canvas del cliente de juego
+</div>
+
+Los clientes de juego en [escritorio](/es/apps/desktop) ahora se abren en una ventana nativa dedicada con cookies y almacenamiento aislados en lugar de un iframe incrustado. Esto mejora la estabilidad y seguridad para experiencias de juego dentro de la aplicación.
+
+<div id="streaming-controls-in-companion-mode">
+## Controles de transmisión en modo companion
+</div>
+
+Ahora puedes gestionar transmisiones en vivo directamente desde el modo companion — incluyendo selectores de destino y fuente, ajustes de transmisión y nuevas acciones del agente como iniciar transmisión, desconectarse y hablar en la transmisión. Consulta la [guía de transmisión](/es/dashboard/stream) para más detalles.
+
+<div id="nfa-wallet-flow">
+## Flujo de billetera NFA
+</div>
+
+Un nuevo flujo de identidad y billetera NFA añade una superficie de tarjeta de identidad, UX de confirmación estilo billetera y valores predeterminados de RPC público BSC. Consulta la [guía de billetera](/es/guides/wallet) para más detalles.
+
+<div id="link-sanitization-for-chat-messages">
+## Sanitización de enlaces en mensajes de chat
+</div>
+
+Los enlaces en mensajes de chat ahora se sanitizan para bloquear esquemas URI `javascript:`, `data:` y `vbscript:`, previniendo XSS a través de contenido no confiable. Los enlaces normales y las rutas relativas continúan funcionando como se espera.
+
+<div id="wallet-transfer-guard-in-manual-key-mode">
+## Protección de transferencias de billetera en modo de clave manual
+</div>
+
+Las solicitudes de transferencia de billetera originadas por el agente ya no pueden eludir la protección de confirmación de clave local manual. Todas las transferencias ahora requieren aprobación explícita de firma por parte del usuario.
+
+<div id="command-palette-and-real-time-sidebar">
+## Paleta de comandos y barra lateral en tiempo real
+</div>
+
+La paleta de comandos ahora usa un registro centralizado de comandos, facilitando el descubrimiento y acceso a acciones. La barra lateral de conversaciones también se actualiza en tiempo real mediante eventos WebSocket en lugar de polling, por lo que los nuevos mensajes y cambios de estado aparecen instantáneamente.
+
+<div id="desktop-bug-fixes">
+## Correcciones de errores del escritorio
+</div>
+
+- La posición de la ventana ahora se restaura correctamente después de ocultar/mostrar
+- La codificación de imágenes del portapapeles funciona de forma fiable en todas las plataformas
+- La interrupción de TTS ahora detiene completamente el audio en tránsito
+- La protección de navegación bloquea las URLs externas para que no se carguen en la ventana principal de la aplicación
+- La orientación del rostro del avatar VRM ya no se invierte incorrectamente
+- Se resolvieron regresiones de la interfaz del companion en ajustes, navegación de transmisión, carga de VRM y flujos de cierre del shell
+
+<div id="additional-fixes-1">
+## Correcciones adicionales
+</div>
+
+- Los menús desplegables de voz y modo de agente ya no quedan ocultos detrás de otros elementos
+- La barra lateral de ajustes ahora muestra etiquetas de sección para facilitar la navegación
+- El selector de avatar previene el doble clic durante la carga
+- Se corrigió la etiqueta duplicada "++" en el botón de agregar publicación
+- La barra lateral de conversaciones ahora muestra el título a la izquierda y la marca de tiempo a la derecha
+- El proveedor de modelos en la nube ya no se reactiva solo al reiniciar después de que cambias a otro
+- El acceso al servidor remoto funciona correctamente con enlace comodín y prefijos de ruta de proxy inverso
+- Las habilidades instaladas desde el marketplace ahora aparecen en la interfaz (se estaban omitiendo directorios con prefijo de punto)
+- Las solicitudes de API de voz de gran tamaño se rechazan correctamente con un error 413
+- Los bloques de acción en la visualización del chat del coordinador se eliminan limpiamente sin afectar el JSON del usuario
+</Update>
+
+<Update label="2026-03-07" description="23 de febrero – 7 de marzo" tags={["Feature", "Update", "Security", "Fix"]}>
+<div id="coding-agent-swarm-orchestration">
+## Orquestación de enjambre de agentes de código
+</div>
+
+Ahora puedes ejecutar múltiples agentes de código en paralelo en una sola tarea. El nuevo coordinador de enjambre descompone trabajo complejo en subtareas, enruta cada una al agente con mejor rendimiento basándose en tasa de éxito y velocidad, y muestra la salida del terminal en vivo en paneles lado a lado. Consulta la [guía de enjambres de código](/es/guides/coding-swarms) para más detalles.
+
+<div id="live-streaming-to-twitch,-youtube,-and-custom-rtmp">
+## Transmisión en vivo a Twitch, YouTube y RTMP personalizado
+</div>
+
+Milady ahora soporta transmisión en vivo a múltiples destinos. Puedes transmitir a Twitch, YouTube, pump.fun, X/Twitter o cualquier destino RTMP personalizado — y cambiar destinos en tiempo de ejecución sin reiniciar. Tu agente también puede hablar en la transmisión vía TTS canalizado directamente en la pista de audio. Consulta la [guía de transmisión](/es/dashboard/stream) para más detalles.
+
+<div id="3d-companion-with-vrm-avatars">
+## Companion 3D con avatares VRM
+</div>
+
+Una vista completa de companion 3D ahora está disponible con un motor de avatares VRM, animaciones, emotes de burbuja, cambio de tema y soporte de localización (inglés y chino). La vista companion también incluye un panel de trading de billetera con intercambio de tokens, envío, historial de operaciones, visualización de portafolio y análisis de P&L. Consulta la [guía de billetera](/es/guides/wallet) para más detalles.
+
+<div id="imessage-and-sms-connector">
+## Conector de iMessage y SMS
+</div>
+
+El nuevo plugin Blooio añade iMessage y SMS como un conector de mensajería de primera clase. Configura tu clave API y número de teléfono durante la incorporación para empezar a enviar mensajes. Consulta la [descripción general de conectores](/es/guides/connectors) para más detalles.
+
+<div id="bulk-knowledge-import">
+## Importación masiva de conocimiento
+</div>
+
+Ahora puedes subir múltiples archivos y carpetas enteras a la [base de conocimiento](/es/guides/knowledge) de una vez. Las importaciones grandes se procesan en lotes de transmisión para que no necesites subir archivos uno por uno.
+
+<div id="in-app-bug-reports">
+## Reportes de errores dentro de la aplicación
+</div>
+
+Un nuevo modal de reporte de errores te permite enviar problemas directamente a GitHub desde dentro de la aplicación, con captura de pantalla opcional. Si el envío a GitHub no está disponible, puedes copiar el reporte a tu portapapeles en su lugar.
+
+<div id="subscription-provider-setup">
+## Configuración de proveedor de suscripción
+</div>
+
+Los proveedores de suscripción ahora pueden configurarse de principio a fin desde la interfaz de Ajustes, incluyendo flujos OAuth y cambio de proveedor. Consulta los [ajustes del panel de control](/es/apps/dashboard/settings) para más detalles.
+
+<div id="chat-image-attachments">
+## Adjuntos de imágenes en el chat
+</div>
+
+Ahora puedes adjuntar y enviar imágenes directamente en las conversaciones del [chat](/es/dashboard/chat).
+
+<div id="slash,-hash,-and-dollar-commands">
+## Comandos slash, hash y dollar
+</div>
+
+La aplicación ahora soporta prefijos de comando `/`, `#` y `$` en el chat para acceso rápido a acciones, canales y variables. Consulta la [referencia de comandos de chat](/es/chat-commands) para más detalles.
+
+<div id="companion-wallet-trading-panel">
+## Panel de trading de billetera del companion
+</div>
+
+La vista companion ahora incluye un panel de trading completo. Puedes intercambiar tokens en BNB Chain vía PancakeSwap, enviar BNB y tokens con validación de dirección, explorar tu portafolio multi-cadena, ver coleccionables NFT y consultar análisis de P&L — todo sin salir del companion. Consulta la [guía de billetera](/es/guides/wallet) para más detalles.
+
+<div id="telegram-message-chunking-and-draft-stream">
+## Fragmentación de mensajes y draft-stream de Telegram
+</div>
+
+El conector de Telegram ahora divide automáticamente las respuestas largas del agente en mensajes correctamente fragmentados en lugar de truncarlos. Un nuevo modo draft-stream te permite ver la composición del mensaje en tiempo real mientras el agente genera su respuesta.
+
+<div id="agent-activity-box">
+## Indicador de actividad del agente
+</div>
+
+Un indicador de actividad fijo ahora muestra el progreso en tiempo real por tarea en la vista de chat. Los mensajes rutinarios de estado del agente de código se filtran del historial de chat para reducir el ruido. Consulta la [guía de enjambres de código](/es/guides/coding-swarms) para más detalles.
+
+<div id="pi-ai-model-provider">
+## Proveedor de modelos Pi AI
+</div>
+
+Ahora puedes usar Pi AI como proveedor de modelos con soporte de transmisión. Configúralo en los ajustes de [proveedores de modelos](/es/model-providers) junto con tus proveedores existentes.
+
+<div id="opinion-markets-plugin">
+## Plugin de mercados de opinión
+</div>
+
+Un nuevo plugin de mercados de opinión permite que tu agente opere en mercados de predicción a través de un libro de órdenes de límite central. Puedes obtener detalles del mercado, listar mercados disponibles, realizar apuestas, cancelar órdenes, consultar posiciones y canjear ganancias — todo desde acciones del chat o la API REST.
+
+<div id="bnb-identity-plugin-and-nfa-learning-provenance">
+## Plugin de identidad BNB y procedencia de aprendizaje NFA
+</div>
+
+Un nuevo plugin de identidad BNB Chain le da a tu agente gestión de identidad on-chain. El plugin soporta procedencia de aprendizaje NFA (Non-Fungible Agent) BAP-578 — puedes acuñar NFAs, actualizar raíces Merkle para el historial de aprendizaje de tu agente y consultar el estado de NFA. Consulta la [guía de billetera](/es/guides/wallet) para más detalles.
+
+<div id="agent-self-awareness">
+## Autoconciencia del agente
+</div>
+
+Tu agente ahora puede introspeccionar su propio estado usando un nuevo sistema de autoconciencia. Una acción `GET_SELF_STATUS` devuelve una vista unificada de la salud del runtime, estado de la billetera, conectividad con la nube, conectores activos y salud de plugins — ayudando a tu agente a tomar decisiones con conciencia del contexto.
+
+<div id="swarm-completion-summaries">
+## Resúmenes de finalización de enjambre
+</div>
+
+Las ejecuciones de enjambre de código multi-agente ahora producen un mensaje de síntesis cuando todas las tareas se completan, proporcionándote un resumen estructurado de lo que se logró a través de las sesiones de agentes.
+
+<div id="health-endpoint-and-reconnect-banner">
+## Endpoint de salud y banner de reconexión
+</div>
+
+Un nuevo endpoint `/api/health` reporta la disponibilidad del servidor. El panel de control muestra un banner de conexión fallida con un botón de reintento cuando el servidor no es accesible, y un error boundary de React previene bloqueos de pantalla en blanco.
+
+<div id="cross-platform-audio-capture-for-streaming">
+## Captura de audio multiplataforma para transmisión
+</div>
+
+La transmisión ahora detecta automáticamente el mejor método de captura para tu plataforma — pipe nativo en escritorio, X11 en Linux, AVFoundation en macOS y CDP en web. La selección de fuente de audio soporta audio del sistema, micrófono y reproducción de archivos con control de volumen por fuente.
+
+<div id="wallet-trading-actions">
+## Acciones de trading de billetera
+</div>
+
+Las nuevas acciones `CHECK_BALANCE`, `EXECUTE_TRADE` y `TRANSFER_TOKEN` permiten que tu agente opere tokens en BSC vía PancakeSwap. Un perfil de trading rastrea P&L e historial de operaciones. Consulta la [guía de billetera](/es/guides/wallet) para más detalles.
+
+<div id="emote-animations-restored">
+## Animaciones de emotes restauradas
+</div>
+
+Las 30 animaciones de emotes VRM han sido reemplazadas con archivos Mixamo funcionales — las animaciones anteriores eran stubs rotos de Git LFS que fallaban silenciosamente. Ahora también puedes arrastrar y soltar avatares VRM personalizados directamente en el selector de avatares.
+
+<div id="accessibility-improvements">
+## Mejoras de accesibilidad
+</div>
+
+Los iconos emoji en toda la interfaz han sido reemplazados con iconos SVG para un renderizado consistente en todas las plataformas y soporte adecuado para lectores de pantalla.
+
+<div id="security-hardening">
+## Endurecimiento de seguridad
+</div>
+
+Esta versión incluye un amplio conjunto de mejoras de seguridad:
+
+- **Protección contra DNS rebinding** — el servidor API ahora valida encabezados Host, bloqueando ataques de DNS rebinding contra localhost
+- **Prevención de inyección de configuración** — las directivas `$include` y la polución de prototipos a través de endpoints de configuración están bloqueadas
+- **Protección de variables de entorno** — las variables a nivel de proceso como `NODE_OPTIONS` y `LD_PRELOAD`, las variables de bypass de TLS y las variables de sobreescritura de CA están bloqueadas de la persistencia de configuración
+- **Puertas de acciones personalizadas** — los manejadores de ejecución de shell y código ahora requieren autorización explícita
+- **Seguridad en instalación de plugins** — todas las llamadas de instalación de `npm` y `bun` ahora usan `--ignore-scripts` para prevenir ejecución maliciosa de postinstall
+- **Endurecimiento del guard SQL** — las funciones peligrosas de PostgreSQL están bloqueadas del endpoint de consultas SQL sin procesar
+- **Validación de URLs del escritorio** — `shell.openExternal` y los manejadores IPC de rutas de archivos validan las entradas para bloquear esquemas de URL maliciosos
+- **Endurecimiento del servidor MCP** — las banderas de depuración del inspector V8 están bloqueadas en los argumentos del servidor MCP
+- **Autenticación elevada para terminal** — la ejecución de comandos de terminal ahora requiere un token de autenticación elevada dedicado, separado del token principal de la API
+
+<div id="additional-fixes-2">
+## Correcciones adicionales
+</div>
+
+- Las credenciales de sesión de WhatsApp ahora se guardan correctamente antes de desconectarse, previniendo escaneos de QR innecesarios al reiniciar
+- El menú desplegable de proveedor de modelos ya no predetermina al proveedor incorrecto al cargar la página — tu elección guardada se respeta
+- Los banners de advertencia del sistema se descartan automáticamente después de 20 segundos y ya no cubren permanentemente la barra de navegación
+- Los archivos de bloqueo de base de datos obsoletos de procesos que fallaron se limpian automáticamente al reiniciar, previniendo pérdida de datos
+- La detección de proveedores de modelos ahora prioriza tu configuración explícita sobre los plugins detectados automáticamente
+- La salida del terminal ya no parpadea ni se desplaza desde arriba al reanudar una sesión
+- Los disparadores ya no se activan durante el reinicio del agente, previniendo que los disparadores de una sola vez se consuman sin ejecutarse
+- Los menús desplegables de modelos en ajustes ahora recurren correctamente a los valores de variables de entorno para proveedores locales como Ollama
+- Las habilidades permanecen visibles en la interfaz incluso cuando la API del catálogo tiene límite de velocidad
+- La carga del agente ya no se cuelga al inicio debido a trampas de reintento
+- Las subidas de avatares VRM personalizados persisten al actualizar la página
+- El auto-desplazamiento del chat se restaura con las actualizaciones de nuevos mensajes
+- La eliminación de conversaciones ahora requiere confirmación explícita
+- El modal de ajustes ya no se cierra al presionar Enter o Espacio
+- Las subidas de documentos que exceden 32 MB ahora muestran un mensaje de error claro y legible
+- Se han reducido las fugas de memoria y la presión del GC en el servidor API
+- El alias de clave API de Gemini ahora se normaliza correctamente, y `getSetting` maneja valores nulos de forma elegante
+- Las entradas de embedding que exceden la ventana de contexto del modelo ahora se truncan automáticamente, previniendo un bloqueo
+- El botón de restablecer ajustes ahora es funcional — anteriormente era un marcador de posición sin funcionar
+- Las ventanas emergentes de transmisión ahora enrutan correctamente, y el audio TTS se reproduce de forma fiable en modo emergente
+- El panel de avatar en la barra lateral ahora es plegable, proporcionando más espacio vertical a los paneles de terminal durante las sesiones de enjambre
+- Se mitiga un bloqueo en Bun 1.3.9 en Linux recurriendo automáticamente a Node
+</Update>

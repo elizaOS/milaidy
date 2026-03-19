@@ -718,7 +718,7 @@ function iconImageSource(icon: string): string | null {
   const value = icon.trim();
   if (!value) return null;
   if (
-    /^(https?:|data:image\/|blob:|file:|capacitor:|capacitor-electron:|app:|\/|\.\/|\.\.\/)/i.test(
+    /^(https?:|data:image\/|blob:|file:|capacitor:|electrobun:|app:|\/|\.\/|\.\.\/)/i.test(
       value,
     )
   ) {

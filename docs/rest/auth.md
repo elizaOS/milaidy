@@ -150,3 +150,15 @@ Access-Control-Allow-Headers: Content-Type, Authorization, X-Milady-Token, X-Api
 
 - [API Reference overview](/api-reference)
 - [Environment variables](/cli/environment) — `MILADY_API_TOKEN`, `MILADY_ALLOW_WS_QUERY_TOKEN`, `MILADY_PAIRING_DISABLED`
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 401 | `INVALID_CREDENTIALS` | Provided credentials are incorrect |
+| 429 | `RATE_LIMITED` | Too many requests from this IP address |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |
+| 401 | `TOKEN_EXPIRED` | Authentication token has expired |

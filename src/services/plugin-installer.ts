@@ -9,7 +9,7 @@
  * Works identically whether milady is:
  *   - Running from source (dev)
  *   - Running as a CLI install (npm global)
- *   - Running inside an Electron .app bundle
+ *   - Running inside a packaged desktop app bundle
  *   - Running on macOS, Linux, or Windows
  *
  * Strategy:

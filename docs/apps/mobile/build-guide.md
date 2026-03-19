@@ -283,4 +283,4 @@ Then re-open the workspace in Xcode.
 
 - [Mobile App](/apps/mobile) — full platform configuration, plugin overview, and troubleshooting
 - [Capacitor Plugins](/apps/mobile/capacitor-plugins) — custom plugin details and capability detection
-- [Desktop App](/apps/desktop) — Electron build and auto-updater configuration
+- [Desktop App](/apps/desktop) — Electrobun build and auto-updater configuration

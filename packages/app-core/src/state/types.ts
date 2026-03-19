@@ -70,6 +70,21 @@ export type OnboardingStep =
   | "senses"
   | "activate";
 
+export type StartupStatus =
+  | "loading"
+  | "onboarding"
+  | "ready"
+  | "auth-blocked"
+  | "recoverable-error";
+
+export type OnboardingMode = "basic" | "advanced";
+
+export type FlaminaGuideTopic =
+  | "provider"
+  | "rpc"
+  | "permissions"
+  | "voice";
+
 export interface OnboardingStepMeta {
   id: OnboardingStep;
   name: string;
@@ -111,6 +126,7 @@ export const ONBOARDING_STEPS: OnboardingStepMeta[] = [
 
 export interface OnboardingNextOptions {
   allowPermissionBypass?: boolean;
+  skipTask?: FlaminaGuideTopic;
 }
 
 export const ONBOARDING_PERMISSION_LABELS: Record<SystemPermissionId, string> =
@@ -223,6 +239,7 @@ export interface AppState {
   onboardingComplete: boolean;
   onboardingLoading: boolean;
   startupPhase: StartupPhase;
+  startupStatus: StartupStatus;
   startupError: StartupErrorState | null;
   authRequired: boolean;
   actionNotice: ActionNotice | null;
@@ -433,6 +450,10 @@ export interface AppState {
 
   // Onboarding
   onboardingStep: OnboardingStep;
+  onboardingMode: OnboardingMode;
+  onboardingActiveGuide: FlaminaGuideTopic | null;
+  onboardingDeferredTasks: FlaminaGuideTopic[];
+  postOnboardingChecklistDismissed: boolean;
   onboardingOptions: OnboardingOptions | null;
   onboardingName: string;
   onboardingOwnerName: string;
@@ -443,6 +464,13 @@ export interface AppState {
   onboardingLargeModel: string;
   onboardingProvider: string;
   onboardingApiKey: string;
+  onboardingDetectedProviders: Array<{
+    id: string;
+    source: string;
+    apiKey?: string;
+    authMode?: string;
+    cliInstalled: boolean;
+  }>;
   onboardingRemoteApiBase: string;
   onboardingRemoteToken: string;
   onboardingRemoteConnecting: boolean;
@@ -541,7 +569,9 @@ export interface AppActions {
   handleReset: () => Promise<void>;
   retryStartup: () => void;
   dismissRestartBanner: () => void;
+  showRestartBanner: () => void;
   triggerRestart: () => Promise<void>;
+  relaunchDesktop: () => Promise<void>;
   dismissBackendDisconnectedBanner: () => void;
   retryBackendConnection: () => void;
   restartBackend: () => Promise<void>;

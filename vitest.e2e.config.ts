@@ -3,6 +3,12 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
+const isLiveOnly = process.env.MILADY_LIVE_TEST === "1";
+const liveTestFiles = [
+  "test/wallet-live.e2e.test.ts",
+  "test/api-auth-live.e2e.test.ts",
+  "test/cloud-providers.e2e.test.ts",
+];
 
 export default defineConfig({
   resolve: {
@@ -53,7 +59,6 @@ export default defineConfig({
         "stubs",
         "pi-ai-module.ts",
       ),
-      electron: path.join(repoRoot, "test", "stubs", "electron-module.ts"),
     },
   },
   test: {
@@ -65,7 +70,7 @@ export default defineConfig({
       concurrent: false,
       shuffle: false,
     },
-    include: ["test/**/*.e2e.test.ts"],
+    include: isLiveOnly ? liveTestFiles : ["test/**/*.e2e.test.ts"],
     setupFiles: ["test/setup.ts"],
     exclude: ["dist/**", "**/node_modules/**", "test/capacitor-plugins.e2e.test.ts"],
     server: {

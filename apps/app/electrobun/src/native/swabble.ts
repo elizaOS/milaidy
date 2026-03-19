@@ -35,7 +35,7 @@ interface SwabbleConfig {
 }
 
 // ============================================================================
-// WakeWordGate — ported from apps/app/electron/src/native/swabble.ts
+// WakeWordGate — processes wake-word phrase matching from Whisper transcripts.
 // ============================================================================
 
 class WakeWordGate {

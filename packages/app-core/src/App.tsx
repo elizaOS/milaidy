@@ -15,6 +15,7 @@ import {
   AvatarLoader,
   CharacterView,
   ChatView,
+  CloudDashboard,
   CompanionShell,
   CompanionView,
   ConnectionFailedBanner,
@@ -30,6 +31,7 @@ import {
   KnowledgeView,
   OnboardingWizard,
   PairingView,
+  PluginsPageView,
   SaveCommandModal,
   SettingsView,
   SharedCompanionScene,
@@ -38,15 +40,23 @@ import {
   StreamView,
   SystemWarningBanner,
 } from "./components";
+import { DeferredSetupChecklist } from "./components/FlaminaGuide";
 import {
   BugReportProvider,
   useBugReportState,
   useContextMenu,
+  useMiladyBar,
   useStreamPopoutNavigation,
 } from "./hooks";
 import type { Tab } from "./navigation";
 import { APPS_ENABLED, COMPANION_ENABLED } from "./navigation";
+import { parseShellRoute, type DetachedShellTab } from "./shell-params";
 import { useApp } from "./state";
+
+const rootShellRoute =
+  typeof window !== "undefined"
+    ? parseShellRoute(window.location.search)
+    : { mode: "main" as const };
 
 const CHAT_MOBILE_BREAKPOINT_PX = 1024;
 
@@ -185,13 +195,92 @@ function ViewRouter({
   return <ErrorBoundary>{view}</ErrorBoundary>;
 }
 
+function DetachedSurfaceShell({ targetTab }: { targetTab: DetachedShellTab }) {
+  const { tab, setTab } = useApp();
+  const syncedTab = targetTab === "cloud" ? null : targetTab;
+
+  useEffect(() => {
+    if (syncedTab && tab !== syncedTab) {
+      setTab(syncedTab);
+    }
+  }, [setTab, syncedTab, tab]);
+
+  if (syncedTab && tab !== syncedTab) {
+    return null;
+  }
+
+  const view = (() => {
+    switch (targetTab) {
+      case "chat":
+        return <ChatView />;
+      case "triggers":
+        return (
+          <TabScrollView>
+            <section className="w-full px-4 py-4 lg:px-6">
+              <HeartbeatsView />
+            </section>
+          </TabScrollView>
+        );
+      case "plugins":
+        return (
+          <TabScrollView>
+            <PluginsPageView />
+          </TabScrollView>
+        );
+      case "connectors":
+        return (
+          <TabScrollView>
+            <ConnectorsPageView inModal />
+          </TabScrollView>
+        );
+      case "cloud":
+        return (
+          <TabScrollView>
+            <section className="w-full px-4 py-4 lg:px-6">
+              <section className="bg-bg rounded-2xl border border-border/50 overflow-hidden relative">
+                <CloudDashboard />
+              </section>
+            </section>
+          </TabScrollView>
+        );
+      default:
+        return <ChatView />;
+    }
+  })();
+
+  return (
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg text-txt">
+      {view}
+    </div>
+  );
+}
+
+function SettingsWindowShell({ initialSection }: { initialSection?: string }) {
+  const handleClose = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.close();
+    }
+  }, []);
+
+  return (
+    <div className="flex h-screen w-screen overflow-hidden bg-bg text-txt">
+      <SettingsView initialSection={initialSection} onClose={handleClose} />
+    </div>
+  );
+}
+
 export function App() {
+  if (rootShellRoute.mode === "settings") {
+    return <SettingsWindowShell initialSection={rootShellRoute.tab} />;
+  }
+
+  if (rootShellRoute.mode === "surface") {
+    return <DetachedSurfaceShell targetTab={rootShellRoute.tab} />;
+  }
+
   const {
-    onboardingLoading,
-    startupPhase,
+    startupStatus,
     startupError,
-    authRequired,
-    onboardingComplete,
     retryStartup,
     tab,
     setTab,
@@ -223,6 +312,7 @@ export function App() {
   const contextMenu = useContextMenu();
 
   useStreamPopoutNavigation(setTab);
+  useMiladyBar();
 
   const [customActionsPanelOpen, setCustomActionsPanelOpen] = useState(false);
   const [customActionsEditorOpen, setCustomActionsEditorOpen] = useState(false);
@@ -319,7 +409,7 @@ export function App() {
 
     // Disable the iOS WebView scroll only while the companion shell is active.
     void Keyboard.setScroll({ isDisabled: companionShellVisible }).catch(() => {
-      // Ignore bridge failures so web/electron shells keep working.
+      // Ignore bridge failures so web and desktop shells keep working.
     });
   }, [companionShellVisible]);
 
@@ -340,13 +430,13 @@ export function App() {
 
   useEffect(() => {
     const STARTUP_TIMEOUT_MS = 300_000;
-    if ((startupPhase as string) !== "ready" && !startupError) {
+    if (startupStatus === "loading" && !startupError) {
       const timer = setTimeout(() => {
         retryStartup();
       }, STARTUP_TIMEOUT_MS);
       return () => clearTimeout(timer);
     }
-  }, [startupPhase, startupError, retryStartup]);
+  }, [startupStatus, startupError, retryStartup]);
 
   // Pop-out mode — render only StreamView, skip startup gates.
   // Platform init is skipped in main.tsx; AppProvider hydrates WS in background.
@@ -358,11 +448,11 @@ export function App() {
     );
   }
 
-  if (startupError) {
+  if (startupStatus === "recoverable-error" && startupError) {
     return <StartupFailureView error={startupError} onRetry={retryStartup} />;
   }
 
-  const shouldLoad = onboardingLoading || agentStarting;
+  const shouldLoad = startupStatus === "loading" || agentStarting;
   const [loaderFadingOut, setLoaderFadingOut] = useState(false);
   const showLoaderRef = useRef(true);
   const [showLoader, setShowLoader] = useState(true);
@@ -383,8 +473,8 @@ export function App() {
     }
   }, [shouldLoad]);
 
-  if (authRequired && !shouldLoad) return <PairingView />;
-  if (!onboardingComplete && !shouldLoad) return <OnboardingWizard />;
+  if (startupStatus === "auth-blocked" && !shouldLoad) return <PairingView />;
+  if (startupStatus === "onboarding" && !shouldLoad) return <OnboardingWizard />;
 
   const shellContent = companionShellVisible ? (
     <CompanionShell tab={effectiveTab} actionNotice={actionNotice} />
@@ -402,6 +492,12 @@ export function App() {
         {isChatMobileLayout ? (
           <>
             <main className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden pt-2 px-2">
+              <DeferredSetupChecklist
+                className="mb-2"
+                onOpenTask={(task) => {
+                  setTab(task === "voice" ? "voice" : "settings");
+                }}
+              />
               <ChatView />
             </main>
 
@@ -418,6 +514,12 @@ export function App() {
           <>
             <ConversationsSidebar />
             <main className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden pt-3 px-3 xl:px-5">
+              <DeferredSetupChecklist
+                className="mb-3"
+                onOpenTask={(task) => {
+                  setTab(task === "voice" ? "voice" : "settings");
+                }}
+              />
               <ChatView />
             </main>
           </>

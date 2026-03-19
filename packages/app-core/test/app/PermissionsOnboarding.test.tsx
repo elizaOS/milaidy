@@ -1,8 +1,8 @@
 /**
  * Tests for PermissionsOnboardingSection — platform-aware onboarding.
  *
- * Validates that the onboarding senses step renders correctly on
- * Electron (desktop), Web (auto-continue), and Capacitor/mobile (streaming).
+ * Validates that the onboarding senses step renders correctly in the
+ * desktop app, on the web (auto-continue), and on Capacitor/mobile (streaming).
  */
 // @vitest-environment jsdom
 import React from "react";
@@ -11,11 +11,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Hoisted mocks ─────────────────────────────────────────────────────
 
-const { mockUseApp, mockIsWeb, mockIsElectron, mockIsNative } = vi.hoisted(
+const { mockUseApp, mockIsWeb, mockIsDesktop, mockIsNative } = vi.hoisted(
   () => ({
     mockUseApp: vi.fn(),
     mockIsWeb: vi.fn(() => false),
-    mockIsElectron: vi.fn(() => true),
+    mockIsDesktop: vi.fn(() => true),
     mockIsNative: { value: false },
   }),
 );
@@ -36,7 +36,7 @@ vi.mock("@miladyai/app-core/state", () => ({
 vi.mock("@miladyai/app-core/platform", () => ({
   hasRequiredOnboardingPermissions: vi.fn(() => true),
   isWebPlatform: () => mockIsWeb(),
-  isElectronPlatform: () => mockIsElectron(),
+  isDesktopPlatform: () => mockIsDesktop(),
   get isNative() {
     return mockIsNative.value;
   },
@@ -177,7 +177,7 @@ describe("PermissionsOnboardingSection", () => {
     ensureNavigatorPermissionMocks();
     mockUseApp.mockReset();
     mockIsWeb.mockReturnValue(false);
-    mockIsElectron.mockReturnValue(true);
+    mockIsDesktop.mockReturnValue(true);
     mockIsNative.value = false;
     mockGetPermissions.mockReset();
     mockInvokeDesktopBridgeRequest.mockReset();
@@ -217,7 +217,7 @@ describe("PermissionsOnboardingSection", () => {
 
   it("renders web auto-continue view when isWebPlatform() is true", async () => {
     mockIsWeb.mockReturnValue(true);
-    mockIsElectron.mockReturnValue(false);
+    mockIsDesktop.mockReturnValue(false);
     const onContinue = vi.fn();
     mockUseApp.mockReturnValue(baseContext());
 
@@ -250,9 +250,11 @@ describe("PermissionsOnboardingSection", () => {
     expect(onContinue).toHaveBeenCalledWith({ allowPermissionBypass: true });
   });
 
-  it("renders mobile streaming permissions when isNative and not Electron", async () => {
+  it(
+    "renders mobile streaming permissions when isNative and not running in the desktop app",
+    async () => {
     mockIsWeb.mockReturnValue(false);
-    mockIsElectron.mockReturnValue(false);
+    mockIsDesktop.mockReturnValue(false);
     mockIsNative.value = true;
     const onContinue = vi.fn();
     mockUseApp.mockReturnValue(baseContext());
@@ -278,9 +280,9 @@ describe("PermissionsOnboardingSection", () => {
     expect(text).toContain("Skip for Now");
   });
 
-  it("renders desktop permissions on Electron", async () => {
+  it("renders desktop permissions in the desktop app", async () => {
     mockIsWeb.mockReturnValue(false);
-    mockIsElectron.mockReturnValue(true);
+    mockIsDesktop.mockReturnValue(true);
     mockIsNative.value = false;
     const onContinue = vi.fn();
     mockUseApp.mockReturnValue(baseContext());
@@ -307,7 +309,7 @@ describe("PermissionsOnboardingSection", () => {
 
   it("hides the camera grant button when renderer access is already granted", async () => {
     mockIsWeb.mockReturnValue(false);
-    mockIsElectron.mockReturnValue(true);
+    mockIsDesktop.mockReturnValue(true);
     mockIsNative.value = false;
     const onContinue = vi.fn();
     mockUseApp.mockReturnValue(baseContext());

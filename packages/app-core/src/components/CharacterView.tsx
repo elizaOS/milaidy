@@ -13,6 +13,8 @@ import {
   dispatchWindowEvent,
   VOICE_CONFIG_UPDATED_EVENT,
 } from "@miladyai/app-core/events";
+import { COMPANION_ENABLED } from "@miladyai/app-core/navigation";
+import { normalizeGeneratedMessageExamples } from "../actions/character";
 import { getVrmPreviewUrl, useApp } from "@miladyai/app-core/state";
 import {
   PREMADE_VOICES,
@@ -563,12 +565,12 @@ export function CharacterView({
     dispatchWindowEvent(VOICE_CONFIG_UPDATED_EVENT, normalizedVoiceConfig);
   }, [voiceConfig]);
 
-  const d = characterDraft;
+  const d = characterDraft ?? ({} as Record<string, unknown>);
   const bioText =
     typeof d.bio === "string"
       ? d.bio
       : Array.isArray(d.bio)
-        ? d.bio.join("\n")
+        ? (d.bio as string[]).join("\n")
         : "";
 
   const getCharContext = useCallback(
@@ -628,23 +630,18 @@ export function CharacterView({
             /* raw text fallback */
           }
         } else if (field === "chatExamples") {
-          try {
-            const parsed = JSON.parse(generated);
-            if (Array.isArray(parsed)) {
-              const formatted = parsed.map(
-                (
-                  convo: Array<{ user: string; content: { text: string } }>,
-                ) => ({
-                  examples: convo.map((msg) => ({
-                    name: msg.user,
-                    content: { text: msg.content.text },
-                  })),
-                }),
-              );
-              handleFieldEdit("messageExamples", formatted);
-            }
-          } catch {
-            /* raw text fallback */
+          const formatted = normalizeGeneratedMessageExamples(
+            generated,
+            d.name?.trim() || "Agent",
+          );
+          if (formatted.length > 0) {
+            setState("characterSaveError", null);
+            handleFieldEdit("messageExamples", formatted);
+          } else {
+            setState(
+              "characterSaveError",
+              "Generated chat examples could not be parsed. Try again.",
+            );
           }
         } else if (field === "postExamples") {
           try {
@@ -663,8 +660,15 @@ export function CharacterView({
             /* raw text fallback */
           }
         }
-      } catch {
-        /* generation failed */
+      } catch (err) {
+        if (field === "chatExamples") {
+          setState(
+            "characterSaveError",
+            err instanceof Error
+              ? `Failed to generate chat examples: ${err.message}`
+              : "Failed to generate chat examples.",
+          );
+        }
       }
       setGenerating(null);
     },
@@ -674,6 +678,7 @@ export function CharacterView({
       handleFieldEdit,
       handleStyleEdit,
       handleCharacterArrayInput,
+      setState,
     ],
   );
 
@@ -832,20 +837,44 @@ export function CharacterView({
   ]);
 
   const handleSaveAll = useCallback(async () => {
-    setVoiceSaving(true);
+    const trimmedName =
+      typeof characterDraft?.name === "string" ? characterDraft.name.trim() : "";
+    if (!trimmedName) {
+      setVoiceSaveError(null);
+      setState("characterSaveSuccess", null);
+      setState("characterSaveError", "Character name is required before saving.");
+      return;
+    }
+
     setVoiceSaveError(null);
+    try {
+      await handleSaveCharacter();
+    } catch {
+      return;
+    }
+
+    setVoiceSaving(true);
+    let voiceSaveFailed = false;
     try {
       await persistVoiceConfig();
     } catch (err) {
+      voiceSaveFailed = true;
       setVoiceSaveError(
         err instanceof Error ? err.message : "Failed to save voice settings.",
       );
+    } finally {
       setVoiceSaving(false);
-      return;
     }
-    setVoiceSaving(false);
-    await handleSaveCharacter();
-  }, [handleSaveCharacter, persistVoiceConfig]);
+    if (!voiceSaveFailed) {
+      setTab(COMPANION_ENABLED ? "companion" : "chat");
+    }
+  }, [
+    characterDraft?.name,
+    handleSaveCharacter,
+    persistVoiceConfig,
+    setState,
+    setTab,
+  ]);
 
   /* ── Helpers ────────────────────────────────────────────────────── */
   const cardCls = sceneOverlay
@@ -870,8 +899,8 @@ export function CharacterView({
   const notebookShellCls =
     "relative isolate flex h-[34.75rem] w-full max-w-[29rem] overflow-visible";
   const notebookFrameCls = sceneOverlay
-    ? "relative flex h-full w-full overflow-hidden rounded-[1.75rem] border border-[#2f261b]/20 bg-[#f8f0df]/70 shadow-[0_24px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.5)]"
-    : "relative flex h-full w-full overflow-hidden rounded-[1.75rem] border border-[#2f261b]/14 bg-[#f8f0df] shadow-[0_26px_60px_rgba(36,28,18,0.2),inset_0_1px_0_rgba(255,255,255,0.58)]";
+    ? "relative flex h-full w-full overflow-hidden rounded-[1.75rem] border border-[#2f261b]/20 bg-[#f8f0df]/70 dark:border-white/10 dark:bg-[#1c1c1e]/90 shadow-[0_24px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.5)]"
+    : "relative flex h-full w-full overflow-hidden rounded-[1.75rem] border border-[#2f261b]/14 bg-[#f8f0df] dark:border-white/10 dark:bg-[#1c1c1e] shadow-[0_26px_60px_rgba(36,28,18,0.2),inset_0_1px_0_rgba(255,255,255,0.58)]";
 
   const handleCustomVrmUpload = useCallback(
     (file: File) => {
@@ -903,7 +932,11 @@ export function CharacterView({
     PREMADE_VOICES.find((preset) => preset.id === selectedVoicePresetId) ??
     null;
   const voiceSelectValue = selectedVoicePresetId ?? null;
-  const combinedSaveError = voiceSaveError ?? characterSaveError;
+  const combinedSaveError = characterSaveError;
+  const saveAdvisory =
+    characterSaveSuccess && voiceSaveError
+      ? `Character saved. Voice settings still need attention: ${voiceSaveError}`
+      : null;
   const customizationActionLabel = customOverridesEnabled
     ? t("characterview.backToCharacterSelect")
     : t("characterview.customize");
@@ -1105,16 +1138,16 @@ export function CharacterView({
             className={notebookShellCls}
             data-testid="character-notebook"
           >
-            <div className="pointer-events-none absolute inset-x-5 bottom-[-1.2rem] top-6 rounded-[1.9rem] bg-[linear-gradient(180deg,rgba(35,27,18,0.12)_0%,rgba(16,12,9,0.32)_100%)] blur-xl" />
-            <div className="pointer-events-none absolute inset-[0.35rem] translate-x-2 translate-y-2 rounded-[1.9rem] border border-[#d7c5a4]/50 bg-[linear-gradient(180deg,rgba(251,246,235,0.86)_0%,rgba(236,224,198,0.7)_100%)] shadow-[0_12px_26px_rgba(62,44,21,0.12)]" />
+            <div className="pointer-events-none absolute inset-x-5 bottom-[-1.2rem] top-6 rounded-[1.9rem] bg-[linear-gradient(180deg,rgba(35,27,18,0.12)_0%,rgba(16,12,9,0.32)_100%)] dark:bg-[linear-gradient(180deg,rgba(0,0,0,0.3)_0%,rgba(0,0,0,0.5)_100%)] blur-xl" />
+            <div className="pointer-events-none absolute inset-[0.35rem] translate-x-2 translate-y-2 rounded-[1.9rem] border border-[#d7c5a4]/50 bg-[linear-gradient(180deg,rgba(251,246,235,0.86)_0%,rgba(236,224,198,0.7)_100%)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(38,38,40,0.9)_0%,rgba(28,28,30,0.8)_100%)] shadow-[0_12px_26px_rgba(62,44,21,0.12)]" />
             <div className="pointer-events-none absolute bottom-[-0.95rem] left-8 h-14 w-4 rounded-b-sm bg-[linear-gradient(180deg,#ddb45e_0%,#be8530_100%)] [clip-path:polygon(0_0,100%_0,100%_78%,50%_100%,0_78%)] shadow-[0_10px_20px_rgba(141,97,34,0.28)]" />
             <div className={notebookFrameCls}>
-              <div className="pointer-events-none absolute left-4 top-4 h-2 w-2 rounded-full border border-[#d8c295]/70 bg-[#fff9eb]/85 shadow-[0_0_0_2px_rgba(150,116,61,0.08)]" />
-              <div className="pointer-events-none absolute bottom-4 left-4 h-2 w-2 rounded-full border border-[#d8c295]/70 bg-[#fff9eb]/85 shadow-[0_0_0_2px_rgba(150,116,61,0.08)]" />
+              <div className="pointer-events-none absolute left-4 top-4 h-2 w-2 rounded-full border border-[#d8c295]/70 bg-[#fff9eb]/85 shadow-[0_0_0_2px_rgba(150,116,61,0.08)] dark:border-white/20 dark:bg-white/10 dark:shadow-[0_0_0_2px_rgba(255,255,255,0.05)]" />
+              <div className="pointer-events-none absolute bottom-4 left-4 h-2 w-2 rounded-full border border-[#d8c295]/70 bg-[#fff9eb]/85 shadow-[0_0_0_2px_rgba(150,116,61,0.08)] dark:border-white/20 dark:bg-white/10 dark:shadow-[0_0_0_2px_rgba(255,255,255,0.05)]" />
               <div className="pointer-events-none absolute right-4 top-4 h-2 w-2 rounded-full border border-white/10 bg-white/10 shadow-[0_0_0_2px_rgba(255,255,255,0.03)]" />
               <div className="pointer-events-none absolute bottom-4 right-4 h-2 w-2 rounded-full border border-white/10 bg-white/10 shadow-[0_0_0_2px_rgba(255,255,255,0.03)]" />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(104,77,39,0.07)_100%)]" />
-              <div className="pointer-events-none absolute bottom-3 right-[4.95rem] top-3 w-[0.7rem] rounded-full bg-[linear-gradient(90deg,rgba(116,92,55,0.16)_0%,rgba(255,255,255,0.5)_45%,rgba(112,88,52,0.2)_100%)] shadow-[inset_0_0_7px_rgba(89,67,37,0.16),0_0_18px_rgba(255,246,220,0.16)]" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(104,77,39,0.07)_100%)] dark:bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.15)_100%)]" />
+              <div className="pointer-events-none absolute bottom-3 right-[4.95rem] top-3 w-[0.7rem] rounded-full bg-[linear-gradient(90deg,rgba(116,92,55,0.16)_0%,rgba(255,255,255,0.5)_45%,rgba(112,88,52,0.2)_100%)] shadow-[inset_0_0_7px_rgba(89,67,37,0.16),0_0_18px_rgba(255,246,220,0.16)] dark:bg-[linear-gradient(90deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.15)_45%,rgba(255,255,255,0.05)_100%)] dark:shadow-[inset_0_0_7px_rgba(0,0,0,0.3),0_0_18px_rgba(255,255,255,0.05)]" />
             {/* ── Book page (left) ── */}
             <div
               className={`${bookPageCls} flex flex-1 flex-col rounded-l-[1.75rem] border-r border-[#cdbb98]/60 text-[#1e2329] dark:border-white/[0.08] dark:text-[hsl(40,10%,84%)]`}
@@ -1525,11 +1558,16 @@ export function CharacterView({
       )}
 
       <div className={`${sectionCls} relative z-10 ${sceneOverlay ? "character-action-bar" : ""}`}>
-        {(characterSaveSuccess || combinedSaveError) && (
+        {(characterSaveSuccess || combinedSaveError || saveAdvisory) && (
           <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
             {characterSaveSuccess && (
               <span className="rounded-lg border border-green-400/20 bg-green-400/10 px-3 py-1.5 text-xs font-bold text-green-400">
                 {characterSaveSuccess}
+              </span>
+            )}
+            {saveAdvisory && (
+              <span className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-300">
+                {saveAdvisory}
               </span>
             )}
             {combinedSaveError && (

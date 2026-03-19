@@ -371,3 +371,14 @@ Run a benchmark against a fine-tuned model to evaluate performance.
   "completedAt": 1718006000000
 }
 ```
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 500 | `TRAINING_FAILED` | Training job failed to start or complete |
+| 503 | `SERVICE_UNAVAILABLE` | Training service is not available |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

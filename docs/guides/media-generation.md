@@ -106,7 +106,7 @@ The provider module header also references ElevenLabs for sound effects (`Eleven
 | `prompt` | string | Yes | Text description of the audio (lyrics, mood, style, etc.) |
 | `duration` | number | No | Audio duration in seconds |
 | `instrumental` | boolean | No | Whether to generate instrumental music without vocals |
-| `genre` | string | No | Music genre (e.g., `pop`, `rock`, `classical`, `electronic`) |
+| `genre` | string | No | Music genre (e.g., `pop`, `rock`, `classical`, `synthwave`) |
 
 **Output:** Returns an `audioUrl`, optional `title`, and optional `duration` in seconds.
 

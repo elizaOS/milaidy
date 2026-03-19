@@ -170,7 +170,7 @@ export class SwabbleWeb extends WebPlugin {
   private mediaStream: MediaStream | null = null;
   private levelInterval: ReturnType<typeof setInterval> | null = null;
 
-  // Native IPC state (Electron/Electrobun)
+  // Native IPC state (Electrobun)
   private captureStream: MediaStream | null = null;
   private captureContext: AudioContext | null = null;
   private captureProcessor: ScriptProcessorNode | null = null;

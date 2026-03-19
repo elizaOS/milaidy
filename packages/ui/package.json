@@ -20,9 +20,7 @@
   "scripts": {
     "clean": "rimraf dist",
     "build:dist": "rimraf dist && tsc -p tsconfig.build.json && node ../../scripts/copy-package-assets.mjs packages/ui src/styles && node ../../scripts/prepare-package-dist.mjs packages/ui",
-    "pack:dry-run": "cd dist && npm pack --dry-run",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "pack:dry-run": "cd dist && npm pack --dry-run"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -56,15 +54,9 @@
     "access": "public"
   },
   "devDependencies": {
-    "@storybook/addon-essentials": "8.6.14",
-    "@storybook/blocks": "8.6.14",
-    "@storybook/react": "8.6.14",
-    "@storybook/react-vite": "8.6.14",
-    "@storybook/test": "8.6.14",
     "@tailwindcss/vite": "^4.2.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "storybook": "8.6.14",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3"
   }

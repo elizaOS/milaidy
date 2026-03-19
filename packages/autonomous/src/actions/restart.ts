@@ -9,7 +9,7 @@
  *      {@link RestartHandler}.
  *
  * In CLI mode the default handler exits with code 75 so the runner script
- * rebuilds and relaunches. In headless / Electron mode a custom handler
+ * rebuilds and relaunches. In headless / desktop mode a custom handler
  * performs an in-process restart (stop → re-init → hot-swap references).
  *
  * @module actions/restart

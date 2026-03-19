@@ -737,12 +737,12 @@ describe("my-plugin integration", () => {
 
 2. **Build your plugin:**
    ```bash
-   npm run build
+   bun run build
    ```
 
 3. **Publish:**
    ```bash
-   npm publish --access public
+   bun publish --access public
    ```
 
 ### Local Development

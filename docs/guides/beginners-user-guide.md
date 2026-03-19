@@ -67,10 +67,10 @@ irm https://milady-ai.github.io/milady/install.ps1 | iex
 milady setup
 ```
 
-### npm global alternative
+### Bun global alternative
 
 ```bash
-npm install -g miladyai
+bun install -g miladyai
 milady setup
 ```
 

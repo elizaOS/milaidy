@@ -7977,7 +7977,11 @@ async function handleRequest(
       }
     }
 
+    const ready =
+      state.agentState !== "starting" && state.agentState !== "restarting";
+
     json(res, {
+      ready,
       runtime: runtime ? "ok" : "not_initialized",
       database: runtime ? "ok" : "unknown",
       plugins: {
@@ -7988,6 +7992,7 @@ async function handleRequest(
       connectors,
       uptime,
       agentState: state.agentState,
+      startup: state.startup,
     });
     return;
   }
@@ -11624,7 +11629,13 @@ async function handleRequest(
 
   // ── POST /api/restart ───────────────────────────────────────────────────
   if (method === "POST" && pathname === "/api/restart") {
-    json(res, { ok: true, message: "Restarting..." });
+    state.agentState = "restarting";
+    state.startup = {
+      ...state.startup,
+      phase: "restarting",
+    };
+    state.broadcastStatus?.();
+    json(res, { ok: true, message: "Restarting...", restarting: true });
     setTimeout(() => process.exit(0), 1000);
     return;
   }

@@ -11,6 +11,7 @@ The system API covers core server operations that don't belong to a specific dom
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/status` | Agent status and health check |
+| GET | `/api/health` | Structured subsystem health check |
 | GET | `/api/runtime` | Deep runtime introspection |
 | POST | `/api/provider/switch` | Switch the active AI provider |
 | POST | `/api/restart` | Restart the server process |
@@ -36,6 +37,10 @@ Returns the agent's current state, name, model, uptime, cloud connection status,
   "agentName": "Milady",
   "model": "@elizaos/plugin-anthropic",
   "uptime": 3600000,
+  "startup": {
+    "phase": "ready",
+    "attempt": 1
+  },
   "cloud": {
     "connectionStatus": "disconnected",
     "activeAgentId": null
@@ -51,8 +56,53 @@ Returns the agent's current state, name, model, uptime, cloud connection status,
 | `agentName` | string | Current agent display name |
 | `model` | string\|undefined | Active model/plugin identifier |
 | `uptime` | number\|undefined | Milliseconds since the agent started |
+| `startup` | object | Startup diagnostics with `phase`, `attempt`, and optional error fields |
 | `pendingRestart` | boolean | Whether configuration changes require a restart |
 | `pendingRestartReasons` | string[] | Descriptions of what changed |
+
+---
+
+### GET /api/health
+
+Structured health check endpoint that returns the status of each subsystem. The `ready` field indicates whether the agent has finished starting and is available to serve requests.
+
+**Response**
+
+```json
+{
+  "ready": true,
+  "runtime": "ok",
+  "database": "ok",
+  "plugins": {
+    "loaded": 12,
+    "failed": 0
+  },
+  "coordinator": "ok",
+  "connectors": {
+    "discord": "connected",
+    "telegram": "configured"
+  },
+  "uptime": 3600,
+  "agentState": "running",
+  "startup": {
+    "phase": "ready",
+    "attempt": 1
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ready` | boolean | `false` while agent state is `starting` or `restarting`, `true` otherwise |
+| `runtime` | string | `"ok"` if the runtime is initialized, `"not_initialized"` otherwise |
+| `database` | string | `"ok"` if the runtime is initialized, `"unknown"` otherwise |
+| `plugins.loaded` | number | Count of enabled plugins |
+| `plugins.failed` | number | Count of plugins that failed to load |
+| `coordinator` | string | `"ok"` if the swarm coordinator service is available, `"not_wired"` otherwise |
+| `connectors` | object | Map of connector name to status string |
+| `uptime` | number | Seconds since the agent started |
+| `agentState` | string | Current agent state (`not_started`, `starting`, `running`, `paused`, `stopped`, `restarting`, `error`) |
+| `startup` | object | Startup diagnostics with `phase`, `attempt`, and optional `lastError`, `lastErrorAt`, `nextRetryAt` fields |
 
 ---
 
@@ -117,9 +167,13 @@ Atomically switch the active AI provider. Clears competing credentials and env v
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `provider` | string | Yes | Provider ID |
-| `apiKey` | string | No | API key for the new provider |
+| `apiKey` | string | Conditional | Required for direct API key providers (see below). Max 512 characters. |
 
-Valid providers: `elizacloud`, `openai-codex`, `openai-subscription`, `anthropic-subscription`, `openai`, `anthropic`, `deepseek`, `google`, `groq`, `xai`, `openrouter`.
+Valid providers: `elizacloud`, `pi-ai`, `openai-codex`, `openai-subscription`, `anthropic-subscription`, `openai`, `anthropic`, `deepseek`, `google`, `groq`, `xai`, `openrouter`.
+
+The `apiKey` field is required for direct API key providers: `openai`, `anthropic`, `deepseek`, `google`, `groq`, `xai`, and `openrouter`. It is optional for managed providers (`elizacloud`, `pi-ai`, `openai-codex`, `openai-subscription`, `anthropic-subscription`).
+
+When switching to `elizacloud`, cloud inference is enabled and `cloud.services.inference` is set to `true`. When switching away from `elizacloud` to any other provider, cloud inference is disabled but the cloud connection remains active for other services (RPC, media, TTS, embeddings). See [granular cloud service toggles](/guides/cloud#granular-cloud-service-toggles) for details.
 
 **Response**
 
@@ -136,22 +190,31 @@ Valid providers: `elizacloud`, `openai-codex`, `openai-subscription`, `anthropic
 | Status | Condition |
 |--------|-----------|
 | 400 | Missing or invalid provider |
+| 400 | API key is required for this provider |
+| 400 | API key is too long (max 512 characters) |
 | 409 | Provider switch already in progress |
 
 ---
 
 ### POST /api/restart
 
-Restart the server process. Responds immediately and exits after a 1-second delay.
+Restart the server process. Sets the agent state to `restarting`, broadcasts a status update, responds immediately, and exits after a 1-second delay.
 
 **Response**
 
 ```json
 {
   "ok": true,
-  "message": "Restarting..."
+  "message": "Restarting...",
+  "restarting": true
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | boolean | Always `true` |
+| `message` | string | Human-readable status message |
+| `restarting` | boolean | Confirms the server is entering a restart cycle |
 
 ---
 
@@ -243,6 +306,10 @@ Execute a shell command on the server and stream output via WebSocket. Responds 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `command` | string | Yes | Shell command to execute |
+| `clientId` | string | Conditional | WebSocket client ID to receive output. Required if not provided via header. |
+| `terminalToken` | string | Conditional | Required when `MILADY_TERMINAL_RUN_TOKEN` is configured |
+
+The `clientId` can alternatively be sent via the `X-Milady-Client-Id` header.
 
 **Constraints**
 
@@ -269,7 +336,10 @@ Output is streamed via WebSocket:
 
 | Status | Condition |
 |--------|-----------|
+| 400 | Missing client ID (provide `clientId` in body or `X-Milady-Client-Id` header) |
+| 400 | Missing or empty command |
 | 403 | Shell access is disabled |
+| 403 | Terminal authorization required (invalid `terminalToken`) |
 | 429 | Too many concurrent terminal runs |
 
 ---

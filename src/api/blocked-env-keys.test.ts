@@ -26,7 +26,6 @@ const BLOCKED_ENV_KEYS = new Set([
   "DYLD_LIBRARY_PATH",
   "NODE_OPTIONS",
   "NODE_EXTRA_CA_CERTS",
-  "ELECTRON_RUN_AS_NODE",
   // TLS bypass
   "NODE_TLS_REJECT_UNAUTHORIZED",
   // Proxy hijack
@@ -110,7 +109,6 @@ describe("BLOCKED_ENV_KEYS — privilege escalation prevention", () => {
       "DYLD_LIBRARY_PATH",
       "NODE_OPTIONS",
       "NODE_EXTRA_CA_CERTS",
-      "ELECTRON_RUN_AS_NODE",
       "PATH",
       "HOME",
       "SHELL",
@@ -173,7 +171,7 @@ describe("BLOCKED_ENV_KEYS — privilege escalation prevention", () => {
 
   /* ── Minimum size guard ───────────────────────────────────────── */
 
-  it("has at least 28 entries (guard against accidental truncation)", () => {
-    expect(BLOCKED_ENV_KEYS.size).toBeGreaterThanOrEqual(28);
+  it("has at least 27 entries (guard against accidental truncation)", () => {
+    expect(BLOCKED_ENV_KEYS.size).toBeGreaterThanOrEqual(27);
   });
 });

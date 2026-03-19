@@ -100,4 +100,4 @@ brew install --cask ./milady.cask.rb
 - The cask requires macOS Monterey (12.0) or later
 - The formula requires Node.js 22+ (installed as dependency)
 - Both support auto-updates via Homebrew's built-in mechanisms
-- Desktop app also has built-in auto-update via electron-updater
+- Desktop app also has built-in auto-update via the native Electrobun updater

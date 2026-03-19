@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react-swc";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
 
@@ -12,14 +12,14 @@ const apiPort = Number(process.env.MILADY_API_PORT) || 31337;
 const enableAppSourceMaps = process.env.MILADY_APP_SOURCEMAP === "1";
 
 /**
- * Dev-only middleware that handles CORS for Electron's custom-scheme origin
- * (capacitor-electron://-). Vite's proxy doesn't reliably forward CORS headers
+ * Dev-only middleware that handles CORS for the desktop custom-scheme origin
+ * (electrobun://-). Vite's proxy doesn't reliably forward CORS headers
  * for non-http origins, so we intercept preflight OPTIONS requests and tag
  * every /api response with the correct headers before the proxy layer.
  */
-function electronCorsPlugin(): Plugin {
+function desktopCorsPlugin(): Plugin {
   return {
-    name: "electron-cors",
+    name: "desktop-cors",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const origin = req.headers.origin;
@@ -74,7 +74,7 @@ export default defineConfig({
     sparkWasmDataUrlPlugin(),
     tailwindcss(),
     react(),
-    electronCorsPlugin(),
+    desktopCorsPlugin(),
   ],
   resolve: {
     dedupe: ["react", "react-dom", "three", "@sparkjsdev/spark"],

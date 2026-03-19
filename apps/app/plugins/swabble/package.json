@@ -26,7 +26,7 @@
     "dist/",
     "ios/Sources/",
     "ios/Plugin.xcodeproj/",
-    "electron/",
+    "electrobun/",
     "*.podspec"
   ],
   "author": "Milady",
@@ -71,7 +71,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Support via Web Speech API (limited timing data, no Whisper). Wake word detection and basic STT.",
-      "node": "Full support via Electron with Whisper.cpp for high-quality STT and precise timing data",
+      "node": "Full support via Electrobun with Whisper.cpp for high-quality STT and precise timing data",
       "ios": true,
       "android": true
     }

@@ -301,10 +301,10 @@ Add to `milady.json`:
 
 ```bash
 # Build the plugin
-cd my-plugin && npm run build
+cd my-plugin && bun run build
 
 # Run tests
-npm test
+bun test
 
 # Start Milady with the plugin loaded
 milady start

@@ -202,9 +202,9 @@ describe("@miladyai/capacitor-desktop", () => {
   // -- App info --
 
   describe("app info", () => {
-    it("getVersion has N/A for electron/node on web", async () => {
+    it("getVersion has N/A for runtime/node on web", async () => {
       const v = await d.getVersion();
-      expect(v.electron).toBe("N/A");
+      expect(v.runtime).toBe("N/A");
       expect(v.node).toBe("N/A");
     });
 

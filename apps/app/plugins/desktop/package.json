@@ -4,7 +4,7 @@
   "description": "Adds tray icons, global shortcuts, notifications, and other desktop-only controls.",
   "keywords": [
     "desktop",
-    "electron",
+    "electrobun",
     "shortcuts",
     "notifications"
   ],
@@ -22,7 +22,7 @@
   "unpkg": "dist/plugin.js",
   "files": [
     "dist/",
-    "electron/"
+    "electrobun/"
   ],
   "author": "Milady",
   "license": "MIT",
@@ -56,7 +56,7 @@
     "runtime": "both",
     "platformDetails": {
       "browser": "Limited support with graceful fallbacks (notifications via Web API, clipboard, basic window ops). System tray, global shortcuts, and auto-launch unavailable.",
-      "node": "Full support via Electron (system tray, global shortcuts, auto-launch, window management, power monitoring, native notifications)",
+      "node": "Full support via Electrobun (system tray, global shortcuts, auto-launch, window management, power monitoring, native notifications)",
       "ios": false,
       "android": false
     }

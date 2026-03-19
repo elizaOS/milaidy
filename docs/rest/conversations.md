@@ -272,3 +272,14 @@ Same as `POST /api/chat/stream`.
   "agentName": "Milady"
 }
 ```
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 404 | `CONVERSATION_NOT_FOUND` | Conversation with specified ID does not exist |
+| 503 | `SERVICE_UNAVAILABLE` | Agent service is not currently running |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

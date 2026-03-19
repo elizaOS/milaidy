@@ -86,8 +86,6 @@ For testing, remote connectivity, or locally managed runtime workflows:
 |---------------------|--------|
 | `MILADY_DESKTOP_TEST_API_BASE` | Use this API base and switch to `external` mode |
 | `MILADY_DESKTOP_API_BASE` | Use this API base and switch to `external` mode |
-| `MILADY_ELECTRON_TEST_API_BASE` | Legacy fallback for older test harnesses |
-| `MILADY_ELECTRON_API_BASE` | Legacy fallback for older desktop setups |
 | `MILADY_API_BASE_URL` / `MILADY_API_BASE` | Generic API-base fallback vars; also switch to `external` mode |
 | `MILADY_DESKTOP_SKIP_EMBEDDED_AGENT=1` | Switch to `disabled` mode; do not auto-start the child runtime |
 | `MILADY_API_TOKEN` | Inject an API authentication token into the renderer |
@@ -115,7 +113,7 @@ Core native desktop features via the `DesktopManager` class. This is the largest
 
 **System Tray** -- Create, update, and destroy tray icons with context menus. Supports tooltip, title (macOS), icons for menu items, and submenus. Tray events (`click`, `double-click`, `right-click`) are forwarded to the renderer with modifier key state and cursor coordinates.
 
-**Global Keyboard Shortcuts** -- Register system-wide hotkeys that work even when the app is not focused. Each shortcut has a unique ID and an Electron accelerator string. When pressed, a `desktop:shortcutPressed` event is sent to the renderer.
+**Global Keyboard Shortcuts** -- Register system-wide hotkeys that work even when the app is not focused. Each shortcut has a unique ID and an desktop accelerator string. When pressed, a `desktop:shortcutPressed` event is sent to the renderer.
 
 | IPC Channel | Description |
 |------------|-------------|
@@ -287,7 +285,7 @@ These shortcuts work system-wide when the app is running. Additional shortcuts c
 
 ## Deep Linking
 
-The desktop app supports the `milady://` custom URL protocol for deep linking. The protocol is registered via Capacitor's Electron deep linking module.
+The desktop app supports the `milady://` custom URL protocol for deep linking. The protocol is registered via the Electrobun deep linking integration.
 
 ### Share Target
 
@@ -303,11 +301,11 @@ milady://share?title=Hello&text=Check+this+out&url=https://example.com
 - `url` -- optional URL to share.
 - `file` -- one or more file paths (can be repeated).
 
-File drag-and-drop from the OS is also supported via Electron's `open-file` event. Share payloads are queued if the main window is not yet ready and flushed once the renderer finishes loading. Events are dispatched as `milady:share-target` custom DOM events.
+File drag-and-drop from the OS is also supported via the desktop runtime `open-file` event. Share payloads are queued if the main window is not yet ready and flushed once the renderer finishes loading. Events are dispatched as `milady:share-target` custom DOM events.
 
 ## Auto-Updater
 
-The desktop app checks for updates on launch via `electron-updater`, publishing to GitHub releases under the `milady-ai/milady` repository. Set `MILADY_ELECTRON_DISABLE_AUTO_UPDATER=1` to disable.
+The desktop app checks for updates on launch via the Electrobun updater, publishing to GitHub releases under the `milady-ai/milady` repository.
 
 ## Development Mode
 
@@ -315,14 +313,7 @@ In development mode:
 
 - A **file watcher** (chokidar) monitors the web asset directory and auto-reloads the app when files change (1.5-second debounce).
 - Content Security Policy is adjusted for development -- `localhost` and `devtools://*` origins are allowed for scripts.
-- DevTools open automatically on DOM ready (disable with `MILADY_ELECTRON_DISABLE_DEVTOOLS=1`).
-- The `MILADY_ELECTRON_USER_DATA_DIR` environment variable can override the user data directory for automated E2E testing.
-
-| Environment Variable | Effect |
-|---------------------|--------|
-| `MILADY_ELECTRON_USER_DATA_DIR` | Override user data directory path |
-| `MILADY_ELECTRON_DISABLE_DEVTOOLS=1` | Prevent DevTools from auto-opening |
-| `MILADY_ELECTRON_DISABLE_AUTO_UPDATER=1` | Skip update check on launch |
+- DevTools open automatically on DOM ready.
 
 ## Security Considerations
 

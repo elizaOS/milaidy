@@ -1,7 +1,7 @@
 /**
  * Shared permission types and registry.
  *
- * Duplicated from Electron's permissions-shared.ts to avoid
+ * Duplicated from the earlier desktop runtime permissions module to avoid
  * cross-workspace imports during compilation.
  */
 

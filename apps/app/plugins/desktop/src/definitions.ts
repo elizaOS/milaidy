@@ -201,7 +201,7 @@ export interface DesktopPlugin {
   getVersion(): Promise<{
     version: string;
     name: string;
-    electron: string;
+    runtime: string;
     chrome: string;
     node: string;
   }>;

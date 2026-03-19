@@ -4,6 +4,8 @@
 
 Windows code signing eliminates SmartScreen warnings and is required for Microsoft Store submission. The signing pipeline is integrated into `release-electrobun.yml` and activates when the required secrets are configured.
 
+GitHub releases now publish a standalone **Inno Setup 6.7.1** installer as the primary Windows download. The signed **MSIX** remains available as a secondary Windows artifact for Store-oriented distribution.
+
 ## Certificate Options
 
 ### Option A: Standard/EV Code Signing Certificate
@@ -55,11 +57,13 @@ This requires modifying the workflow to use the Azure action instead of signtool
 1. `release-electrobun.yml` checks for `WINDOWS_SIGN_CERT_BASE64`
 2. If present, runs `sign-windows.ps1` which:
    - Decodes the PFX to a temp file
-   - Signs all `.exe` files with `signtool` (SHA-256 + timestamp)
+   - Signs packaged app binaries in the Electrobun build output with `signtool` (SHA-256 + timestamp)
    - Verifies each signature
    - Cleans up the temp certificate
-3. If absent, logs a warning and builds unsigned (no failure)
-4. After signing, `build-msix.ps1` creates and signs the MSIX package
+3. The Windows release runner installs **Inno Setup 6.7.1** via `winget` and runs `packaging/inno/build-inno.ps1` to produce `Milady-Setup-{channel}.exe`
+4. When signing secrets are present, the Inno compiler signs the **final installer** and the **generated uninstaller**
+5. If signing secrets are absent, the workflow logs a warning and still builds an unsigned installer
+6. After installer creation, `build-msix.ps1` creates and signs the MSIX package
 
 ## SmartScreen Notes
 
@@ -88,6 +92,21 @@ pwsh -File apps/app/electrobun/scripts/sign-windows.ps1 `
   -ArtifactsDir ./artifacts `
   -BuildDir ./build
 
+# Build the standalone Inno Setup installer
+pwsh -File packaging/inno/build-inno.ps1 `
+  -BuildDir ./apps/app/electrobun/build `
+  -OutputDir ./apps/app/electrobun/artifacts `
+  -Version "2.0.0-alpha.96" `
+  -Channel "canary"
+
 # Verify a signed file
 signtool verify /pa /v path/to/signed.exe
+```
+
+## CI Compiler Pin
+
+The release workflow installs **Inno Setup 6.7.1** on the Windows runner with:
+
+```powershell
+winget install --exact --id JRSoftware.InnoSetup --version 6.7.1 --accept-package-agreements --accept-source-agreements --disable-interactivity
 ```

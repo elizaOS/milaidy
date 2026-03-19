@@ -25,7 +25,7 @@ import * as readline from "node:readline";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 // @clack/prompts is loaded lazily inside runFirstTimeSetup() so the
-// packaged Electron app (which never runs interactive onboarding) does
+// packaged desktop app (which never runs interactive onboarding) does
 // not crash when the package is unavailable.
 type ClackModule = typeof import("@clack/prompts");
 let _clack: ClackModule | null = null;
@@ -4381,7 +4381,7 @@ export async function startEliza(
 
   // 9. Graceful shutdown handler
   //
-  // In headless mode the caller (dev-server / Electron) owns the process
+  // In headless mode the caller (dev-server / desktop shell) owns the process
   // lifecycle, so we must NOT register signal handlers here — they would
   // stack on every hot-restart, close over stale runtime references, and
   // race with bun --watch's own process teardown.

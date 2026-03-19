@@ -197,6 +197,27 @@ describe("applyOnboardingConnectionConfig", () => {
     expect(deleteCredentials).toHaveBeenCalledWith("openai-codex");
   });
 
+  it("keeps an Anthropic setup token instead of rehydrating saved subscription credentials", async () => {
+    const config = emptyConfig();
+
+    await applyOnboardingConnectionConfig(config, {
+      kind: "local-provider",
+      provider: "anthropic-subscription",
+      apiKey: "sk-ant-oat01-test-token",
+    });
+
+    expect(config.agents?.defaults?.subscriptionProvider).toBe(
+      "anthropic-subscription",
+    );
+    expect(config.agents?.defaults?.model?.primary).toBe("anthropic");
+    expect((config.env as Record<string, string>)?.ANTHROPIC_API_KEY).toBe(
+      "sk-ant-oat01-test-token",
+    );
+    expect(applySubscriptionCredentials).not.toHaveBeenCalled();
+    expect(deleteCredentials).toHaveBeenCalledWith("anthropic-subscription");
+    expect(deleteCredentials).toHaveBeenCalledWith("openai-codex");
+  });
+
   it("applies the same config mutation for onboarding and provider-switch paths", async () => {
     const onboardingConfig = configWithDefaults({
       subscriptionProvider: "openai-codex",

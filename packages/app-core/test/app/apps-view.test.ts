@@ -216,7 +216,6 @@ describe("AppsView", () => {
   const tStub = (k: string) => k;
 
   afterEach(() => {
-    delete (window as typeof window & { electron?: unknown }).electron;
     vi.restoreAllMocks();
   });
 

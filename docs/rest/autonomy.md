@@ -104,3 +104,14 @@ When enabling, the autonomy task fires its first tick immediately. When disablin
 - [Autonomous Mode guide](/guides/autonomous-mode) — configuring autonomous behavior
 - [Triggers guide](/guides/triggers) — trigger system that works with autonomy
 - [API Reference overview](/api-reference)
+
+## Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
+| 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
+| 404 | `NOT_FOUND` | Requested resource does not exist |
+| 503 | `SERVICE_UNAVAILABLE` | Autonomy service is not available |
+| 500 | `AUTONOMY_DISABLED` | Autonomy feature is disabled in configuration |
+| 500 | `INTERNAL_ERROR` | Unexpected server error |

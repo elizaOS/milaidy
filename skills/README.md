@@ -14,5 +14,6 @@ This folder contains repo-specific skills derived from recently merged PRs.
 - `knowledge-import-guardrails`
 - `elevenlabs-proxy-guard`
 - `pre-review-no-diff-approve`
-- `electron-tutorial-examples`
+- `electrobun-tutorial-examples`
 - `integration-dod-map`
+- `app-hardening-green-guardian`

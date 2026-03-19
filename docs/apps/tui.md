@@ -65,4 +65,4 @@ milady tui --api-base http://192.168.1.100:2138
 
 - [CLI Reference](/cli/overview) — full list of `milady` CLI commands including `tui`
 - [Web Dashboard](/apps/dashboard) — browser-based alternative to the TUI
-- [Desktop App](/apps/desktop) — Electron app with embedded terminal panel
+- [Desktop App](/apps/desktop) — Electrobun app with embedded terminal panel

@@ -9,17 +9,13 @@ type ExternalApiBaseEnvKey =
   | "MILADY_DESKTOP_TEST_API_BASE"
   | "MILADY_DESKTOP_API_BASE"
   | "MILADY_API_BASE_URL"
-  | "MILADY_API_BASE"
-  | "MILADY_ELECTRON_API_BASE"
-  | "MILADY_ELECTRON_TEST_API_BASE";
+  | "MILADY_API_BASE";
 
 export type DesktopRuntimeMode = "local" | "external" | "disabled";
 
 const EXTERNAL_API_BASE_ENV_KEYS: readonly ExternalApiBaseEnvKey[] = [
   "MILADY_DESKTOP_TEST_API_BASE",
   "MILADY_DESKTOP_API_BASE",
-  "MILADY_ELECTRON_TEST_API_BASE",
-  "MILADY_ELECTRON_API_BASE",
   "MILADY_API_BASE_URL",
   "MILADY_API_BASE",
 ];

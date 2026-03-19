@@ -31,6 +31,64 @@ console.error = (...args: unknown[]) => {
   originalConsoleError(...args);
 };
 
+function createMockStorage(): Storage {
+  const store = new Map<string, string>();
+  return {
+    getItem: vi.fn((key: string) => store.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      store.delete(key);
+    }),
+    clear: vi.fn(() => {
+      store.clear();
+    }),
+    get length() {
+      return store.size;
+    },
+    key: vi.fn((index: number) => [...store.keys()][index] ?? null),
+  } as Storage;
+}
+
+function hasStorageApi(value: unknown): value is Storage {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      typeof (value as Storage).getItem === "function" &&
+      typeof (value as Storage).setItem === "function" &&
+      typeof (value as Storage).removeItem === "function" &&
+      typeof (value as Storage).clear === "function",
+  );
+}
+
+function ensureStorage(
+  target: Record<string, unknown>,
+  key: "localStorage" | "sessionStorage",
+  fallback?: Storage,
+): Storage {
+  const existing = target[key];
+  if (hasStorageApi(existing)) {
+    return existing;
+  }
+  const storage = fallback ?? createMockStorage();
+  Object.defineProperty(target, key, {
+    value: storage,
+    writable: true,
+    configurable: true,
+  });
+  return storage;
+}
+
+const sharedLocalStorage = ensureStorage(
+  globalThis as Record<string, unknown>,
+  "localStorage",
+);
+const sharedSessionStorage = ensureStorage(
+  globalThis as Record<string, unknown>,
+  "sessionStorage",
+);
+
 if (typeof globalThis.HTMLCanvasElement !== "undefined") {
   const createCanvas2DContext = (): CanvasRenderingContext2D =>
     ({
@@ -85,6 +143,12 @@ if (typeof globalThis.HTMLCanvasElement !== "undefined") {
     writable: true,
     configurable: true,
   });
+}
+
+if (typeof globalThis.window !== "undefined") {
+  const win = globalThis.window as unknown as Record<string, unknown>;
+  ensureStorage(win, "localStorage", sharedLocalStorage);
+  ensureStorage(win, "sessionStorage", sharedSessionStorage);
 }
 
 import { withIsolatedTestHome } from "./test-env";

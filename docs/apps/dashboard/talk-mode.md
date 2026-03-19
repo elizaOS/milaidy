@@ -7,7 +7,7 @@ description: Full voice conversation with your Milady agent using offline speech
 Talk Mode provides a full voice conversation pipeline for the Milady desktop app. It combines offline speech-to-text (Whisper.cpp), streaming text-to-speech (ElevenLabs), and voice activity detection into a seamless hands-free experience.
 
 <Info>
-Talk Mode is a native desktop feature. It requires the Electron desktop app — it is not available in the web dashboard or mobile app.
+Talk Mode is a native desktop feature. It requires the Electrobun desktop app — it is not available in the web dashboard or mobile app.
 </Info>
 
 ## How It Works

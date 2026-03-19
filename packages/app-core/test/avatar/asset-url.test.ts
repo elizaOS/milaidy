@@ -32,10 +32,10 @@ describe("resolveAppAssetUrl", () => {
 
   it("resolves custom-scheme assets using base path", () => {
     const url = resolveAppAssetUrl("animations/idle.glb", {
-      currentUrl: "capacitor-electron://-/chat",
+      currentUrl: "electrobun://-/chat",
       baseUrl: "./",
     });
-    expect(url).toBe("capacitor-electron://-/animations/idle.glb");
+    expect(url).toBe("electrobun://-/animations/idle.glb");
   });
 });
 

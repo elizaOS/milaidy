@@ -61,7 +61,16 @@
               "guides/media-generation",
               "plugin-setup-guide",
               "guides/themes",
-              "guides/agent-export"
+              "guides/agent-export",
+              "guides/config-templates"
+            ]
+          },
+          {
+            "group": "Tutorials",
+            "pages": [
+              "guides/tutorial-discord-bot",
+              "guides/tutorial-telegram-bot",
+              "guides/tutorial-autonomous-agent"
             ]
           },
           {
@@ -303,7 +312,8 @@
               "rest/bug-report",
               "rest/ltcg",
               "rest/coding-agents",
-              "rest/whitelist"
+              "rest/whitelist",
+              "rest/nfa"
             ]
           },
           {
@@ -343,7 +353,8 @@
               "cli/models",
               "cli/plugins",
               "cli/update",
-              "cli/doctor"
+              "cli/doctor",
+              "cli/db"
             ]
           },
           {
@@ -351,6 +362,23 @@
             "pages": ["cli/environment"]
           }
         ]
+      },
+      {
+        "tab": "Changelog",
+        "groups": [
+          {
+            "group": "Changelog",
+            "pages": ["changelog"]
+          }
+        ],
+        "href": "/changelog"
+      }
+    ],
+    "anchors": [
+      {
+        "anchor": "Changelog",
+        "href": "/changelog",
+        "icon": "clock-rotate-left"
       }
     ]
   },

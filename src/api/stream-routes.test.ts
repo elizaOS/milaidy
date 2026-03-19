@@ -148,7 +148,7 @@ describe("detectCaptureMode()", () => {
     if (
       process.platform !== "darwin" &&
       process.platform !== "linux" &&
-      !process.versions.electron
+      !("__miladyScreenCapture" in (globalThis as Record<string, unknown>))
     ) {
       delete process.env.DISPLAY;
       expect(detectCaptureMode()).toBe("file");

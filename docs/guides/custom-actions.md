@@ -26,7 +26,7 @@ Milady registers the following built-in actions from `src/actions/` automaticall
 
 ### Agent Lifecycle
 
-**RESTART_AGENT** -- Gracefully restarts the agent process. Stops the runtime, rebuilds if source files changed, and relaunches. Persists a "Restarting..." memory, returns the response, then schedules a restart after a 1.5-second delay so the response can flush. In CLI mode, exits with code 75 for the runner script; in Electron mode, performs an in-process hot restart. Optional `reason` parameter is logged for diagnostics.
+**RESTART_AGENT** -- Gracefully restarts the agent process. Stops the runtime, rebuilds if source files changed, and relaunches. Persists a "Restarting..." memory, returns the response, then schedules a restart after a 1.5-second delay so the response can flush. In CLI mode, exits with code 75 for the runner script; in desktop runtime mode, performs an in-process hot restart. Optional `reason` parameter is logged for diagnostics.
 
 ### Plugin Management
 

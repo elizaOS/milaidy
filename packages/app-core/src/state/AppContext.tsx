@@ -83,6 +83,7 @@ import {
 import {
   getBackendStartupTimeoutMs,
   invokeDesktopBridgeRequest,
+  scanProviderCredentials,
 } from "../bridge";
 import {
   expandSavedCustomCommand,
@@ -400,6 +401,21 @@ function isRemoteApiBase(baseUrl: string): boolean {
     );
   } catch {
     return false;
+  }
+}
+
+function getFlaminaTopicForOnboardingStep(
+  step: OnboardingStep,
+): AppState["onboardingActiveGuide"] {
+  switch (step) {
+    case "connection":
+      return "provider";
+    case "rpc":
+      return "rpc";
+    case "senses":
+      return "permissions";
+    default:
+      return null;
   }
 }
 
@@ -787,6 +803,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [onboardingStep, setOnboardingStepRaw] = useState<OnboardingStep>(
     () => loadPersistedOnboardingStep() ?? "wakeUp",
   );
+  const [onboardingMode, setOnboardingMode] =
+    useState<AppState["onboardingMode"]>("basic");
+  const [onboardingActiveGuide, setOnboardingActiveGuide] = useState<
+    AppState["onboardingActiveGuide"]
+  >(null);
+  const [onboardingDeferredTasks, setOnboardingDeferredTasks] = useState<
+    AppState["onboardingDeferredTasks"]
+  >([]);
+  const [
+    postOnboardingChecklistDismissed,
+    setPostOnboardingChecklistDismissed,
+  ] = useState(false);
   const [onboardingOptions, setOnboardingOptions] =
     useState<OnboardingOptions | null>(null);
   const [onboardingName, setOnboardingName] = useState("Eliza");
@@ -805,6 +833,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const [onboardingProvider, setOnboardingProvider] = useState("");
   const [onboardingApiKey, setOnboardingApiKey] = useState("");
+  const [onboardingDetectedProviders, setOnboardingDetectedProviders] =
+    useState<
+      Array<{
+        id: string;
+        source: string;
+        apiKey?: string;
+        authMode?: string;
+        cliInstalled: boolean;
+      }>
+    >([]);
   const [onboardingRemoteApiBase, setOnboardingRemoteApiBase] =
     useState(loadSessionApiBase);
   const [onboardingRemoteToken, setOnboardingRemoteToken] = useState("");
@@ -855,6 +893,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOnboardingStepRaw(step);
     saveOnboardingStep(step);
   }, []);
+
+  const startupStatus = useMemo<AppState["startupStatus"]>(() => {
+    if (startupError) return "recoverable-error";
+    if (authRequired) return "auth-blocked";
+    if (onboardingLoading || startupPhase !== "ready") return "loading";
+    if (!onboardingComplete) return "onboarding";
+    return "ready";
+  }, [
+    authRequired,
+    onboardingComplete,
+    onboardingLoading,
+    startupError,
+    startupPhase,
+  ]);
+
+  const addDeferredOnboardingTask = useCallback(
+    (task: NonNullable<AppState["onboardingActiveGuide"]>) => {
+      setOnboardingDeferredTasks((current) =>
+        current.includes(task) ? current : [...current, task],
+      );
+      setPostOnboardingChecklistDismissed(false);
+    },
+    [],
+  );
 
   // --- Command palette ---
   const [commandPaletteOpen, _setCommandPaletteOpen] = useState(false);
@@ -933,6 +995,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const prevAgentStateRef = useRef<string | null>(null);
   /** Tracks last agent status to skip no-op updates from WS heartbeats. */
   const agentStatusRef = useRef<AgentStatus | null>(null);
+  const restartNotificationSignatureRef = useRef<string | null>(null);
+  const heartbeatNotificationKeyRef = useRef<string | null>(null);
   /** Only call setAgentStatus when the payload has materially changed. */
   const setAgentStatusIfChanged = useCallback((next: AgentStatus | null) => {
     const prev = agentStatusRef.current;
@@ -1110,7 +1174,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const path = pathForTab(newTab);
       try {
-        // In Electron packaged builds (file:// URLs), use hash routing to avoid
+        // In packaged desktop builds (file:// URLs), use hash routing to avoid
         // "Not allowed to load local resource: file:///..." errors.
         if (window.location.protocol === "file:") {
           window.location.hash = path;
@@ -2064,6 +2128,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRestartBannerDismissed(true);
   }, []);
 
+  const showRestartBanner = useCallback(() => {
+    setRestartBannerDismissed(false);
+  }, []);
+
   const triggerRestart = useCallback(async () => {
     await handleRestart();
   }, [handleRestart]);
@@ -2100,6 +2168,126 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
     setBackendDisconnectedBannerDismissed(false);
   }, []);
+
+  const relaunchDesktop = useCallback(async () => {
+    const relaunched = await invokeDesktopBridgeRequest<void>({
+      rpcMethod: "desktopRelaunch",
+      ipcChannel: "desktop:relaunch",
+    });
+    if (relaunched === null) {
+      await handleRestart();
+    }
+  }, [handleRestart]);
+
+  const showDesktopNotification = useCallback(
+    async (options: {
+      title: string;
+      body?: string;
+      urgency?: "normal" | "critical" | "low";
+      silent?: boolean;
+    }) => {
+      try {
+        await invokeDesktopBridgeRequest<{ id: string }>({
+          rpcMethod: "desktopShowNotification",
+          ipcChannel: "desktop:showNotification",
+          params: options,
+        });
+      } catch {
+        /* ignore desktop notification failures */
+      }
+    },
+    [],
+  );
+
+  const notifyHeartbeatEvent = useCallback(
+    (event: StreamEventEnvelope) => {
+      const payload = event.payload;
+      const status =
+        typeof payload.status === "string"
+          ? payload.status.trim().toLowerCase()
+          : "ok";
+      const silent = payload.silent === true;
+      const isFailure = status === "error" || status === "failed";
+      const isSkipped = status === "skipped";
+      if (!isFailure && !isSkipped && silent) {
+        return;
+      }
+
+      const eventTs =
+        typeof payload.ts === "number"
+          ? payload.ts
+          : typeof event.ts === "number"
+            ? event.ts
+            : Date.now();
+      const target =
+        [
+          typeof payload.channel === "string" ? payload.channel.trim() : "",
+          typeof payload.to === "string" ? payload.to.trim() : "",
+        ]
+          .filter(Boolean)
+          .join(" · ") || "background trigger";
+      const notificationKey = `${eventTs}:${status}:${target}`;
+      if (heartbeatNotificationKeyRef.current === notificationKey) {
+        return;
+      }
+      heartbeatNotificationKeyRef.current = notificationKey;
+
+      const preview =
+        typeof payload.preview === "string" ? payload.preview.trim() : "";
+      const reason =
+        typeof payload.reason === "string" ? payload.reason.trim() : "";
+      const duration =
+        typeof payload.durationMs === "number"
+          ? `Duration: ${Math.round(payload.durationMs)}ms`
+          : "";
+
+      const body = [target, preview, reason !== preview ? reason : "", duration]
+        .filter(Boolean)
+        .join("\n");
+
+      void showDesktopNotification({
+        title: isFailure
+          ? "Heartbeat failed"
+          : isSkipped
+            ? "Heartbeat skipped"
+            : "Heartbeat ran",
+        body,
+        urgency: isFailure ? "critical" : isSkipped ? "normal" : "low",
+        silent: false,
+      });
+    },
+    [showDesktopNotification],
+  );
+
+  useEffect(() => {
+    if (!pendingRestart) {
+      restartNotificationSignatureRef.current = null;
+      return;
+    }
+
+    const signature =
+      pendingRestartReasons.length > 0
+        ? pendingRestartReasons.join("\n")
+        : "restart-required";
+    if (restartNotificationSignatureRef.current === signature) {
+      return;
+    }
+    restartNotificationSignatureRef.current = signature;
+
+    const summary =
+      pendingRestartReasons.length === 1
+        ? pendingRestartReasons[0]
+        : pendingRestartReasons.length > 1
+          ? `${pendingRestartReasons.length} changes are waiting for restart.`
+          : "Restart required to apply changes.";
+
+    void showDesktopNotification({
+      title: "Restart required",
+      body: `${summary}\nUse Restart Now from the banner or Milady > Restart Agent. Use Milady > Relaunch Milady when the desktop shell itself needs a full relaunch.`,
+      urgency: "normal",
+      silent: false,
+    });
+  }, [pendingRestart, pendingRestartReasons, showDesktopNotification]);
 
   const retryStartup = useCallback(() => {
     setStartupError(null);
@@ -3835,6 +4023,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCharacterSaveSuccess(null);
     try {
       const draft = prepareDraftForSave(characterDraft);
+      if (!draft.name?.trim()) {
+        throw new Error("Character name is required before saving.");
+      }
       const { agentName } = await client.updateCharacter(draft);
       // Also persist avatar selection to config (under "ui" which is allowlisted)
       try {
@@ -3850,9 +4041,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       await loadCharacter();
     } catch (err) {
-      setCharacterSaveError(
-        `Failed to save: ${err instanceof Error ? err.message : "unknown error"}`,
-      );
+      const message = err instanceof Error ? err.message : "unknown error";
+      const finalMessage =
+        message === "Character name is required before saving."
+          ? message
+          : `Failed to save: ${message}`;
+      setCharacterSaveError(finalMessage);
+      setCharacterSaving(false);
+      throw new Error(finalMessage);
     }
     setCharacterSaving(false);
   }, [characterDraft, agentStatus, loadCharacter, selectedVrmIndex]);
@@ -3935,7 +4131,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingFinishSavingRef.current = true;
 
     try {
-      const connection =
+      let connection =
         buildOnboardingConnectionConfig({
           onboardingRunMode,
           onboardingCloudProvider,
@@ -3949,8 +4145,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
           onboardingSmallModel,
           onboardingLargeModel,
         }) ?? onboardingResumeConnectionRef.current;
+
+      // If connection is still null (e.g. after a permissions restart wiped
+      // form state), try one more time by re-deriving from the server config.
       if (!connection) {
-        throw new Error("Onboarding connection is incomplete");
+        try {
+          const freshConfig = await client.getConfig();
+          connection = deriveOnboardingResumeConnection(freshConfig);
+          if (connection) {
+            onboardingResumeConnectionRef.current = connection;
+          }
+        } catch {
+          /* config fetch failed — fall through to the error below */
+        }
+      }
+
+      if (!connection) {
+        const startOver = await confirmDesktopAction({
+          title: "Setup Incomplete",
+          message:
+            "Your connection settings could not be restored after restart.",
+          detail: 'Choose "Start Over" to begin setup again.',
+          type: "warning",
+          confirmLabel: "Start Over",
+          cancelLabel: "Cancel",
+        });
+        if (startOver) {
+          clearPersistedOnboardingStep();
+          onboardingResumeConnectionRef.current = null;
+          setOnboardingStep("wakeUp");
+          setOnboardingMode("basic");
+          setOnboardingActiveGuide(null);
+          setOnboardingDeferredTasks([]);
+          setPostOnboardingChecklistDismissed(false);
+          setOnboardingName("Eliza");
+          setOnboardingStyle("");
+          setOnboardingRunMode("cloud");
+          setOnboardingCloudProvider("");
+          setOnboardingProvider("");
+          setOnboardingApiKey("");
+          setOnboardingPrimaryModel("");
+          setOnboardingOpenRouterModel("");
+          setOnboardingRemoteConnected(false);
+          setOnboardingRemoteApiBase("");
+          setOnboardingRemoteToken("");
+          setOnboardingSmallModel("");
+          setOnboardingLargeModel("");
+        }
+        return;
       }
       const rpcSel = onboardingRpcSelections as Record<string, string>;
       const rpcK = onboardingRpcKeys as Record<string, string>;
@@ -3989,16 +4231,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
       clearPersistedOnboardingStep();
       onboardingResumeConnectionRef.current = null;
       onboardingCompletionCommittedRef.current = true;
+      setOnboardingMode("basic");
+      setOnboardingActiveGuide(null);
+      setPostOnboardingChecklistDismissed(false);
+      setOnboardingDetectedProviders((providers) =>
+        providers.map((provider) => {
+          const nextProvider = { ...provider };
+          delete nextProvider.apiKey;
+          return nextProvider;
+        }),
+      );
       setOnboardingComplete(true);
-      setTab("character-select");
+      setTab("chat");
     } catch (err) {
-      await alertDesktopMessage({
+      const startOver = await confirmDesktopAction({
         title: "Setup Failed",
         message: `${
           err instanceof Error ? err.message : "network error"
-        }. Please try again.`,
-        type: "error",
+        }`,
+        detail:
+          'You can retry, or choose "Start Over" to begin setup from scratch.',
+        type: "warning",
+        confirmLabel: "Start Over",
+        cancelLabel: "Retry",
       });
+      if (startOver) {
+        clearPersistedOnboardingStep();
+        onboardingResumeConnectionRef.current = null;
+        setOnboardingStep("wakeUp");
+        setOnboardingMode("basic");
+        setOnboardingActiveGuide(null);
+        setOnboardingDeferredTasks([]);
+        setPostOnboardingChecklistDismissed(false);
+        setOnboardingName("Eliza");
+        setOnboardingStyle("");
+        setOnboardingRunMode("cloud");
+        setOnboardingCloudProvider("");
+        setOnboardingProvider("");
+        setOnboardingApiKey("");
+        setOnboardingPrimaryModel("");
+        setOnboardingOpenRouterModel("");
+        setOnboardingRemoteConnected(false);
+        setOnboardingRemoteApiBase("");
+        setOnboardingRemoteToken("");
+        setOnboardingSmallModel("");
+        setOnboardingLargeModel("");
+      }
     } finally {
       onboardingFinishSavingRef.current = false;
       onboardingFinishBusyRef.current = false;
@@ -4015,6 +4293,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
+    onboardingDetectedProviders,
     onboardingRemoteApiBase,
     onboardingRemoteConnected,
     onboardingRemoteToken,
@@ -4055,6 +4334,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setState("onboardingName", "Rin");
       }
 
+      if (
+        onboardingStep === "connection" &&
+        onboardingRunMode === "local" &&
+        !onboardingProvider
+      ) {
+        const detectedProvider = onboardingDetectedProviders[0];
+        const fallbackProvider =
+          detectedProvider?.id ??
+          onboardingOptions?.providers?.find(
+            (provider) => provider.id !== "elizacloud",
+          )?.id ??
+          "";
+
+        if (fallbackProvider) {
+          setOnboardingProvider(fallbackProvider);
+          if (
+            detectedProvider?.id === fallbackProvider &&
+            detectedProvider.apiKey
+          ) {
+            setOnboardingApiKey(detectedProvider.apiKey);
+          }
+        }
+      }
+
       // At activate step, finish onboarding
       if (onboardingStep === "activate") {
         await handleOnboardingFinish();
@@ -4064,6 +4367,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // At senses step, check permissions unless bypass
       if (onboardingStep === "senses") {
         if (options?.allowPermissionBypass) {
+          if (options.skipTask) {
+            addDeferredOnboardingTask(options.skipTask);
+          }
           await handleOnboardingFinish();
           return;
         }
@@ -4095,13 +4401,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Advance to next step
       const currentIndex = STEP_ORDER.indexOf(onboardingStep);
       if (currentIndex < STEP_ORDER.length - 1) {
-        setOnboardingStep(STEP_ORDER[currentIndex + 1]);
+        if (options?.skipTask) {
+          addDeferredOnboardingTask(options.skipTask);
+        }
+        const nextStep = STEP_ORDER[currentIndex + 1];
+        setOnboardingStep(nextStep);
+        setOnboardingActiveGuide(
+          onboardingMode === "advanced"
+            ? getFlaminaTopicForOnboardingStep(nextStep)
+            : null,
+        );
       }
     },
     [
+      addDeferredOnboardingTask,
+      onboardingDetectedProviders,
+      onboardingMode,
+      onboardingName,
+      onboardingOptions,
+      onboardingProvider,
+      onboardingRunMode,
       onboardingStep,
       onboardingStyle,
-      onboardingOptions,
+      setOnboardingApiKey,
+      setOnboardingProvider,
       setActionNotice,
       handleOnboardingFinish,
     ],
@@ -4119,9 +4442,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const currentIndex = STEP_ORDER.indexOf(onboardingStep);
     if (currentIndex > 0) {
-      setOnboardingStep(STEP_ORDER[currentIndex - 1]);
+      const previousStep = STEP_ORDER[currentIndex - 1];
+      setOnboardingStep(previousStep);
+      setOnboardingActiveGuide(
+        onboardingMode === "advanced"
+          ? getFlaminaTopicForOnboardingStep(previousStep)
+          : null,
+      );
     }
-  }, [onboardingStep, setOnboardingStep]);
+  }, [onboardingMode, onboardingStep, setOnboardingStep]);
 
   const handleOnboardingUseLocalBackend = useCallback(() => {
     client.setBaseUrl(null);
@@ -4472,6 +4801,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }> = {
         tab: setTabRaw,
         onboardingStep: setOnboardingStep,
+        onboardingMode: setOnboardingMode,
+        onboardingActiveGuide: setOnboardingActiveGuide,
+        onboardingDeferredTasks: setOnboardingDeferredTasks,
+        postOnboardingChecklistDismissed: setPostOnboardingChecklistDismissed,
         chatInput: setChatInput,
         chatAvatarVisible: setChatAvatarVisible,
         chatAgentVoiceMuted: setChatAgentVoiceMuted,
@@ -4518,6 +4851,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         onboardingLargeModel: setOnboardingLargeModel,
         onboardingProvider: setOnboardingProvider,
         onboardingApiKey: setOnboardingApiKey,
+        onboardingDetectedProviders: setOnboardingDetectedProviders,
         onboardingRemoteApiBase: setOnboardingRemoteApiBase,
         onboardingRemoteToken: setOnboardingRemoteToken,
         onboardingRemoteConnecting: setOnboardingRemoteConnecting,
@@ -4781,6 +5115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       if (requiresAuth) {
+        setStartupPhase("ready");
         setOnboardingLoading(false);
         return;
       }
@@ -4801,6 +5136,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               client.getConfig().catch(() => null),
             ]);
             if (onboardingCompletionCommittedRef.current) {
+              setStartupPhase("ready");
               setOnboardingLoading(false);
               return;
             }
@@ -4808,6 +5144,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const resumeFields = deriveOnboardingResumeFields(resumeConnection);
             onboardingResumeConnectionRef.current = resumeConnection;
             setOnboardingOptions(options);
+
+            // Auto-detect AI provider credentials from local CLI installs.
+            // Only auto-fill if no existing connection config was found.
+            if (!resumeConnection) {
+              try {
+                const detected = await scanProviderCredentials();
+                if (detected.length > 0) {
+                  setOnboardingDetectedProviders(detected);
+                  // Auto-fill with the first detected provider
+                  const first = detected[0];
+                  if (first.apiKey) {
+                    setOnboardingRunMode("local");
+                    setOnboardingProvider(first.id);
+                    setOnboardingApiKey(first.apiKey);
+                  }
+                }
+              } catch {
+                // Non-fatal — credential scan is best-effort
+              }
+            }
+
             if (resumeFields.onboardingRunMode !== undefined) {
               setOnboardingRunMode(resumeFields.onboardingRunMode);
             }
@@ -4851,6 +5208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 config,
               }),
             );
+            setStartupPhase("ready");
             setOnboardingLoading(false);
             return;
           } catch (err) {
@@ -4860,6 +5218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               setAuthRequired(true);
               setPairingEnabled(latestAuth.pairingEnabled);
               setPairingExpiresAt(latestAuth.expiresAt);
+              setStartupPhase("ready");
               setOnboardingLoading(false);
               return;
             }
@@ -5091,6 +5450,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const event = parseStreamEventEnvelopeEvent(data);
           if (event) {
             appendAutonomousEvent(event);
+            notifyHeartbeatEvent(event);
           }
         },
       );
@@ -5370,7 +5730,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      // Load tab from URL — use hash in file:// mode (Electron packaged builds)
+      // Load tab from URL — use hash in file:// mode (packaged desktop builds)
       const navPath =
         window.location.protocol === "file:"
           ? window.location.hash.replace(/^#/, "") || "/"
@@ -5412,7 +5772,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     void initApp();
 
-    // Navigation listener — use hashchange in file:// mode (Electron packaged builds)
+    // Navigation listener — use hashchange in file:// mode (packaged desktop builds)
     const isFileProtocol = window.location.protocol === "file:";
     const handleNavChange = () => {
       const navPath = isFileProtocol
@@ -5515,6 +5875,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingComplete,
     onboardingLoading,
     startupPhase,
+    startupStatus,
     startupError,
     authRequired,
     actionNotice,
@@ -5672,6 +6033,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     importError,
     importSuccess,
     onboardingStep,
+    onboardingMode,
+    onboardingActiveGuide,
+    onboardingDeferredTasks,
+    postOnboardingChecklistDismissed,
     onboardingOptions,
     onboardingName,
     onboardingOwnerName,
@@ -5682,6 +6047,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onboardingLargeModel,
     onboardingProvider,
     onboardingApiKey,
+    onboardingDetectedProviders,
     onboardingRemoteApiBase,
     onboardingRemoteToken,
     onboardingRemoteConnecting,
@@ -5751,7 +6117,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleReset,
     retryStartup,
     dismissRestartBanner,
+    showRestartBanner,
     triggerRestart,
+    relaunchDesktop,
     dismissBackendDisconnectedBanner,
     retryBackendConnection,
     restartBackend,

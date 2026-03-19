@@ -372,7 +372,7 @@ describe("CompanionView", () => {
 
     expect(tree).not.toBeNull();
     const root = tree?.root.findByProps({
-      "data-testid": "companion-root",
+      "data-testid": "companion-camera-drag-surface",
     });
     const currentTarget = {
       setPointerCapture: vi.fn(),
@@ -441,7 +441,7 @@ describe("CompanionView", () => {
     setDragOrbitTarget.mockClear();
 
     const root = tree?.root.findByProps({
-      "data-testid": "companion-root",
+      "data-testid": "companion-camera-drag-surface",
     });
     const currentTarget = {
       setPointerCapture: vi.fn(),
@@ -501,7 +501,7 @@ describe("CompanionView", () => {
 
     expect(tree).not.toBeNull();
     const root = tree?.root.findByProps({
-      "data-testid": "companion-root",
+      "data-testid": "companion-camera-drag-surface",
     });
     const preventDefault = vi.fn();
 
@@ -548,7 +548,7 @@ describe("CompanionView", () => {
     setCompanionZoomNormalized.mockClear();
 
     const root = tree?.root.findByProps({
-      "data-testid": "companion-root",
+      "data-testid": "companion-camera-drag-surface",
     });
     const focusedTextEntry = document.createElement("textarea");
     Object.defineProperty(document, "activeElement", {
@@ -603,7 +603,7 @@ describe("CompanionView", () => {
     });
 
     const root = tree?.root.findByProps({
-      "data-testid": "companion-root",
+      "data-testid": "companion-camera-drag-surface",
     });
 
     await act(async () => {

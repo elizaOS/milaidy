@@ -54,7 +54,7 @@ export type { StreamRouteState } from "./stream-route-state";
  *
  * Frames arrive via POST /api/stream/frame from:
  *  - Electrobun screencapture module (JS canvas → JPEG)
- *  - Electron screencapture module (capturePage → JPEG)
+ *  - Legacy desktop screencapture bridges
  *  - Any client POSTing raw JPEG bytes
  */
 const MJPEG_BOUNDARY = "miladyframe";
@@ -168,7 +168,7 @@ function writeRouteStreamSettings(settings: {
  *
  * Priority:
  * 1. STREAM_MODE / RETAKE_STREAM_MODE env var (explicit override)
- * 2. Electron -> "pipe" (capturePage -> POST /api/stream/frame -> FFmpeg stdin)
+ * 2. Desktop screen capture bridge -> "pipe" (POST /api/stream/frame -> FFmpeg stdin)
  * 3. Linux with DISPLAY or Xvfb -> "x11grab" (Hyperscape approach)
  * 4. macOS -> "avfoundation" (native screen capture)
  * 5. Fallback -> "file" (Puppeteer CDP -> temp JPEG -> FFmpeg)
@@ -182,8 +182,10 @@ export function detectCaptureMode(): StreamConfig["inputMode"] {
     return "avfoundation";
   if (explicit === "file") return "file";
 
-  // Electron -> pipe mode
-  if (process.versions.electron) return "pipe";
+  // Desktop bridge -> pipe mode
+  if ("__miladyScreenCapture" in (globalThis as Record<string, unknown>)) {
+    return "pipe";
+  }
 
   // Linux with a display -> x11grab (Xvfb or native X11)
   if (process.platform === "linux" && process.env.DISPLAY) return "x11grab";
@@ -323,15 +325,15 @@ async function startStreamPipeline(
 
   switch (mode) {
     case "pipe": {
-      // Electron UI mode: FFmpeg reads frames from stdin via writeFrame().
-      logger.info("[stream] Capture mode: pipe (Electron UI)");
+      // Desktop UI mode: FFmpeg reads frames from stdin via writeFrame().
+      logger.info("[stream] Capture mode: pipe (desktop UI)");
       await state.streamManager.start({
         ...baseConfig,
         inputMode: "pipe",
         framerate: 15,
       });
 
-      // Auto-start Electron frame capture so the UI is streamed without
+      // Auto-start desktop frame capture so the UI is streamed without
       // requiring a manual button click in the renderer.
       if (state.screenCapture && !state.screenCapture.isFrameCaptureActive()) {
         try {
@@ -352,7 +354,7 @@ async function startStreamPipeline(
             captureOpts.gameUrl = state.activeStreamSource.url;
           }
           await state.screenCapture.startFrameCapture(captureOpts);
-          logger.info("[stream] Auto-started Electron frame capture");
+          logger.info("[stream] Auto-started desktop frame capture");
         } catch (err) {
           logger.warn(`[stream] Failed to auto-start frame capture: ${err}`);
         }

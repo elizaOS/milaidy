@@ -9,6 +9,7 @@ import { getProviderLogo } from "@miladyai/app-core/providers";
 import { useApp } from "@miladyai/app-core/state";
 import { openExternalUrl } from "@miladyai/app-core/utils";
 import { useState } from "react";
+import { FlaminaGuideCard } from "../FlaminaGuide";
 
 function formatRequestError(err: unknown): string {
   if (err instanceof Error) {
@@ -21,10 +22,13 @@ export function ConnectionStep() {
   const {
     onboardingOptions,
     onboardingRunMode,
+    onboardingMode,
+    onboardingActiveGuide,
     onboardingCloudProvider,
     onboardingProvider,
     onboardingSubscriptionTab,
     onboardingApiKey,
+    onboardingDetectedProviders,
     onboardingRemoteApiBase,
     onboardingRemoteToken,
     onboardingRemoteConnecting,
@@ -196,6 +200,9 @@ export function ConnectionStep() {
 
   const handleSelectLocalHosting = () => {
     setState("onboardingRunMode", "local");
+    if (onboardingMode === "advanced") {
+      setState("onboardingActiveGuide", "provider");
+    }
     setState("onboardingCloudProvider", "");
     setState("onboardingRemoteError", null);
     setState("onboardingRemoteConnecting", false);
@@ -203,6 +210,9 @@ export function ConnectionStep() {
 
   const handleSelectCloudHosting = () => {
     setState("onboardingRunMode", "cloud");
+    if (onboardingMode === "advanced") {
+      setState("onboardingActiveGuide", "provider");
+    }
     setState("onboardingProvider", "");
     setState("onboardingApiKey", "");
     setState("onboardingPrimaryModel", "");
@@ -228,6 +238,20 @@ export function ConnectionStep() {
     resetCloudSelection();
   };
 
+  const detectedByProviderId = new Map(
+    (onboardingDetectedProviders ?? []).map((d) => [d.id, d]),
+  );
+
+  const getDetectedLabel = (providerId: string): string | null => {
+    const d = detectedByProviderId.get(providerId);
+    if (!d) return null;
+    if (d.source === "codex-auth") return "Detected from Codex";
+    if (d.source === "claude-credentials") return "Detected from Claude Code";
+    if (d.source === "keychain") return "Detected from Keychain";
+    if (d.source === "env") return "Detected from env";
+    return "Auto-detected";
+  };
+
   const availableProviders = providers;
   const recommendedProviders = availableProviders.filter((p: ProviderOption) =>
     recommendedIds.has(p.id),
@@ -236,6 +260,7 @@ export function ConnectionStep() {
     (p: ProviderOption) => !recommendedIds.has(p.id),
   );
   const sortedProviders = [...recommendedProviders, ...otherProviders];
+  const recommendedProvider = sortedProviders[0] ?? null;
 
   const piAiModels = onboardingOptions?.piAiModels ?? [];
   const piAiDefaultModel = onboardingOptions?.piAiDefaultModel ?? "";
@@ -252,7 +277,9 @@ export function ConnectionStep() {
 
   const handleProviderSelect = (providerId: string) => {
     setState("onboardingProvider", providerId);
-    setState("onboardingApiKey", "");
+    // Auto-fill API key from detected credentials if available
+    const detected = detectedByProviderId.get(providerId);
+    setState("onboardingApiKey", detected?.apiKey ?? "");
     setState("onboardingPrimaryModel", "");
     if (providerId === "anthropic-subscription") {
       setState("onboardingSubscriptionTab", "token");
@@ -272,6 +299,42 @@ export function ConnectionStep() {
           <div className="onboarding-question">
             {t("onboarding.hostingQuestion")}
           </div>
+          <div className="mb-4 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors ${
+                onboardingMode === "basic"
+                  ? "border-accent/40 bg-accent/10 text-txt"
+                  : "border-border/60 bg-card/30 text-muted hover:text-txt"
+              }`}
+              onClick={() => {
+                setState("onboardingMode", "basic");
+                setState("onboardingActiveGuide", null);
+              }}
+            >
+              Fast setup
+            </button>
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors ${
+                onboardingMode === "advanced"
+                  ? "border-accent/40 bg-accent/10 text-txt"
+                  : "border-border/60 bg-card/30 text-muted hover:text-txt"
+              }`}
+              onClick={() => {
+                setState("onboardingMode", "advanced");
+                setState("onboardingActiveGuide", "provider");
+              }}
+            >
+              Advanced configuration
+            </button>
+          </div>
+          {onboardingMode === "advanced" && (
+            <FlaminaGuideCard
+              topic={onboardingActiveGuide ?? "provider"}
+              className="mb-4"
+            />
+          )}
           <div className="onboarding-provider-grid">
             {!isNative && (
               <button
@@ -701,15 +764,33 @@ export function ConnectionStep() {
         <div className="onboarding-question">
           {t("onboarding.chooseProvider")}
         </div>
+        {onboardingMode === "advanced" && (
+          <FlaminaGuideCard topic="provider" className="mb-4" />
+        )}
+        {onboardingMode === "basic" && recommendedProvider && (
+          <div className="mb-4 flex justify-center">
+            <button
+              type="button"
+              className="onboarding-confirm-btn"
+              onClick={() => {
+                handleProviderSelect(recommendedProvider.id);
+                void handleOnboardingNext();
+              }}
+            >
+              Use recommended and continue
+            </button>
+          </div>
+        )}
         <div className="onboarding-provider-grid">
           {sortedProviders.map((p: ProviderOption) => {
             const display = getProviderDisplay(p);
             const isRecommended = recommendedIds.has(p.id);
+            const detectedLabel = getDetectedLabel(p.id);
             return (
               <button
                 type="button"
                 key={p.id}
-                className={`onboarding-provider-card${isRecommended ? " onboarding-provider-card--recommended" : ""}`}
+                className={`onboarding-provider-card${isRecommended ? " onboarding-provider-card--recommended" : ""}${detectedLabel ? " onboarding-provider-card--detected" : ""}`}
                 onClick={() => handleProviderSelect(p.id)}
               >
                 <img
@@ -725,7 +806,12 @@ export function ConnectionStep() {
                     </div>
                   )}
                 </div>
-                {isRecommended && (
+                {detectedLabel && (
+                  <span className="onboarding-provider-badge onboarding-provider-badge--detected">
+                    {detectedLabel}
+                  </span>
+                )}
+                {isRecommended && !detectedLabel && (
                   <span className="onboarding-provider-badge">
                     {t("onboarding.recommended") ?? "Recommended"}
                   </span>
@@ -797,6 +883,9 @@ export function ConnectionStep() {
       <div className="onboarding-divider">
         <div className="onboarding-divider-diamond" />
       </div>
+      {onboardingMode === "advanced" && (
+        <FlaminaGuideCard topic="provider" className="mb-4" />
+      )}
 
       {/* elizacloud */}
       {onboardingProvider === "elizacloud" && (
