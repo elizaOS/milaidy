@@ -1,19 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme inline {
-  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "DM Sans", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", "Courier New", monospace;
+  --font-display: "DM Sans", "Helvetica Neue", Arial, sans-serif;
 
-  --color-dark: #000000;
-  --color-dark-secondary: #0a0a0a;
+  --color-dark: #0c0c0e;
+  --color-dark-secondary: #121214;
   --color-light: #f5f5f5;
-  --color-brand: #f0b90b;
+  --color-brand: #F0B90B;
   --color-brand-hover: #d4a30a;
-  --color-accent: #0b35f1;
-  --color-text-light: #ffffff;
-  --color-text-dark: #000000;
-  --color-text-muted: #9ca3af;
+  --color-accent: #FCD535;
+  --color-text-light: #ececf0;
+  --color-text-dark: #0c0c0e;
+  --color-text-muted: #7c7c8a;
+  --color-surface: #18181c;
+  --color-border: #2a2a30;
 }
 
 html {
@@ -28,24 +32,30 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-@keyframes marquee {
-  0% {
-    transform: translateX(0%);
+/* Smooth fade-in for page content */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
-
-  100% {
-    transform: translateX(-100%);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-@keyframes marquee-vertical {
-  0% {
-    transform: translateY(0%);
-  }
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}
 
-  100% {
-    transform: translateY(-100%);
-  }
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes marquee-vertical {
+  0% { transform: translateY(0%); }
+  100% { transform: translateY(-100%); }
 }
 
 .animate-marquee {
@@ -102,15 +112,13 @@ body {
   background: #333;
 }
 
-/* Peekaboo — all animation driven by inline styles in Comparison.tsx */
-
 /* ── Version Clock ─────────────────────────────────────────────── */
 
 .version-clock {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "JetBrains Mono", "Cascadia Code", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -130,13 +138,8 @@ body {
 }
 
 @keyframes clock-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.2;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
 }
 
 /* ── Hero Download Dock ──────────────────────────────────────────── */
@@ -319,14 +322,10 @@ body {
 }
 
 @media (min-width: 640px) {
-  .download-icons {
-    gap: 20px;
-  }
+  .download-icons { gap: 20px; }
 }
 
-.download-icons li {
-  margin: 0;
-}
+.download-icons li { margin: 0; }
 
 .download-icons .download {
   display: flex;
@@ -346,10 +345,7 @@ body {
 }
 
 @media (min-width: 640px) {
-  .download-icons .download {
-    width: 56px;
-    height: 56px;
-  }
+  .download-icons .download { width: 56px; height: 56px; }
 }
 
 .download-icons .download i {
@@ -358,9 +354,7 @@ body {
 }
 
 @media (min-width: 640px) {
-  .download-icons .download i {
-    font-size: 22px;
-  }
+  .download-icons .download i { font-size: 22px; }
 }
 
 .download-icons .download .df,
@@ -387,10 +381,7 @@ body {
 }
 
 @media (min-width: 640px) {
-  .download-icons .download:hover {
-    min-width: 56px;
-    padding: 6px 14px;
-  }
+  .download-icons .download:hover { min-width: 56px; padding: 6px 14px; }
 }
 
 .download-icons .download:hover i {
@@ -428,4 +419,33 @@ body {
 .download-icons .download.is-disabled:hover .df,
 .download-icons .download.is-disabled:hover .dfn {
   color: var(--color-brand);
+}
+
+/* ── Dashboard Specific ──────────────────────────────────────────── */
+
+/* Subtle shimmer for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    #222228 40%,
+    var(--color-surface) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* Status dot pulse */
+@keyframes status-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50% { box-shadow: 0 0 0 4px transparent; }
+}
+
+.status-dot-pulse {
+  animation: status-pulse 2s ease-in-out infinite;
 }
