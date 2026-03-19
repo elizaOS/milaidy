@@ -89,6 +89,10 @@ The Windows desktop app no longer crashes on startup due to an embedding initial
 - Voice defaults are now consistent — `autoSpeak` no longer appears enabled while voice is off
 - Oversized voice API requests are properly rejected with a 413 error
 - Performance improved for LLM turns and streaming by eliminating redundant sorting and string allocations
+- Character saves no longer fail when voice configuration cannot be saved
+- Server startup now detects and kills stale processes holding the default port, preventing indefinite hangs
+- Desktop app correctly discovers plugins in packaged builds, resolving silent startup failures on Windows
+- API server errors are now surfaced to stderr in desktop mode for easier troubleshooting
 </Update>
 
 <Update label="2026-03-13" description="Week of March 8–13" tags={["Feature", "Security", "Fix"]}>
