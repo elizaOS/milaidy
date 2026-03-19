@@ -327,7 +327,10 @@ export class FalImageProvider implements ImageGenerationProvider {
   private baseUrl: string;
 
   constructor(config: NonNullable<ImageConfig["fal"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "fal-ai/flux-pro";
     this.baseUrl = config.baseUrl ?? "https://fal.run";
   }
@@ -379,7 +382,10 @@ export class FalVideoProvider implements VideoGenerationProvider {
   private baseUrl: string;
 
   constructor(config: NonNullable<VideoConfig["fal"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "fal-ai/minimax-video";
     this.baseUrl = config.baseUrl ?? "https://fal.run";
   }
@@ -435,7 +441,10 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
   private style: "natural" | "vivid";
 
   constructor(config: NonNullable<ImageConfig["openai"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "dall-e-3";
     this.quality = config.quality ?? "standard";
     this.style = config.style ?? "vivid";
@@ -492,7 +501,10 @@ export class OpenAIVideoProvider implements VideoGenerationProvider {
   private model: string;
 
   constructor(config: NonNullable<VideoConfig["openai"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "sora-1.0-turbo";
   }
 
@@ -549,7 +561,10 @@ export class OpenAIVisionProvider implements VisionAnalysisProvider {
   private maxTokens: number;
 
   constructor(config: NonNullable<VisionConfig["openai"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "gpt-4o";
     this.maxTokens = config.maxTokens ?? 1024;
   }
@@ -622,7 +637,10 @@ export class GoogleImageProvider implements ImageGenerationProvider {
   private aspectRatio: string;
 
   constructor(config: NonNullable<ImageConfig["google"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "imagen-3.0-generate-002";
     this.aspectRatio = config.aspectRatio ?? "1:1";
   }
@@ -678,7 +696,10 @@ export class GoogleVideoProvider implements VideoGenerationProvider {
   private model: string;
 
   constructor(config: NonNullable<VideoConfig["google"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "veo-2.0-generate-001";
   }
 
@@ -753,7 +774,10 @@ export class GoogleVisionProvider implements VisionAnalysisProvider {
   private model: string;
 
   constructor(config: NonNullable<VisionConfig["google"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "gemini-2.0-flash";
   }
 
@@ -815,7 +839,10 @@ export class XAIImageProvider implements ImageGenerationProvider {
   private model: string;
 
   constructor(config: NonNullable<ImageConfig["xai"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "grok-2-image";
   }
 
@@ -867,7 +894,10 @@ export class XAIVisionProvider implements VisionAnalysisProvider {
   private model: string;
 
   constructor(config: NonNullable<VisionConfig["xai"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "grok-2-vision-1212";
   }
 
@@ -1102,7 +1132,10 @@ export class AnthropicVisionProvider implements VisionAnalysisProvider {
   private model: string;
 
   constructor(config: NonNullable<VisionConfig["anthropic"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "claude-sonnet-4-20250514";
   }
 
@@ -1176,7 +1209,10 @@ export class SunoAudioProvider implements AudioGenerationProvider {
   private baseUrl: string;
 
   constructor(config: NonNullable<AudioGenConfig["suno"]>) {
-    this.apiKey = config.apiKey ?? "";
+    if (!config.apiKey) {
+      throw new Error(`${this.name} API key is required`);
+    }
+    this.apiKey = config.apiKey;
     this.model = config.model ?? "chirp-v3.5";
     this.baseUrl = config.baseUrl ?? "https://api.suno.ai/v1";
   }
