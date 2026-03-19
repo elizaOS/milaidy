@@ -29,7 +29,7 @@
 # What this does:
 #   1. Patches apps/app/vite.config.ts to resolve @elizaos/* from node_modules
 #      (the committed config points to Shaw's local ../eliza/ submodule)
-#   2. Runs bun install --ignore-scripts
+#   2. Runs bun install --frozen-lockfile --ignore-scripts
 #   3. Runs npx tsdown to compile TypeScript → dist/
 #   4. Builds the Vite UI → apps/app/dist/
 #   5. Reverts the vite.config.ts patch (git checkout)
@@ -224,8 +224,8 @@ trap cleanup EXIT
 hdr "Step 2: Install dependencies"
 
 if $DO_INSTALL; then
-  log "Running bun install --ignore-scripts..."
-  run "NODE_LLAMA_CPP_SKIP_DOWNLOAD=true bun install --ignore-scripts 2>&1 | tail -10"
+  log "Running bun install --frozen-lockfile --ignore-scripts..."
+  run "NODE_LLAMA_CPP_SKIP_DOWNLOAD=true bun install --frozen-lockfile --ignore-scripts 2>&1 | tail -10"
   ok "Dependencies installed"
 else
   warn "Skipping bun install (--no-install)"

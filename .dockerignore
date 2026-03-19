@@ -9,6 +9,11 @@
 .vscode
 .idea
 
+# Local dependency trees / caches
+node_modules/
+**/node_modules/
+.bun/
+
 # Previous build artifacts
 dist/
 

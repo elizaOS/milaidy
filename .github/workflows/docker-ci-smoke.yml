@@ -1,0 +1,61 @@
+name: Docker CI Smoke
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-ci-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  docker-ci-smoke:
+    name: Build production Docker image (+ smoke boot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      BUN_VERSION: "1.3.9"
+      DOCKER_IMAGE: miladyai/agent:docker-smoke
+      SMOKE_TIMEOUT_SEC: "180"
+      SMOKE_PORT: "32138"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Run Docker CI smoke path
+        run: bash scripts/docker-ci-smoke.sh --tag gha-${{ github.run_id }}
+
+      - name: Summarize Docker smoke result
+        if: always()
+        run: |
+          echo "## Docker CI Smoke" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Production Dockerfile: \`Dockerfile.ci\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Script: \`scripts/docker-ci-smoke.sh\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trigger: \`${{ github.event_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ref: \`${{ github.ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Smoke endpoints: \`/api/health\` then fallback \`/api/status\`" >> "$GITHUB_STEP_SUMMARY"
