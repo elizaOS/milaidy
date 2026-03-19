@@ -3,6 +3,38 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-05-21" description="Week of May 15–21" tags={["Feature", "Update"]}>
+## Autonomous mode
+
+Your agent can now reason and act on its own between conversations. When autonomous mode is enabled, the agent runs a continuous loop — observing its environment, making decisions, and executing actions without waiting for your input. Use it for background monitoring, proactive messaging, or any workflow where the agent should act independently. Toggle it from the dashboard or via the REST API. See the [autonomous mode guide](/guides/autonomous-mode) for details.
+
+## Triggers and scheduled tasks
+
+You can now schedule tasks that wake your agent at defined times or intervals. Three trigger types are available: recurring intervals, one-time future tasks, and cron expressions. Create triggers from the dashboard, the REST API, or by asking your agent in chat — it extracts the schedule from natural language. Triggers survive restarts and include built-in health metrics. See the [triggers guide](/guides/triggers) for details.
+
+## Talk mode
+
+Full voice conversations are now available on the desktop app. Talk mode combines offline speech-to-text via Whisper.cpp, streaming text-to-speech via ElevenLabs (with system TTS fallback), and voice activity detection into a hands-free loop — you speak, the agent listens, thinks, and responds aloud. Configure Whisper model size, VAD sensitivity, and TTS provider from [dashboard settings](/apps/dashboard/talk-mode).
+
+## Local model support
+
+Run AI models entirely on your machine with no cloud dependency. Milady can download and cache models from HuggingFace or pull them via Ollama for vision, text generation, TTS, speech-to-text, and embeddings. Choose from models like Llama 3.2, Whisper, BLIP, Parler TTS, and MiniLM — managed through the CLI or the REST API. See the [local models guide](/guides/local-models) for details.
+
+## Chrome extension for browser control
+
+The Milady Browser Relay Chrome extension lets your agent control browser tabs via the Chrome DevTools Protocol. Your agent can read page content, execute JavaScript, navigate URLs, capture screenshots, and observe network requests — all in real time over a WebSocket connection. Install from source with the CLI or manually. See the [Chrome extension guide](/apps/chrome-extension) for details.
+
+## Mobile app (iOS and Android)
+
+The full Milady dashboard is now available on iOS and Android. The Capacitor-based app runs inside a native WebView with access to device hardware — camera, microphone, haptics, and push notifications. Available through the App Store, Google Play, and TestFlight. See the [mobile app guide](/apps/mobile) for details.
+
+## Updates
+
+- **Step-by-step tutorials** — Three new tutorials walk you through building a [Discord bot](/guides/tutorial-discord-bot), a [Telegram bot](/guides/tutorial-telegram-bot), and an [autonomous agent](/guides/tutorial-autonomous-agent) from scratch.
+- **Learning paths** — A new [learning paths](/guides/learning-paths) page organizes guides by role and experience level, so you can find the right starting point whether you're a first-time user, a plugin developer, or deploying to production.
+- **Plugin development docs** — Comprehensive guides now cover the full plugin lifecycle: [architecture](/plugins/architecture), [creating a plugin](/plugins/create-a-plugin), [development](/plugins/development), [testing](/plugins/testing), [patterns](/plugins/patterns), and [publishing](/plugins/publish).
+</Update>
+
 <Update label="2026-05-14" description="Week of May 8–14" tags={["Feature", "Update"]}>
 ## Sandbox live monitor
 
