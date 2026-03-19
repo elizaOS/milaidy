@@ -97,6 +97,9 @@ export class WhatsAppBaileysService extends Service {
   private reconnectDelay = 3000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private saveCreds: (() => Promise<void>) | null = null;
+  private credsHandler?: () => Promise<void>;
+  private connectionHandler?: (update: Record<string, unknown>) => void;
+  private messagesHandler?: (data: Record<string, unknown>) => void;
 
   // -- ServiceClass static interface -----------------------------------------
 
@@ -162,9 +165,10 @@ export class WhatsAppBaileysService extends Service {
         browser: ["Milady AI", "Desktop", "1.0.0"],
       });
 
-      this.sock.ev.on("creds.update", saveCreds);
+      this.credsHandler = saveCreds;
+      this.sock.ev.on("creds.update", this.credsHandler);
 
-      this.sock.ev.on("connection.update", async (update) => {
+      this.connectionHandler = async (update: Record<string, unknown>) => {
         const { connection, lastDisconnect } = update;
 
         if (connection === "open") {
@@ -227,13 +231,14 @@ export class WhatsAppBaileysService extends Service {
             }, delay);
           }
         }
-      });
+      };
+      this.sock.ev.on("connection.update", this.connectionHandler);
 
       // Inbound messages
-      this.sock.ev.on("messages.upsert", async ({ messages, type }) => {
+      this.messagesHandler = async ({ messages, type }: Record<string, unknown>) => {
         if (type !== "notify") return;
 
-        for (const msg of messages) {
+        for (const msg of messages as unknown[]) {
           try {
             await this.handleIncomingMessage(
               msg as unknown as Record<string, unknown>,
@@ -244,7 +249,8 @@ export class WhatsAppBaileysService extends Service {
             );
           }
         }
-      });
+      };
+      this.sock.ev.on("messages.upsert", this.messagesHandler);
     };
 
     await connect();
@@ -275,6 +281,15 @@ export class WhatsAppBaileysService extends Service {
         );
       }
     }
+    // Unregister event listeners to prevent leaks
+    if (this.sock) {
+      if (this.credsHandler) this.sock.ev.off("creds.update", this.credsHandler);
+      if (this.connectionHandler) this.sock.ev.off("connection.update", this.connectionHandler);
+      if (this.messagesHandler) this.sock.ev.off("messages.upsert", this.messagesHandler);
+    }
+    this.credsHandler = undefined;
+    this.connectionHandler = undefined;
+    this.messagesHandler = undefined;
     try {
       this.sock?.end(undefined);
     } catch {
