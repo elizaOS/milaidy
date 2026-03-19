@@ -102,7 +102,7 @@ export function CharacterRoster({
               >
                 {isSelected && (
                   <div
-                    className="pointer-events-none absolute -inset-3 bg-yellow-300/15 blur-xl"
+                    className="ce-roster-card-glow"
                     style={{ clipPath: SLANT_CLIP }}
                   />
                 )}
