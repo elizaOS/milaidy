@@ -3,6 +3,51 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-04-02" description="Week of March 27 – April 2" tags={["Feature", "Update", "Fix"]}>
+## Opinion markets plugin
+
+You can now trade on prediction markets directly from your agent. The new opinion markets plugin supports placing bets, checking positions, canceling orders, and redeeming winnings — all through chat actions or the REST API. Real-time market data streams via WebSocket so your agent can react to price changes as they happen.
+
+## Multi-destination live streaming
+
+Streaming now supports multiple simultaneous destinations. You can broadcast to [pump.fun](https://pump.fun), X/Twitter, and any custom RTMP target at the same time, and switch active destinations at runtime without restarting the stream. See the [stream guide](/dashboard/stream) for setup details.
+
+## Coding agent settings
+
+A new Coding Agents section in [Settings](/apps/dashboard/settings) lets you configure agent selection strategy, default agent type, permission level, and per-agent model preferences. The swarm coordinator uses these preferences when routing tasks to agents. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Granular cloud service toggles
+
+You can now enable or disable individual [cloud services](/guides/cloud) independently — inference, RPC, media, TTS, and embeddings each have their own toggle. Switching your model provider away from cloud no longer disconnects RPC and other services you still want to use.
+
+## Companion internationalization
+
+The [companion view](/apps/desktop) now supports English and Chinese (zh-CN) with full localization. Plugin logos for installed plugins also appear in the companion sidebar.
+
+## Windows standalone installer
+
+Windows users now get a proper standalone installer built with Inno Setup, replacing the previous manual setup process. Download the `.exe` installer from the [latest release](https://github.com/milady-ai/milady/releases/latest) and run it to install Milady with a standard Windows setup experience.
+
+## Health endpoint and crash recovery
+
+A new `GET /api/health` endpoint returns structured status for every subsystem — runtime, database, plugins, coordinator, connectors, and uptime. The dashboard shows a connection-failed banner with a retry button when the server is unreachable, and a React error boundary prevents full white-screen crashes. See the [API reference](/api-reference) for endpoint details.
+
+## Coding agent always loaded
+
+The coding agent plugin is now pre-registered as a core plugin, so it loads automatically on every startup. You no longer need to manually enable it.
+
+## Bug fixes
+
+- Intel Mac desktop app no longer crashes on startup — the x64 build now correctly targets Intel architecture
+- Plugin resolution errors that silently blocked server startup on Windows are fixed
+- Coding agent compatibility issue with Bun runtime is resolved — the plugin now loads correctly regardless of runtime
+- Credit exhaustion from model providers is now detected and surfaced clearly in the dashboard
+- Knowledge service retries automatically with exponential backoff when temporarily unavailable, instead of failing silently
+- System warning banners now appear in the dashboard when a connector disconnects or the coordinator reports issues, and auto-dismiss after 20 seconds
+- Desktop app startup errors now keep the API server running so you can see the actual error message instead of a generic failure
+- NFA endpoints return graceful empty responses when the BNB identity plugin is not installed, instead of throwing errors
+</Update>
+
 <Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
 ## API key validation for model providers
 
