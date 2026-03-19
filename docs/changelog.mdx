@@ -91,6 +91,46 @@ Default workspace boilerplate files are no longer injected into every prompt —
 - API server errors are now surfaced to stderr in desktop mode for easier troubleshooting
 </Update>
 
+<Update label="2026-03-07" description="Week of March 1–7" tags={["Feature", "Update", "Fix"]}>
+## Companion wallet trading panel
+
+The companion view now includes a full trading panel. You can swap tokens on BNB Chain via PancakeSwap, send BNB and tokens with address validation, browse your multi-chain portfolio, view NFT collectibles, and check P&L analytics — all without leaving the companion. See the [wallet guide](/guides/wallet) for details.
+
+## Telegram message chunking and draft-stream
+
+The Telegram connector now automatically splits long agent responses into properly chunked messages instead of truncating them. A new draft-stream mode lets you see message composition in real time as the agent generates its reply.
+
+## Agent activity box
+
+A new sticky status bar in the dashboard shows real-time activity for each coding agent session — including which tool is running, approval status, and errors. Routine status messages (auto-approvals, idle nudges, turn completions) are now filtered out of chat history so conversations stay clean on reload. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Pi AI model provider
+
+You can now use Pi AI as a model provider with streaming support. Configure it in the [model providers](/model-providers) settings alongside your existing providers.
+
+## NFA learning provenance
+
+The BNB identity plugin now supports BAP-578 NFA (Non-Fungible Agent) learning provenance. You can mint NFAs, update Merkle roots for your agent's learning history, and query NFA status — all from chat actions or the REST API. See the [wallet guide](/guides/wallet) for details.
+
+## Improved upload error messages
+
+Document uploads exceeding 32 MB now return a clear, human-readable error message explaining the limit, instead of a raw byte-limit error.
+
+## Swarm completion summaries
+
+Multi-agent coding swarm runs now produce a synthesis message when all tasks are complete, giving you a structured summary of what was accomplished across agent sessions.
+
+## Additional fixes
+
+- WhatsApp session credentials are now properly saved before disconnecting, preventing unnecessary QR re-scans on restart
+- Model provider dropdown no longer defaults to the wrong provider on page load — your saved choice is respected
+- System warning banners auto-dismiss after 20 seconds and no longer permanently cover the navigation bar
+- Stale database lock files from crashed processes are automatically cleaned up on restart, preventing data loss
+- Model provider detection now prioritizes your explicit configuration over auto-detected plugins
+- Terminal output no longer flashes or scrolls from the top when resuming a session
+- Triggers no longer fire during agent restart, preventing once-only triggers from being consumed without executing
+</Update>
+
 <Update label="2026-03-13" description="Week of March 8–13" tags={["Feature", "Security", "Fix"]}>
 ## Game-style onboarding redesign
 
