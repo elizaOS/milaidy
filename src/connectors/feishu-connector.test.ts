@@ -91,14 +91,6 @@ describe("Feishu Connector - Protocol Constraints", () => {
     expect(appIdPattern.test("")).toBe(false);
   });
 
-  it("API domain options are valid", () => {
-    const validDomains = ["feishu.cn", "larksuite.com"] as const;
-
-    expect(validDomains).toContain("feishu.cn");
-    expect(validDomains).toContain("larksuite.com");
-    expect(validDomains).toHaveLength(2);
-  });
-
   it("API base URL format follows domain pattern", () => {
     const apiBasePattern =
       /^https:\/\/open\.(feishu\.cn|larksuite\.com)\/open-apis$/;
@@ -123,38 +115,13 @@ describe("Feishu Connector - Protocol Constraints", () => {
     expect(chatIdPattern.test("")).toBe(false);
   });
 
-  it("message types are valid", () => {
-    const messageTypes = [
-      "text",
-      "post",
-      "image",
-      "interactive",
-      "share_chat",
-      "share_user",
-    ] as const;
-
-    expect(messageTypes).toContain("text");
-    expect(messageTypes).toContain("post");
-    expect(messageTypes).toContain("image");
-    expect(messageTypes).toContain("interactive");
-    expect(messageTypes).toContain("share_chat");
-    expect(messageTypes).toContain("share_user");
-    expect(messageTypes).toHaveLength(6);
-  });
-
-  it("event types are valid", () => {
+  it("event types use im. namespace prefix", () => {
     const eventTypes = [
       "im.message.receive_v1",
       "im.message.message_read_v1",
       "im.chat.member.bot.added_v1",
       "im.chat.member.bot.deleted_v1",
-    ] as const;
-
-    expect(eventTypes).toContain("im.message.receive_v1");
-    expect(eventTypes).toContain("im.message.message_read_v1");
-    expect(eventTypes).toContain("im.chat.member.bot.added_v1");
-    expect(eventTypes).toContain("im.chat.member.bot.deleted_v1");
-    expect(eventTypes).toHaveLength(4);
+    ];
 
     for (const eventType of eventTypes) {
       expect(eventType).toMatch(/^im\./);
@@ -167,29 +134,7 @@ describe("Feishu Connector - Protocol Constraints", () => {
 // ============================================================================
 
 describe("Feishu Connector - Configuration", () => {
-  it("validates basic Feishu configuration structure", () => {
-    const validConfig = {
-      enabled: true,
-      appId: "cli_a1b2c3d4e5f6",
-      appSecret: "secret123",
-      domain: "feishu.cn",
-    };
-
-    expect(validConfig.enabled).toBe(true);
-    expect(validConfig.appId).toBeDefined();
-    expect(validConfig.appSecret).toBeDefined();
-    expect(validConfig.domain).toBe("feishu.cn");
-  });
-
-  it("validates domain options", () => {
-    const validDomains = ["feishu.cn", "larksuite.com"];
-
-    expect(validDomains).toContain("feishu.cn");
-    expect(validDomains).toContain("larksuite.com");
-    expect(validDomains).toHaveLength(2);
-  });
-
-  it("validates allowed chats list parsing from JSON array", () => {
+  it("parses allowed chats from JSON array string", () => {
     const jsonStr = '["oc_chat1","oc_chat2"]';
     const parsed = JSON.parse(jsonStr) as string[];
 
@@ -198,94 +143,8 @@ describe("Feishu Connector - Configuration", () => {
     expect(parsed).toContain("oc_chat2");
   });
 
-  it("validates single chat in allowed list", () => {
-    const jsonStr = '["oc_chat1"]';
-    const parsed = JSON.parse(jsonStr) as string[];
-
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0]).toBe("oc_chat1");
-  });
-
-  it("validates optional config fields", () => {
-    const fullConfig = {
-      enabled: true,
-      appId: "cli_a1b2c3d4e5f6",
-      appSecret: "secret123",
-      domain: "feishu.cn",
-      allowedChats: ["oc_chat1", "oc_chat2"],
-      testChatId: "oc_testchat",
-    };
-
-    expect(fullConfig.allowedChats).toHaveLength(2);
-    expect(fullConfig.testChatId).toBe("oc_testchat");
-    expect(fullConfig.domain).toBe("feishu.cn");
-  });
-
-  it("validates invalid JSON for allowed chats is detectable", () => {
+  it("detects invalid JSON for allowed chats", () => {
     const invalidJSON = "not-valid-json";
-    let parseError = false;
-    try {
-      JSON.parse(invalidJSON);
-    } catch {
-      parseError = true;
-    }
-    expect(parseError).toBe(true);
-  });
-});
-
-// ============================================================================
-//  4. Environment Variables
-// ============================================================================
-
-describe("Feishu Connector - Environment Variables", () => {
-  it("recognizes FEISHU_APP_ID environment variable", () => {
-    const envKey = "FEISHU_APP_ID";
-    expect(envKey).toBe("FEISHU_APP_ID");
-  });
-
-  it("recognizes FEISHU_APP_SECRET environment variable", () => {
-    const envKey = "FEISHU_APP_SECRET";
-    expect(envKey).toBe("FEISHU_APP_SECRET");
-  });
-
-  it("recognizes FEISHU_DOMAIN environment variable", () => {
-    const envKey = "FEISHU_DOMAIN";
-    expect(envKey).toBe("FEISHU_DOMAIN");
-  });
-
-  it("recognizes optional environment variables", () => {
-    const optionalKeys = ["FEISHU_ALLOWED_CHATS", "FEISHU_TEST_CHAT_ID"];
-
-    for (const key of optionalKeys) {
-      expect(key).toMatch(/^FEISHU_/);
-    }
-    expect(optionalKeys).toHaveLength(2);
-  });
-
-  it("all environment variables start with FEISHU_ prefix", () => {
-    const allKeys = [
-      "FEISHU_APP_ID",
-      "FEISHU_APP_SECRET",
-      "FEISHU_DOMAIN",
-      "FEISHU_ALLOWED_CHATS",
-      "FEISHU_TEST_CHAT_ID",
-    ];
-
-    for (const key of allKeys) {
-      expect(key).toMatch(/^FEISHU_/);
-    }
-    expect(allKeys).toHaveLength(5);
-  });
-
-  it("validates that credentials can come from config or environment", () => {
-    const configCreds = {
-      appId: "cli_a1b2c3d4e5f6",
-      appSecret: "secret123",
-    };
-    expect(configCreds.appId).toBeDefined();
-    expect(configCreds.appSecret).toBeDefined();
-
-    const envKey = process.env.FEISHU_APP_ID;
-    expect(typeof envKey === "string" || envKey === undefined).toBe(true);
+    expect(() => JSON.parse(invalidJSON)).toThrow();
   });
 });
