@@ -6,11 +6,15 @@ description: What's new in Milady — features, improvements, and fixes.
 <Update label="2026-03-19" description="Week of March 14–19" tags={["Feature", "Security", "Fix"]}>
 ## Cloud control plane dashboard
 
-You can now manage your cloud agents directly from the Milady homepage. The new dashboard at `/#/dashboard` includes agent lifecycle controls (provision, suspend, resume, delete), snapshots and backups, credits and billing, container metrics, and log streaming — all without leaving the app. Local and remote agents are auto-discovered alongside cloud agents.
+You can now manage your cloud agents directly from the Milady homepage. The new dashboard at `/#/dashboard` includes agent lifecycle controls (provision, suspend, resume, delete), snapshots and backups, credits and billing, container metrics, and log streaming — all without leaving the app. Local and remote agents are auto-discovered alongside cloud agents. See [Cloud deployment](/deployment#cloud-agent-deployment) for details.
+
+## Cloud-first onboarding
+
+Running `milady start` for the first time now asks "Where should your agent live?" with [Eliza Cloud](/guides/cloud) as the recommended option. Choose cloud for a hosted runtime with no local setup, or local to run on your own machine. Cloud configuration is saved automatically so subsequent launches reconnect without prompting.
 
 ## Game-style notebook character editor
 
-The character editor has been redesigned as an interactive notebook UI. Sidebar tabs let you navigate between About Me, Directions, and Style Rules sections. Each section supports Core/Examples switching, and the editor works in both light and dark mode. You can now also edit character topics and the character name directly from the editor.
+The [character editor](/agents/character-interface) has been redesigned as an interactive notebook UI. Sidebar tabs let you navigate between About Me, Directions, and Style Rules sections. Each section supports Core/Examples switching, and the editor works in both light and dark mode. You can now also edit character topics and the character name directly from the editor.
 
 ## VRM wave greeting and smooth loading transitions
 
@@ -30,6 +34,18 @@ Several dashboard tabs have been rebuilt with a cleaner two-panel layout:
 
 The homepage now features platform download icons with hover labels that always link to the latest release, a typewriter hero animation, and a streamlined footer. Download links are fetched from the latest GitHub release at build time so they stay current.
 
+## Official Docker images
+
+Pre-built Docker images are now published to GitHub Container Registry on every release. Pull `ghcr.io/milady-ai/agent` to deploy without building from source. See the [deployment guide](/deployment) for Docker Compose setup and environment variables.
+
+## Electrobun desktop migration
+
+The [desktop app](/apps/desktop) has fully migrated from Electron to Electrobun — a lighter, faster native shell. This reduces memory usage and startup time. Auto-updates continue to work through the Electrobun updater. See [desktop updates](/self-updates#electrobun-desktop-updates) for details.
+
+## Faster page loads
+
+Three.js and the 3D avatar stack (~1.7 MB) are now lazy-loaded — they only download when you open the companion view. The stream view is also lazy-loaded. Together, these changes cut the initial page load significantly.
+
 ## Wallet key export security
 
 Wallet private key exports now require a 10-second confirmation delay, are rate-limited to one export per 10 minutes, and generate an audit log entry for every attempt. This protects against instant key extraction from compromised sessions.
@@ -40,7 +56,7 @@ Cloud API keys are no longer stored in `process.env` after login. They are scrub
 
 ## Windows desktop crash fix
 
-The Windows desktop app no longer crashes on startup due to a `node-llama-cpp` embedding initialization issue. Fatal startup errors are now written to a log file for easier diagnosis.
+The Windows desktop app no longer crashes on startup due to an embedding initialization issue. Fatal startup errors are now written to a log file for easier diagnosis.
 
 ## Character editor bug fixes
 
