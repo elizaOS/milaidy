@@ -26,6 +26,7 @@ The plugins API manages the agent's plugin system. It covers three areas: **plug
 | POST | `/api/plugins/uninstall` | Uninstall a plugin |
 | POST | `/api/plugins/:id/eject` | Eject a plugin to a local copy |
 | POST | `/api/plugins/:id/sync` | Sync an ejected plugin back to npm |
+| POST | `/api/plugins/:id/reinject` | Restore an ejected plugin to its registry version |
 
 ### Core Plugin Management
 
@@ -158,6 +159,7 @@ List all installed plugin packages with version information.
 
 ```json
 {
+  "count": 3,
   "plugins": [
     {
       "name": "@elizaos/plugin-twitter",
@@ -167,6 +169,11 @@ List all installed plugin packages with version information.
   ]
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `count` | number | Total number of installed plugins |
+| `plugins` | array | List of installed plugin packages |
 
 ---
 
@@ -236,16 +243,30 @@ Uninstall a plugin package.
 
 ### POST /api/plugins/:id/eject
 
-Eject a plugin to a local directory for development. Creates a local copy of the plugin source that can be modified independently.
+Eject a plugin to a local directory for development. Creates a local copy of the plugin source that can be modified independently. If the result indicates a restart is required, the runtime schedules an automatic restart.
 
 **Response**
 
 ```json
 {
   "ok": true,
-  "localPath": "/path/to/local/plugin-copy"
+  "pluginName": "@elizaos/plugin-twitter",
+  "requiresRestart": true,
+  "message": "@elizaos/plugin-twitter ejected to local source."
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pluginName` | string | Name of the ejected plugin |
+| `requiresRestart` | boolean | Whether the runtime will restart to load the local copy |
+| `message` | string | Human-readable status message |
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 422 | Eject failed (plugin not found or already ejected) |
 
 ---
 
@@ -257,9 +278,53 @@ Sync an ejected plugin back — re-build from the local copy.
 
 ```json
 {
-  "ok": true
+  "ok": true,
+  "pluginName": "@elizaos/plugin-twitter",
+  "requiresRestart": true,
+  "message": "@elizaos/plugin-twitter synced with upstream."
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pluginName` | string | Name of the synced plugin |
+| `requiresRestart` | boolean | Whether the runtime will restart to apply changes |
+| `message` | string | Human-readable status message |
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 422 | Sync failed (plugin not ejected or sync error) |
+
+---
+
+### POST /api/plugins/:id/reinject
+
+Restore a previously ejected plugin back to its registry version, removing the local copy.
+
+**Response**
+
+```json
+{
+  "ok": true,
+  "pluginName": "@elizaos/plugin-twitter",
+  "requiresRestart": true,
+  "message": "@elizaos/plugin-twitter restored to registry version."
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pluginName` | string | Name of the reinjected plugin |
+| `requiresRestart` | boolean | Whether the runtime will restart to load the registry version |
+| `message` | string | Human-readable status message |
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 422 | Reinject failed (plugin not ejected or reinject error) |
 
 ---
 

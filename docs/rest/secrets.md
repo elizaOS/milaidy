@@ -52,7 +52,7 @@ Returns all known secret keys with redacted values and metadata about which plug
 
 ### PUT /api/secrets
 
-Update one or more secrets. Values are written to the config file and injected into `process.env` immediately. Sending an empty string for a key clears it.
+Update one or more secrets. Values are written to the config file and injected into `process.env` immediately. Keys with empty or whitespace-only values are silently skipped. Keys that are not declared as sensitive parameters by any plugin, or that match a blocked system variable name, are also skipped.
 
 **Request Body**
 
@@ -60,7 +60,7 @@ Update one or more secrets. Values are written to the config file and injected i
 {
   "secrets": {
     "OPENAI_API_KEY": "sk-new-key-here",
-    "ANTHROPIC_API_KEY": ""
+    "ANTHROPIC_API_KEY": "sk-ant-new-key"
   }
 }
 ```
@@ -73,9 +73,15 @@ Update one or more secrets. Values are written to the config file and injected i
 
 ```json
 {
-  "ok": true
+  "ok": true,
+  "updated": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | boolean | Whether the operation succeeded |
+| `updated` | string[] | List of key names that were actually written |
 
 Setting or clearing a provider key may require a restart for the runtime to pick up the change. The UI typically prompts the user accordingly.
 
@@ -86,6 +92,5 @@ Setting or clearing a provider key may require a restart for the runtime to pick
 | 400 | `INVALID_REQUEST` | Request body is malformed or missing required fields |
 | 401 | `UNAUTHORIZED` | Missing or invalid authentication token |
 | 404 | `NOT_FOUND` | Requested resource does not exist |
-| 400 | `RESERVED_KEY` | Attempted to set a reserved or system environment variable |
-| 404 | `KEY_NOT_FOUND` | Secret key does not exist |
+| 400 | `INVALID_BODY` | Request body is not a valid JSON object with a `secrets` map |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
