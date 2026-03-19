@@ -3,6 +3,59 @@ title: Journal des modifications
 description: Nouveautés de Milady — fonctionnalités, améliorations et correctifs.
 ---
 
+<Update label="2026-05-07" description="Semaine du 1er au 7 mai" tags={["Feature", "Update"]}>
+<div id="agent-export-and-import">
+## Exportation et importation d'agents
+</div>
+
+Vous pouvez désormais migrer votre agent entre machines avec un seul fichier chiffré. L'exportation capture l'état complet de l'agent — personnage, souvenirs, connaissances, relations et configuration — dans une archive `.eliza-agent` protégée par mot de passe. Importez-la sur une autre machine pour tout restaurer. Consultez le [guide d'exportation d'agent](/fr/guides/agent-export) pour plus de détails.
+
+<div id="sandbox-and-computer-use">
+## Sandbox et utilisation de l'ordinateur
+</div>
+
+Les agents peuvent désormais exécuter du code, naviguer sur le web, prendre des captures d'écran, enregistrer de l'audio et interagir avec des applications de bureau dans un sandbox de conteneur isolé. Le sandbox prend en charge des modes de sécurité configurables, des politiques réseau, la journalisation d'audit et un service de signature distant qui conserve les clés de portefeuille sur l'hôte tandis que les agents en sandbox soumettent des transactions. Consultez le [guide du sandbox](/fr/guides/sandbox) pour plus de détails.
+
+<div id="mcp-marketplace">
+## Marketplace MCP
+</div>
+
+Vous pouvez désormais parcourir et installer des serveurs du Protocole de Contexte de Modèle directement depuis le registre officiel MCP. Recherchez des outils par nom, consultez les détails et installez-les en une seule étape — la configuration est générée automatiquement. Les serveurs MCP étendent votre agent avec des capacités externes comme l'accès aux fichiers, les requêtes de base de données et les intégrations d'API. Consultez le [guide du marketplace MCP](/fr/guides/mcp-marketplace) pour plus de détails.
+
+<div id="stream-overlay-widgets">
+## Widgets de superposition pour les streams
+</div>
+
+Les diffusions en direct prennent désormais en charge un système de superposition personnalisable avec des widgets intégrés — compteur de spectateurs, bulles de pensée, fenêtres d'alerte, tickers d'actions, branding et HTML personnalisé. Vous pouvez organiser les widgets avec l'éditeur de mise en page et enregistrer des dispositions par destination. Les plugins externes peuvent enregistrer leurs propres widgets de superposition.
+
+<div id="memory-and-embedding-explorer">
+## Explorateur de mémoire et d'embeddings
+</div>
+
+Un nouveau navigateur vectoriel dans le tableau de bord vous permet d'explorer visuellement le magasin de mémoire de votre agent. Parcourez les souvenirs dans une liste paginée, recherchez par contenu et inspectez les entrées individuelles. Un nuage de points 2D et une visualisation 3D interactive montrent comment les embeddings se regroupent, facilitant la compréhension de ce que votre agent retient et comment cela s'articule.
+
+<div id="three-new-platform-connectors">
+## Trois nouveaux connecteurs de plateforme
+</div>
+
+Votre agent peut désormais se connecter à trois plateformes de messagerie supplémentaires :
+
+- **Matrix** — chat fédéré avec configuration du homeserver, authentification par jeton d'accès, adhésion automatique, chiffrement de bout en bout et mode mentions uniquement.
+- **Nostr** — réseau social décentralisé basé sur les relais avec authentification par clé privée, liste de relais configurable et support des messages directs.
+- **Nextcloud Talk** — intégration de bot basée sur les webhooks avec filtrage par salon.
+
+Installez n'importe quel connecteur avec `milady plugins install <name>` et configurez-le dans vos [paramètres sociaux](/fr/guides/connectors).
+
+<div id="updates">
+## Mises à jour
+</div>
+
+- **API de diagnostics et d'audit de sécurité** — De nouveaux endpoints exposent des journaux d'exécution filtrables, la relecture d'événements d'autonomie avec pagination par curseur et un journal d'audit de sécurité avec filtrage par sévérité et streaming SSE. Consultez la [référence API](/fr/api-reference) pour plus de détails.
+- **Permissions de diffusion lors de l'intégration** — Les permissions de caméra et de microphone sont désormais demandées lors de l'assistant de configuration initiale et gérables depuis les Paramètres, pour que la diffusion fonctionne immédiatement sur mobile et ordinateur.
+- **Lisibilité des boutons en thème sombre** — Les boutons de couleur d'accentuation utilisent désormais un texte sombre pour un meilleur contraste, et les effets de survol mettent en évidence la bordure au lieu de changer la couleur du texte.
+- **Améliorations de la mise en page de l'intégration** — L'étape de connexion affiche désormais un interrupteur Démarrage rapide / Avancé, des cartes de fournisseurs pleine largeur et un bouton Continuer toujours visible à l'étape des permissions.
+</Update>
+
 <Update label="2026-04-30" description="Semaine du 24 au 30 avril" tags={["Feature", "Update"]}>
 <div id="streaming-response-recovery">
 ## Récupération des réponses en streaming
