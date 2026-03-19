@@ -218,6 +218,34 @@ export function resolveFarcasterPluginImportSpecifier(): string | null {
   return null;
 }
 
+const NOSTR_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-nostr";
+const NOSTR_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-nostr/typescript/dist/index",
+  "../plugins/plugin-nostr/dist/index",
+] as const;
+
+/**
+ * Resolve the Nostr plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveNostrPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(NOSTR_PLUGIN_PACKAGE_NAME)) {
+    return NOSTR_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  for (const relativeEntryPath of NOSTR_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
 /** Build a mock update check result with deterministic defaults. */
 export function buildMockUpdateCheckResult(
   overrides: Partial<MockUpdateCheckResult> = {},
