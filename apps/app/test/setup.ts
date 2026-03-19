@@ -4,6 +4,7 @@
  * All navigator sub-objects (mediaDevices, geolocation, permissions, clipboard)
  * are created here with vi.fn() stubs so tests can vi.spyOn() them freely.
  */
+import * as ReactRuntime from "react";
 import { vi } from "vitest";
 import React from "react";
 
@@ -13,6 +14,10 @@ declare global {
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+// Some inlined @elizaos/app-core source still evaluates JSX with the classic
+// React runtime in tests, so provide the global expected by those modules.
+(globalThis as typeof globalThis & { React?: typeof ReactRuntime }).React =
+  ReactRuntime;
 
 const originalConsoleError = console.error.bind(console);
 

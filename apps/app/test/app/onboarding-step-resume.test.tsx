@@ -221,6 +221,69 @@ describe("AppProvider onboarding step resume", () => {
     });
   });
 
+  it("prefers the saved Claude subscription over stale cloud api key resume state", async () => {
+    const { installLocalProviderCloudPreferencePatch } = await import(
+      "../../src/cloud-preference-patch"
+    );
+    mockClient.getConfig.mockResolvedValue({
+      cloud: {
+        enabled: false,
+        apiKey: "eliza-stale-key",
+        inferenceMode: "byok",
+      },
+      agents: {
+        defaults: {
+          subscriptionProvider: "anthropic-subscription",
+          model: { primary: "anthropic" },
+        },
+      },
+      models: {
+        small: "moonshotai/kimi-k2-turbo",
+        large: "moonshotai/kimi-k2-0905",
+      },
+    });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: true,
+      hasApiKey: true,
+    });
+
+    const restoreCloudPreferencePatch =
+      installLocalProviderCloudPreferencePatch(mockClient);
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    try {
+      await act(async () => {
+        tree = TestRenderer.create(
+          React.createElement(
+            AppProvider,
+            null,
+            React.createElement(Probe, {
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
+            }),
+          ),
+        );
+      });
+      await flushEffects();
+
+      expect(api?.getSnapshot()).toEqual({
+        onboardingLoading: false,
+        onboardingStep: "senses",
+        onboardingRunMode: "local",
+        onboardingCloudProvider: "",
+      });
+    } finally {
+      restoreCloudPreferencePatch();
+      await act(async () => {
+        tree?.unmount();
+      });
+    }
+  });
+
   it("starts at identity when forced fresh onboarding is enabled", async () => {
     mockClient.getConfig.mockResolvedValue({
       cloud: { enabled: true, apiKey: "sk-test" },

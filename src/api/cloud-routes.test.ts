@@ -1038,6 +1038,74 @@ describe("handleCloudRoute", () => {
     expect(updatePayload.secrets?.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
     expect(updatePayload.secrets?.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
   });
+
+  it("clears the authenticated cloud service session during disconnect", async () => {
+    let authenticated = true;
+    const logoutMock = vi.fn(() => {
+      authenticated = false;
+    });
+    const updateAgentMock = vi.fn(async () => undefined);
+    const setSettingMock = vi.fn();
+    const state = {
+      config: {
+        cloud: {
+          enabled: true,
+          apiKey: "ck-test",
+        },
+      },
+      runtime: {
+        agentId: "00000000-0000-0000-0000-000000000001",
+        character: {
+          settings: {
+            ELIZA_CLOUD_AUTH_TOKEN: "cloud-auth-token",
+          },
+          secrets: {
+            ELIZAOS_CLOUD_API_KEY: "ck-test",
+            ELIZAOS_CLOUD_ENABLED: "true",
+            ELIZA_CLOUD_AUTH_TOKEN: "cloud-auth-token",
+          },
+        },
+        getService: vi.fn((name: string) =>
+          name === "CLOUD_AUTH"
+            ? {
+                isAuthenticated: () => authenticated,
+                logout: logoutMock,
+              }
+            : null,
+        ),
+        setSetting: setSettingMock,
+        updateAgent: updateAgentMock,
+      },
+      cloudManager: null,
+    } as Partial<CloudRouteState> as CloudRouteState;
+
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const handled = await handleCloudRoute(
+      createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/disconnect",
+      }),
+      res,
+      "/api/cloud/disconnect",
+      "POST",
+      state,
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(200);
+    expect(getJson()).toEqual({ ok: true, status: "disconnected" });
+    expect(logoutMock).toHaveBeenCalledTimes(1);
+    expect(authenticated).toBe(false);
+    expect(setSettingMock).toHaveBeenCalledWith("ELIZA_CLOUD_AUTH_TOKEN", null);
+    expect(
+      state.runtime?.character.settings?.ELIZA_CLOUD_AUTH_TOKEN,
+    ).toBeUndefined();
+
+    const updatePayload = updateAgentMock.mock.calls[0]?.[1] as {
+      secrets?: Record<string, unknown>;
+    };
+    expect(updatePayload.secrets?.ELIZA_CLOUD_AUTH_TOKEN).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

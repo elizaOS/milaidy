@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   _resetCloudSecretsForTesting,
+  clearCloudSecrets,
   getCloudSecret,
   scrubCloudSecretsFromEnv,
 } from "./cloud-secrets";
@@ -55,5 +56,16 @@ describe("cloud-secrets", () => {
 
     _resetCloudSecretsForTesting();
     expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBeUndefined();
+  });
+
+  it("clearCloudSecrets clears the sealed store after an explicit disconnect", () => {
+    process.env.ELIZAOS_CLOUD_API_KEY = "ck-temp";
+    process.env.ELIZAOS_CLOUD_ENABLED = "true";
+    scrubCloudSecretsFromEnv();
+
+    clearCloudSecrets();
+
+    expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBeUndefined();
+    expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBeUndefined();
   });
 });

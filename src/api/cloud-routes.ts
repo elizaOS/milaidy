@@ -8,6 +8,7 @@ import type { AgentRuntime } from "@elizaos/core";
 import type { ElizaConfig } from "../config/config";
 import { saveElizaConfig } from "../config/config";
 import { createIntegrationTelemetrySpan } from "../diagnostics/integration-observability";
+import { disconnectUnifiedCloudConnection } from "./cloud-connection";
 import { scrubCloudSecretsFromEnv } from "./cloud-secrets";
 
 // Re-export the public API from the decoupled secrets module so existing
@@ -39,6 +40,19 @@ export async function handleCloudRoute(
   method: string,
   state: CloudRouteState,
 ): Promise<boolean> {
+  if (method === "POST" && pathname === "/api/cloud/disconnect") {
+    await disconnectUnifiedCloudConnection({
+      cloudManager: state.cloudManager,
+      config: state.config,
+      runtime: state.runtime,
+      saveConfig: saveElizaConfig,
+    });
+    res.statusCode = 200;
+    res.setHeader("content-type", "application/json; charset=utf-8");
+    res.end(JSON.stringify({ ok: true, status: "disconnected" }));
+    return true;
+  }
+
   const result = await handleAutonomousCloudRoute(
     req,
     res,

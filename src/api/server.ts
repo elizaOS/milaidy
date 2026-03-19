@@ -18,6 +18,8 @@ import {
 } from "@elizaos/autonomous/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
+import { handleCloudRoute } from "./cloud-routes";
+import { handleCloudStatusRoutes } from "./cloud-status-routes";
 import { createHardenedExportGuard } from "./wallet-export-guard";
 
 const hardenedGuard = createHardenedExportGuard(
@@ -1125,6 +1127,41 @@ async function handleMiladyCompatRoute(
 ): Promise<boolean> {
   const method = (req.method ?? "GET").toUpperCase();
   const url = new URL(req.url ?? "/", "http://localhost");
+  const cloudConfigPath =
+    url.pathname === "/api/cloud/status" ||
+    url.pathname === "/api/cloud/credits" ||
+    url.pathname === "/api/cloud/disconnect";
+
+  if (cloudConfigPath) {
+    if (!ensureCompatApiAuthorized(req, res)) {
+      return true;
+    }
+
+    const config = loadElizaConfig();
+
+    if (
+      url.pathname === "/api/cloud/status" ||
+      url.pathname === "/api/cloud/credits"
+    ) {
+      return handleCloudStatusRoutes({
+        req,
+        res,
+        method,
+        pathname: url.pathname,
+        config,
+        runtime: state.current,
+        json: (_res, body, status = 200) => {
+          sendJsonResponse(res, status, body);
+        },
+      });
+    }
+
+    return handleCloudRoute(req, res, url.pathname, method, {
+      config,
+      runtime: state.current,
+      cloudManager: null,
+    });
+  }
 
   if (method === "GET" && url.pathname === "/api/plugins") {
     if (!ensureCompatApiAuthorized(req, res)) {
