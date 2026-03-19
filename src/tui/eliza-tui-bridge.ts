@@ -1,8 +1,5 @@
 import crypto from "node:crypto";
 import process from "node:process";
-
-/** Maximum accumulated streamed text before truncation (1MB). */
-const MAX_STREAMED_LENGTH = 1_000_000;
 import {
   type ActionEventPayload,
   type AgentRuntime,
@@ -34,6 +31,9 @@ import {
 import { miladyMarkdownTheme, tuiTheme } from "./theme.js";
 import type { MiladyTUI } from "./tui-app.js";
 import { ApiModeWsClient } from "./ws-client.js";
+
+/** Maximum accumulated streamed text before truncation (1MB). */
+const MAX_STREAMED_LENGTH = 1_000_000;
 
 // NOTE: Room + world IDs are derived from the agentId so that switching
 // characters (which changes agentId) does not reuse the same persisted

@@ -235,7 +235,10 @@ export class WhatsAppBaileysService extends Service {
       this.sock.ev.on("connection.update", this.connectionHandler);
 
       // Inbound messages
-      this.messagesHandler = async ({ messages, type }: Record<string, unknown>) => {
+      this.messagesHandler = async ({
+        messages,
+        type,
+      }: Record<string, unknown>) => {
         if (type !== "notify") return;
 
         for (const msg of messages as unknown[]) {
@@ -283,9 +286,12 @@ export class WhatsAppBaileysService extends Service {
     }
     // Unregister event listeners to prevent leaks
     if (this.sock) {
-      if (this.credsHandler) this.sock.ev.off("creds.update", this.credsHandler);
-      if (this.connectionHandler) this.sock.ev.off("connection.update", this.connectionHandler);
-      if (this.messagesHandler) this.sock.ev.off("messages.upsert", this.messagesHandler);
+      if (this.credsHandler)
+        this.sock.ev.off("creds.update", this.credsHandler);
+      if (this.connectionHandler)
+        this.sock.ev.off("connection.update", this.connectionHandler);
+      if (this.messagesHandler)
+        this.sock.ev.off("messages.upsert", this.messagesHandler);
     }
     this.credsHandler = undefined;
     this.connectionHandler = undefined;
