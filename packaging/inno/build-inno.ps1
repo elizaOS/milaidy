@@ -154,7 +154,13 @@ $appId = if ($normalizedChannel -eq "stable") {
 } else {
   "com.miladyai.milady.$normalizedChannel"
 }
-$defaultDirName = "{localappdata}\com.miladyai.milady\$normalizedChannel\$channelInstallName"
+# Keep the install path short to avoid Windows MAX_PATH (260 char) limits
+# with deeply nested node_modules inside the app bundle.
+$defaultDirName = if ($normalizedChannel -eq "stable") {
+  "{localappdata}\Milady"
+} else {
+  "{localappdata}\Milady-$normalizedChannel"
+}
 $outputBaseFilename = "Milady-Setup-$normalizedChannel"
 
 $signSection = Get-InstallerSignSection
