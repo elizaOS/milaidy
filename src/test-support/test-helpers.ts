@@ -348,6 +348,19 @@ export function resolveFeishuPluginImportSpecifier(): string | null {
   const helperDir = path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = path.resolve(helperDir, "..", "..");
 
+  // ESM-only package — check node_modules directly (same approach as Lens resolver)
+  const nodeModulesDistEntry = path.resolve(
+    packageRoot,
+    "node_modules",
+    "@elizaos",
+    "plugin-feishu",
+    "dist",
+    "index.js",
+  );
+  if (existsSync(nodeModulesDistEntry)) {
+    return pathToFileURL(nodeModulesDistEntry).href;
+  }
+
   for (const relativeEntryPath of FEISHU_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
     const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
     if (existsSync(absoluteEntryPath)) {
