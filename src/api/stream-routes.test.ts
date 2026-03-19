@@ -957,6 +957,14 @@ try {
   /* not available */
 }
 
+let hasCustomRtmpPlugin = false;
+try {
+  const mod = await import("@elizaos/plugin-custom-rtmp");
+  hasCustomRtmpPlugin = typeof mod.createCustomRtmpDestination === "function";
+} catch {
+  /* not available */
+}
+
 // ---------------------------------------------------------------------------
 // createRetakeDestination() — destination adapter unit tests
 // ---------------------------------------------------------------------------
@@ -1188,10 +1196,10 @@ describe.skipIf(!hasYoutubePlugin)("createYoutubeDestination()", () => {
 // createCustomRtmpDestination() — destination adapter unit tests
 // ---------------------------------------------------------------------------
 
-describe("createCustomRtmpDestination()", () => {
+describe.skipIf(!hasCustomRtmpPlugin)("createCustomRtmpDestination()", () => {
   it("returns a StreamingDestination with id and name", async () => {
     const { createCustomRtmpDestination } = await import(
-      "../plugins/custom-rtmp/index.ts"
+      "@elizaos/plugin-custom-rtmp"
     );
     const dest = createCustomRtmpDestination({
       rtmpUrl: "rtmp://custom.example.com/live",
@@ -1209,7 +1217,7 @@ describe("createCustomRtmpDestination()", () => {
 
     try {
       const { createCustomRtmpDestination } = await import(
-        "../plugins/custom-rtmp/index.ts"
+        "@elizaos/plugin-custom-rtmp"
       );
       const dest = createCustomRtmpDestination();
       await expect(dest.getCredentials()).rejects.toThrow(
@@ -1229,7 +1237,7 @@ describe("createCustomRtmpDestination()", () => {
 
     try {
       const { createCustomRtmpDestination } = await import(
-        "../plugins/custom-rtmp/index.ts"
+        "@elizaos/plugin-custom-rtmp"
       );
       const dest = createCustomRtmpDestination({
         rtmpUrl: "rtmp://example.com/live",
@@ -1245,7 +1253,7 @@ describe("createCustomRtmpDestination()", () => {
 
   it("getCredentials returns configured RTMP URL and key", async () => {
     const { createCustomRtmpDestination } = await import(
-      "../plugins/custom-rtmp/index.ts"
+      "@elizaos/plugin-custom-rtmp"
     );
     const dest = createCustomRtmpDestination({
       rtmpUrl: "rtmp://ingest.example.com/live",
@@ -1265,7 +1273,7 @@ describe("createCustomRtmpDestination()", () => {
 
     try {
       const { createCustomRtmpDestination } = await import(
-        "../plugins/custom-rtmp/index.ts"
+        "@elizaos/plugin-custom-rtmp"
       );
       const dest = createCustomRtmpDestination({
         rtmpUrl: "rtmp://config.example.com/live",
@@ -1296,7 +1304,7 @@ describe("createCustomRtmpDestination()", () => {
 
     try {
       const { createCustomRtmpDestination } = await import(
-        "../plugins/custom-rtmp/index.ts"
+        "@elizaos/plugin-custom-rtmp"
       );
       const dest = createCustomRtmpDestination();
       const creds = await dest.getCredentials();
@@ -1318,7 +1326,7 @@ describe("createCustomRtmpDestination()", () => {
 
   it("has no onStreamStart or onStreamStop hooks", async () => {
     const { createCustomRtmpDestination } = await import(
-      "../plugins/custom-rtmp/index.ts"
+      "@elizaos/plugin-custom-rtmp"
     );
     const dest = createCustomRtmpDestination({
       rtmpUrl: "rtmp://example.com/live",

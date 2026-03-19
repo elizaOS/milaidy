@@ -220,7 +220,7 @@ vi.mock("../native/agent", () => ({
     })),
     getPort: vi.fn(() => null),
     setSendToWebview: vi.fn(),
-    onStatusChange: vi.fn(() => () => {}),
+    onStatusChange: vi.fn(() => () => { }),
     dispose: vi.fn(),
   })),
   AgentManager: class MockAgentManager {
@@ -230,7 +230,7 @@ vi.mock("../native/agent", () => ({
     getStatus = vi.fn();
     getPort = vi.fn(() => null);
     setSendToWebview = vi.fn();
-    onStatusChange = vi.fn(() => () => {});
+    onStatusChange = vi.fn(() => () => { });
     dispose = vi.fn();
   },
   resolveConfigDir: vi.fn(() => "/mock/config/Milady"),
@@ -493,7 +493,6 @@ vi.mock("../native/desktop", async () => {
       ),
       quit: vi.fn(() => Promise.resolve()),
       relaunch: vi.fn(() => Promise.resolve()),
-      getVersion: vi.fn(() => Promise.resolve({ version: "2.0.0-alpha.76" })),
       isPackaged: vi.fn(() => Promise.resolve({ packaged: false })),
       getPath: vi.fn(() => Promise.resolve({ path: "/mock/path" })),
       openExternal: vi.fn(() => Promise.resolve()),

@@ -6,11 +6,13 @@
  */
 import * as ReactRuntime from "react";
 import { vi } from "vitest";
+import React from "react";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 }
 
+globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 // Some inlined @elizaos/app-core source still evaluates JSX with the classic
 // React runtime in tests, so provide the global expected by those modules.

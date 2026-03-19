@@ -28,6 +28,7 @@ body {
   font-family: var(--font-sans);
   background-color: var(--color-dark);
   color: var(--color-text-light);
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -189,10 +190,10 @@ body {
 
 @media (max-width: 640px) {
   .hero-dock {
-    padding: 10px 14px;
-    gap: 6px;
-    transform: scale(0.75);
-    transform-origin: center bottom;
+    width: min(100%, 21rem);
+    padding: 10px 12px 12px;
+    gap: 8px;
+    border-radius: 22px;
   }
 }
 
@@ -340,6 +341,15 @@ body {
   }
 }
 
+@media (max-width: 640px) {
+  .download-icons {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    width: min(100%, 22rem);
+  }
+}
+
 .download-icons li {
   margin: 0;
 }
@@ -368,6 +378,16 @@ body {
   }
 }
 
+@media (max-width: 640px) {
+  .download-icons .download {
+    width: 100%;
+    height: auto;
+    min-height: 74px;
+    padding: 10px 8px;
+    gap: 6px;
+  }
+}
+
 .download-icons .download i {
   font-size: 18px;
   transition: transform 0.2s ease;
@@ -376,6 +396,38 @@ body {
 @media (min-width: 640px) {
   .download-icons .download i {
     font-size: 22px;
+  }
+}
+
+@media (max-width: 640px) {
+  .download-icons .download .df,
+  .download-icons .download .dfn {
+    font-size: 9px;
+    line-height: 1.25;
+    opacity: 1;
+    height: auto;
+  }
+
+  .download-icons .download .df {
+    opacity: 0.55;
+  }
+
+  .download-icons .download .dfn {
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .download-icons .download:hover {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 8px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+
+  .download-icons .download:hover i {
+    transform: none;
   }
 }
 

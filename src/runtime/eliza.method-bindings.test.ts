@@ -48,6 +48,40 @@ describe("installRuntimeMethodBindings", () => {
     );
   });
 
+  it("retries createComponent with null worldId when room has no world (DM/client_chat)", async () => {
+    const createComponent = vi
+      .fn()
+      .mockRejectedValueOnce({
+        cause: { constraint: "components_world_id_worlds_id_fk" },
+      })
+      .mockResolvedValueOnce(true);
+
+    const runtime = {
+      getSetting: vi.fn(() => null),
+      getConversationLength: vi.fn(() => 0),
+      getRoom: vi.fn(async () => ({ worldId: null })),
+      createComponent,
+    } as AgentRuntime & {
+      createComponent: (input: Record<string, unknown>) => Promise<boolean>;
+    };
+
+    installRuntimeMethodBindings(runtime);
+
+    const input = {
+      roomId: "room-dm",
+      worldId: "synthetic-world",
+      type: "information_claim",
+      data: {},
+    };
+
+    await expect(runtime.createComponent(input)).resolves.toBe(true);
+    expect(createComponent).toHaveBeenCalledTimes(2);
+    expect(createComponent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ worldId: null }),
+    );
+  });
+
   it("dedupes createEntities input and recovers via ensureEntityExists fallback", async () => {
     const createEntities = vi.fn(async () => []);
     const ensureEntityExists = vi.fn(async () => true);

@@ -17,6 +17,28 @@
   padding: 0.75rem 1.5rem;
   gap: 0.5rem;
   overflow: hidden;
+  /* Prevent text selection while dragging the avatar */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Re-enable text selection on actual inputs */
+.ce-root input,
+.ce-root textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Suppress focus outlines on non-input elements */
+.ce-root *:focus-visible:not(input):not(textarea) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ce-root button:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .ce-loading {
@@ -282,6 +304,16 @@
 .ce-voice-test-btn:hover {
   color: var(--txt, #fff);
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Voice select overrides ───────────────────────────────────── */
+/* The upstream ThemedSelect uses bg-accent + text-accent-foreground for
+   the selected item.  In milady's yellow-accent theme the dark foreground
+   is hard to read, so we swap to a subtle highlight with light text. */
+
+.ce-voice-inline .bg-accent {
+  background: rgba(250, 204, 21, 0.15) !important;
+  color: #facc15 !important;
 }
 
 /* ── Inputs ────────────────────────────────────────────────────── */
@@ -826,11 +858,25 @@
 }
 
 .ce-footer-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
+}
+
+.ce-footer-actions > :first-child {
+  justify-self: center;
+  grid-column: 2;
+}
+
+.ce-footer-actions > :nth-child(2) {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.ce-footer-actions > :nth-child(3) {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .ce-voice-picker {
@@ -892,6 +938,30 @@
     inset 0 1px 0 var(--ce-white-glow);
 }
 
+.ce-save-btn--idle {
+  background: transparent;
+  color: var(--muted, #999);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+.ce-save-btn--idle:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.ce-save-btn--secondary {
+  background: transparent;
+  color: var(--txt, #fff);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.ce-save-btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
 .ce-save-btn:disabled {
   opacity: 0.5;
 }
@@ -904,6 +974,8 @@
   }
 
   .ce-footer-actions {
+    display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     gap: 0.5rem;
   }

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
 import { isAuthenticated } from "../../lib/auth";
-import { openWebUIDirect, openWebUIWithPairing } from "../../lib/open-web-ui";
+import { openWebUI } from "../../lib/open-web-ui";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 import { CreateAgentForm } from "./CreateAgentForm";
@@ -63,7 +63,7 @@ export function AgentGrid() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-text-light">Your Agents</h2>
           <p className="text-sm text-text-muted mt-1">
@@ -76,7 +76,7 @@ export function AgentGrid() {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-brand text-dark font-medium text-sm rounded-xl
+            className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-3 bg-brand text-dark font-medium text-sm rounded-xl
               hover:bg-brand-hover active:scale-[0.98] transition-all duration-150
               shadow-[0_0_16px_rgba(240,185,11,0.12)]"
           >
@@ -102,6 +102,7 @@ export function AgentGrid() {
       {/* Create form */}
       {showCreate && (
         <CreateAgentForm
+          onAuthenticated={() => refresh()}
           onCreated={() => {
             setShowCreate(false);
             refresh();
@@ -145,18 +146,9 @@ export function AgentGrid() {
                   setSelectedId(selectedId === agent.id ? null : agent.id)
                 }
                 onOpenUI={() => {
-                  // Cloud agents: use pairing token flow for proper auth handoff
-                  if (
-                    agent.source === "cloud" &&
-                    agent.cloudClient &&
-                    agent.cloudAgentId
-                  ) {
-                    openWebUIWithPairing(agent.cloudAgentId, agent.cloudClient);
-                    return;
-                  }
-                  // Local/remote agents: open directly (no pairing token needed)
                   const url = getWebUIUrl(agent);
-                  if (url) openWebUIDirect(url);
+                  if (!url) return;
+                  openWebUI(url, agent.source);
                 }}
                 selected={selectedId === agent.id}
               />
@@ -216,10 +208,10 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
         {authed ? "manage cloud agents" : "sign in to Eliza Cloud"} for hosted
         options.
       </p>
-      <div className="flex items-center gap-3">
+      <div className="flex w-full max-w-sm flex-col sm:flex-row items-stretch gap-3">
         <a
           href="/#install"
-          className="flex items-center gap-2 px-5 py-2.5 bg-brand text-dark font-medium text-sm rounded-xl
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-brand text-dark font-medium text-sm rounded-xl
             hover:bg-brand-hover active:scale-[0.98] transition-all duration-150"
         >
           Get the Desktop App
@@ -227,7 +219,7 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
         <button
           type="button"
           onClick={onCreateClick}
-          className="flex items-center gap-2 px-5 py-2.5 text-text-muted text-sm font-medium rounded-xl border border-border
+          className="flex items-center justify-center gap-2 px-5 py-3 text-text-muted text-sm font-medium rounded-xl border border-border
             hover:text-text-light hover:border-text-muted hover:bg-surface transition-all duration-150"
         >
           <svg

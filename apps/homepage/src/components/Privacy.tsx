@@ -5,7 +5,7 @@ const features = [
       "Your AI runs on your machine. Your data never leaves your device. No cloud dependency.",
     icon: (
       <svg
-        className="w-12 h-12"
+        className="w-10 h-10 sm:w-12 sm:h-12"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -39,7 +39,7 @@ const features = [
       "Run local models with Ollama. Fully functional without an internet connection.",
     icon: (
       <svg
-        className="w-12 h-12"
+        className="w-10 h-10 sm:w-12 sm:h-12"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -74,7 +74,7 @@ const features = [
       "No tracking. No analytics. No backdoors. Your conversations are yours alone.",
     icon: (
       <svg
-        className="w-12 h-12"
+        className="w-10 h-10 sm:w-12 sm:h-12"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -109,25 +109,25 @@ export function Privacy() {
   return (
     <section
       id="privacy"
-      className="relative py-48 bg-dark text-text-light min-h-screen flex items-center"
+      className="relative py-24 sm:py-32 lg:py-48 bg-dark text-text-light min-h-[auto] lg:min-h-screen flex items-center"
     >
-      <div className="max-w-7xl mx-auto w-full px-6 md:px-12 relative z-10">
-        <div className="mb-32">
-          <p className="font-mono text-brand text-xs uppercase tracking-[0.2em] mb-4">
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-12 relative z-10">
+        <div className="mb-14 sm:mb-20 lg:mb-32">
+          <p className="font-mono text-brand text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-3 sm:mb-4">
             Secure Environment
           </p>
-          <h2 className="text-6xl md:text-8xl lg:text-[9rem] font-black leading-[0.85] tracking-tighter max-w-5xl uppercase">
+          <h2 className="text-4xl sm:text-6xl md:text-8xl lg:text-[9rem] font-black leading-[0.85] tracking-tighter max-w-5xl uppercase">
             Absolute
             <br />
             Silence.
           </h2>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-12">
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="flex-1 p-12 lg:p-16 bg-white/[0.02] hover:bg-white hover:text-dark transition-colors duration-500 group min-h-[400px] flex flex-col justify-end relative rounded-sm overflow-hidden"
+              className="flex-1 p-6 sm:p-8 lg:p-16 bg-white/[0.02] hover:bg-white hover:text-dark transition-colors duration-500 group min-h-[260px] sm:min-h-[320px] lg:min-h-[400px] flex flex-col justify-end relative rounded-2xl overflow-hidden"
             >
               <img
                 src={feature.image}
@@ -137,13 +137,13 @@ export function Privacy() {
                 draggable={false}
               />
               <div className="relative z-10">
-                <div className="text-white group-hover:text-dark mb-16 transition-colors duration-500 opacity-50 group-hover:opacity-100">
+                <div className="text-white group-hover:text-dark mb-8 sm:mb-12 lg:mb-16 transition-colors duration-500 opacity-50 group-hover:opacity-100">
                   {feature.icon}
                 </div>
-                <h3 className="text-3xl lg:text-4xl font-black mb-6 uppercase tracking-tighter leading-none">
+                <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black mb-4 sm:mb-6 uppercase tracking-tighter leading-none">
                   {feature.title}
                 </h3>
-                <p className="font-mono text-sm leading-relaxed text-white/40 group-hover:text-dark/70 transition-colors duration-500">
+                <p className="font-mono text-xs sm:text-sm leading-relaxed text-white/50 group-hover:text-dark/70 transition-colors duration-500 max-w-sm">
                   {feature.description}
                 </p>
               </div>

@@ -26,7 +26,10 @@ import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import { handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
-import { createHardenedExportGuard } from "./wallet-export-guard";
+import {
+  createHardenedExportGuard,
+  type WalletExportRejection as CompatWalletExportRejection,
+} from "./wallet-export-guard";
 
 const hardenedGuard = createHardenedExportGuard(
   resolveCompatWalletExportRejection,
@@ -205,9 +208,9 @@ function normalizeCompatReason(reason: string): string {
     .replaceAll("X-Milady-Terminal-Token", "X-Eliza-Terminal-Token");
 }
 
-function normalizeCompatRejection(
-  rejection: { status: number; reason: string } | null,
-): { status: number; reason: string } | null {
+function normalizeCompatRejection<
+  T extends { status: number; reason: string } | null,
+>(rejection: T): T {
   if (!rejection) {
     return rejection;
   }
@@ -215,7 +218,7 @@ function normalizeCompatRejection(
   return {
     ...rejection,
     reason: normalizeCompatReason(rejection.reason),
-  };
+  } as T;
 }
 
 function runWithCompatAuthContext<T>(
@@ -236,7 +239,7 @@ function runWithCompatAuthContext<T>(
 
 function resolveCompatWalletExportRejection(
   ...args: Parameters<typeof upstreamResolveWalletExportRejection>
-): { status: number; reason: string } | null {
+): CompatWalletExportRejection | null {
   const [req] = args;
   return runWithCompatAuthContext(req, () =>
     normalizeCompatRejection(upstreamResolveWalletExportRejection(...args)),
@@ -1647,7 +1650,7 @@ function patchHttpCreateServerForMiladyCompat(
  */
 export function resolveWalletExportRejection(
   ...args: Parameters<typeof upstreamResolveWalletExportRejection>
-): { status: number; reason: string } | null {
+): CompatWalletExportRejection | null {
   return hardenedGuard(...args);
 }
 
@@ -1664,7 +1667,7 @@ export function resolveMcpTerminalAuthorizationRejection(
 
 export function resolveTerminalRunRejection(
   ...args: Parameters<typeof upstreamResolveTerminalRunRejection>
-): { status: number; reason: string } | null {
+): ReturnType<typeof upstreamResolveTerminalRunRejection> {
   const [req] = args;
   return runWithCompatAuthContext(req, () =>
     normalizeCompatRejection(upstreamResolveTerminalRunRejection(...args)),
