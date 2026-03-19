@@ -273,6 +273,7 @@ export class ElizaTUIBridge {
     ]);
 
     this.runtime.registerEvent(EventType.ACTION_STARTED, async (payload) => {
+      if (this.disposed) return;
       const p = payload as ActionEventPayload;
       const actionName = p.content.actions?.[0] ?? "action";
 
@@ -315,6 +316,7 @@ export class ElizaTUIBridge {
     });
 
     this.runtime.registerEvent(EventType.ACTION_COMPLETED, async (payload) => {
+      if (this.disposed) return;
       const p = payload as ActionEventPayload;
       const actionName = p.content.actions?.[0] ?? "action";
 
