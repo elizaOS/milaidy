@@ -588,7 +588,6 @@ jobs:
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
-          $buildRoot = Join-Path $PWD "apps/app/electrobun/build"
           $tarball = Get-ChildItem -Path (Join-Path $PWD "apps/app/electrobun/artifacts") -File -Filter "*.tar.zst" -ErrorAction SilentlyContinue |
             Select-Object -First 1
 
@@ -597,12 +596,33 @@ jobs:
             exit 1
           }
 
-          $extractDir = Join-Path $buildRoot "inno-extract"
+          # Use a short path to avoid Windows MAX_PATH (260 char) limits
+          # with deeply nested node_modules inside the app bundle
+          $extractDir = "C:\m"
           New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
           Write-Host "Extracting $($tarball.Name) to $extractDir ..."
           tar -xf $tarball.FullName -C $extractDir
-          Write-Host "Extracted contents:"
-          Get-ChildItem -Path $extractDir -Recurse -Depth 2 | ForEach-Object { Write-Host "  $($_.FullName)" }
+          Write-Host "Extracted top-level structure:"
+          Get-ChildItem -Path $extractDir -Recurse -Depth 3 | ForEach-Object { Write-Host "  $($_.FullName)" }
+
+          # Verify the expected milady-dist entry point exists
+          $appRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
+          if ($appRoot) {
+            $entryCheck = Join-Path $appRoot.FullName "Resources\app\milady-dist\entry.js"
+            Write-Host "Checking for: $entryCheck"
+            if (Test-Path $entryCheck) {
+              Write-Host "milady-dist/entry.js found"
+            } else {
+              Write-Host "WARNING: milady-dist/entry.js NOT found"
+              Write-Host "Resources/app contents:"
+              $resApp = Join-Path $appRoot.FullName "Resources\app"
+              if (Test-Path $resApp) {
+                Get-ChildItem -Path $resApp -Recurse -Depth 2 | ForEach-Object { Write-Host "  $($_.FullName)" }
+              } else {
+                Write-Host "  Resources/app directory does not exist"
+              }
+            }
+          }
 
       - name: Build Inno Setup installer
         if: matrix.platform.os == 'windows'
@@ -613,7 +633,7 @@ jobs:
         shell: pwsh
         run: |
           pwsh -File packaging/inno/build-inno.ps1 `
-            -BuildDir (Join-Path $PWD "apps/app/electrobun/build") `
+            -BuildDir "C:\m" `
             -OutputDir (Join-Path $PWD "apps/app/electrobun/artifacts") `
             -Version "${{ needs.prepare.outputs.version }}" `
             -Channel "${{ needs.prepare.outputs.env }}"
