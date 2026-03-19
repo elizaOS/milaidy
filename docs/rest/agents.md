@@ -8,6 +8,21 @@ All agent endpoints require the agent runtime to be initialized. The API server 
 
 ## Endpoints
 
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/agent/start` | Start the agent and enable autonomy |
+| POST | `/api/agent/stop` | Stop the agent and disable autonomy |
+| POST | `/api/agent/pause` | Pause the agent (keep uptime, disable autonomy) |
+| POST | `/api/agent/resume` | Resume a paused agent and re-enable autonomy |
+| POST | `/api/agent/restart` | Restart the agent runtime |
+| POST | `/api/agent/reset` | Wipe config, workspace, memory and return to onboarding |
+| POST | `/api/agent/export` | Export agent as a password-encrypted `.eliza-agent` binary file |
+| GET | `/api/agent/export/estimate` | Estimate export file size before downloading |
+| POST | `/api/agent/import` | Import agent from a password-encrypted `.eliza-agent` file |
+| GET | `/api/agent/self-status` | Structured self-status summary with capabilities, wallet, plugins, and awareness |
+
+---
+
 ### POST /api/agent/start
 
 Start the agent and enable autonomous operation. Sets the agent state to `running`, records the start timestamp, and enables the autonomy task so the first tick fires immediately.
@@ -170,6 +185,108 @@ Raw binary body — not JSON. The first 4 bytes encode the password length as a 
   "ok": true
 }
 ```
+
+### GET /api/agent/self-status
+
+Get a structured summary of the agent's current state, capabilities, wallet status, active plugins, and an optional awareness registry snapshot. Designed for programmatic consumers and the agent's own self-awareness system.
+
+**Response**
+
+```json
+{
+  "generatedAt": "2026-04-09T12:00:00.000Z",
+  "state": "running",
+  "agentName": "Milady",
+  "model": "anthropic/claude-sonnet-4-20250514",
+  "provider": "anthropic",
+  "automationMode": "connectors-only",
+  "tradePermissionMode": "ask",
+  "shellEnabled": true,
+  "wallet": {
+    "hasWallet": true,
+    "hasEvm": true,
+    "hasSolana": false,
+    "evmAddress": "0x1234...abcd",
+    "evmAddressShort": "0x1234...abcd",
+    "solanaAddress": null,
+    "solanaAddressShort": null,
+    "localSignerAvailable": true,
+    "managedBscRpcReady": true
+  },
+  "plugins": {
+    "totalActive": 12,
+    "active": ["@elizaos/plugin-bootstrap", "..."],
+    "aiProviders": ["@elizaos/plugin-anthropic"],
+    "connectors": ["@elizaos/plugin-discord"]
+  },
+  "capabilities": {
+    "canTrade": true,
+    "canLocalTrade": true,
+    "canAutoTrade": false,
+    "canUseBrowser": false,
+    "canUseComputer": false,
+    "canRunTerminal": true,
+    "canInstallPlugins": true,
+    "canConfigurePlugins": true,
+    "canConfigureConnectors": true
+  },
+  "registrySummary": "Runtime: running | Wallet: EVM ready | Plugins: 12 active | Cloud: disconnected"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `generatedAt` | string | ISO 8601 timestamp of when the response was generated |
+| `state` | string | Current agent state (`not_started`, `starting`, `running`, `paused`, `stopped`, `restarting`, `error`) |
+| `agentName` | string | Agent display name |
+| `model` | string\|null | Active model identifier, resolved from runtime state, config, or environment |
+| `provider` | string\|null | AI provider label derived from the model string |
+| `automationMode` | string | `"connectors-only"` or `"full"` — controls scope of autonomous behavior |
+| `tradePermissionMode` | string | Trade permission level from config |
+| `shellEnabled` | boolean | Whether shell/terminal access is enabled |
+| `wallet` | object | Wallet state summary (see below) |
+| `plugins` | object | Active plugin summary (see below) |
+| `capabilities` | object | Boolean capability flags (see below) |
+| `registrySummary` | string\|undefined | One-line summary from the awareness registry, if available |
+
+**`wallet` fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hasWallet` | boolean | `true` if any wallet address is configured |
+| `hasEvm` | boolean | `true` if an EVM address is available |
+| `hasSolana` | boolean | `true` if a Solana address is available |
+| `evmAddress` | string\|null | Full EVM address |
+| `evmAddressShort` | string\|null | Shortened EVM address (`0x1234...abcd`) |
+| `solanaAddress` | string\|null | Full Solana address |
+| `solanaAddressShort` | string\|null | Shortened Solana address |
+| `localSignerAvailable` | boolean | `true` if `EVM_PRIVATE_KEY` is set |
+| `managedBscRpcReady` | boolean | `true` if the managed BSC RPC endpoint is configured |
+
+**`plugins` fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalActive` | number | Count of active plugins |
+| `active` | string[] | Names of all active plugins |
+| `aiProviders` | string[] | Names of active AI provider plugins |
+| `connectors` | string[] | Names of active connector plugins (Discord, Telegram, etc.) |
+
+**`capabilities` fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `canTrade` | boolean | `true` if wallet and RPC are configured for trading |
+| `canLocalTrade` | boolean | `true` if local trade execution is available (wallet + signer + permission) |
+| `canAutoTrade` | boolean | `true` if the agent can execute trades autonomously |
+| `canUseBrowser` | boolean | `true` if a browser plugin is loaded |
+| `canUseComputer` | boolean | `true` if a computer-use plugin is loaded |
+| `canRunTerminal` | boolean | `true` if shell access is enabled |
+| `canInstallPlugins` | boolean | `true` if plugin installation is available |
+| `canConfigurePlugins` | boolean | `true` if plugin configuration is available |
+| `canConfigureConnectors` | boolean | `true` if connector configuration is available |
+
+---
 
 ## Common Error Codes
 
