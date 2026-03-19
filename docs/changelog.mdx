@@ -3,6 +3,38 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-04-02" description="Week of March 27 – April 2" tags={["Feature", "Update", "Fix"]}>
+## Opinion markets plugin
+
+Your agent can now trade on prediction markets through a new opinion markets plugin. Actions include browsing markets, placing bets, checking positions, canceling orders, and redeeming outcomes — all from chat or the REST API. Real-time market data streams via WebSocket so your agent stays up to date.
+
+## Multi-destination streaming
+
+You can now stream to multiple platforms at the same time. A new streaming registry lets you add and switch between destinations — including pump.fun and X/Twitter — at runtime via `POST /api/streaming/destination`. See the [stream guide](/dashboard/stream) for setup details.
+
+## Coding agent settings
+
+The Settings view now includes a Coding Agents section where you can choose the agent selection strategy, default agent type, permission level, and per-agent model preferences. These controls give you finer-grained control over how [coding swarms](/guides/coding-swarms) behave.
+
+## Granular cloud service toggles
+
+When connected to Eliza Cloud, you can now enable or disable individual cloud services — inference, RPC, media, TTS, and embeddings — instead of toggling the entire cloud connection. This lets you, for example, keep cloud RPC while using a local model provider. See [cloud deployment](/guides/cloud) for details.
+
+## Health endpoint and crash recovery
+
+A new `GET /api/health` endpoint returns structured status for each subsystem — runtime, database, plugins, coordinator, connectors, and uptime. The dashboard now shows a reconnect banner with retry controls when the WebSocket connection drops, and a full-screen error boundary catches render crashes so you see a recovery prompt instead of a blank page.
+
+## Windows standalone installer
+
+The Windows download is now a proper Inno Setup installer that installs and runs on its own. The previous release asset required an adjacent payload archive to function — the new single-file installer replaces it.
+
+## Bug fixes
+
+- Credit exhaustion errors from cloud providers are now detected and surfaced clearly, including HTTP 402 and 429 billing responses
+- Knowledge service timeouts return a `Retry-After` header and the client auto-retries with exponential backoff
+- System warning banners now surface connector failures and coordinator wiring issues directly in the dashboard
+</Update>
+
 <Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
 ## API key validation for model providers
 
