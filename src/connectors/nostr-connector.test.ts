@@ -86,7 +86,7 @@ describe("Nostr Connector - Protocol Constraints", () => {
 
     expect(
       nsecPattern.test(
-        "nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5",
+        "nsec1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       ),
     ).toBe(true);
     expect(nsecPattern.test("nsec1abc")).toBe(false);
@@ -103,7 +103,7 @@ describe("Nostr Connector - Protocol Constraints", () => {
       ),
     ).toBe(true);
     expect(npubPattern.test("npub1short")).toBe(false);
-    expect(npubPattern.test("nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5")).toBe(false);
+    expect(npubPattern.test("nsec1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).toBe(false);
   });
 
   it("hex public key format is valid (64 hex chars)", () => {
@@ -163,7 +163,7 @@ describe("Nostr Connector - Configuration", () => {
   it("validates basic Nostr configuration structure", () => {
     const validConfig = {
       privateKey:
-        "nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5",
+        "nsec1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       relays: "wss://relay.damus.io,wss://nos.lol",
       dmPolicy: "allow" as const,
     };
@@ -208,8 +208,24 @@ describe("Nostr Connector - Configuration", () => {
     expect(relays.every((r) => r.startsWith("wss://"))).toBe(true);
   });
 
-  it("config keys match plugins.json expectations", () => {
-    const expectedConfigKeys = [
+  it("NOSTR_PRIVATE_KEY is the only required config key", () => {
+    // Per plugins.json: only privateKey is required; relays, dmPolicy, etc. are optional
+    const requiredKeys = ["NOSTR_PRIVATE_KEY"];
+    const allKeys = ["NOSTR_PRIVATE_KEY", "NOSTR_RELAYS", "NOSTR_DM_POLICY", "NOSTR_ALLOW_FROM", "NOSTR_ENABLED"];
+
+    expect(requiredKeys).toHaveLength(1);
+    expect(allKeys).toHaveLength(5);
+    expect(allKeys).toContain(requiredKeys[0]);
+  });
+});
+
+// ============================================================================
+//  4. Environment Variable Key Names
+// ============================================================================
+
+describe("Nostr Connector - Environment Variable Keys", () => {
+  it("all config keys use the NOSTR_ prefix", () => {
+    const configKeys = [
       "NOSTR_PRIVATE_KEY",
       "NOSTR_RELAYS",
       "NOSTR_DM_POLICY",
@@ -217,55 +233,8 @@ describe("Nostr Connector - Configuration", () => {
       "NOSTR_ENABLED",
     ];
 
-    // NOSTR_PRIVATE_KEY is the only required key
-    const requiredKeys = ["NOSTR_PRIVATE_KEY"];
-    const optionalKeys = [
-      "NOSTR_RELAYS",
-      "NOSTR_DM_POLICY",
-      "NOSTR_ALLOW_FROM",
-      "NOSTR_ENABLED",
-    ];
-
-    expect(requiredKeys.every((k) => expectedConfigKeys.includes(k))).toBe(
-      true,
-    );
-    expect(optionalKeys.every((k) => expectedConfigKeys.includes(k))).toBe(
-      true,
-    );
-    expect(requiredKeys.length + optionalKeys.length).toBe(
-      expectedConfigKeys.length,
-    );
-  });
-});
-
-// ============================================================================
-//  4. Environment Variables
-// ============================================================================
-
-describe("Nostr Connector - Environment Variables", () => {
-  it("recognizes NOSTR_PRIVATE_KEY environment variable", () => {
-    const envKey = "NOSTR_PRIVATE_KEY";
-    expect(envKey).toBe("NOSTR_PRIVATE_KEY");
-  });
-
-  it("recognizes NOSTR_RELAYS environment variable", () => {
-    const envKey = "NOSTR_RELAYS";
-    expect(envKey).toBe("NOSTR_RELAYS");
-  });
-
-  it("validates that credentials can come from config or environment", () => {
-    const configKey = { privateKey: "nsec1test" };
-    expect(configKey.privateKey).toBeDefined();
-
-    const envKey = process.env.NOSTR_PRIVATE_KEY;
-    expect(typeof envKey === "string" || envKey === undefined).toBe(true);
-  });
-
-  it("NOSTR_DM_POLICY and NOSTR_ALLOW_FROM are optional env vars", () => {
-    const dmPolicy = process.env.NOSTR_DM_POLICY;
-    const allowFrom = process.env.NOSTR_ALLOW_FROM;
-
-    expect(dmPolicy === undefined || typeof dmPolicy === "string").toBe(true);
-    expect(allowFrom === undefined || typeof allowFrom === "string").toBe(true);
+    expect(configKeys.every((k) => k.startsWith("NOSTR_"))).toBe(true);
+    // No duplicates
+    expect(new Set(configKeys).size).toBe(configKeys.length);
   });
 });
