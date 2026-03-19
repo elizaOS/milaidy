@@ -15,9 +15,10 @@ Eliza Cloud provides remote agent hosting and provisioning. The Milady cloud int
 5. [Cloud Proxy](#cloud-proxy)
 6. [Backup Scheduler](#backup-scheduler)
 7. [Connection Monitor](#connection-monitor)
-8. [Cloud Status and Credits](#cloud-status-and-credits)
-9. [Credits and Billing](#credits-and-billing)
-10. [API Endpoints](#api-endpoints)
+8. [Granular Cloud Service Toggles](#granular-cloud-service-toggles)
+9. [Cloud Status and Credits](#cloud-status-and-credits)
+10. [Credits and Billing](#credits-and-billing)
+11. [API Endpoints](#api-endpoints)
 
 ---
 
@@ -250,6 +251,46 @@ When `maxFailures` consecutive heartbeat failures occur:
 5. Maximum delay: 60 seconds
 6. On success: status returns to `connected`
 7. After 10 failures: status transitions to `disconnected`
+
+---
+
+## Granular cloud service toggles
+
+When connected to Eliza Cloud, you can enable or disable individual cloud services instead of toggling the entire cloud connection. This lets you keep specific cloud capabilities — such as RPC or media generation — while using a local model provider for inference.
+
+The following services can be toggled independently:
+
+| Service | Description | Default |
+|---------|-------------|---------|
+| `inference` | Model inference (chat completions, embeddings routing) | `true` |
+| `rpc` | Blockchain RPC calls | `true` |
+| `media` | Media generation (images, video) | `true` |
+| `tts` | Text-to-speech | `true` |
+| `embeddings` | Embedding generation | `true` |
+
+Service toggles are managed through the provider switch flow. When you switch the active AI provider via `POST /api/provider/switch`:
+
+- Switching **to** `elizacloud` enables cloud inference and sets `services.inference = true`.
+- Switching **away** from `elizacloud` to a bring-your-own-key provider (e.g. `openai`, `anthropic`) disables cloud inference while keeping the cloud connection active for other services like RPC.
+
+You can also configure these toggles in `milady.json` under `cloud.services`:
+
+```json
+{
+  "cloud": {
+    "enabled": true,
+    "services": {
+      "inference": false,
+      "rpc": true,
+      "media": true,
+      "tts": true,
+      "embeddings": true
+    }
+  }
+}
+```
+
+This example keeps the cloud connection active for RPC, media, TTS, and embeddings while routing inference to a local provider.
 
 ---
 
