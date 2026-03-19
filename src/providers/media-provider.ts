@@ -364,40 +364,45 @@ class FalImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetchWithTimeout(`${this.baseUrl}/${this.model}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        image_size: options.size ?? "landscape_4_3",
-        num_images: 1,
-        ...(options.negativePrompt
-          ? { negative_prompt: options.negativePrompt }
-          : {}),
-        ...(options.seed ? { seed: options.seed } : {}),
-      }),
-    });
+    try {
+      const response = await fetchWithTimeout(`${this.baseUrl}/${this.model}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Key ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          prompt: options.prompt,
+          image_size: options.size ?? "landscape_4_3",
+          num_images: 1,
+          ...(options.negativePrompt
+            ? { negative_prompt: options.negativePrompt }
+            : {}),
+          ...(options.seed ? { seed: options.seed } : {}),
+        }),
+      });
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `FAL error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `FAL error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        images?: Array<{ url: string }>;
+      };
+      const imageUrl = data.images?.[0]?.url;
+      if (!imageUrl) {
+        return { success: false, error: "No image returned from FAL" };
+      }
+
+      return {
+        success: true,
+        data: { imageUrl },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      images?: Array<{ url: string }>;
-    };
-    const imageUrl = data.images?.[0]?.url;
-    if (!imageUrl) {
-      return { success: false, error: "No image returned from FAL" };
-    }
-
-    return {
-      success: true,
-      data: { imageUrl },
-    };
   }
 }
 
@@ -416,39 +421,44 @@ class FalVideoProvider implements VideoGenerationProvider {
   async generate(
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
-    const response = await fetchWithTimeout(`${this.baseUrl}/${this.model}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        ...(options.duration ? { duration: options.duration } : {}),
-        ...(options.aspectRatio ? { aspect_ratio: options.aspectRatio } : {}),
-        ...(options.imageUrl ? { image_url: options.imageUrl } : {}),
-      }),
-    });
+    try {
+      const response = await fetchWithTimeout(`${this.baseUrl}/${this.model}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Key ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          prompt: options.prompt,
+          ...(options.duration ? { duration: options.duration } : {}),
+          ...(options.aspectRatio ? { aspect_ratio: options.aspectRatio } : {}),
+          ...(options.imageUrl ? { image_url: options.imageUrl } : {}),
+        }),
+      });
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `FAL error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `FAL error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        video?: { url: string };
+        thumbnail?: { url: string };
+        duration?: number;
+      };
+
+      return {
+        success: true,
+        data: {
+          videoUrl: data.video?.url,
+          thumbnailUrl: data.thumbnail?.url,
+          duration: data.duration,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      video?: { url: string };
-      thumbnail?: { url: string };
-      duration?: number;
-    };
-
-    return {
-      success: true,
-      data: {
-        videoUrl: data.video?.url,
-        thumbnailUrl: data.thumbnail?.url,
-        duration: data.duration,
-      },
-    };
   }
 }
 
@@ -473,45 +483,50 @@ class OpenAIImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetchWithTimeout(
-      "https://api.openai.com/v1/images/generations",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
+    try {
+      const response = await fetchWithTimeout(
+        "https://api.openai.com/v1/images/generations",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            prompt: options.prompt,
+            n: 1,
+            size: options.size ?? "1024x1024",
+            quality: options.quality ?? this.quality,
+            style: options.style ?? this.style,
+          }),
         },
-        body: JSON.stringify({
-          model: this.model,
-          prompt: options.prompt,
-          n: 1,
-          size: options.size ?? "1024x1024",
-          quality: options.quality ?? this.quality,
-          style: options.style ?? this.style,
-        }),
-      },
-    );
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `OpenAI error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `OpenAI error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ url?: string; revised_prompt?: string }>;
+      };
+      const image = data.data?.[0];
+      if (!image?.url) {
+        return { success: false, error: "No image returned from OpenAI" };
+      }
+
+      return {
+        success: true,
+        data: {
+          imageUrl: image.url,
+          revisedPrompt: image.revised_prompt,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      data?: Array<{ url?: string; revised_prompt?: string }>;
-    };
-    const image = data.data?.[0];
-    if (!image?.url) {
-      return { success: false, error: "No image returned from OpenAI" };
-    }
-
-    return {
-      success: true,
-      data: {
-        imageUrl: image.url,
-        revisedPrompt: image.revised_prompt,
-      },
-    };
   }
 }
 
@@ -528,46 +543,51 @@ class OpenAIVideoProvider implements VideoGenerationProvider {
   async generate(
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
-    // OpenAI Sora API (video generation)
-    const response = await fetchWithTimeout(
-      "https://api.openai.com/v1/videos/generations",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
+    try {
+      // OpenAI Sora API (video generation)
+      const response = await fetchWithTimeout(
+        "https://api.openai.com/v1/videos/generations",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            prompt: options.prompt,
+            n: 1,
+            duration: options.duration ?? 5,
+            aspect_ratio: options.aspectRatio ?? "16:9",
+            ...(options.imageUrl ? { image: options.imageUrl } : {}),
+          }),
         },
-        body: JSON.stringify({
-          model: this.model,
-          prompt: options.prompt,
-          n: 1,
-          duration: options.duration ?? 5,
-          aspect_ratio: options.aspectRatio ?? "16:9",
-          ...(options.imageUrl ? { image: options.imageUrl } : {}),
-        }),
-      },
-    );
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `OpenAI Sora error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `OpenAI Sora error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ url?: string; duration?: number }>;
+      };
+      const video = data.data?.[0];
+      if (!video?.url) {
+        return { success: false, error: "No video returned from OpenAI Sora" };
+      }
+
+      return {
+        success: true,
+        data: {
+          videoUrl: video.url,
+          duration: video.duration,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      data?: Array<{ url?: string; duration?: number }>;
-    };
-    const video = data.data?.[0];
-    if (!video?.url) {
-      return { success: false, error: "No video returned from OpenAI Sora" };
-    }
-
-    return {
-      success: true,
-      data: {
-        videoUrl: video.url,
-        duration: video.duration,
-      },
-    };
   }
 }
 
@@ -586,60 +606,65 @@ class OpenAIVisionProvider implements VisionAnalysisProvider {
   async analyze(
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
-    const imageContent = options.imageBase64
-      ? {
-          type: "image_url" as const,
-          image_url: { url: `data:image/jpeg;base64,${options.imageBase64}` },
-        }
-      : {
-          type: "image_url" as const,
-          image_url: { url: options.imageUrl ?? "" },
-        };
+    try {
+      const imageContent = options.imageBase64
+        ? {
+            type: "image_url" as const,
+            image_url: { url: `data:image/jpeg;base64,${options.imageBase64}` },
+          }
+        : {
+            type: "image_url" as const,
+            image_url: { url: options.imageUrl ?? "" },
+          };
 
-    const response = await fetchWithTimeout(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
+      const response = await fetchWithTimeout(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            max_tokens: options.maxTokens ?? this.maxTokens,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: options.prompt ?? "Describe this image in detail.",
+                  },
+                  imageContent,
+                ],
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: options.maxTokens ?? this.maxTokens,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: options.prompt ?? "Describe this image in detail.",
-                },
-                imageContent,
-              ],
-            },
-          ],
-        }),
-      },
-    );
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `OpenAI error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `OpenAI error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const description = data.choices?.[0]?.message?.content;
+      if (!description) {
+        return { success: false, error: "No description returned from OpenAI" };
+      }
+
+      return {
+        success: true,
+        data: { description },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const description = data.choices?.[0]?.message?.content;
-    if (!description) {
-      return { success: false, error: "No description returned from OpenAI" };
-    }
-
-    return {
-      success: true,
-      data: { description },
-    };
   }
 }
 
@@ -662,42 +687,47 @@ class GoogleImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predict?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instances: [{ prompt: options.prompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: options.size ?? this.aspectRatio,
-            personGeneration: "allow_adult",
-            safetyFilterLevel: "block_few",
-          },
-        }),
-      },
-    );
+    try {
+      const response = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predict?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instances: [{ prompt: options.prompt }],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: options.size ?? this.aspectRatio,
+              personGeneration: "allow_adult",
+              safetyFilterLevel: "block_few",
+            },
+          }),
+        },
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Google Imagen error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `Google Imagen error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        predictions?: Array<{ bytesBase64Encoded?: string; mimeType?: string }>;
+      };
+      const imageData = data.predictions?.[0]?.bytesBase64Encoded;
+      if (!imageData) {
+        return { success: false, error: "No image returned from Google Imagen" };
+      }
+
+      return {
+        success: true,
+        data: {
+          imageBase64: imageData,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      predictions?: Array<{ bytesBase64Encoded?: string; mimeType?: string }>;
-    };
-    const imageData = data.predictions?.[0]?.bytesBase64Encoded;
-    if (!imageData) {
-      return { success: false, error: "No image returned from Google Imagen" };
-    }
-
-    return {
-      success: true,
-      data: {
-        imageBase64: imageData,
-      },
-    };
   }
 }
 
@@ -714,62 +744,67 @@ class GoogleVideoProvider implements VideoGenerationProvider {
   async generate(
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
-    // Google Veo uses a different endpoint structure
-    const response = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predictLongRunning?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instances: [
-            {
-              prompt: options.prompt,
-              ...(options.imageUrl
-                ? { image: { gcsUri: options.imageUrl } }
-                : {}),
+    try {
+      // Google Veo uses a different endpoint structure
+      const response = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predictLongRunning?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instances: [
+              {
+                prompt: options.prompt,
+                ...(options.imageUrl
+                  ? { image: { gcsUri: options.imageUrl } }
+                  : {}),
+              },
+            ],
+            parameters: {
+              aspectRatio: options.aspectRatio ?? "16:9",
+              durationSeconds: options.duration ?? 5,
+              personGeneration: "allow_adult",
             },
-          ],
-          parameters: {
-            aspectRatio: options.aspectRatio ?? "16:9",
-            durationSeconds: options.duration ?? 5,
-            personGeneration: "allow_adult",
-          },
-        }),
-      },
-    );
+          }),
+        },
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Google Veo error: ${text}` };
-    }
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `Google Veo error: ${text}` };
+      }
 
-    // Veo returns a long-running operation - for now we return the operation name
-    // In production, you'd poll the operation until it completes
-    const data = (await response.json()) as {
-      name?: string;
-      done?: boolean;
-      response?: {
-        predictions?: Array<{ videoUri?: string }>;
+      // Veo returns a long-running operation - for now we return the operation name
+      // In production, you'd poll the operation until it completes
+      const data = (await response.json()) as {
+        name?: string;
+        done?: boolean;
+        response?: {
+          predictions?: Array<{ videoUri?: string }>;
+        };
       };
-    };
 
-    if (data.done && data.response?.predictions?.[0]?.videoUri) {
+      if (data.done && data.response?.predictions?.[0]?.videoUri) {
+        return {
+          success: true,
+          data: {
+            videoUrl: data.response.predictions[0].videoUri,
+          },
+        };
+      }
+
+      // Operation started but not complete - return operation reference
+      // Client should poll the operation endpoint
       return {
         success: true,
         data: {
-          videoUrl: data.response.predictions[0].videoUri,
+          videoUrl: `pending:${data.name}`,
         },
       };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    // Operation started but not complete - return operation reference
-    // Client should poll the operation endpoint
-    return {
-      success: true,
-      data: {
-        videoUrl: `pending:${data.name}`,
-      },
-    };
   }
 }
 
@@ -786,45 +821,50 @@ class GoogleVisionProvider implements VisionAnalysisProvider {
   async analyze(
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
-    const imagePart = options.imageBase64
-      ? { inline_data: { mime_type: "image/jpeg", data: options.imageBase64 } }
-      : { file_data: { file_uri: options.imageUrl, mime_type: "image/jpeg" } };
+    try {
+      const imagePart = options.imageBase64
+        ? { inline_data: { mime_type: "image/jpeg", data: options.imageBase64 } }
+        : { file_data: { file_uri: options.imageUrl, mime_type: "image/jpeg" } };
 
-    const response = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: options.prompt ?? "Describe this image in detail." },
-                imagePart,
-              ],
-            },
-          ],
-        }),
-      },
-    );
+      const response = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: options.prompt ?? "Describe this image in detail." },
+                  imagePart,
+                ],
+              },
+            ],
+          }),
+        },
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Google error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `Google error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      const description = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!description) {
+        return { success: false, error: "No description returned from Google" };
+      }
+
+      return {
+        success: true,
+        data: { description },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const description = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!description) {
-      return { success: false, error: "No description returned from Google" };
-    }
-
-    return {
-      success: true,
-      data: { description },
-    };
   }
 }
 
@@ -845,45 +885,50 @@ class XAIImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    // xAI uses OpenAI-compatible API format for image generation
-    const response = await fetchWithTimeout(
-      "https://api.x.ai/v1/images/generations",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
+    try {
+      // xAI uses OpenAI-compatible API format for image generation
+      const response = await fetchWithTimeout(
+        "https://api.x.ai/v1/images/generations",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            prompt: options.prompt,
+            n: 1,
+            size: options.size ?? "1024x1024",
+            response_format: "url",
+          }),
         },
-        body: JSON.stringify({
-          model: this.model,
-          prompt: options.prompt,
-          n: 1,
-          size: options.size ?? "1024x1024",
-          response_format: "url",
-        }),
-      },
-    );
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `xAI error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `xAI error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ url?: string; revised_prompt?: string }>;
+      };
+      const image = data.data?.[0];
+      if (!image?.url) {
+        return { success: false, error: "No image returned from xAI" };
+      }
+
+      return {
+        success: true,
+        data: {
+          imageUrl: image.url,
+          revisedPrompt: image.revised_prompt,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      data?: Array<{ url?: string; revised_prompt?: string }>;
-    };
-    const image = data.data?.[0];
-    if (!image?.url) {
-      return { success: false, error: "No image returned from xAI" };
-    }
-
-    return {
-      success: true,
-      data: {
-        imageUrl: image.url,
-        revisedPrompt: image.revised_prompt,
-      },
-    };
   }
 }
 
@@ -900,61 +945,66 @@ class XAIVisionProvider implements VisionAnalysisProvider {
   async analyze(
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
-    // xAI uses OpenAI-compatible API format
-    const imageContent = options.imageBase64
-      ? {
-          type: "image_url" as const,
-          image_url: { url: `data:image/jpeg;base64,${options.imageBase64}` },
-        }
-      : {
-          type: "image_url" as const,
-          image_url: { url: options.imageUrl ?? "" },
-        };
+    try {
+      // xAI uses OpenAI-compatible API format
+      const imageContent = options.imageBase64
+        ? {
+            type: "image_url" as const,
+            image_url: { url: `data:image/jpeg;base64,${options.imageBase64}` },
+          }
+        : {
+            type: "image_url" as const,
+            image_url: { url: options.imageUrl ?? "" },
+          };
 
-    const response = await fetchWithTimeout(
-      "https://api.x.ai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
+      const response = await fetchWithTimeout(
+        "https://api.x.ai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            max_tokens: options.maxTokens ?? 1024,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: options.prompt ?? "Describe this image in detail.",
+                  },
+                  imageContent,
+                ],
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: options.maxTokens ?? 1024,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: options.prompt ?? "Describe this image in detail.",
-                },
-                imageContent,
-              ],
-            },
-          ],
-        }),
-      },
-    );
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `xAI error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `xAI error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const description = data.choices?.[0]?.message?.content;
+      if (!description) {
+        return { success: false, error: "No description returned from xAI" };
+      }
+
+      return {
+        success: true,
+        data: { description },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const description = data.choices?.[0]?.message?.content;
-    if (!description) {
-      return { success: false, error: "No description returned from xAI" };
-    }
-
-    return {
-      success: true,
-      data: { description },
-    };
   }
 }
 
@@ -1053,87 +1103,92 @@ class OllamaVisionProvider implements VisionAnalysisProvider {
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
     try {
-      await this.ensureModelAvailable();
-    } catch (err) {
-      return {
-        success: false,
-        error: `Ollama setup failed: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-
-    // Ollama uses a different format for vision - images must be base64
-    let imageData = options.imageBase64;
-    if (!imageData && options.imageUrl) {
-      // Fetch the image and convert to base64
       try {
-        const imageResponse = await fetchWithTimeout(
-          options.imageUrl,
-          {},
-          120_000,
-        );
-        if (!imageResponse.ok) {
-          return {
-            success: false,
-            error: `Failed to fetch image: ${imageResponse.statusText}`,
-          };
-        }
-        const buffer = await imageResponse.arrayBuffer();
-        imageData = Buffer.from(buffer).toString("base64");
+        await this.ensureModelAvailable();
       } catch (err) {
         return {
           success: false,
-          error: `Failed to fetch image: ${err instanceof Error ? err.message : String(err)}`,
+          error: `Ollama setup failed: ${err instanceof Error ? err.message : String(err)}`,
         };
       }
-    }
 
-    if (!imageData) {
-      return {
-        success: false,
-        error: "No image provided (imageUrl or imageBase64 required)",
-      };
-    }
+      // Ollama uses a different format for vision - images must be base64
+      let imageData = options.imageBase64;
+      if (!imageData && options.imageUrl) {
+        // Fetch the image and convert to base64
+        try {
+          const imageResponse = await fetchWithTimeout(
+            options.imageUrl,
+            {},
+            120_000,
+          );
+          if (!imageResponse.ok) {
+            return {
+              success: false,
+              error: `Failed to fetch image: ${imageResponse.statusText}`,
+            };
+          }
+          const buffer = await imageResponse.arrayBuffer();
+          imageData = Buffer.from(buffer).toString("base64");
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to fetch image: ${err instanceof Error ? err.message : String(err)}`,
+          };
+        }
+      }
 
-    const response = await fetchWithTimeout(
-      `${this.baseUrl}/api/chat`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            {
-              role: "user",
-              content: options.prompt ?? "Describe this image in detail.",
-              images: [imageData],
+      if (!imageData) {
+        return {
+          success: false,
+          error: "No image provided (imageUrl or imageBase64 required)",
+        };
+      }
+
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}/api/chat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: this.model,
+            messages: [
+              {
+                role: "user",
+                content: options.prompt ?? "Describe this image in detail.",
+                images: [imageData],
+              },
+            ],
+            stream: false,
+            options: {
+              num_predict: this.maxTokens,
             },
-          ],
-          stream: false,
-          options: {
-            num_predict: this.maxTokens,
-          },
-        }),
-      },
-      120_000,
-    );
+          }),
+        },
+        120_000,
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Ollama error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `Ollama error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        message?: { content?: string };
+      };
+      const description = data.message?.content;
+      if (!description) {
+        return { success: false, error: "No description returned from Ollama" };
+      }
+
+      return {
+        success: true,
+        data: { description },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      message?: { content?: string };
-    };
-    const description = data.message?.content;
-    if (!description) {
-      return { success: false, error: "No description returned from Ollama" };
-    }
-
-    return {
-      success: true,
-      data: { description },
-    };
   }
 }
 
@@ -1154,62 +1209,67 @@ class AnthropicVisionProvider implements VisionAnalysisProvider {
   async analyze(
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
-    const imageSource = options.imageBase64
-      ? {
-          type: "base64" as const,
-          media_type: "image/jpeg" as const,
-          data: options.imageBase64,
-        }
-      : { type: "url" as const, url: options.imageUrl ?? "" };
+    try {
+      const imageSource = options.imageBase64
+        ? {
+            type: "base64" as const,
+            media_type: "image/jpeg" as const,
+            data: options.imageBase64,
+          }
+        : { type: "url" as const, url: options.imageUrl ?? "" };
 
-    const response = await fetchWithTimeout(
-      "https://api.anthropic.com/v1/messages",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": this.apiKey,
-          "anthropic-version": "2023-06-01",
+      const response = await fetchWithTimeout(
+        "https://api.anthropic.com/v1/messages",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": this.apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: this.model,
+            max_tokens: options.maxTokens ?? 1024,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "image", source: imageSource },
+                  {
+                    type: "text",
+                    text: options.prompt ?? "Describe this image in detail.",
+                  },
+                ],
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: options.maxTokens ?? 1024,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "image", source: imageSource },
-                {
-                  type: "text",
-                  text: options.prompt ?? "Describe this image in detail.",
-                },
-              ],
-            },
-          ],
-        }),
-      },
-    );
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Anthropic error: ${text}` };
-    }
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `Anthropic error: ${text}` };
+      }
 
-    const data = (await response.json()) as {
-      content?: Array<{ type: string; text?: string }>;
-    };
-    const textBlock = data.content?.find((c) => c.type === "text");
-    if (!textBlock?.text) {
-      return {
-        success: false,
-        error: "No description returned from Anthropic",
+      const data = (await response.json()) as {
+        content?: Array<{ type: string; text?: string }>;
       };
-    }
+      const textBlock = data.content?.find((c) => c.type === "text");
+      if (!textBlock?.text) {
+        return {
+          success: false,
+          error: "No description returned from Anthropic",
+        };
+      }
 
-    return {
-      success: true,
-      data: { description: textBlock.text },
-    };
+      return {
+        success: true,
+        data: { description: textBlock.text },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
+    }
   }
 }
 
@@ -1232,40 +1292,45 @@ class SunoAudioProvider implements AudioGenerationProvider {
   async generate(
     options: AudioGenerationOptions,
   ): Promise<MediaProviderResult<AudioGenerationResult>> {
-    const response = await fetchWithTimeout(`${this.baseUrl}/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        model: this.model,
-        duration: options.duration,
-        instrumental: options.instrumental,
-        genre: options.genre,
-      }),
-    });
+    try {
+      const response = await fetchWithTimeout(`${this.baseUrl}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          prompt: options.prompt,
+          model: this.model,
+          duration: options.duration,
+          instrumental: options.instrumental,
+          genre: options.genre,
+        }),
+      });
 
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Suno error: ${text}` };
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: `Suno error: ${text}` };
+      }
+
+      const data = (await response.json()) as {
+        audio_url?: string;
+        title?: string;
+        duration?: number;
+      };
+
+      return {
+        success: true,
+        data: {
+          audioUrl: data.audio_url,
+          title: data.title,
+          duration: data.duration,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: `[${this.name}] Network error: ${msg}` };
     }
-
-    const data = (await response.json()) as {
-      audio_url?: string;
-      title?: string;
-      duration?: number;
-    };
-
-    return {
-      success: true,
-      data: {
-        audioUrl: data.audio_url,
-        title: data.title,
-        duration: data.duration,
-      },
-    };
   }
 }
 
