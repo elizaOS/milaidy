@@ -3,6 +3,21 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-04-23" description="Week of April 17–23" tags={["Update", "Fix"]}>
+## Telegram connector reliability
+
+The Telegram connector now handles unexpected errors gracefully instead of crashing the agent process. Conversation history restores with a timeout so a slow Telegram API response no longer blocks startup, and authentication retries automatically on transient failures during boot. These changes make Telegram-connected agents significantly more resilient in production.
+
+## Updates
+
+- **Connectors tab shows selected connector only** — The [connectors](/guides/connectors) configuration panel now displays only the connector you selected in the sidebar instead of rendering all connectors at once, making it easier to find and edit settings.
+- **macOS permission dialog identity** — System permission prompts on macOS (microphone, accessibility, etc.) now correctly display "Milady" as the requesting app name instead of a generic or missing identifier.
+
+## Bug fixes
+
+- Fixed companion mode showing a false typing indicator in empty conversations before the user sends a first message
+</Update>
+
 <Update label="2026-04-16" description="Week of April 10–16" tags={["Feature", "Update"]}>
 ## Six new platform connectors
 
