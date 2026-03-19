@@ -3,6 +3,42 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-05-14" description="Week of May 8–14" tags={["Feature", "Update"]}>
+## Sandbox live monitor
+
+The [sandbox](/guides/sandbox) now includes a live monitor panel alongside the interactive terminal. A noVNC desktop viewer lets you watch your sandboxed agent interact with a virtual desktop in real time — including browser activity, window management, and screen previews. Connection status and browser endpoints are visible at a glance so you always know what the sandbox is doing.
+
+## Custom chat commands
+
+You can now select text in a [chat](/dashboard/chat) conversation and save it as a reusable `/command`. Give it a name and invoke it later by typing the command prefix. This makes it easy to turn frequently used prompts or instructions into one-tap shortcuts.
+
+## Provider switcher
+
+A new provider management panel lets you browse all installed AI provider plugins, check configuration status, and switch between providers — including [Eliza Cloud](/guides/cloud), local models, and subscription-based access — without restarting your agent. See the [model providers](/model-providers) guide for details.
+
+## Runtime inspector
+
+An advanced runtime debug view is now available in the dashboard. It displays a full snapshot of your agent's internal state split into tabbed sections — actions, providers, plugins, services, and evaluators — with explicit load order metadata. Useful for diagnosing why a plugin isn't loading or which actions are registered.
+
+## Status bar
+
+A compact status bar at the top of the dashboard shows your active AI provider icons (with per-provider dropdowns), cloud credit balance, and wallet summary. This gives you at-a-glance awareness of your agent's current configuration without opening Settings.
+
+## Onboarding contextual help
+
+Each step of the onboarding wizard now includes contextual help panels that explain what the setting does, when to use it, what happens if you skip it, and the recommended default. New users can make informed decisions about provider selection, RPC configuration, permissions, and voice settings during first-run setup.
+
+## Three additional UI languages
+
+The app interface is now available in Korean, Portuguese, and Spanish, in addition to the existing English and Simplified Chinese. Language selection applies across the full dashboard and companion view.
+
+## Updates
+
+- **Connector health monitoring** — A background health monitor now checks whether your configured connectors (Discord, Telegram, Twitter, Slack, Farcaster) still have their corresponding plugin loaded. If a connector goes down, a warning banner appears automatically via WebSocket so you can act before users notice.
+- **Credit exhaustion detection** — When a cloud provider returns a billing error (HTTP 402 or 429 with quota context), the dashboard now identifies the specific provider and shows targeted guidance instead of a generic failure message.
+- **Twitter and NFT verification** — Two new verification methods are available for whitelist eligibility: post a verification tweet containing your agent name and wallet address, or prove ownership of an OG Milady Maker NFT. Verified addresses feed into a Merkle tree for on-chain whitelist proofs. See the [wallet guide](/guides/wallet) for details.
+</Update>
+
 <Update label="2026-05-07" description="Week of May 1–7" tags={["Feature", "Update"]}>
 ## Agent export and import
 
