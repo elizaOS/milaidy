@@ -11,7 +11,10 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
+
+const require = createRequire(import.meta.url);
 
 const ELIZA_CORE_RUNTIME_FILES = [
   "dist/index.js",
@@ -612,6 +615,526 @@ export function applyAppCoreMiladyCharacterViewPatch(filePath, catalog) {
   return true;
 }
 
+export function applyAppCoreOnboardingConnectionStepPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  const hostingQuestionNeedle = 't("onboarding.hostingQuestion")';
+  const hostingQuestionReplacement =
+    '(t("onboarding.hostingQuestion", { appName: branding.appName ?? "Eliza" }) || "").replace("{{appName}}", branding.appName ?? "Eliza")';
+  if (!compatSource.includes(hostingQuestionNeedle)) return false;
+
+  const updatedSource = compatSource.replaceAll(
+    hostingQuestionNeedle,
+    hostingQuestionReplacement,
+  );
+  if (updatedSource === compatSource) return false;
+
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreCloudLoginPopupPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (compatSource.includes("preopenedLoginPopup")) return false;
+
+  const preopenPattern = /setElizaCloudLoginError\(null\);\n/;
+  if (!preopenPattern.test(compatSource)) return false;
+
+  let updatedSource = compatSource.replace(
+    preopenPattern,
+    `setElizaCloudLoginError(null);
+        let preopenedLoginPopup = null;
+        if (typeof window !== "undefined" && typeof window.open === "function") {
+            try {
+                preopenedLoginPopup = window.open("", "_blank", "noopener,noreferrer");
+            }
+            catch {
+                preopenedLoginPopup = null;
+            }
+        }
+`,
+  );
+
+  const loginErrorPattern = /if \(!resp\.ok\) \{\n([\s\S]*?)return;\n\s*\}/;
+  const loginErrorReplacement = `if (!resp.ok) {
+                if (preopenedLoginPopup && !preopenedLoginPopup.closed) {
+                    preopenedLoginPopup.close();
+                }
+                setElizaCloudLoginError(resp.error || "Failed to start Eliza Cloud login");
+                elizaCloudLoginBusyRef.current = false;
+                setElizaCloudLoginBusy(false);
+                return;
+            }`;
+  updatedSource = updatedSource.replace(
+    loginErrorPattern,
+    loginErrorReplacement,
+  );
+
+  const browserUrlNeedle = `            if (resp.browserUrl) {
+                try {
+                    await openExternalUrl(resp.browserUrl);
+                }
+                catch {
+                    // Popup was blocked (common when window.open runs after an async
+                    // gap and loses user-gesture context). Surface the URL so the user
+                    // can open it manually — the polling loop below still runs.
+                    setElizaCloudLoginError(\`Open this link to log in: \${resp.browserUrl}\`);
+                }
+            }`;
+  const browserUrlReplacement = `            if (resp.browserUrl) {
+                try {
+                    if (preopenedLoginPopup && !preopenedLoginPopup.closed) {
+                        preopenedLoginPopup.location.href = resp.browserUrl;
+                    }
+                    else {
+                        await openExternalUrl(resp.browserUrl);
+                    }
+                }
+                catch {
+                    // Popup was blocked (common when window.open runs after an async
+                    // gap and loses user-gesture context). Surface the URL so the user
+                    // can open it manually — the polling loop below still runs.
+                    setElizaCloudLoginError(\`Open this link to log in: \${resp.browserUrl}\`);
+                }
+            }`;
+  updatedSource = updatedSource.replace(
+    browserUrlNeedle,
+    browserUrlReplacement,
+  );
+
+  if (updatedSource === compatSource) return false;
+
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreVoiceConfigViewSaveUxPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (compatSource.includes("Save Voice Settings")) return false;
+
+  const selectedPresetNeedle =
+    "    const selectedPreset = PREMADE_VOICES.find((p) => p.voiceId === selectedVoiceId);";
+  if (!compatSource.includes(selectedPresetNeedle)) return false;
+
+  let updatedSource = compatSource.replace(
+    selectedPresetNeedle,
+    `    const selectedPreset = PREMADE_VOICES.find((p) => p.voiceId === selectedVoiceId);
+    const inlineSaveStatusText = saving
+        ? "Saving..."
+        : saveError
+            ? \`Save failed: \${saveError}\`
+            : saveSuccess
+                ? "Saved"
+                : dirty
+                    ? "Unsaved changes"
+                    : "Saved";
+    const inlineSaveStatusTone = saveError
+        ? "text-[var(--warn)]"
+        : saveSuccess
+            ? "text-green-500"
+            : dirty
+                ? "text-[var(--warn)]"
+                : "text-[var(--muted)]";`,
+  );
+
+  const ownKeyInputNeedle = `_jsx(Input, { type: "password", className: "bg-card text-xs", placeholder: voiceConfig.elevenlabs?.apiKey
+                                    ? t("mediasettingssection.ApiKeySetLeaveBlank")
+                                    : t("mediasettingssection.EnterApiKey"), onChange: (e) => handleApiKeyChange(e.target.value) }),`;
+  if (!updatedSource.includes(ownKeyInputNeedle)) return false;
+
+  updatedSource = updatedSource.replace(
+    ownKeyInputNeedle,
+    `_jsxs("div", { className: "flex items-center gap-2", children: [_jsx(Input, { type: "password", className: "bg-card text-xs", placeholder: voiceConfig.elevenlabs?.apiKey
+                                    ? t("mediasettingssection.ApiKeySetLeaveBlank")
+                                    : t("mediasettingssection.EnterApiKey"), onChange: (e) => handleApiKeyChange(e.target.value) }), _jsx(Button, { variant: "outline", size: "sm", className: "shrink-0 font-semibold", disabled: saving || !dirty, onClick: () => void handleSave(), children: saving ? "Saving..." : "Save Voice Settings" })] }),`,
+  );
+
+  const ownKeyModelHintNeedle = `_jsxs("div", { className: "text-[10px] text-[var(--muted)]", children: [t("voiceconfigview.FastPathDefaultE"), DEFAULT_ELEVEN_FAST_MODEL, "\`)."] })`;
+  if (!updatedSource.includes(ownKeyModelHintNeedle)) return false;
+
+  updatedSource = updatedSource.replace(
+    ownKeyModelHintNeedle,
+    `${ownKeyModelHintNeedle}, _jsx("div", { className: \`text-[10px] \${inlineSaveStatusTone}\`, children: inlineSaveStatusText })`,
+  );
+
+  if (updatedSource === compatSource) return false;
+
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreVoiceConfigViewLiveTestPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  const testErrorDecl = "const [testError, setTestError] = useState(null);";
+  const hasDuplicateTestErrorDecl =
+    compatSource.split(testErrorDecl).length - 1 > 1;
+  if (
+    compatSource.includes("/api/tts/elevenlabs") &&
+    !compatSource.includes("?? selectedVoiceId") &&
+    !compatSource.includes("[selectedVoiceId, voiceConfig]") &&
+    !hasDuplicateTestErrorDecl &&
+    compatSource.includes("paid_plan_required")
+  ) {
+    return false;
+  }
+
+  const testingStatePattern =
+    /(^\s*const \[testing, setTesting\] = useState\(false\);)/m;
+  if (!testingStatePattern.test(compatSource)) return false;
+
+  let updatedSource = compatSource.replace(
+    testingStatePattern,
+    `$1
+    const [testError, setTestError] = useState(null);`,
+  );
+  updatedSource = updatedSource.replace(
+    /(\r?\n\s*const \[testError, setTestError\] = useState\(null\);\r?\n)(?:\s*const \[testError, setTestError\] = useState\(null\);\r?\n)+/g,
+    "$1",
+  );
+
+  const testHandlerPattern =
+    /const handleTestVoice = useCallback\(\(previewUrl\) => \{[\s\S]*?\n\s*\}, \[\]\);/;
+  if (testHandlerPattern.test(updatedSource)) {
+    updatedSource = updatedSource.replace(
+      testHandlerPattern,
+      `    const handleTestVoice = useCallback(async () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+        setTesting(true);
+        setTestError(null);
+        try {
+            const provider = voiceConfig.provider ?? "elevenlabs";
+            const voiceId = voiceConfig.elevenlabs?.voiceId;
+            const modelId = voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_FAST_MODEL;
+            const rawApiKey = voiceConfig.elevenlabs?.apiKey;
+            const providedApiKey = typeof rawApiKey === "string" &&
+                    rawApiKey.trim().length > 0 &&
+                    rawApiKey !== "[REDACTED]"
+                ? rawApiKey.trim()
+                : undefined;
+            if (provider !== "elevenlabs") {
+                throw new Error("Voice test currently supports ElevenLabs only.");
+            }
+            if (!voiceId) {
+                throw new Error("Select a voice before testing.");
+            }
+            const response = await fetch("/api/tts/elevenlabs", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    text: "Hello from your selected voice.",
+                    voiceId,
+                    modelId,
+                    ...(providedApiKey ? { apiKey: providedApiKey } : {}),
+                }),
+            });
+            if (!response.ok) {
+                const upstreamBody = await response.text().catch(() => "");
+                throw new Error(upstreamBody || \`Voice test failed (\${response.status})\`);
+            }
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                setTesting(false);
+            };
+            audio.onerror = () => {
+                URL.revokeObjectURL(audioUrl);
+                setTesting(false);
+                setTestError("Playback failed.");
+            };
+            await audio.play();
+        }
+        catch (err) {
+            setTesting(false);
+            setTestError(err instanceof Error ? err.message : "Voice test failed.");
+        }
+    }, [voiceConfig]);`,
+    );
+  }
+
+  const testButtonPattern =
+    /onClick:\s*\(\)\s*=>\s*handleTestVoice\(selectedPreset\.previewUrl\),/;
+  if (testButtonPattern.test(updatedSource)) {
+    updatedSource = updatedSource.replace(
+      testButtonPattern,
+      "onClick: () => void handleTestVoice(),",
+    );
+  }
+
+  const testErrorNeedle =
+    ")), _jsx(WakeWordSection, { serverConfig: swabbleServerConfig })";
+  if (updatedSource.includes(testErrorNeedle)) {
+    updatedSource = updatedSource.replace(
+      testErrorNeedle,
+      `)), testError && (_jsx("div", { className: "text-[10px] text-[var(--warn)]", children: testError })), _jsx(WakeWordSection, { serverConfig: swabbleServerConfig })`,
+    );
+  }
+
+  updatedSource = updatedSource.replace(
+    "const voiceId = voiceConfig.elevenlabs?.voiceId ?? selectedVoiceId;",
+    "const voiceId = voiceConfig.elevenlabs?.voiceId;",
+  );
+  updatedSource = updatedSource.replace(
+    "}, [selectedVoiceId, voiceConfig]);",
+    "}, [voiceConfig]);",
+  );
+  updatedSource = updatedSource.replace(
+    `            if (!response.ok) {
+                const upstreamBody = await response.text().catch(() => "");
+                throw new Error(upstreamBody || \`Voice test failed (\${response.status})\`);
+            }`,
+    `            if (!response.ok) {
+                const upstreamBody = await response.text().catch(() => "");
+                if (response.status === 402 && upstreamBody.includes("paid_plan_required")) {
+                    const fallbackResponse = await fetch("/api/tts/elevenlabs", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            text: "Hello from your selected voice.",
+                            voiceId: "EXAVITQu4vr4xnSDxMaL",
+                            modelId,
+                            ...(providedApiKey ? { apiKey: providedApiKey } : {}),
+                        }),
+                    });
+                    if (!fallbackResponse.ok) {
+                        throw new Error("Selected voice requires a paid ElevenLabs plan.");
+                    }
+                    const fallbackBlob = await fallbackResponse.blob();
+                    const fallbackUrl = URL.createObjectURL(fallbackBlob);
+                    const fallbackAudio = new Audio(fallbackUrl);
+                    audioRef.current = fallbackAudio;
+                    fallbackAudio.onended = () => {
+                        URL.revokeObjectURL(fallbackUrl);
+                        setTesting(false);
+                    };
+                    fallbackAudio.onerror = () => {
+                        URL.revokeObjectURL(fallbackUrl);
+                        setTesting(false);
+                        setTestError("Playback failed.");
+                    };
+                    setTestError("Selected voice requires paid plan. Played fallback voice.");
+                    await fallbackAudio.play();
+                    return;
+                }
+                throw new Error(upstreamBody || \`Voice test failed (\${response.status})\`);
+            }`,
+  );
+
+  if (updatedSource === compatSource) return false;
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreVoiceConfigApiKeyPersistencePatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (compatSource.includes("const resolvedApiKey =")) return false;
+
+  const apiKeyPersistencePattern =
+    /const sanitizedKey = sanitizeApiKey\(normalizedElevenLabs\?\.apiKey\);\n {12}if \(normalizedElevenLabs\) \{\n {16}if \(sanitizedKey\)\n {20}normalizedElevenLabs\.apiKey = sanitizedKey;\n {16}else\n {20}delete normalizedElevenLabs\.apiKey;\n {12}\}/;
+  if (!apiKeyPersistencePattern.test(compatSource)) return false;
+
+  const updatedSource = compatSource.replace(
+    apiKeyPersistencePattern,
+    `const rawApiKey = normalizedElevenLabs?.apiKey;
+            const resolvedApiKey = typeof rawApiKey === "string" ? rawApiKey.trim() : "";
+            if (normalizedElevenLabs) {
+                if (resolvedApiKey && resolvedApiKey !== "[REDACTED]")
+                    normalizedElevenLabs.apiKey = resolvedApiKey;
+                else
+                    delete normalizedElevenLabs.apiKey;
+            }`,
+  );
+
+  if (updatedSource === compatSource) return false;
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+function buildMiladyPremadeVoicesSource() {
+  const voices = [
+    {
+      id: "yun",
+      name: "Yun - Elegant, Sweet and Gentle",
+      voiceId: "4tRn1lSkEn13EVTuqb0g",
+      gender: "female",
+      hint: "Chinese, narration",
+      previewUrl: "",
+    },
+    {
+      id: "jean",
+      name: "Jean - Alluring and Playful Femme Fatale",
+      voiceId: "eadgjmk4R4uojdsheG9t",
+      gender: "female",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "jerry-b",
+      name: "Jerry B - Brash, Mischievous and Strong",
+      voiceId: "mHX7OoPk2G45VMAuinIt",
+      gender: "male",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "tarquin",
+      name: "Tarquin - Posh and English RP",
+      voiceId: "n7Wi4g1bhpw4Bs8HK5ph",
+      gender: "male",
+      hint: "Korean, character",
+      previewUrl: "",
+    },
+    {
+      id: "freya",
+      name: "Freya - Valley Girl",
+      voiceId: "6IwYbsNENZgAB1dtBZDp",
+      gender: "female",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "jett",
+      name: "Jett - Gritty and Spunky Young Hero",
+      voiceId: "TxGi1N29NQoCaYD4fcU5",
+      gender: "male",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "chadwitch",
+      name: "Chadwitch - The Ultimate Bro",
+      voiceId: "bICR68fw9p7rUiAEAgn6",
+      gender: "male",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "serafina",
+      name: "Serafina - Sensual Temptress",
+      voiceId: "7cOBG34AiHrAzs842Rdi",
+      gender: "female",
+      hint: "Portuguese, character",
+      previewUrl: "",
+    },
+    {
+      id: "gigi",
+      name: "Gigi - Cute, Peppy, Energetic",
+      voiceId: "IRHApOXLvnW57QJPQH2P",
+      gender: "female",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "lola",
+      name: "Lola - Soft, Innocent",
+      voiceId: "QzTKubutNn9TjrB7Xb2Q",
+      gender: "female",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "james",
+      name: "James - Husky, Engaging and Bold",
+      voiceId: "342hpGp7PKo7DsTTVSdr",
+      gender: "male",
+      hint: "Hungarian, narration",
+      previewUrl: "",
+    },
+    {
+      id: "aerisita",
+      name: "Aerisita - Bubbly, Feminine and Outgoing",
+      voiceId: "vGQNBgLaiM3EdZtxIiuY",
+      gender: "female",
+      hint: "English, character",
+      previewUrl: "",
+    },
+  ];
+
+  const lines = voices.map(
+    (voice) => `    {
+        id: ${JSON.stringify(voice.id)},
+        name: ${JSON.stringify(voice.name)},
+        voiceId: ${JSON.stringify(voice.voiceId)},
+        gender: ${JSON.stringify(voice.gender)},
+        hint: ${JSON.stringify(voice.hint)},
+        previewUrl: ${JSON.stringify(voice.previewUrl)},
+    },`,
+  );
+
+  return `export const PREMADE_VOICES = [
+${lines.join("\n")}
+];
+`;
+}
+
+export function applyAppCoreVoiceTypesPresetsPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (
+    compatSource.includes('"name: "Yun - Elegant, Sweet and Gentle"') &&
+    compatSource.includes('"name: "Aerisita - Bubbly, Feminine and Outgoing"')
+  ) {
+    return false;
+  }
+
+  const premadeVoicesPattern = /export const PREMADE_VOICES = \[[\s\S]*?\];\n/;
+  if (!premadeVoicesPattern.test(compatSource)) return false;
+
+  const updatedSource = compatSource.replace(
+    premadeVoicesPattern,
+    buildMiladyPremadeVoicesSource(),
+  );
+  if (updatedSource === compatSource) return false;
+
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreVoiceConfigSelectionVisibilityPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (compatSource.includes("bg-[var(--accent)]/20 text-white")) return false;
+
+  const variantNeedle = 'variant: active ? "default" : "outline"';
+  const classNeedle =
+    'className: "h-auto flex-col items-start py-1.5 px-2 text-left"';
+  if (!compatSource.includes(variantNeedle)) return false;
+  if (!compatSource.includes(classNeedle)) return false;
+
+  let updatedSource = compatSource.replaceAll(
+    variantNeedle,
+    'variant: "outline"',
+  );
+  updatedSource = updatedSource.replace(
+    classNeedle,
+    'className: `h-auto flex-col items-start py-1.5 px-2 text-left ${active ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]" : ""}`',
+  );
+
+  if (updatedSource === compatSource) return false;
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
 /**
  * Patch App.js ViewRouter to check for a custom character editor component
  * registered on window.__MILADY_CHARACTER_EDITOR__ before falling back to the
@@ -679,6 +1202,25 @@ export function applyAutonomousMiladyOnboardingPresetsPatch(filePath, source) {
  *   - Interface-style property lines inside a Record<> type block
  */
 function stripTypeScriptSyntax(src) {
+  try {
+    const ts = require("typescript");
+    const transpiled = ts.transpileModule(src, {
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2020,
+      },
+    }).outputText;
+    if (typeof transpiled === "string" && transpiled.trim().length > 0) {
+      return transpiled;
+    }
+  } catch {
+    // Fall through to regex-based stripping.
+  }
+
+  // Remove type-only exports and declarations.
+  src = src.replace(/^export\s+type\s+[^;]+;\s*$/gm, "");
+  src = src.replace(/^type\s+[^;]+;\s*$/gm, "");
+
   // Remove `as const` assertions
   src = src.replace(/\]\s+as\s+const\s*;/g, "];");
 
@@ -773,6 +1315,50 @@ export function patchAppCoreMiladyAssets(
       apply: (filePath) => applyAppCoreMiladyViewRouterPatch(filePath),
       description:
         "ViewRouter now checks for window.__MILADY_CHARACTER_EDITOR__ override",
+    },
+    {
+      relativePath: "components/onboarding/ConnectionStep.js",
+      apply: (filePath) => applyAppCoreOnboardingConnectionStepPatch(filePath),
+      description:
+        "onboarding hosting question now interpolates appName correctly",
+    },
+    {
+      relativePath: "state/AppContext.js",
+      apply: (filePath) => applyAppCoreCloudLoginPopupPatch(filePath),
+      description:
+        "cloud login now pre-opens popup before async flow to avoid blockers",
+    },
+    {
+      relativePath: "components/VoiceConfigView.js",
+      apply: (filePath) => applyAppCoreVoiceConfigViewSaveUxPatch(filePath),
+      description:
+        "voice settings now expose inline save action and explicit save status",
+    },
+    {
+      relativePath: "components/VoiceConfigView.js",
+      apply: (filePath) => applyAppCoreVoiceConfigViewLiveTestPatch(filePath),
+      description:
+        "voice test now calls ElevenLabs proxy and surfaces playback errors",
+    },
+    {
+      relativePath: "components/VoiceConfigView.js",
+      apply: (filePath) =>
+        applyAppCoreVoiceConfigApiKeyPersistencePatch(filePath),
+      description:
+        "voice API keys now persist raw values instead of masked redactions",
+    },
+    {
+      relativePath: "voice/types.js",
+      apply: (filePath) => applyAppCoreVoiceTypesPresetsPatch(filePath),
+      description:
+        "voice preset roster now matches Milady EN/ZH character voices",
+    },
+    {
+      relativePath: "components/VoiceConfigView.js",
+      apply: (filePath) =>
+        applyAppCoreVoiceConfigSelectionVisibilityPatch(filePath),
+      description:
+        "selected voice cards now remain visually distinct and readable",
     },
   ];
 

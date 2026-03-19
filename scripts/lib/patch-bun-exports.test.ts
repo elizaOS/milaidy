@@ -10,11 +10,18 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   applyAgentSkillsCatalogFetchPatch,
+  applyAppCoreCloudLoginPopupPatch,
   applyAppCoreMiladyCharacterViewPatch,
   applyAppCoreMiladyIdentityStepPatch,
   applyAppCoreMiladyVrmStatePatch,
   applyAppCoreMiladyVrmTypesPatch,
   applyAppCoreMiladyVrmViewerPatch,
+  applyAppCoreOnboardingConnectionStepPatch,
+  applyAppCoreVoiceConfigApiKeyPersistencePatch,
+  applyAppCoreVoiceConfigSelectionVisibilityPatch,
+  applyAppCoreVoiceConfigViewLiveTestPatch,
+  applyAppCoreVoiceConfigViewSaveUxPatch,
+  applyAppCoreVoiceTypesPresetsPatch,
   applyAutonomousMiladyOnboardingPresetsPatch,
   applyExtensionlessJsExportAliases,
   applyMissingLifecycleScriptPatch,
@@ -768,6 +775,287 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
     }
   });
 
+  it("applyAppCoreOnboardingConnectionStepPatch interpolates appName in hosting question", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "onboarding",
+        "ConnectionStep.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        'const node = t("onboarding.hostingQuestion");\n',
+        "utf8",
+      );
+
+      const patched = applyAppCoreOnboardingConnectionStepPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        't("onboarding.hostingQuestion", { appName: branding.appName ?? "Eliza" })',
+      );
+      expect(updated).toContain(
+        '.replace("{{appName}}", branding.appName ?? "Eliza")',
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreCloudLoginPopupPatch preopens popup before async cloud login", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "state",
+        "AppContext.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `setElizaCloudLoginError(null);
+            if (!resp.ok) {
+                setElizaCloudLoginError(resp.error || "Failed to start Eliza Cloud login");
+                elizaCloudLoginBusyRef.current = false;
+                setElizaCloudLoginBusy(false);
+                return;
+            }
+            if (resp.browserUrl) {
+                try {
+                    await openExternalUrl(resp.browserUrl);
+                }
+                catch {
+                    // Popup was blocked (common when window.open runs after an async
+                    // gap and loses user-gesture context). Surface the URL so the user
+                    // can open it manually — the polling loop below still runs.
+                    setElizaCloudLoginError(\`Open this link to log in: \${resp.browserUrl}\`);
+                }
+            }
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreCloudLoginPopupPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain("let preopenedLoginPopup = null;");
+      expect(updated).toContain(
+        'window.open("", "_blank", "noopener,noreferrer")',
+      );
+      expect(updated).toContain(
+        "if (preopenedLoginPopup && !preopenedLoginPopup.closed)",
+      );
+      expect(updated).toContain(
+        "preopenedLoginPopup.location.href = resp.browserUrl;",
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreVoiceConfigViewSaveUxPatch adds inline save button and status", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "VoiceConfigView.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const selectedVoiceId = voiceConfig.elevenlabs?.voiceId;
+    const selectedPreset = PREMADE_VOICES.find((p) => p.voiceId === selectedVoiceId);
+    return (_jsxs("div", { children: [currentMode === "own-key" && (_jsxs("div", { className: "flex flex-col gap-1.5", children: [_jsx("span", { className: "text-xs font-semibold", children: t("voiceconfigview.ElevenLabsAPIKey") }), _jsx(Input, { type: "password", className: "bg-card text-xs", placeholder: voiceConfig.elevenlabs?.apiKey
+                                    ? t("mediasettingssection.ApiKeySetLeaveBlank")
+                                    : t("mediasettingssection.EnterApiKey"), onChange: (e) => handleApiKeyChange(e.target.value) }), _jsxs("div", { className: "text-[10px] text-[var(--muted)]", children: [t("voiceconfigview.GetYourKeyAt"), " ", _jsx("a", { href: "https://elevenlabs.io", target: "_blank", rel: "noopener noreferrer", className: "text-[var(--text)] underline decoration-[var(--accent)] underline-offset-2 hover:opacity-80", children: t("voiceconfigview.elevenlabsIo") })] }), _jsxs("div", { className: "text-[10px] text-[var(--muted)]", children: [t("voiceconfigview.FastPathDefaultE"), DEFAULT_ELEVEN_FAST_MODEL, "\`)."] })] }))] }));
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreVoiceConfigViewSaveUxPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain("const inlineSaveStatusText = saving");
+      expect(updated).toContain("Save Voice Settings");
+      expect(updated).toContain("disabled: saving || !dirty");
+      expect(updated).toContain("inlineSaveStatusTone");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreVoiceConfigViewLiveTestPatch switches test playback to ElevenLabs proxy", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "VoiceConfigView.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const [testing, setTesting] = useState(false);
+const selectedVoiceId = voiceConfig.elevenlabs?.voiceId;
+const handleTestVoice = useCallback((previewUrl) => {
+    if (audioRef.current) {
+        audioRef.current.pause();
+    }
+    setTesting(true);
+    const audio = new Audio(previewUrl);
+    audioRef.current = audio;
+    audio.onended = () => setTesting(false);
+    audio.onerror = () => setTesting(false);
+    audio.play().catch(() => setTesting(false));
+}, []);
+return (_jsxs("div", { children: [selectedPreset && (_jsxs("div", { className: "flex items-center gap-2", children: [_jsx(Button, { variant: "outline", size: "sm", className: "font-semibold", disabled: testing, onClick: () => handleTestVoice(selectedPreset.previewUrl), children: testing
+                                ? t("voiceconfigview.Playing")
+                                : t("voiceconfigview.TestVoice", {
+                                    name: selectedPreset.name,
+                                }) }), testing && (_jsx(Button, { variant: "outline", size: "sm", onClick: () => {
+                                if (audioRef.current) {
+                                    audioRef.current.pause();
+                                    setTesting(false);
+                                }
+                            }, children: t("voiceconfigview.Stop") }))] })), _jsx(WakeWordSection, { serverConfig: swabbleServerConfig })] }));
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreVoiceConfigViewLiveTestPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain('fetch("/api/tts/elevenlabs"');
+      expect(updated).toContain("setTestError(");
+      expect(updated).toContain("onClick: () => void handleTestVoice()");
+      expect(updated).toContain('className: "text-[10px] text-[var(--warn)]"');
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreVoiceConfigApiKeyPersistencePatch keeps raw API keys", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "VoiceConfigView.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const sanitizedKey = sanitizeApiKey(normalizedElevenLabs?.apiKey);
+            if (normalizedElevenLabs) {
+                if (sanitizedKey)
+                    normalizedElevenLabs.apiKey = sanitizedKey;
+                else
+                    delete normalizedElevenLabs.apiKey;
+            }
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreVoiceConfigApiKeyPersistencePatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain("const resolvedApiKey =");
+      expect(updated).toContain('resolvedApiKey !== "[REDACTED]"');
+      expect(updated).not.toContain(
+        "sanitizeApiKey(normalizedElevenLabs?.apiKey)",
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreVoiceTypesPresetsPatch replaces default voice roster with provided named voices", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "voice",
+        "types.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `export const PREMADE_VOICES = [
+    { id: "rachel", name: "Rachel", voiceId: "21m00Tcm4TlvDq8ikWAM", gender: "female", hint: "Calm, clear", previewUrl: "https://example.com/rachel.mp3" },
+];
+export const VOICE_PROVIDERS = [{ id: "elevenlabs" }];
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreVoiceTypesPresetsPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain('name: "Yun - Elegant, Sweet and Gentle"');
+      expect(updated).toContain(
+        'name: "Aerisita - Bubbly, Feminine and Outgoing"',
+      );
+      expect(updated).toContain('voiceId: "IRHApOXLvnW57QJPQH2P"');
+      expect(updated).toContain("export const VOICE_PROVIDERS =");
+      expect(updated).not.toContain('name: "Rachel"');
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreVoiceConfigSelectionVisibilityPatch keeps active voice readable", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "VoiceConfigView.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const active = selectedVoiceId === preset.voiceId;
+return _jsx(Button, { variant: active ? "default" : "outline", size: "sm", className: "h-auto flex-col items-start py-1.5 px-2 text-left" });
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreVoiceConfigSelectionVisibilityPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain('variant: "outline"');
+      expect(updated).toContain("bg-[var(--accent)]/20 text-white");
+      expect(updated).toContain("shadow-[0_0_0_1px_var(--accent)]");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it("patchAppCoreMiladyAssets patches app-core runtime files and logs", () => {
     const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
     try {
@@ -856,7 +1144,7 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
           "utf8",
         ),
       ).toContain(
-        '"uwu~": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" }',
+        '"I\'m here to help you.": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" }',
       );
       expect(
         readFileSync(

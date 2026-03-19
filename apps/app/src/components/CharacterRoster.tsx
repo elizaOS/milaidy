@@ -1,52 +1,69 @@
 /**
- * Shared character roster grid — slant-clipped card selector used by both
+ * Shared character roster grid - slant-clipped card selector used by both
  * onboarding (selection-only) and the character editor (with customization).
  */
 
 import { getVrmPreviewUrl } from "@elizaos/app-core/state";
+import {
+  CHARACTER_PRESET_META,
+  getLocalizedCharacterPresetMetaByCatchphrase,
+} from "../../../../src/onboarding-presets";
 
-/* ── Shared constants ─────────────────────────────────────────────────── */
+/* -- Shared constants ----------------------------------------------------- */
 
 export const SLANT_CLIP =
   "polygon(32px 0, 100% 0, calc(100% - 32px) 100%, 0 100%)";
 export const INSET_CLIP =
   "polygon(0px 0, 100% 0, calc(100% - 4px) 100%, -8px 100%)";
 
-import { CHARACTER_PRESET_META } from "../../../../src/onboarding-presets";
-
 export { CHARACTER_PRESET_META };
 
-/* ── Types ────────────────────────────────────────────────────────────── */
+/* -- Types ---------------------------------------------------------------- */
 
 export type CharacterRosterEntry = {
   id: string;
   name: string;
   avatarIndex: number;
   voicePresetId?: string;
+  elevenlabsVoiceId?: string;
   catchphrase: string;
   preset: Record<string, unknown>;
 };
 
-/* ── Helpers ──────────────────────────────────────────────────────────── */
+/* -- Helpers -------------------------------------------------------------- */
+
+function getUiLanguage(): string {
+  if (typeof window === "undefined") return "en";
+  const fromStorage = window.localStorage.getItem("milady:ui-language");
+  if (fromStorage) return fromStorage;
+  return window.navigator.language || "en";
+}
 
 export function resolveRosterEntries(
-  styles: readonly { catchphrase: string; [k: string]: unknown }[],
+  styles: readonly { catchphrase: string }[],
+  locale?: string,
 ): CharacterRosterEntry[] {
+  const resolvedLocale = locale ?? getUiLanguage();
   return styles.map((preset, index) => {
-    const meta = CHARACTER_PRESET_META[preset.catchphrase];
+    const meta =
+      getLocalizedCharacterPresetMetaByCatchphrase(
+        preset.catchphrase,
+        resolvedLocale,
+      ) ?? CHARACTER_PRESET_META[preset.catchphrase];
     const fallbackName = `Character ${index + 1}`;
     return {
       id: preset.catchphrase,
       name: meta?.name ?? fallbackName,
       avatarIndex: meta?.avatarIndex ?? (index % 8) + 1,
       voicePresetId: meta?.voicePresetId,
+      elevenlabsVoiceId: meta?.elevenlabsVoiceId,
       catchphrase: meta?.catchphrase ?? preset.catchphrase ?? "",
       preset,
     };
   });
 }
 
-/* ── Component ────────────────────────────────────────────────────────── */
+/* -- Component ------------------------------------------------------------- */
 
 interface CharacterRosterProps {
   entries: CharacterRosterEntry[];

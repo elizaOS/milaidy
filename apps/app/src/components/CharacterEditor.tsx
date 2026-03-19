@@ -12,9 +12,12 @@ import {
   VOICE_CONFIG_UPDATED_EVENT,
 } from "@elizaos/app-core/events";
 import { useApp } from "@elizaos/app-core/state";
-import { PREMADE_VOICES, sanitizeApiKey } from "@elizaos/app-core/voice";
+import { PREMADE_VOICES } from "@elizaos/app-core/voice";
 import { Button, Input, Textarea, ThemedSelect } from "@elizaos/ui";
-import { STYLE_PRESETS } from "../../../../src/onboarding-presets";
+import {
+  normalizeCharacterVoiceLocale,
+  STYLE_PRESETS,
+} from "../../../../src/onboarding-presets";
 import {
   CharacterRoster,
   type CharacterRosterEntry,
@@ -75,6 +78,12 @@ import "./CharacterEditor.css";
 /* ── Constants ─────────────────────────────────────────────────────── */
 
 const DEFAULT_ELEVEN_FAST_MODEL = "eleven_flash_v2_5";
+const ELEVENLABS_LANGUAGE_CODE_BY_LOCALE: Record<string, string> = {
+  en: "en",
+  "zh-CN": "zh",
+  ja: "ja",
+  es: "es",
+};
 const STYLE_SECTION_KEYS = ["all", "chat", "post"] as const;
 const STYLE_SECTION_PLACEHOLDERS: Record<string, string> = {
   all: "Add shared rule",
@@ -125,6 +134,18 @@ interface OnboardingPreset {
 
 function replaceCharacterToken(value: string, name: string) {
   return value.replaceAll("{{name}}", name).replaceAll("{{agentName}}", name);
+}
+
+function getUiLanguage(): string {
+  if (typeof window === "undefined") return "en";
+  const fromStorage = window.localStorage.getItem("milady:ui-language");
+  if (fromStorage) return fromStorage;
+  return window.navigator.language || "en";
+}
+
+function getElevenLabsLanguageCode(locale: string): string {
+  const normalized = normalizeCharacterVoiceLocale(locale);
+  return ELEVENLABS_LANGUAGE_CODE_BY_LOCALE[normalized] ?? "en";
 }
 
 function buildCharacterDraftFromPreset(entry: CharacterRosterEntry) {
@@ -361,11 +382,22 @@ export function CharacterEditor({
   /* ── Voice helpers ──────────────────────────────────────────────── */
   const handleSelectPreset = useCallback(
     (preset: (typeof PREMADE_VOICES)[0]) => {
+      const languageCode = getElevenLabsLanguageCode(getUiLanguage());
       setSelectedVoicePresetId(preset.id);
-      setVoiceConfig((prev) => ({
-        ...prev,
-        elevenlabs: { ...(prev.elevenlabs ?? {}), voiceId: preset.voiceId },
-      }));
+      setVoiceConfig((prev) => {
+        const prevElevenlabs =
+          typeof prev.elevenlabs === "object" && prev.elevenlabs
+            ? (prev.elevenlabs as Record<string, string>)
+            : {};
+        return {
+          ...prev,
+          elevenlabs: {
+            ...prevElevenlabs,
+            voiceId: preset.voiceId,
+            languageCode,
+          },
+        };
+      });
     },
     [],
   );
@@ -373,6 +405,29 @@ export function CharacterEditor({
   const applyVoicePresetForEntry = useCallback(
     (entry: CharacterRosterEntry) => {
       setVoiceSaveError(null);
+      const languageCode = getElevenLabsLanguageCode(getUiLanguage());
+      const selectedVoiceId = entry.elevenlabsVoiceId;
+      if (selectedVoiceId) {
+        const mappedPreset = PREMADE_VOICES.find(
+          (p) => p.voiceId === selectedVoiceId,
+        );
+        setSelectedVoicePresetId(mappedPreset?.id ?? null);
+        setVoiceConfig((prev) => {
+          const prevElevenlabs =
+            typeof prev.elevenlabs === "object" && prev.elevenlabs
+              ? (prev.elevenlabs as Record<string, string>)
+              : {};
+          return {
+            ...prev,
+            elevenlabs: {
+              ...prevElevenlabs,
+              voiceId: selectedVoiceId,
+              languageCode,
+            },
+          };
+        });
+        return;
+      }
       if (!entry.voicePresetId) return;
       const voicePreset = PREMADE_VOICES.find(
         (p) => p.id === entry.voicePresetId,
@@ -422,7 +477,11 @@ export function CharacterEditor({
           });
         }, 800);
         // Speak the catchphrase via TTS
-        void client.streamVoiceSpeak(entry.catchphrase).catch(() => {});
+        void client.streamVoiceSpeak(entry.catchphrase).catch((err) => {
+          const message =
+            err instanceof Error ? err.message : "Voice preview failed.";
+          setVoiceSaveError(message);
+        });
       }
     },
     [
@@ -502,9 +561,15 @@ export function CharacterEditor({
       modelId:
         (voiceConfig.elevenlabs as Record<string, string> | undefined)
           ?.modelId ?? DEFAULT_ELEVEN_FAST_MODEL,
+      languageCode:
+        (voiceConfig.elevenlabs as Record<string, string> | undefined)
+          ?.languageCode ?? getElevenLabsLanguageCode(getUiLanguage()),
     };
-    const sanitizedKey = sanitizeApiKey(normalized?.apiKey);
-    if (sanitizedKey) normalized.apiKey = sanitizedKey;
+    const rawApiKey = normalized?.apiKey;
+    const resolvedApiKey =
+      typeof rawApiKey === "string" ? rawApiKey.trim() : "";
+    if (resolvedApiKey && resolvedApiKey !== "[REDACTED]")
+      normalized.apiKey = resolvedApiKey;
     else delete normalized.apiKey;
     const normalizedVoiceConfig = {
       ...voiceConfig,
@@ -693,6 +758,10 @@ export function CharacterEditor({
   /* ── Derived ────────────────────────────────────────────────────── */
   const activeVoicePreset =
     PREMADE_VOICES.find((p) => p.id === selectedVoicePresetId) ?? null;
+  const configuredVoiceId =
+    (voiceConfig.elevenlabs as Record<string, string> | undefined)?.voiceId ??
+    null;
+  const canPreviewVoice = Boolean(activeVoicePreset || configuredVoiceId);
   const voiceSelectValue = selectedVoicePresetId ?? null;
   const combinedSaveError = voiceSaveError ?? characterSaveError;
 
@@ -800,13 +869,20 @@ export function CharacterEditor({
                               activeCharacterRosterEntry.catchphrase,
                             )
                             .then(() => setVoiceTesting(false))
-                            .catch(() => setVoiceTesting(false));
+                            .catch((err) => {
+                              const message =
+                                err instanceof Error
+                                  ? err.message
+                                  : "Voice preview failed.";
+                              setVoiceSaveError(message);
+                              setVoiceTesting(false);
+                            });
                         }
                       }}
                       aria-label={
                         voiceTesting ? "Stop voice preview" : "Preview voice"
                       }
-                      disabled={!activeVoicePreset || voiceLoading}
+                      disabled={!canPreviewVoice || voiceLoading}
                     >
                       {voiceTesting ? (
                         <VolumeX className="h-3.5 w-3.5" />

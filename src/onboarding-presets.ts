@@ -1433,6 +1433,7 @@ export const CHARACTER_PRESET_META: Record<
     name: string;
     avatarIndex: number;
     voicePresetId?: string;
+    elevenlabsVoiceId?: string;
     catchphrase: string;
   }
 > = {
@@ -1485,5 +1486,247 @@ export const CHARACTER_PRESET_META: Record<
     catchphrase: "Let's figure this out together.",
   },
 };
+
+export type CharacterVoiceLocale = "en" | "zh-CN" | "ja" | "es";
+
+type CharacterPresetMeta = {
+  name: string;
+  avatarIndex: number;
+  voicePresetId?: string;
+  elevenlabsVoiceId?: string;
+  catchphrase: string;
+};
+
+const FALLBACK_CHARACTER_LOCALE: CharacterVoiceLocale = "en";
+
+const CHARACTER_LOCALE_PATTERNS: readonly {
+  locale: CharacterVoiceLocale;
+  pattern: RegExp;
+}[] = [
+  { locale: "zh-CN", pattern: /^zh(?:[-_](?:cn|hans))?/i },
+  { locale: "ja", pattern: /^ja(?:[-_](?:jp|jpan))?/i },
+  { locale: "es", pattern: /^es(?:[-_](?:es|mx|419))?/i },
+];
+
+export function normalizeCharacterVoiceLocale(
+  locale: string | null | undefined,
+): CharacterVoiceLocale {
+  const normalized = String(locale ?? "").trim();
+  if (!normalized) return FALLBACK_CHARACTER_LOCALE;
+  const matched = CHARACTER_LOCALE_PATTERNS.find(({ pattern }) =>
+    pattern.test(normalized),
+  );
+  return matched?.locale ?? FALLBACK_CHARACTER_LOCALE;
+}
+
+const CHARACTER_PRESET_META_BY_NAME = new Map<string, CharacterPresetMeta>();
+for (const meta of Object.values(CHARACTER_PRESET_META)) {
+  CHARACTER_PRESET_META_BY_NAME.set(meta.name.toLowerCase(), meta);
+}
+
+const CHARACTER_PRESET_LOCALE_OVERRIDES: Record<
+  string,
+  {
+    catchphrase: Record<CharacterVoiceLocale, string>;
+    voicePresetId?: Partial<Record<CharacterVoiceLocale, string>>;
+    elevenlabsVoiceId?: Partial<Record<CharacterVoiceLocale, string>>;
+  }
+> = {
+  chen: {
+    catchphrase: {
+      en: "I'm here to help you.",
+      "zh-CN": "我来帮你。",
+      ja: "手伝うよ。",
+      es: "Estoy aquí para ayudarte.",
+    },
+    voicePresetId: {
+      en: "sarah",
+      "zh-CN": "sarah",
+      ja: "sarah",
+      es: "sarah",
+    },
+    elevenlabsVoiceId: {
+      en: "4tRn1lSkEn13EVTuqb0g",
+      "zh-CN": "9lHjugDhwqoxA5MhX0az",
+      ja: "4tRn1lSkEn13EVTuqb0g",
+      es: "4tRn1lSkEn13EVTuqb0g",
+    },
+  },
+  jin: {
+    catchphrase: {
+      en: "I'm here to get things done.",
+      "zh-CN": "我来把事办成。",
+      ja: "結果を出しに来た。",
+      es: "Estoy aquí para hacerlo realidad.",
+    },
+    voicePresetId: {
+      en: "adam",
+      "zh-CN": "adam",
+      ja: "adam",
+      es: "adam",
+    },
+    elevenlabsVoiceId: {
+      en: "eadgjmk4R4uojdsheG9t",
+      "zh-CN": "QzTKubutNn9TjrB7Xb2Q",
+      ja: "eadgjmk4R4uojdsheG9t",
+      es: "eadgjmk4R4uojdsheG9t",
+    },
+  },
+  kei: {
+    catchphrase: {
+      en: "I'm online and ready.",
+      "zh-CN": "我在线，随时开工。",
+      ja: "オンライン、準備OK。",
+      es: "Estoy en línea y listo.",
+    },
+    voicePresetId: {
+      en: "josh",
+      "zh-CN": "josh",
+      ja: "josh",
+      es: "josh",
+    },
+    elevenlabsVoiceId: {
+      en: "mHX7OoPk2G45VMAuinIt",
+      "zh-CN": "342hpGp7PKo7DsTTVSdr",
+      ja: "mHX7OoPk2G45VMAuinIt",
+      es: "mHX7OoPk2G45VMAuinIt",
+    },
+  },
+  momo: {
+    catchphrase: {
+      en: "I'm ready to assist.",
+      "zh-CN": "我准备好协助你了。",
+      ja: "サポートの準備はできています。",
+      es: "Estoy lista para ayudarte.",
+    },
+    voicePresetId: {
+      en: "alice",
+      "zh-CN": "alice",
+      ja: "alice",
+      es: "alice",
+    },
+    elevenlabsVoiceId: {
+      en: "n7Wi4g1bhpw4Bs8HK5ph",
+      "zh-CN": "9lHjugDhwqoxA5MhX0az",
+      ja: "n7Wi4g1bhpw4Bs8HK5ph",
+      es: "n7Wi4g1bhpw4Bs8HK5ph",
+    },
+  },
+  rin: {
+    catchphrase: {
+      en: "Let's build something fun.",
+      "zh-CN": "我们来做点好玩的。",
+      ja: "楽しいものを作ろう。",
+      es: "Vamos a crear algo divertido.",
+    },
+    voicePresetId: {
+      en: "matilda",
+      "zh-CN": "matilda",
+      ja: "matilda",
+      es: "matilda",
+    },
+    elevenlabsVoiceId: {
+      en: "6IwYbsNENZgAB1dtBZDp",
+      "zh-CN": "9lHjugDhwqoxA5MhX0az",
+      ja: "6IwYbsNENZgAB1dtBZDp",
+      es: "6IwYbsNENZgAB1dtBZDp",
+    },
+  },
+  ryu: {
+    catchphrase: {
+      en: "I am ready when you are.",
+      "zh-CN": "你准备好，我就准备好了。",
+      ja: "君が準備できたら、こちらも準備できている。",
+      es: "Estoy listo cuando tú lo estés.",
+    },
+    voicePresetId: {
+      en: "daniel",
+      "zh-CN": "daniel",
+      ja: "daniel",
+      es: "daniel",
+    },
+    elevenlabsVoiceId: {
+      en: "TxGi1N29NQoCaYD4fcU5",
+      "zh-CN": "cENJycK4Wg62xVikqkaA",
+      ja: "TxGi1N29NQoCaYD4fcU5",
+      es: "TxGi1N29NQoCaYD4fcU5",
+    },
+  },
+  satoshi: {
+    catchphrase: {
+      en: "Show me what we're building.",
+      "zh-CN": "把我们要做的给我看看。",
+      ja: "何を作るのか見せて。",
+      es: "Muéstrame qué estamos construyendo.",
+    },
+    voicePresetId: {
+      en: "brian",
+      "zh-CN": "brian",
+      ja: "brian",
+      es: "brian",
+    },
+    elevenlabsVoiceId: {
+      en: "bICR68fw9p7rUiAEAgn6",
+      "zh-CN": "QzTKubutNn9TjrB7Xb2Q",
+      ja: "bICR68fw9p7rUiAEAgn6",
+      es: "bICR68fw9p7rUiAEAgn6",
+    },
+  },
+  yuki: {
+    catchphrase: {
+      en: "Let's figure this out together.",
+      "zh-CN": "我们一起把这件事搞明白。",
+      ja: "一緒に解決しよう。",
+      es: "Vamos a resolver esto juntos.",
+    },
+    voicePresetId: {
+      en: "lily",
+      "zh-CN": "lily",
+      ja: "lily",
+      es: "lily",
+    },
+    elevenlabsVoiceId: {
+      en: "7cOBG34AiHrAzs842Rdi",
+      "zh-CN": "9lHjugDhwqoxA5MhX0az",
+      ja: "7cOBG34AiHrAzs842Rdi",
+      es: "7cOBG34AiHrAzs842Rdi",
+    },
+  },
+};
+
+export function getLocalizedCharacterPresetMetaByName(
+  name: string,
+  locale: string | null | undefined,
+): CharacterPresetMeta | null {
+  const baseMeta = CHARACTER_PRESET_META_BY_NAME.get(name.toLowerCase());
+  if (!baseMeta) return null;
+  const normalizedLocale = normalizeCharacterVoiceLocale(locale);
+  const overrides =
+    CHARACTER_PRESET_LOCALE_OVERRIDES[baseMeta.name.toLowerCase()];
+  return {
+    ...baseMeta,
+    catchphrase:
+      overrides?.catchphrase[normalizedLocale] ??
+      overrides?.catchphrase.en ??
+      baseMeta.catchphrase,
+    voicePresetId:
+      overrides?.voicePresetId?.[normalizedLocale] ??
+      overrides?.voicePresetId?.en ??
+      baseMeta.voicePresetId,
+    elevenlabsVoiceId:
+      overrides?.elevenlabsVoiceId?.[normalizedLocale] ??
+      overrides?.elevenlabsVoiceId?.en ??
+      baseMeta.elevenlabsVoiceId,
+  };
+}
+
+export function getLocalizedCharacterPresetMetaByCatchphrase(
+  catchphrase: string,
+  locale: string | null | undefined,
+): CharacterPresetMeta | null {
+  const baseMeta = CHARACTER_PRESET_META[catchphrase];
+  if (!baseMeta) return null;
+  return getLocalizedCharacterPresetMetaByName(baseMeta.name, locale);
+}
 
 //#endregion
