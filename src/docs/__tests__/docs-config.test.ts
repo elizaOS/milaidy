@@ -43,7 +43,11 @@ describe("docs/docs.json", () => {
 
     for (const tab of tabs) {
       expect(tab.tab).toBeDefined();
-      expect(collectPagesFromTab(tab).length).toBeGreaterThan(0);
+      const hasPages = collectPagesFromTab(tab).length > 0;
+      const hasHref =
+        typeof (tab as { href?: unknown }).href === "string" &&
+        (tab as { href: string }).href.length > 0;
+      expect(hasPages || hasHref).toBe(true);
     }
   });
 
