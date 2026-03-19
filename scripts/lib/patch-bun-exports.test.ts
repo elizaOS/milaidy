@@ -856,7 +856,7 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
           "utf8",
         ),
       ).toContain(
-        '"uwu~": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" }',
+        `"I'm here to help you.": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" }`,
       );
       expect(
         readFileSync(
@@ -913,6 +913,17 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
         "src",
         "onboarding-presets.js",
       );
+      const tsPkgPath = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+autonomous@2.0.0-alpha.74",
+        "node_modules",
+        "@elizaos",
+        "autonomous",
+        "src",
+        "onboarding-presets.ts",
+      );
       const cachedPkgPath = join(
         tmp,
         "node_modules",
@@ -929,15 +940,17 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
 
       mkdirSync(join(rootSourcePath, ".."), { recursive: true });
       mkdirSync(join(rootPkgPath, ".."), { recursive: true });
+      mkdirSync(join(tsPkgPath, ".."), { recursive: true });
       mkdirSync(join(cachedPkgPath, ".."), { recursive: true });
 
       const miladySource =
-        'export const SHARED_STYLE_RULES = ["Keep responses brief."];\nexport const STYLE_PRESETS = ["milady"];\n';
+        'export const SHARED_STYLE_RULES = ["Keep responses brief."] as const;\nexport const CHARACTER_PRESET_META: Record<string, { avatarIndex: number }> = { chen: { avatarIndex: 1 } };\n';
       writeFileSync(rootSourcePath, miladySource, "utf8");
       writeFileSync(
         rootPkgPath,
         'export const STYLE_PRESETS = ["upstream"];\n',
       );
+      writeFileSync(tsPkgPath, 'export const STYLE_PRESETS = ["upstream"];\n');
       writeFileSync(
         cachedPkgPath,
         'export const STYLE_PRESETS = ["upstream"];\n',
@@ -949,8 +962,17 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
       );
 
       expect(patched).toBe(true);
-      expect(readFileSync(rootPkgPath, "utf8")).toBe(miladySource);
-      expect(readFileSync(cachedPkgPath, "utf8")).toBe(miladySource);
+      const patchedJsSource = readFileSync(rootPkgPath, "utf8");
+      expect(patchedJsSource).toContain(
+        'export const SHARED_STYLE_RULES = ["Keep responses brief."];',
+      );
+      expect(patchedJsSource).toContain(
+        "export const CHARACTER_PRESET_META = { chen: { avatarIndex: 1 } };",
+      );
+      expect(patchedJsSource).not.toContain("as const");
+      expect(patchedJsSource).not.toContain("Record<");
+      expect(readFileSync(cachedPkgPath, "utf8")).toBe(patchedJsSource);
+      expect(readFileSync(tsPkgPath, "utf8")).toBe(miladySource);
       expect(
         logs.some((line) =>
           line.includes(
