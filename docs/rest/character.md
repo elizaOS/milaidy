@@ -125,11 +125,12 @@ AI-assisted generation of character fields using the running agent's language mo
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `field` | string | Yes | Field to generate: `"bio"`, `"style"`, `"chatExamples"`, or `"postExamples"` |
+| `field` | string | Yes | Field to generate: `"bio"`, `"system"`, `"style"`, `"chatExamples"`, or `"postExamples"` |
 | `context` | object | Yes | Current character data used as context for generation |
 | `context.name` | string | No | Agent name |
 | `context.system` | string | No | System prompt |
 | `context.bio` | string | No | Existing bio |
+| `context.topics` | string[] | No | Topics the agent is knowledgeable about |
 | `context.style` | object | No | Existing style rules |
 | `context.postExamples` | string[] | No | Existing post examples |
 | `mode` | string | No | `"append"` to add to existing content, `"replace"` (default) to replace it |
@@ -142,7 +143,25 @@ AI-assisted generation of character fields using the running agent's language mo
 }
 ```
 
-The `generated` field contains a raw string. For `style`, this is a JSON object string. For `chatExamples` and `postExamples`, this is a JSON array string. Clients should parse these as needed.
+The `generated` field contains a raw string whose format depends on the requested `field`:
+
+- **`bio`** and **`system`**: plain text
+- **`style`**: a JSON object string with keys `all`, `chat`, `post` (each an array of strings)
+- **`chatExamples`**: a JSON array of conversation groups using the `messageExamples` schema:
+  ```json
+  [
+    {
+      "examples": [
+        { "name": "{{user1}}", "content": { "text": "Hey, what do you think about AI?" } },
+        { "name": "Milady", "content": { "text": "Oh, I have thoughts..." } }
+      ]
+    }
+  ]
+  ```
+  Each group contains 2–4 turns. Messages use the `name` field to identify the speaker.
+- **`postExamples`**: a JSON array of strings
+
+Clients should parse the JSON formats as needed.
 
 ---
 
