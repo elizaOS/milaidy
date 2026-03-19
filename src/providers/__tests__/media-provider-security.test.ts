@@ -85,3 +85,36 @@ describe("S2: API keys must be in headers, not URLs", () => {
     );
   });
 });
+
+describe("S4: Providers reject empty API keys", () => {
+  const providerNames = [
+    "FalImageProvider",
+    "FalVideoProvider",
+    "OpenAIImageProvider",
+    "OpenAIVideoProvider",
+    "OpenAIVisionProvider",
+    "GoogleImageProvider",
+    "GoogleVideoProvider",
+    "GoogleVisionProvider",
+    "XAIImageProvider",
+    "XAIVisionProvider",
+    "AnthropicVisionProvider",
+    "SunoAudioProvider",
+  ] as const;
+
+  for (const name of providerNames) {
+    it(`${name} throws when apiKey is missing`, async () => {
+      const mod = await import("../media-provider");
+      const ProviderClass = (mod as Record<string, any>)[name];
+      expect(() => new ProviderClass({})).toThrow("API key is required");
+    });
+
+    it(`${name} throws when apiKey is empty string`, async () => {
+      const mod = await import("../media-provider");
+      const ProviderClass = (mod as Record<string, any>)[name];
+      expect(() => new ProviderClass({ apiKey: "" })).toThrow(
+        "API key is required",
+      );
+    });
+  }
+});
