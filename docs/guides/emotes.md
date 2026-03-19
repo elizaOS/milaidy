@@ -12,9 +12,21 @@ The `PLAY_EMOTE` action accepts a single parameter:
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `emote` | string | Yes | Emote ID from the catalog below |
+| `emote` | string (enum) | Yes | Emote ID from the catalog below. The parameter schema includes an `enum` of all valid IDs, so the LLM sees the allowed values directly in the action definition. |
+
+Common natural-language mappings (included in the parameter description for the model):
+- dance / vibe &rarr; `dance-happy`
+- wave / greet &rarr; `wave`
+- flip / backflip &rarr; `flip`
+- cry / sad &rarr; `crying`
+- fight / punch &rarr; `punching`
+- fish &rarr; `fishing`
 
 Alternative trigger names: `EMOTE`, `ANIMATE`, `GESTURE`, `DANCE`, `WAVE`, `PLAY_ANIMATION`, `DO_EMOTE`, `PERFORM`.
+
+### Disabling emotes
+
+Set `character.settings.DISABLE_EMOTES = true` to remove the `PLAY_EMOTE` action entirely at plugin init time. When disabled, the action never appears in the prompt.
 
 ## Emote Catalog
 

@@ -79,6 +79,8 @@ createWorkspaceProvider({
 
 `maxCharsPerFile` (alias `bootstrapMaxChars`) limits how many characters from each file are injected, preventing oversized contexts. Default is 20,000 characters.
 
+Files that still contain the default placeholder content (the boilerplate generated on first run) are automatically skipped. Only workspace files you have customized are injected into the prompt.
+
 **Source:** `src/providers/workspace-provider.ts`
 
 ### Admin Trust Provider
@@ -133,22 +135,13 @@ Injects the Milady UI component catalog, allowing the agent to compose structure
 
 **Source:** `src/providers/ui-catalog.ts` (`uiCatalogProvider`)
 
-### Emote Provider
+### Emote Provider (deprecated)
 
-**Name:** `emotes`
+<Warning>
+The emote provider has been removed. Available emote IDs are now declared as an `enum` on the `PLAY_EMOTE` action's `emote` parameter. The runtime's `formatActions` function automatically includes the enum values in the prompt's **Available Actions** section, so a separate provider is no longer needed.
+</Warning>
 
-Injects available avatar animation IDs when the agent has a 3D avatar. This tells the LLM it can trigger animations via the `PLAY_EMOTE` action.
-
-```
-## Available Emotes
-
-You can play emote animations on your 3D avatar using the PLAY_EMOTE action.
-Use emotes sparingly and naturally during conversation to express yourself.
-
-Available emote IDs: wave, dance, sit, think, clap, ...
-```
-
-Disabled by setting `character.settings.DISABLE_EMOTES = true`. Saves approximately 300 tokens per turn.
+To disable emotes entirely, set `character.settings.DISABLE_EMOTES = true`. When this setting is enabled, the `PLAY_EMOTE` action is removed from the plugin at init time so it never appears in the prompt.
 
 ### Custom Actions Provider
 
