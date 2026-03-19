@@ -3,6 +3,65 @@ title: Changelog
 description: The latest updates and improvements to Milady.
 ---
 
+<Update label="2026-04-09" description="Week of April 3–9" tags={["Feature", "Update", "Fix"]}>
+## Opinion markets plugin
+
+Your agent can now trade on prediction markets through a new opinion markets plugin. Browse markets, place bets, check positions, cancel orders, and redeem outcomes — all from chat or the REST API. Real-time market data streams via WebSocket so your agent stays current on price movements.
+
+## Agent self-awareness
+
+Your agent can now report on its own status. A new awareness system aggregates health signals from the runtime, cloud connection, wallet, connectors, plugins, and permissions into a single view. Ask your agent "what's your status?" and it returns a structured summary of what's working, what's degraded, and what needs attention.
+
+## Coding agent settings
+
+The Settings view now includes a Coding Agents section where you can choose the agent selection strategy, default agent type, permission level, and per-agent model preferences. These controls give you finer-grained control over how [coding swarms](/guides/coding-swarms) behave.
+
+## Granular cloud service toggles
+
+When connected to Eliza Cloud, you can now enable or disable individual cloud services — inference, RPC, media, TTS, and embeddings — instead of toggling the entire cloud connection. This lets you keep cloud RPC while using a local model provider, for example. See the [cloud guide](/guides/cloud) for details.
+
+## Updates
+
+- **Credit exhaustion errors surfaced clearly** — Cloud provider billing errors (HTTP 402 and 429) are now detected and shown in the dashboard with actionable guidance instead of generic failure messages.
+- **Knowledge service retry** — When the knowledge service is still loading, requests return a `Retry-After` header and the client auto-retries with exponential backoff, preventing failed queries during startup.
+- **System warning banners** — Connector failures and coordinator wiring issues now surface directly in the dashboard as dismissible warning banners so you can act on problems immediately.
+</Update>
+
+<Update label="2026-04-02" description="Week of March 27 – April 2" tags={["Feature", "Update", "Fix"]}>
+## Multi-destination streaming with pump.fun and X/Twitter
+
+You can now stream to multiple destinations at once and switch between them at runtime. Two new streaming plugins ship this week:
+
+- **pump.fun** — stream directly to pump.fun via RTMP
+- **X/Twitter** — stream to X/Twitter via RTMPS
+
+Configure your destinations in the [stream settings](/dashboard/stream) and switch the active target without restarting. Streaming plugins now also validate your RTMP URL on startup and surface a clear error if it's missing.
+
+## Windows standalone installer
+
+The Windows download is now a proper single-file installer built with Inno Setup. Previously, the public `.exe` was a bootstrap wrapper that required a companion payload archive. The new installer works on its own — download, run, and you're set. MSIX remains available as an alternative. See the [installation guide](/installation) for details.
+
+## Companion i18n support
+
+The companion UI now supports internationalization. English and Simplified Chinese (zh-CN) are available at launch, with the framework in place for additional languages.
+
+## Coding agent always available
+
+The coding agent plugin is now a core plugin that loads automatically on every startup. You no longer need to manually enable it to use coding and terminal features. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Updates
+
+- **Improved desktop startup errors** — When the agent runtime fails to load, the desktop app now keeps the API server running and shows the actual error message in the UI instead of a generic "Failed to fetch." This makes it much easier to diagnose configuration issues.
+- **NFA endpoints graceful fallback** — The `/api/nfa/status` and `/api/nfa/learnings` endpoints now return empty data gracefully when the BNB identity plugin is not installed, instead of failing. See the [wallet guide](/guides/wallet) for details.
+- **Plugin logos in companion view** — Installed plugins now display their logos in the companion UI for easier identification.
+
+## Bug fixes
+
+- Fixed Intel Mac desktop app crashing on startup due to ARM64 native binaries being shipped instead of x64 binaries
+- Fixed plugin resolution failures ("Cannot find module") across CLI, desktop dev mode, and direct runtime load — not just packaged builds
+- Fixed coding agent plugin failing to load under Bun due to a stale package export pointing to a non-existent source file
+</Update>
+
 <Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
 ## API key validation for model providers
 
@@ -391,4 +450,74 @@ Multi-agent coding swarm runs now produce a synthesis message when all tasks are
 - Model provider detection now prioritizes your explicit configuration over auto-detected plugins
 - Terminal output no longer flashes or scrolls from the top when resuming a session
 - Triggers no longer fire during agent restart, preventing once-only triggers from being consumed without executing
+</Update>
+
+<Update label="2026-03-13" description="Week of March 8–13" tags={["Feature", "Security", "Fix"]}>
+## Game-style onboarding redesign
+
+First-run setup has been rebuilt as a streamlined six-step flow with a three-column glassmorphism layout and a dark game-style theme applied across all modals and overlays. The new steps — Wake Up, Identity, Language, Connection, Permissions, and Activate — replace the previous ten-step wizard.
+
+## New CLI commands
+
+Three new CLI commands ship this week:
+
+- **`milady doctor`** — runs a full environment health check, flagging missing dependencies, port conflicts, and configuration issues. See the [doctor reference](/cli/doctor).
+- **`milady db reset`** — safely resets the database with a confirmation prompt. See the [db reference](/cli/db).
+- **`milady setup`** — an interactive wizard that walks you through model provider selection with support for nine providers. See the [setup reference](/cli/setup).
+
+## Six new installation channels
+
+Milady is now available through significantly more package managers:
+
+- **Homebrew** — `brew install milaidy` (CLI) or `brew install --cask milaidy` (desktop)
+- **Snap Store** — `snap install milady` with strict confinement
+- **Flatpak / Flathub** — production-ready Flatpak with AppStream metadata
+- **APT** — Debian/Ubuntu install via APT with a systemd service and auto-restart
+- **Google Play Store** — Android app with signed releases
+- **iOS and Mac App Store** — available via TestFlight and App Store Connect
+
+See the [installation guide](/installation) for platform-specific instructions.
+
+## Native GPU companion rendering
+
+Desktop builds now include WebGPU-powered native rendering infrastructure for companion visuals, providing a faster alternative to the webview-based renderer for GPU-accelerated scenes.
+
+## Game client canvas windows
+
+Game clients on [desktop](/apps/desktop) now open in a dedicated native window with isolated cookies and storage instead of an embedded iframe. This improves stability and security for in-app game experiences.
+
+## Streaming controls in companion mode
+
+You can now manage live streaming directly from companion mode — including destination and source pickers, stream settings, and new agent actions like go live, go offline, and speak on stream. See the [stream guide](/dashboard/stream) for details.
+
+## NFA wallet flow
+
+A new identity and NFA wallet flow adds an identity card surface, wallet-style confirmation UX, and public BSC RPC defaults. See the [wallet guide](/guides/wallet) for details.
+
+## Chat link sanitization
+
+Chat message links are now sanitized to block `javascript:`, `data:`, and `vbscript:` URI schemes, preventing XSS through untrusted content. Normal links and relative paths continue to work as expected.
+
+## Wallet transfer guard
+
+Agent-originated wallet transfer requests can no longer bypass the manual-local-key confirmation guard. All transfers now require explicit user signature approval.
+
+## Desktop bug fixes
+
+- Window position is now restored correctly after hide/show
+- Clipboard image encoding works reliably across platforms
+- TTS interruption now fully stops in-flight audio
+- Navigation guard blocks external URLs from loading in the main app window
+- VRM avatar face orientation no longer flips incorrectly
+
+## Additional fixes
+
+- Voice and agent-mode dropdowns are no longer hidden behind other elements
+- Settings sidebar now shows section labels for easier navigation
+- Avatar selector prevents double-click during load
+- Conversation sidebar now shows title on the left and timestamp on the right
+- Cloud model provider no longer re-enables itself on restart after you switch away
+- Remote server access works correctly with wildcard bind and reverse proxy path prefixes
+- Marketplace-installed skills now appear in the UI
+- Oversized voice API requests are properly rejected with a 413 error
 </Update>
