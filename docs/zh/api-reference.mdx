@@ -232,7 +232,7 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 
 | 方法 | 路径 | 描述 |
 |--------|------|-------------|
-| `GET` | `/api/agent/events` | 获取缓冲的代理事件。参数：`after`（事件 ID）、`limit`（1-1000，默认 200） |
+| `GET` | `/api/agent/events` | 获取缓冲的代理事件。参数：`after`（事件 ID 游标）、`limit`（1-1000，默认 200）、`runId`（按运行过滤）、`fromSeq`（最小序列号） |
 
 ---
 

@@ -232,7 +232,7 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 
 | Méthode | Chemin | Description |
 |---------|--------|-------------|
-| `GET` | `/api/agent/events` | Obtenir les événements mis en mémoire tampon de l'agent. Paramètres : `after` (ID d'événement), `limit` (1-1000, défaut 200) |
+| `GET` | `/api/agent/events` | Obtenir les événements mis en mémoire tampon de l'agent. Paramètres : `after` (curseur d'ID d'événement), `limit` (1-1000, défaut 200), `runId` (filtrer par exécution), `fromSeq` (numéro de séquence minimum) |
 
 ---
 

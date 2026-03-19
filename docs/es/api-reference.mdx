@@ -232,7 +232,7 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `GET` | `/api/agent/events` | Obtener eventos del agente almacenados en búfer. Parámetros: `after` (ID de evento), `limit` (1-1000, por defecto 200) |
+| `GET` | `/api/agent/events` | Obtener eventos del agente almacenados en búfer. Parámetros: `after` (cursor de ID de evento), `limit` (1-1000, por defecto 200), `runId` (filtrar por ejecución), `fromSeq` (número de secuencia mínimo) |
 
 ---
 
