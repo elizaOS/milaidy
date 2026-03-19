@@ -72,16 +72,9 @@ export function assertValidGitUrl(url: string): void {
 // Serialisation lock — prevents concurrent installs from corrupting config
 // ---------------------------------------------------------------------------
 
-let installLock: Promise<void> = Promise.resolve();
+import { createSerialiser } from "./serialise";
 
-function serialise<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = installLock;
-  let resolve: () => void;
-  installLock = new Promise<void>((r) => {
-    resolve = r;
-  });
-  return prev.then(fn).finally(() => resolve?.());
-}
+const serialise = createSerialiser();
 
 // ---------------------------------------------------------------------------
 // Types

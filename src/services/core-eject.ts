@@ -11,8 +11,10 @@ import {
   VALID_GIT_URL,
 } from "./plugin-installer";
 import { getPluginInfo } from "./registry-client";
+import { createSerialiser } from "./serialise";
 
 const execFileAsync = promisify(execFile);
+const serialise = createSerialiser();
 
 const CORE_GIT_URL = "https://github.com/elizaos/eliza.git";
 const CORE_BRANCH = "develop";
@@ -23,17 +25,6 @@ const UPSTREAM_SCHEMA = "milady-upstream-v1";
 
 function isSupportedUpstreamSchema(value: string): boolean {
   return value === UPSTREAM_SCHEMA;
-}
-
-let ejectLock: Promise<void> = Promise.resolve();
-
-function serialise<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = ejectLock;
-  let resolve: () => void;
-  ejectLock = new Promise<void>((r) => {
-    resolve = r;
-  });
-  return prev.then(fn).finally(() => resolve?.());
 }
 
 export interface UpstreamMetadata {
