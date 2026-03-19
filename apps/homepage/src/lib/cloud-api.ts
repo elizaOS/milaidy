@@ -411,6 +411,23 @@ export class CloudApiClient {
     if (primary.ok) {
       return primary.json();
     }
+
+    // If auth is required (401/403), try /api/auth/status as a lightweight
+    // probe — it doesn't require a token and confirms the agent is alive.
+    if (primary.status === 401 || primary.status === 403) {
+      const authProbe = await this.rawFetch("/api/auth/status", {
+        method: "GET",
+      });
+      if (authProbe.ok) {
+        return {
+          status: "ok",
+          ready: true,
+          uptime: 0,
+          agentState: "running",
+        };
+      }
+    }
+
     if (primary.status !== 404) {
       throw new Error(`API ${primary.status}: /api/health`);
     }

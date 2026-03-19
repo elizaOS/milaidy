@@ -84,24 +84,16 @@ export function getSandboxDiscoveryUrls(): string[] {
 }
 
 /**
- * Optionally rewrite agent UI URLs to use the configured base domain.
+ * Rewrite agent UI URLs to use the configured base domain.
  *
- * Only rewrites when `VITE_AGENT_UI_BASE_DOMAIN` is explicitly set to a
- * non-default value.  Otherwise the backend-provided URL (e.g. *.waifu.fun)
- * is returned as-is so we don't force traffic through a domain whose proxy
- * may not be fully configured yet.
+ * Sandbox discovery may return *.waifu.fun URLs, but the canonical
+ * user-facing domain is milady.ai (or whatever VITE_AGENT_UI_BASE_DOMAIN
+ * is set to). This rewrites so users always see the branded domain.
  */
 export function rewriteAgentUiUrl(url: string): string {
-  // Only rewrite if the env var was explicitly provided
-  const explicitDomain = import.meta.env.VITE_AGENT_UI_BASE_DOMAIN?.trim();
-  if (!explicitDomain) return url;
-
   try {
     const parsed = new URL(url);
-    if (
-      parsed.hostname.endsWith(".waifu.fun") &&
-      AGENT_UI_BASE_DOMAIN !== "waifu.fun"
-    ) {
+    if (parsed.hostname.endsWith(".waifu.fun")) {
       parsed.hostname = parsed.hostname.replace(
         /\.waifu\.fun$/,
         `.${AGENT_UI_BASE_DOMAIN}`,
