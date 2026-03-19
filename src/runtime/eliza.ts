@@ -16,6 +16,7 @@ import {
   applyCloudConfigToEnv as upstreamApplyCloudConfigToEnv,
   bootElizaRuntime as upstreamBootElizaRuntime,
   buildCharacterFromConfig as upstreamBuildCharacterFromConfig,
+  CHANNEL_PLUGIN_MAP as upstreamChannelPluginMap,
   collectPluginNames as upstreamCollectPluginNames,
   shutdownRuntime as upstreamShutdownRuntime,
   startEliza as upstreamStartEliza,
@@ -45,6 +46,21 @@ const AUTONOMY_ENTITY_ID = stringToUuid("00000000-0000-0000-0000-000000000002");
 const AUTONOMY_MESSAGE_SERVER_ID = stringToUuid(
   "00000000-0000-0000-0000-000000000000",
 );
+const INTERNAL_CHANNEL_PLUGIN_OVERRIDES = {
+  signal: "@elizaos/plugin-signal",
+  whatsapp: "@elizaos/plugin-whatsapp",
+} as const;
+const LEGACY_INTERNAL_CHANNEL_PLUGIN_NAMES = new Map<string, string>(
+  Object.entries({
+    "@miladyai/plugin-signal": INTERNAL_CHANNEL_PLUGIN_OVERRIDES.signal,
+    "@miladyai/plugin-whatsapp": INTERNAL_CHANNEL_PLUGIN_OVERRIDES.whatsapp,
+  }),
+);
+
+export const CHANNEL_PLUGIN_MAP = {
+  ...upstreamChannelPluginMap,
+  ...INTERNAL_CHANNEL_PLUGIN_OVERRIDES,
+};
 
 interface EntityLike {
   id: string;
@@ -173,6 +189,15 @@ export function collectPluginNames(
 ): ReturnType<typeof upstreamCollectPluginNames> {
   syncBrandEnvAliases();
   const result = upstreamCollectPluginNames(...args);
+  for (const [
+    legacyName,
+    normalizedName,
+  ] of LEGACY_INTERNAL_CHANNEL_PLUGIN_NAMES) {
+    if (result.has(legacyName)) {
+      result.delete(legacyName);
+      result.add(normalizedName);
+    }
+  }
   syncBrandEnvAliases();
   return result;
 }

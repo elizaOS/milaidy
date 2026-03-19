@@ -949,6 +949,14 @@ try {
   /* not available */
 }
 
+let hasYoutubePlugin = false;
+try {
+  const mod = await import("@elizaos/plugin-youtube-streaming");
+  hasYoutubePlugin = typeof mod.createYoutubeDestination === "function";
+} catch {
+  /* not available */
+}
+
 // ---------------------------------------------------------------------------
 // createRetakeDestination() — destination adapter unit tests
 // ---------------------------------------------------------------------------
@@ -1085,7 +1093,7 @@ describe.skipIf(!hasTwitchPlugin)("createTwitchDestination()", () => {
 // createYoutubeDestination() — destination adapter unit tests
 // ---------------------------------------------------------------------------
 
-describe("createYoutubeDestination()", () => {
+describe.skipIf(!hasYoutubePlugin)("createYoutubeDestination()", () => {
   it("returns a StreamingDestination with id and name", async () => {
     const { createYoutubeDestination } = await import(
       "@elizaos/plugin-youtube-streaming"

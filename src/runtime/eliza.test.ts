@@ -772,15 +772,23 @@ describe("collectPluginNames", () => {
   });
 
   it("CHANNEL_PLUGIN_MAP values match CONNECTOR_PLUGINS for every connector", () => {
-    const internalConnectorOverrides: Record<string, string> = {
-      signal: "@miladyai/plugin-signal",
-      whatsapp: "@miladyai/plugin-whatsapp",
-    };
     for (const id of Object.keys(CHANNEL_PLUGIN_MAP)) {
-      expect(CHANNEL_PLUGIN_MAP[id]).toBe(
-        internalConnectorOverrides[id] ?? CONNECTOR_PLUGINS[id],
-      );
+      expect(CHANNEL_PLUGIN_MAP[id]).toBe(CONNECTOR_PLUGINS[id]);
     }
+  });
+
+  it("normalizes internal connector plugin names in collectPluginNames()", () => {
+    const names = collectPluginNames({
+      connectors: {
+        signal: { authDir: "/tmp/signal" },
+        whatsapp: { authDir: "/tmp/whatsapp" },
+      },
+    } as Partial<ElizaConfig> as ElizaConfig);
+
+    expect(names.has("@elizaos/plugin-signal")).toBe(true);
+    expect(names.has("@elizaos/plugin-whatsapp")).toBe(true);
+    expect(names.has("@miladyai/plugin-signal")).toBe(false);
+    expect(names.has("@miladyai/plugin-whatsapp")).toBe(false);
   });
 });
 
