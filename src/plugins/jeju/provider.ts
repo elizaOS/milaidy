@@ -29,6 +29,8 @@ export const jejuContextProvider: Provider = {
         "- **JEJU_SWAP**: Swap ETH↔USDC. Parameters: direction (eth_to_usdc or usdc_to_eth), amount (e.g. 0.1 or 100). Use when the user asks to swap ETH for USDC or USDC for ETH.",
         "",
         "Always use JEJU_STATUS first if the user asks about balance or wallet, then JEJU_SWAP if they want to swap.",
+        "",
+        "When you run JEJU_STATUS or JEJU_SWAP, the **exact balances / swap result** is delivered to the user in the same turn (you do not need to invent numbers). You may add a brief friendly line after, but must not contradict that output.",
       ].join("\n"),
     };
   },

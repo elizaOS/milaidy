@@ -3,11 +3,49 @@
  * All actions log to the terminal via runtime.logger for visibility.
  */
 
-import type { Action, HandlerOptions, IAgentRuntime, Memory, State } from "@elizaos/core";
+import type {
+  Action,
+  ActionResult,
+  Content,
+  HandlerCallback,
+  HandlerOptions,
+  IAgentRuntime,
+  Memory,
+  State,
+} from "@elizaos/core";
 import { getJejuClient, getJejuBalances, executeJejuSwap } from "./client";
+import { parseJejuSwapFromUserText } from "./swap-parse.js";
 
 function log(runtime: IAgentRuntime, msg: string): void {
   runtime.logger?.info?.(`[jeju] ${msg}`) ?? console.info(`[jeju] ${msg}`);
+}
+
+/**
+ * Push action output into the visible chat reply. Eliza runtimes pass this when
+ * streaming; returning `text` on ActionResult alone is often not shown to the user.
+ */
+async function surfaceToChat(
+  callback: HandlerCallback | undefined,
+  text: string,
+  actionName: string,
+): Promise<void> {
+  if (!callback || !text) return;
+  await callback({
+    text,
+    action: actionName,
+    actions: [],
+  } as Content);
+}
+
+async function finishJeju(
+  callback: HandlerCallback | undefined,
+  actionName: string,
+  result: ActionResult,
+): Promise<ActionResult> {
+  if (result.text) {
+    await surfaceToChat(callback, result.text, actionName);
+  }
+  return result;
 }
 
 export const jejuStatusAction: Action = {
@@ -18,7 +56,7 @@ export const jejuStatusAction: Action = {
 
   validate: async () => true,
 
-  handler: async (runtime, _message, _state, _options) => {
+  handler: async (runtime, _message, _state, _options, callback) => {
     log(runtime, "JEJU_STATUS triggered");
     try {
       const client = getJejuClient();
@@ -26,15 +64,15 @@ export const jejuStatusAction: Action = {
       const balances = await getJejuBalances(client);
       if (balances.error) {
         log(runtime, `Balance error: ${balances.error}`);
-        return {
+        return finishJeju(callback, "JEJU_STATUS", {
           text: `Jeju wallet: \`${client.address}\`. Could not fetch balances: ${balances.error}`,
           success: false,
           data: { address: client.address, error: balances.error },
-        };
+        });
       }
       const summary = `ETH: ${balances.eth}, WETH: ${balances.weth}, USDC: ${balances.usdc}`;
       log(runtime, summary);
-      return {
+      return finishJeju(callback, "JEJU_STATUS", {
         text: `Jeju wallet: \`${client.address}\`. Balances — ${summary}`,
         success: true,
         data: {
@@ -43,15 +81,15 @@ export const jejuStatusAction: Action = {
           weth: balances.weth,
           usdc: balances.usdc,
         },
-      };
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log(runtime, `JEJU_STATUS failed: ${msg}`);
-      return {
+      return finishJeju(callback, "JEJU_STATUS", {
         text: `Jeju status failed: ${msg}`,
         success: false,
         data: { error: msg },
-      };
+      });
     }
   },
 };
@@ -64,29 +102,45 @@ export const jejuSwapAction: Action = {
 
   validate: async () => true,
 
-  handler: async (runtime, _message, _state, options) => {
+  handler: async (runtime, message, _state, options, callback) => {
     const params = (options as HandlerOptions | undefined)?.parameters as
-      | { direction?: string; amount?: string }
+      | { direction?: string; amount?: string | number }
       | undefined;
-    const direction = params?.direction?.toLowerCase?.();
-    const amount = params?.amount?.trim?.();
 
-    if (
-      direction !== "eth_to_usdc" &&
-      direction !== "usdc_to_eth"
-    ) {
+    let direction = params?.direction?.toLowerCase?.();
+    let amount =
+      typeof params?.amount === "number"
+        ? String(params.amount)
+        : params?.amount?.trim?.();
+
+    const userText = message.content?.text ?? "";
+    const parsed = parseJejuSwapFromUserText(userText);
+    if (direction !== "eth_to_usdc" && direction !== "usdc_to_eth") {
+      if (parsed.direction) {
+        direction = parsed.direction;
+        log(runtime, `JEJU_SWAP: direction from message text → ${direction}`);
+      }
+    }
+    if (!amount || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
+      if (parsed.amount) {
+        amount = parsed.amount;
+        log(runtime, `JEJU_SWAP: amount from message text → ${amount}`);
+      }
+    }
+
+    if (direction !== "eth_to_usdc" && direction !== "usdc_to_eth") {
       log(runtime, `JEJU_SWAP rejected: invalid direction '${direction}'`);
-      return {
-        text: "Invalid direction. Use eth_to_usdc or usdc_to_eth.",
+      return finishJeju(callback, "JEJU_SWAP", {
+        text: "Invalid direction. Say e.g. swap ETH for USDC, or USDC for ETH.",
         success: false,
-      };
+      });
     }
     if (!amount || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
       log(runtime, `JEJU_SWAP rejected: invalid amount '${amount}'`);
-      return {
-        text: "Invalid amount. Provide a positive number (e.g. 0.1 or 100).",
+      return finishJeju(callback, "JEJU_SWAP", {
+        text: "Invalid amount. Provide a positive number (e.g. 0.1 ETH or 100 USDC).",
         success: false,
-      };
+      });
     }
 
     log(runtime, `JEJU_SWAP: ${direction} amount=${amount}`);
@@ -99,19 +153,19 @@ export const jejuSwapAction: Action = {
         100, // 1% slippage placeholder
         (msg) => log(runtime, msg),
       );
-      return {
+      return finishJeju(callback, "JEJU_SWAP", {
         text: result.message,
         success: result.success,
         data: result.txHash ? { txHash: result.txHash } : undefined,
-      };
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log(runtime, `JEJU_SWAP failed: ${msg}`);
-      return {
+      return finishJeju(callback, "JEJU_SWAP", {
         text: `Swap failed: ${msg}`,
         success: false,
         data: { error: msg },
-      };
+      });
     }
   },
 

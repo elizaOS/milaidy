@@ -26,9 +26,9 @@ Alternatively add `jeju` to `plugins.allow` in `~/.milady/milady.json` (same eff
 
 ## Actions
 
-- **JEJU_STATUS** — Report wallet address and balances (ETH, WETH, USDC). Logged to terminal.
-- **JEJU_SWAP** — Swap ETH→USDC or USDC→ETH. Parameters: `direction` (`eth_to_usdc` \| `usdc_to_eth`), `amount` (e.g. `0.1` or `100`). Logged to terminal.
+- **JEJU_STATUS** — Report wallet address and balances (ETH, WETH, USDC). Logged to terminal; factual output is also pushed into chat via Eliza `HandlerCallback` when the runtime supports it.
+- **JEJU_SWAP** — Swap ETH→USDC or USDC→ETH. Parameters: `direction` (`eth_to_usdc` \| `usdc_to_eth`), `amount` (e.g. `0.1` or `100`); natural-language amounts are parsed from the user message when params are missing. Same chat surfacing as status.
 
 ## UI
 
-Actions are currently logged in the Milady process terminal. A dashboard view and plugin activation UI are planned.
+Terminal logs remain for debugging. Chat visibility uses the standard action callback path (no Milady core changes).
