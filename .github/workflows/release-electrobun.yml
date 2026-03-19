@@ -698,7 +698,7 @@ jobs:
           # server.listen() and the health endpoint never becomes reachable.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"
-          MILADY_TEST_WINDOWS_INSTALL_DIR: ${{ runner.temp }}\milady-windows-installed
+          MILADY_TEST_WINDOWS_INSTALL_DIR: C:\mi
           MILADY_TEST_WINDOWS_LAUNCHER_DIR: ${{ runner.temp }}\milady-windows-ui-launcher
           MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: ${{ runner.temp }}\milady-windows-ui-launcher.txt
         run: |
