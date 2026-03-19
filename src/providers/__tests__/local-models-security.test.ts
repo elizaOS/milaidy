@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { validateFilename } from "../local-models";
 
 describe("S3/S7: validateFilename rejects path traversal", () => {
@@ -25,7 +25,9 @@ describe("S3/S7: validateFilename rejects path traversal", () => {
 
   it("rejects absolute paths", () => {
     expect(() => validateFilename("/etc/passwd")).toThrow("Invalid filename");
-    expect(() => validateFilename("/tmp/model.bin")).toThrow("Invalid filename");
+    expect(() => validateFilename("/tmp/model.bin")).toThrow(
+      "Invalid filename",
+    );
   });
 
   it("rejects empty segments (double slashes)", () => {
