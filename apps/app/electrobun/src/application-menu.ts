@@ -138,9 +138,7 @@ function buildSurfaceMenu(
   };
 }
 
-function buildCloudMenu(
-  windows: ManagedWindowSnapshot[],
-): ApplicationMenuItem {
+function buildCloudMenu(windows: ManagedWindowSnapshot[]): ApplicationMenuItem {
   return {
     label: "Cloud",
     submenu: [

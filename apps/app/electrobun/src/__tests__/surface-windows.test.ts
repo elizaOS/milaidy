@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSurfaceShellQuery,
-  SurfaceWindowManager,
   type CreateManagedWindowOptions,
   type ManagedWindowLike,
+  SurfaceWindowManager,
 } from "../surface-windows";
 
 class FakeWindow implements ManagedWindowLike {

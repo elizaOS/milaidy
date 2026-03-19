@@ -29,13 +29,35 @@ let mockFetch: ReturnType<typeof vi.fn>;
 
 function setupFetch(overrides: Record<string, unknown> = {}) {
   const defaults: Record<string, unknown> = {
-    "/api/status": { state: "running", agentName: "Milady", startedAt: Date.now() - 3600000 },
-    "/api/subscription/status": { credits: 12.50, connected: true },
+    "/api/status": {
+      state: "running",
+      agentName: "Milady",
+      startedAt: Date.now() - 3600000,
+    },
+    "/api/subscription/status": { credits: 12.5, connected: true },
     "/api/plugins": {
       plugins: [
-        { id: "openai", name: "OpenAI", category: "ai-provider", enabled: true, configured: true },
-        { id: "anthropic", name: "Anthropic", category: "ai-provider", enabled: true, configured: false },
-        { id: "streaming-base", name: "Streaming", category: "streaming", enabled: true, configured: true },
+        {
+          id: "openai",
+          name: "OpenAI",
+          category: "ai-provider",
+          enabled: true,
+          configured: true,
+        },
+        {
+          id: "anthropic",
+          name: "Anthropic",
+          category: "ai-provider",
+          enabled: true,
+          configured: false,
+        },
+        {
+          id: "streaming-base",
+          name: "Streaming",
+          category: "streaming",
+          enabled: true,
+          configured: true,
+        },
       ],
     },
     "/api/models": { models: ["gpt-4", "gpt-3.5-turbo"] },
@@ -46,7 +68,9 @@ function setupFetch(overrides: Record<string, unknown> = {}) {
   };
 
   mockFetch = vi.fn().mockImplementation((url: string, _init?: RequestInit) => {
-    const path = url.replace(/^http:\/\/127\.0\.0\.1:2138/, "").replace(/\?.*$/, "");
+    const path = url
+      .replace(/^http:\/\/127\.0\.0\.1:2138/, "")
+      .replace(/\?.*$/, "");
     const data = defaults[path];
     if (data !== undefined) {
       return Promise.resolve({
@@ -90,11 +114,10 @@ async function renderSettingsAsync(): Promise<TestRenderer.ReactTestRenderer> {
   return tree;
 }
 
-function findAllByType(root: TestRenderer.ReactTestInstance, type: string): TestRenderer.ReactTestInstance[] {
-  return root.findAll((node) => node.type === type);
-}
-
-function findByText(root: TestRenderer.ReactTestInstance, text: string | RegExp): TestRenderer.ReactTestInstance | null {
+function findByText(
+  root: TestRenderer.ReactTestInstance,
+  text: string | RegExp,
+): TestRenderer.ReactTestInstance | null {
   const matches = root.findAll((node) => {
     if (typeof node.children?.[0] === "string") {
       return typeof text === "string"
@@ -106,7 +129,10 @@ function findByText(root: TestRenderer.ReactTestInstance, text: string | RegExp)
   return matches.length > 0 ? matches[0] : null;
 }
 
-function findAllByText(root: TestRenderer.ReactTestInstance, text: string | RegExp): TestRenderer.ReactTestInstance[] {
+function findAllByText(
+  root: TestRenderer.ReactTestInstance,
+  text: string | RegExp,
+): TestRenderer.ReactTestInstance[] {
   return root.findAll((node) => {
     if (typeof node.children?.[0] === "string") {
       return typeof text === "string"
@@ -117,12 +143,24 @@ function findAllByText(root: TestRenderer.ReactTestInstance, text: string | RegE
   });
 }
 
-function findButtons(root: TestRenderer.ReactTestInstance): TestRenderer.ReactTestInstance[] {
+function findButtons(
+  root: TestRenderer.ReactTestInstance,
+): TestRenderer.ReactTestInstance[] {
   return root.findAll((node) => node.type === "button");
 }
 
-function findInputs(root: TestRenderer.ReactTestInstance): TestRenderer.ReactTestInstance[] {
+function findInputs(
+  root: TestRenderer.ReactTestInstance,
+): TestRenderer.ReactTestInstance[] {
   return root.findAll((node) => node.type === "input");
+}
+
+function expectDefined<T>(value: T | undefined, message: string): T {
+  expect(value).toBeDefined();
+  if (value === undefined) {
+    throw new Error(message);
+  }
+  return value;
 }
 
 // ── Setup / Teardown ───────────────────────────────────────────────────
@@ -193,13 +231,18 @@ describe("MiladyBarSettings — rendering", () => {
     // Find the About tab button
     const buttons = findButtons(root);
     const aboutButton = buttons.find((btn) => {
-      const textChildren = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "About");
+      const textChildren = btn.findAll(
+        (n) => typeof n.children?.[0] === "string" && n.children[0] === "About",
+      );
       return textChildren.length > 0;
     });
-    expect(aboutButton).toBeDefined();
+    const resolvedAboutButton = expectDefined(
+      aboutButton,
+      "About tab button not found",
+    );
 
     act(() => {
-      aboutButton!.props.onClick();
+      resolvedAboutButton.props.onClick();
     });
 
     // VERSION card should now be visible (About tab)
@@ -259,10 +302,13 @@ describe("MiladyBarSettings — General tab", () => {
       // Toggle buttons have the toggle styling (width: 44)
       return btn.props.style?.width === 44;
     });
-    expect(toggleButton).toBeDefined();
+    const resolvedToggleButton = expectDefined(
+      toggleButton,
+      "Auto-launch toggle button not found",
+    );
 
     await act(async () => {
-      toggleButton!.props.onClick();
+      resolvedToggleButton.props.onClick();
     });
 
     expect(mockInvoke).toHaveBeenCalledWith(
@@ -291,12 +337,18 @@ describe("MiladyBarSettings — General tab", () => {
       if (url.includes("/api/status")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ state: "running", agentName: "Milady" }),
+          json: () =>
+            Promise.resolve({ state: "running", agentName: "Milady" }),
           status: 200,
           statusText: "OK",
         });
       }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}), status: 200, statusText: "OK" });
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({}),
+        status: 200,
+        statusText: "OK",
+      });
     });
     const tree = await renderSettingsAsync();
     const notConnected = findByText(tree.root, "Not connected");
@@ -348,13 +400,19 @@ describe("MiladyBarSettings — Providers tab", () => {
     // Find the Anthropic button in the provider list
     const buttons = findButtons(root);
     const anthropicButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Anthropic");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" && n.children[0] === "Anthropic",
+      );
       return textNodes.length > 0;
     });
-    expect(anthropicButton).toBeDefined();
+    const resolvedAnthropicButton = expectDefined(
+      anthropicButton,
+      "Anthropic provider button not found",
+    );
 
     await act(async () => {
-      anthropicButton!.props.onClick();
+      resolvedAnthropicButton.props.onClick();
     });
 
     // After selecting Anthropic, detail view should show its name
@@ -375,7 +433,10 @@ describe("MiladyBarSettings — Providers tab", () => {
 
     // Type an API key
     const inputs = findInputs(tree.root);
-    const passwordInput = inputs.find((inp) => inp.props.type === "password")!;
+    const passwordInput = expectDefined(
+      inputs.find((inp) => inp.props.type === "password"),
+      "Provider API key input not found",
+    );
     await act(async () => {
       passwordInput.props.onChange({ target: { value: "sk-test-key-123" } });
     });
@@ -383,13 +444,20 @@ describe("MiladyBarSettings — Providers tab", () => {
     // Click Save & Activate
     const buttons = findButtons(tree.root);
     const saveButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Save & Activate");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" &&
+          n.children[0] === "Save & Activate",
+      );
       return textNodes.length > 0;
     });
-    expect(saveButton).toBeDefined();
+    const resolvedSaveButton = expectDefined(
+      saveButton,
+      "Save & Activate button not found",
+    );
 
     await act(async () => {
-      saveButton!.props.onClick();
+      resolvedSaveButton.props.onClick();
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -407,13 +475,20 @@ describe("MiladyBarSettings — Providers tab", () => {
 
     const buttons = findButtons(tree.root);
     const testButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Test Connection");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" &&
+          n.children[0] === "Test Connection",
+      );
       return textNodes.length > 0;
     });
-    expect(testButton).toBeDefined();
+    const resolvedTestButton = expectDefined(
+      testButton,
+      "Test Connection button not found",
+    );
 
     await act(async () => {
-      testButton!.props.onClick();
+      resolvedTestButton.props.onClick();
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -427,7 +502,10 @@ describe("MiladyBarSettings — Providers tab", () => {
 
     // Type API key
     const inputs = findInputs(tree.root);
-    const passwordInput = inputs.find((inp) => inp.props.type === "password")!;
+    const passwordInput = expectDefined(
+      inputs.find((inp) => inp.props.type === "password"),
+      "Provider API key input not found",
+    );
     await act(async () => {
       passwordInput.props.onChange({ target: { value: "sk-valid-key" } });
     });
@@ -435,13 +513,22 @@ describe("MiladyBarSettings — Providers tab", () => {
     // Click Save
     const buttons = findButtons(tree.root);
     const saveButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Save & Activate");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" &&
+          n.children[0] === "Save & Activate",
+      );
       return textNodes.length > 0;
     });
 
     // Mock the provider/switch and plugins refresh calls
+    const resolvedSaveButton = expectDefined(
+      saveButton,
+      "Save & Activate button not found",
+    );
+
     await act(async () => {
-      saveButton!.props.onClick();
+      resolvedSaveButton.props.onClick();
     });
 
     const savedMessage = findByText(tree.root, /Saved/);
@@ -452,21 +539,37 @@ describe("MiladyBarSettings — Providers tab", () => {
     // Make provider/switch fail
     mockFetch.mockImplementation((url: string) => {
       if (url.includes("/api/provider/switch")) {
-        return Promise.resolve({ ok: false, status: 500, statusText: "Internal Server Error" });
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          statusText: "Internal Server Error",
+        });
       }
       if (url.includes("/api/plugins")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
-            plugins: [
-              { id: "openai", name: "OpenAI", category: "ai-provider", enabled: true, configured: true },
-            ],
-          }),
+          json: () =>
+            Promise.resolve({
+              plugins: [
+                {
+                  id: "openai",
+                  name: "OpenAI",
+                  category: "ai-provider",
+                  enabled: true,
+                  configured: true,
+                },
+              ],
+            }),
           status: 200,
           statusText: "OK",
         });
       }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}), status: 200, statusText: "OK" });
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({}),
+        status: 200,
+        statusText: "OK",
+      });
     });
 
     setLocationSearch("?tab=providers");
@@ -474,19 +577,31 @@ describe("MiladyBarSettings — Providers tab", () => {
 
     // Type API key
     const inputs = findInputs(tree.root);
-    const passwordInput = inputs.find((inp) => inp.props.type === "password")!;
+    const passwordInput = expectDefined(
+      inputs.find((inp) => inp.props.type === "password"),
+      "Provider API key input not found",
+    );
     await act(async () => {
       passwordInput.props.onChange({ target: { value: "sk-bad-key" } });
     });
 
     const buttons = findButtons(tree.root);
     const saveButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Save & Activate");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" &&
+          n.children[0] === "Save & Activate",
+      );
       return textNodes.length > 0;
     });
 
+    const resolvedSaveButton = expectDefined(
+      saveButton,
+      "Save & Activate button not found",
+    );
+
     await act(async () => {
-      saveButton!.props.onClick();
+      resolvedSaveButton.props.onClick();
     });
 
     const errorMessage = findByText(tree.root, /✗/);
@@ -515,12 +630,21 @@ describe("MiladyBarSettings — Providers tab", () => {
 
     const buttons = findButtons(tree.root);
     const testButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Test Connection");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" &&
+          n.children[0] === "Test Connection",
+      );
       return textNodes.length > 0;
     });
 
+    const resolvedTestButton = expectDefined(
+      testButton,
+      "Test Connection button not found",
+    );
+
     await act(async () => {
-      testButton!.props.onClick();
+      resolvedTestButton.props.onClick();
     });
 
     const okMessage = findByText(tree.root, /Connection OK/);
@@ -530,21 +654,37 @@ describe("MiladyBarSettings — Providers tab", () => {
   it("test connection failure shows red error", async () => {
     mockFetch.mockImplementation((url: string) => {
       if (url.includes("/api/models")) {
-        return Promise.resolve({ ok: false, status: 401, statusText: "Unauthorized" });
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          statusText: "Unauthorized",
+        });
       }
       if (url.includes("/api/plugins")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
-            plugins: [
-              { id: "openai", name: "OpenAI", category: "ai-provider", enabled: true, configured: true },
-            ],
-          }),
+          json: () =>
+            Promise.resolve({
+              plugins: [
+                {
+                  id: "openai",
+                  name: "OpenAI",
+                  category: "ai-provider",
+                  enabled: true,
+                  configured: true,
+                },
+              ],
+            }),
           status: 200,
           statusText: "OK",
         });
       }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}), status: 200, statusText: "OK" });
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({}),
+        status: 200,
+        statusText: "OK",
+      });
     });
 
     setLocationSearch("?tab=providers");
@@ -552,12 +692,21 @@ describe("MiladyBarSettings — Providers tab", () => {
 
     const buttons = findButtons(tree.root);
     const testButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Test Connection");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" &&
+          n.children[0] === "Test Connection",
+      );
       return textNodes.length > 0;
     });
 
+    const resolvedTestButton = expectDefined(
+      testButton,
+      "Test Connection button not found",
+    );
+
     await act(async () => {
-      testButton!.props.onClick();
+      resolvedTestButton.props.onClick();
     });
 
     const errorMessage = findByText(tree.root, /✗/);
@@ -577,18 +726,29 @@ describe("MiladyBarSettings — Advanced tab", () => {
     // Mock URL.createObjectURL and URL.revokeObjectURL for jsdom
     const mockCreateObjectURL = vi.fn().mockReturnValue("blob:test-url");
     const mockRevokeObjectURL = vi.fn();
-    vi.stubGlobal("URL", { ...URL, createObjectURL: mockCreateObjectURL, revokeObjectURL: mockRevokeObjectURL });
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: mockCreateObjectURL,
+      revokeObjectURL: mockRevokeObjectURL,
+    });
 
     const tree = await renderAdvancedTab();
     const buttons = findButtons(tree.root);
     const exportButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Export Config");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" &&
+          n.children[0] === "Export Config",
+      );
       return textNodes.length > 0;
     });
-    expect(exportButton).toBeDefined();
+    const resolvedExportButton = expectDefined(
+      exportButton,
+      "Export Config button not found",
+    );
 
     await act(async () => {
-      exportButton!.props.onClick();
+      resolvedExportButton.props.onClick();
     });
 
     // Should have fetched /api/config
@@ -604,18 +764,30 @@ describe("MiladyBarSettings — Advanced tab", () => {
     const tree = await renderAdvancedTab();
     const buttons = findButtons(tree.root);
     const restartButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Restart");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" && n.children[0] === "Restart",
+      );
       return textNodes.length > 0;
     });
-    expect(restartButton).toBeDefined();
+    const resolvedRestartButton = expectDefined(
+      restartButton,
+      "Restart button not found",
+    );
 
     await act(async () => {
-      restartButton!.props.onClick();
+      resolvedRestartButton.props.onClick();
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/agent/restart"),
       expect.objectContaining({ method: "POST" }),
+    );
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        rpcMethod: "desktopOpenSettingsWindow",
+        ipcChannel: "desktop:openSettingsWindow",
+      }),
     );
   });
 
@@ -623,17 +795,30 @@ describe("MiladyBarSettings — Advanced tab", () => {
     // Mock URL APIs for jsdom
     const mockCreateObjectURL = vi.fn().mockReturnValue("blob:test-url");
     const mockRevokeObjectURL = vi.fn();
-    vi.stubGlobal("URL", { ...URL, createObjectURL: mockCreateObjectURL, revokeObjectURL: mockRevokeObjectURL });
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: mockCreateObjectURL,
+      revokeObjectURL: mockRevokeObjectURL,
+    });
 
     const tree = await renderAdvancedTab();
     const buttons = findButtons(tree.root);
     const exportButton = buttons.find((btn) => {
-      const textNodes = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === "Export Config");
+      const textNodes = btn.findAll(
+        (n) =>
+          typeof n.children?.[0] === "string" &&
+          n.children[0] === "Export Config",
+      );
       return textNodes.length > 0;
     });
 
+    const resolvedExportButton = expectDefined(
+      exportButton,
+      "Export Config button not found",
+    );
+
     await act(async () => {
-      exportButton!.props.onClick();
+      resolvedExportButton.props.onClick();
     });
 
     const exported = findByText(tree.root, /Exported/);
@@ -650,7 +835,11 @@ describe("MiladyBarSettings — About tab", () => {
   }
 
   it("fetches version info from desktop RPC", async () => {
-    mockInvoke.mockResolvedValue({ version: "1.2.3", name: "Milady", runtime: "Electrobun" });
+    mockInvoke.mockResolvedValue({
+      version: "1.2.3",
+      name: "Milady",
+      runtime: "Electrobun",
+    });
     await renderAboutTab();
     expect(mockInvoke).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -661,21 +850,33 @@ describe("MiladyBarSettings — About tab", () => {
   });
 
   it("displays version info from RPC response", async () => {
-    mockInvoke.mockResolvedValue({ version: "1.2.3", name: "Milady", runtime: "Electrobun" });
+    mockInvoke.mockResolvedValue({
+      version: "1.2.3",
+      name: "Milady",
+      runtime: "Electrobun",
+    });
     const tree = await renderAboutTab();
     const versionText = findByText(tree.root, "Version: 1.2.3");
     expect(versionText).not.toBeNull();
   });
 
   it("displays platform info", async () => {
-    mockInvoke.mockResolvedValue({ version: "1.0.0", name: "Milady", runtime: "Electrobun" });
+    mockInvoke.mockResolvedValue({
+      version: "1.0.0",
+      name: "Milady",
+      runtime: "Electrobun",
+    });
     const tree = await renderAboutTab();
     const platformNode = findByText(tree.root, "Platform");
     expect(platformNode).not.toBeNull();
   });
 
   it("displays runtime info from RPC response", async () => {
-    mockInvoke.mockResolvedValue({ version: "1.0.0", name: "Milady", runtime: "Electrobun" });
+    mockInvoke.mockResolvedValue({
+      version: "1.0.0",
+      name: "Milady",
+      runtime: "Electrobun",
+    });
     const tree = await renderAboutTab();
     const runtimeText = findByText(tree.root, "Electrobun");
     expect(runtimeText).not.toBeNull();
@@ -737,33 +938,40 @@ describe("MiladyBarSettings — dark mode", () => {
 
 describe("MiladyBarSettings — API helpers", () => {
   it("getApiBase reads from window.__MILADY_API_BASE__", async () => {
-    (window as any).__MILADY_API_BASE__ = "http://custom:9999";
+    window.__MILADY_API_BASE__ = "http://custom:9999";
     await renderSettingsAsync();
     // Fetch should be called with the custom base
     const calls = mockFetch.mock.calls as unknown[][];
-    const hasCustomBase = calls.some((c) => (c[0] as string).startsWith("http://custom:9999"));
+    const hasCustomBase = calls.some((c) =>
+      (c[0] as string).startsWith("http://custom:9999"),
+    );
     expect(hasCustomBase).toBe(true);
-    delete (window as any).__MILADY_API_BASE__;
+    delete window.__MILADY_API_BASE__;
   });
 
   it("getApiBase falls back to localhost:2138", async () => {
     // Ensure __MILADY_API_BASE__ is not set
-    delete (window as any).__MILADY_API_BASE__;
+    delete window.__MILADY_API_BASE__;
     await renderSettingsAsync();
     const calls = mockFetch.mock.calls as unknown[][];
-    const hasDefault = calls.some((c) => (c[0] as string).startsWith("http://127.0.0.1:2138"));
+    const hasDefault = calls.some((c) =>
+      (c[0] as string).startsWith("http://127.0.0.1:2138"),
+    );
     expect(hasDefault).toBe(true);
   });
 
   it("apiFetch prepends base URL to path", async () => {
-    delete (window as any).__MILADY_API_BASE__;
+    delete window.__MILADY_API_BASE__;
     await renderSettingsAsync();
     // Should have called fetch with full URL
-    const statusCall = mockFetch.mock.calls.find(
-      (c: unknown[]) => (c[0] as string).includes("/api/status"),
+    const statusCall = mockFetch.mock.calls.find((c: unknown[]) =>
+      (c[0] as string).includes("/api/status"),
     );
-    expect(statusCall).toBeDefined();
-    expect(statusCall![0]).toBe("http://127.0.0.1:2138/api/status");
+    const resolvedStatusCall = expectDefined(
+      statusCall,
+      "Status API call not found",
+    );
+    expect(resolvedStatusCall[0]).toBe("http://127.0.0.1:2138/api/status");
   });
 
   it("apiFetch throws on non-OK response", async () => {
@@ -825,13 +1033,18 @@ describe("MiladyBarSettings — tab navigation edge cases", () => {
     for (const name of tabNames) {
       const buttons = findButtons(root);
       const tabBtn = buttons.find((btn) => {
-        const texts = btn.findAll((n) => typeof n.children?.[0] === "string" && n.children[0] === name);
+        const texts = btn.findAll(
+          (n) => typeof n.children?.[0] === "string" && n.children[0] === name,
+        );
         return texts.length > 0;
       });
-      expect(tabBtn).toBeDefined();
+      const resolvedTabButton = expectDefined(
+        tabBtn,
+        `Tab button not found: ${name}`,
+      );
 
       act(() => {
-        tabBtn!.props.onClick();
+        resolvedTabButton.props.onClick();
       });
 
       // Title bar should update to the active tab's label

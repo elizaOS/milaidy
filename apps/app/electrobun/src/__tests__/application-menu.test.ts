@@ -49,9 +49,9 @@ describe("buildApplicationMenu", () => {
   });
 
   it("keeps the view menu to explicit display controls only", () => {
-    const viewLabels = (
-      getMenu("View")?.submenu ?? []
-    ).map((item) => item.label ?? item.type ?? "");
+    const viewLabels = (getMenu("View")?.submenu ?? []).map(
+      (item) => item.label ?? item.type ?? "",
+    );
 
     expect(viewLabels).toContain("Reload");
     expect(viewLabels).toContain("Force Reload");
@@ -133,9 +133,9 @@ describe("buildApplicationMenu", () => {
       },
     ];
 
-    const pluginsLabels = (getMenu("Plugins", detachedWindows)?.submenu ?? []).map(
-      (item) => item.label ?? item.type ?? "",
-    );
+    const pluginsLabels = (
+      getMenu("Plugins", detachedWindows)?.submenu ?? []
+    ).map((item) => item.label ?? item.type ?? "");
     const connectorsLabels = (
       getMenu("Connectors", detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
@@ -145,9 +145,9 @@ describe("buildApplicationMenu", () => {
     const heartbeatsLabels = (
       getMenu("Heartbeats", detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
-    const windowLabels = (getMenu("Window", detachedWindows)?.submenu ?? []).map(
-      (item) => item.label ?? item.type ?? "",
-    );
+    const windowLabels = (
+      getMenu("Window", detachedWindows)?.submenu ?? []
+    ).map((item) => item.label ?? item.type ?? "");
 
     expect(pluginsLabels).toContain("Open New Plugins Window");
     expect(pluginsLabels).toContain("Milady Plugins");

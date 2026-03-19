@@ -29,7 +29,10 @@ vi.mock("node:path", async () => {
   };
 });
 
-import { scanProviderCredentials, scanAndValidateProviderCredentials } from "../credentials";
+import {
+  scanAndValidateProviderCredentials,
+  scanProviderCredentials,
+} from "../credentials";
 
 type SpawnResult = {
   exited: Promise<number>;
@@ -365,17 +368,23 @@ describe("scanAndValidateProviderCredentials", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   function setPlatform(platform: NodeJS.Platform): void {
-    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+    Object.defineProperty(process, "platform", {
+      value: platform,
+      configurable: true,
+    });
   }
 
   beforeEach(() => {
     files = {};
     installedClis = new Set();
     mockExistsSync.mockImplementation((filePath) => String(filePath) in files);
-    mockReadFileSync.mockImplementation((filePath) => files[String(filePath)] ?? "");
+    mockReadFileSync.mockImplementation(
+      (filePath) => files[String(filePath)] ?? "",
+    );
     mockHomedir.mockReturnValue("/Users/test");
     mockSpawn = vi.fn((cmd: string[]) => {
-      if (cmd[0] === "which") return makeSpawnResult(installedClis.has(cmd[1] ?? "") ? 0 : 1);
+      if (cmd[0] === "which")
+        return makeSpawnResult(installedClis.has(cmd[1] ?? "") ? 0 : 1);
       throw new Error(`unexpected spawn: ${cmd.join(" ")}`);
     });
     vi.stubGlobal("Bun", { spawn: mockSpawn });
@@ -392,7 +401,9 @@ describe("scanAndValidateProviderCredentials", () => {
   });
 
   it("valid key returns status 'valid'", async () => {
-    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-test" });
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({
+      OPENAI_API_KEY: "sk-test",
+    });
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
     const providers = await scanAndValidateProviderCredentials();
     expect(providers).toHaveLength(1);
@@ -400,7 +411,9 @@ describe("scanAndValidateProviderCredentials", () => {
   });
 
   it("401 response returns status 'invalid' with statusDetail", async () => {
-    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-bad" });
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({
+      OPENAI_API_KEY: "sk-bad",
+    });
     mockFetch.mockResolvedValue({ ok: false, status: 401 });
     const providers = await scanAndValidateProviderCredentials();
     expect(providers[0].status).toBe("invalid");
@@ -415,7 +428,9 @@ describe("scanAndValidateProviderCredentials", () => {
   });
 
   it("network error returns status 'error' with message", async () => {
-    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-test" });
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({
+      OPENAI_API_KEY: "sk-test",
+    });
     mockFetch.mockRejectedValue(new Error("fetch failed"));
     const providers = await scanAndValidateProviderCredentials();
     expect(providers[0].status).toBe("error");
@@ -433,7 +448,9 @@ describe("scanAndValidateProviderCredentials", () => {
 
   it("unknown provider returns 'unchecked'", async () => {
     vi.stubEnv("OPENAI_API_KEY", "");
-    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-test" });
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({
+      OPENAI_API_KEY: "sk-test",
+    });
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
     const providers = await scanAndValidateProviderCredentials();
     // openai should be validated
@@ -442,7 +459,9 @@ describe("scanAndValidateProviderCredentials", () => {
   });
 
   it("HTTP 500 returns status 'error' with detail", async () => {
-    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-test" });
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({
+      OPENAI_API_KEY: "sk-test",
+    });
     mockFetch.mockResolvedValue({ ok: false, status: 500 });
     const providers = await scanAndValidateProviderCredentials();
     expect(providers[0].status).toBe("error");
@@ -450,7 +469,9 @@ describe("scanAndValidateProviderCredentials", () => {
   });
 
   it("provider without apiKey returns 'unchecked'", async () => {
-    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-key" });
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({
+      OPENAI_API_KEY: "sk-key",
+    });
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
     const providers = await scanAndValidateProviderCredentials();
     expect(providers.length).toBeGreaterThan(0);
@@ -466,13 +487,18 @@ describe("scanProviderCredentials — env var detection", () => {
   let mockSpawn: ReturnType<typeof vi.fn>;
 
   function setPlatform(platform: NodeJS.Platform): void {
-    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+    Object.defineProperty(process, "platform", {
+      value: platform,
+      configurable: true,
+    });
   }
 
   beforeEach(() => {
     files = {};
     mockExistsSync.mockImplementation((filePath) => String(filePath) in files);
-    mockReadFileSync.mockImplementation((filePath) => files[String(filePath)] ?? "");
+    mockReadFileSync.mockImplementation(
+      (filePath) => files[String(filePath)] ?? "",
+    );
     mockHomedir.mockReturnValue("/Users/test");
     mockSpawn = vi.fn((cmd: string[]) => {
       if (cmd[0] === "which") return makeSpawnResult(1);
@@ -575,13 +601,18 @@ describe("scanAndValidateProviderCredentials — endpoint validation", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   function setPlatform(platform: NodeJS.Platform): void {
-    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+    Object.defineProperty(process, "platform", {
+      value: platform,
+      configurable: true,
+    });
   }
 
   beforeEach(() => {
     files = {};
     mockExistsSync.mockImplementation((filePath) => String(filePath) in files);
-    mockReadFileSync.mockImplementation((filePath) => files[String(filePath)] ?? "");
+    mockReadFileSync.mockImplementation(
+      (filePath) => files[String(filePath)] ?? "",
+    );
     mockHomedir.mockReturnValue("/Users/test");
     mockSpawn = vi.fn((cmd: string[]) => {
       if (cmd[0] === "which") return makeSpawnResult(1);
@@ -669,13 +700,18 @@ describe("scanAndValidateProviderCredentials — integration", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   function setPlatform(platform: NodeJS.Platform): void {
-    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+    Object.defineProperty(process, "platform", {
+      value: platform,
+      configurable: true,
+    });
   }
 
   beforeEach(() => {
     files = {};
     mockExistsSync.mockImplementation((filePath) => String(filePath) in files);
-    mockReadFileSync.mockImplementation((filePath) => files[String(filePath)] ?? "");
+    mockReadFileSync.mockImplementation(
+      (filePath) => files[String(filePath)] ?? "",
+    );
     mockHomedir.mockReturnValue("/Users/test");
     mockSpawn = vi.fn((cmd: string[]) => {
       if (cmd[0] === "which") return makeSpawnResult(1);

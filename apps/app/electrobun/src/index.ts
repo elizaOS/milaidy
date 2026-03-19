@@ -43,8 +43,8 @@ import { registerRpcHandlers } from "./rpc-handlers";
 import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "./rpc-schema";
 import {
   isDetachedSurface,
-  SurfaceWindowManager,
   type ManagedWindowLike,
+  SurfaceWindowManager,
 } from "./surface-windows";
 
 type SendToWebview = (message: string, payload?: unknown) => void;
@@ -84,12 +84,8 @@ function setupApplicationMenu(): void {
   );
 }
 
-function summarizeDesktopActionError(
-  error: unknown,
-  fallback: string,
-): string {
-  const message =
-    error instanceof Error ? error.message : fallback;
+function summarizeDesktopActionError(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : fallback;
   const trimmed = message.trim();
   if (!trimmed) return fallback;
   return trimmed.length > 80 ? `${trimmed.slice(0, 77)}...` : trimmed;
@@ -99,9 +95,7 @@ function summarizeHeartbeatMenuError(error: unknown): string {
   return summarizeDesktopActionError(error, "Heartbeat status unavailable");
 }
 
-function buildApiRequestHeaders(
-  contentType?: string,
-): Record<string, string> {
+function buildApiRequestHeaders(contentType?: string): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
@@ -602,14 +596,12 @@ async function ensureBackgroundWindow(): Promise<void> {
 // ============================================================================
 
 async function createSettingsWindow(tabHint?: string): Promise<void> {
-  console.log("[Settings] createSettingsWindow called, tabHint:", tabHint);
   if (!surfaceWindowManager) return;
   await surfaceWindowManager.openSettingsWindow(tabHint);
 }
 
 function showMainSurface(surface: string): void {
-  const itemId =
-    surface === "chat" ? "navigate-chat" : `navigate-${surface}`;
+  const itemId = surface === "chat" ? "navigate-chat" : `navigate-${surface}`;
   void getDesktopManager().showWindow();
   sendToActiveRenderer("desktopTrayMenuClick", { itemId });
 }
@@ -1199,7 +1191,11 @@ async function main(): Promise<void> {
         { id: "show", label: "Show Milady", type: "normal" },
         { id: "sep1", type: "separator" },
         { id: "navigate-triggers", label: "Open Heartbeats", type: "normal" },
-        { id: "refresh-heartbeats", label: "Refresh Heartbeats", type: "normal" },
+        {
+          id: "refresh-heartbeats",
+          label: "Refresh Heartbeats",
+          type: "normal",
+        },
         { id: "sep1b", type: "separator" },
         { id: "check-for-updates", label: "Check for Updates", type: "normal" },
         { id: "sep2", type: "separator" },

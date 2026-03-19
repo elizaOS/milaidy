@@ -6,6 +6,20 @@ const DOCS_DIR = join(__dirname, "..", "..", "..", "docs");
 const raw = readFileSync(join(DOCS_DIR, "docs.json"), "utf8");
 const config = JSON.parse(raw);
 
+function collectPagesFromTab(tab: {
+  groups?: unknown;
+  pages?: unknown;
+}): string[] {
+  const groupedPages = Array.isArray(tab.groups)
+    ? tab.groups.flatMap((group) => {
+        const pages = (group as { pages?: unknown }).pages;
+        return Array.isArray(pages) ? pages : [];
+      })
+    : [];
+  const directPages = Array.isArray(tab.pages) ? tab.pages : [];
+  return [...groupedPages, ...directPages];
+}
+
 describe("docs/docs.json", () => {
   it("parses as valid JSON", () => {
     expect(config).toBeDefined();
@@ -22,19 +36,14 @@ describe("docs/docs.json", () => {
     expect(config.navigation).toBeDefined();
   });
 
-  it("has at least one navigation tab with groups", () => {
+  it("has at least one navigation tab with grouped or direct pages", () => {
     const tabs = config.navigation.tabs;
     expect(Array.isArray(tabs)).toBe(true);
     expect(tabs.length).toBeGreaterThan(0);
 
-    const tabsWithGroups = tabs.filter((tab: { groups?: unknown }) =>
-      Array.isArray(tab.groups),
-    );
-    expect(tabsWithGroups.length).toBeGreaterThan(0);
-
-    for (const tab of tabsWithGroups) {
+    for (const tab of tabs) {
       expect(tab.tab).toBeDefined();
-      expect(tab.groups.length).toBeGreaterThan(0);
+      expect(collectPagesFromTab(tab).length).toBeGreaterThan(0);
     }
   });
 
@@ -43,14 +52,11 @@ describe("docs/docs.json", () => {
     const missing: string[] = [];
 
     for (const tab of tabs) {
-      if (!Array.isArray(tab.groups)) continue;
-      for (const group of tab.groups) {
-        for (const page of group.pages) {
-          const mdx = join(DOCS_DIR, `${page}.mdx`);
-          const md = join(DOCS_DIR, `${page}.md`);
-          if (!existsSync(mdx) && !existsSync(md)) {
-            missing.push(page);
-          }
+      for (const page of collectPagesFromTab(tab)) {
+        const mdx = join(DOCS_DIR, `${page}.mdx`);
+        const md = join(DOCS_DIR, `${page}.md`);
+        if (!existsSync(mdx) && !existsSync(md)) {
+          missing.push(page);
         }
       }
     }
@@ -73,12 +79,7 @@ describe("docs page frontmatter", () => {
   // Derive pages from docs.json so the list never goes stale
   const allPages: string[] = [];
   for (const tab of config.navigation.tabs) {
-    if (!Array.isArray(tab.groups)) continue;
-    for (const group of tab.groups) {
-      for (const page of group.pages) {
-        allPages.push(page);
-      }
-    }
+    allPages.push(...collectPagesFromTab(tab));
   }
 
   for (const page of allPages) {
