@@ -364,6 +364,12 @@
       },
       {
         "tab": "Changelog",
+        "groups": [
+          {
+            "group": "Changelog",
+            "pages": ["changelog"]
+          }
+        ]
         "href": "/changelog"
       }
     ]
