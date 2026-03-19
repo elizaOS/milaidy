@@ -3,6 +3,60 @@ title: Changelog
 description: The latest updates and improvements to Milady.
 ---
 
+<Update label="2026-04-16" description="Week of April 10–16" tags={["Feature", "Update", "Fix"]}>
+## Terminal UI
+
+A full interactive terminal interface is now available via `milady tui`. Chat with your agent, switch models, manage plugins, toggle knowledge enrichment, and adjust settings — all from your terminal. The TUI can connect to a running Milady instance or boot a standalone local runtime. See the [TUI guide](/apps/tui) for details.
+
+## Agent export and import
+
+You can now export your agent's complete state — character config, memories, entities, relationships, and conversations — into a single encrypted, portable file. Import it on another machine to create an independent copy with all its knowledge intact. See the [agent export guide](/guides/agent-export) for details.
+
+## Command palette
+
+Press `Cmd/Ctrl+K` anywhere in the dashboard to open a fuzzy-searchable command palette. Start or restart your agent, switch tabs, refresh plugins and skills, clear chat, or file a bug report — all without reaching for the mouse.
+
+## Plugin eject and reinject
+
+You can now "eject" any installed plugin to get a local editable copy of its source code. Make your changes, then sync with upstream updates or reinject to restore the registry version. See the [plugin eject guide](/plugins/plugin-eject) for details.
+
+## MCP marketplace
+
+Browse and install MCP (Model Context Protocol) servers directly from the official registry. Search by keyword, view server details, and auto-generate the connection configuration for your agent. See the [MCP marketplace guide](/guides/mcp-marketplace) for details.
+
+## Media generation actions
+
+Your agent can now generate images, video, audio, and analyze images from chat. Four new actions — `GENERATE_IMAGE`, `GENERATE_VIDEO`, `GENERATE_AUDIO`, and `ANALYZE_IMAGE` — work across multiple providers including FAL.ai, OpenAI, Google, xAI, and Eliza Cloud. See the [media generation guide](/guides/media-generation) for details.
+
+## Skills marketplace
+
+A new Skills view lets you browse and install skills from the marketplace, install directly from a GitHub URL, enable or disable skills, and review security scan results before activating quarantined skills. See the [skills guide](/plugins/skills) for details.
+
+## Custom actions editor
+
+You can now create, edit, and manage custom agent actions directly from the dashboard. Define HTTP, shell, or code handlers, search your action library, and import or export actions as JSON for portability. See the [custom actions guide](/guides/custom-actions) for details.
+
+## Self-update with release channels
+
+`milady update` now supports three release channels — stable, beta, and nightly. Check for updates, switch channels, view version status, and install updates in place. Your agent notifies you on startup when a new version is available. See the [self-updates guide](/self-updates) for details.
+
+## Emote picker
+
+Press `Cmd/Ctrl+E` to open a draggable emote picker organized by category — greeting, emotion, dance, combat, idle, and movement. Pick an emote to play it on your agent's VRM avatar. See the [emotes guide](/guides/emotes) for details.
+
+## Sandbox for code execution
+
+A new sandbox manager provides container-based isolation for code execution using Docker or Apple Containers. Choose from four security levels (off, light, standard, max) with configurable resource limits for memory, CPU, and network access. See the [sandbox guide](/guides/sandbox) for details.
+
+## Updates
+
+- **Fine-tuning view** — A new training view in the dashboard lets you build datasets from captured agent trajectories, submit training jobs, monitor progress in real time, and activate trained models. See the [training guide](/guides/training) for details.
+- **Trajectories viewer** — Browse and search all captured LLM call trajectories with token counts, latency, and source filtering. Export data in JSON, CSV, or ZIP format. See the [trajectories guide](/advanced/trajectories) for details.
+- **Chrome browser relay** — A new Chrome extension attaches Milady to your active browser tab via CDP, letting your agent interact with web pages directly from the [dashboard](/apps/dashboard).
+- **CLI profiles** — Run multiple isolated Milady instances side by side with `--profile <name>` or `--dev`. Each profile gets its own configuration and data directory.
+- **`milady configure` command** — A new command that walks you through common environment variables and configuration options. See the [CLI reference](/cli/configure) for details.
+</Update>
+
 <Update label="2026-04-09" description="Week of April 3–9" tags={["Feature", "Update", "Fix"]}>
 ## Opinion markets plugin
 
