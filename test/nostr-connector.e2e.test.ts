@@ -579,7 +579,7 @@ describe("Nostr Connector - Configuration", () => {
   it("validates complete Nostr configuration", () => {
     const config = {
       privateKey:
-        "nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5",
+        "nsec1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       relays: "wss://relay.damus.io,wss://nos.lol",
       dmPolicy: "allow",
       allowFrom: "",
