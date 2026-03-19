@@ -836,6 +836,32 @@ export async function startBenchmarkServer() {
   const sessions = new Map<string, BenchmarkSession>();
   let activeSession: BenchmarkSession | null = null;
 
+  // Session TTL eviction (R4)
+  const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+  const SESSION_SWEEP_INTERVAL_MS = 60_000;
+  const sessionCreatedAt = new Map<string, number>();
+
+  const evictStaleSessions = (): void => {
+    const now = Date.now();
+    for (const [key, createdAt] of sessionCreatedAt.entries()) {
+      if (now - createdAt > SESSION_TTL_MS) {
+        sessions.delete(key);
+        trajectoriesBySession.delete(key);
+        outboxBySession.delete(key);
+        sessionCreatedAt.delete(key);
+        for (const [k, v] of roomToSession.entries()) {
+          if (v === key) roomToSession.delete(k);
+        }
+        for (const [k, v] of entityToSession.entries()) {
+          if (v === key) entityToSession.delete(k);
+        }
+      }
+    }
+  };
+
+  const sweepInterval = setInterval(evictStaleSessions, SESSION_SWEEP_INTERVAL_MS);
+  sweepInterval.unref();
+
   const registerSessionRefs = (session: BenchmarkSession): void => {
     const key = sessionKey(session);
     roomToSession.set(session.roomId, key);
@@ -857,6 +883,7 @@ export async function startBenchmarkServer() {
     if (!createIfMissing) return null;
     const created = createSession(taskId, benchmark);
     sessions.set(key, created);
+    sessionCreatedAt.set(key, Date.now());
     registerSessionRefs(created);
     activeSession = created;
     return created;
