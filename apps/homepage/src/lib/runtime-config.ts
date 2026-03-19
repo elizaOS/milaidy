@@ -83,10 +83,25 @@ export function getSandboxDiscoveryUrls(): string[] {
   return Array.from(new Set(urls.filter(Boolean)));
 }
 
+/**
+ * Optionally rewrite agent UI URLs to use the configured base domain.
+ *
+ * Only rewrites when `VITE_AGENT_UI_BASE_DOMAIN` is explicitly set to a
+ * non-default value.  Otherwise the backend-provided URL (e.g. *.waifu.fun)
+ * is returned as-is so we don't force traffic through a domain whose proxy
+ * may not be fully configured yet.
+ */
 export function rewriteAgentUiUrl(url: string): string {
+  // Only rewrite if the env var was explicitly provided
+  const explicitDomain = import.meta.env.VITE_AGENT_UI_BASE_DOMAIN?.trim();
+  if (!explicitDomain) return url;
+
   try {
     const parsed = new URL(url);
-    if (parsed.hostname.endsWith(".waifu.fun")) {
+    if (
+      parsed.hostname.endsWith(".waifu.fun") &&
+      AGENT_UI_BASE_DOMAIN !== "waifu.fun"
+    ) {
       parsed.hostname = parsed.hostname.replace(
         /\.waifu\.fun$/,
         `.${AGENT_UI_BASE_DOMAIN}`,

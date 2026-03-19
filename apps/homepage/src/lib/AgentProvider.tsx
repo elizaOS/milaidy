@@ -46,6 +46,8 @@ export interface ManagedAgent {
   createdAt?: string;
   nodeId?: string;
   lastHeartbeat?: string;
+  /** API token for direct agent access (from sandbox discovery or manual config). */
+  apiToken?: string;
 }
 
 export type SourceFilter = "all" | "local" | "cloud" | "remote";
@@ -247,8 +249,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
           cloudEntry.client = client;
           cloudEntry.nodeId = sb.node_id;
           cloudEntry.lastHeartbeat = sb.last_heartbeat_at;
+          cloudEntry.apiToken = apiToken;
           // Set webUiUrl to the sandbox's public URL (https://{uuid}.milady.ai)
-          // TODO: Integrate pairing token flow for proper auth handoff (see WEB_UI_URL_NOTES.md)
           cloudEntry.webUiUrl = url;
           // Try to enrich with live status from the sandbox
           try {
@@ -291,6 +293,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
               client,
               nodeId: sb.node_id,
               lastHeartbeat: sb.last_heartbeat_at,
+              apiToken,
             });
           } catch {
             results.push({
@@ -303,6 +306,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
               client,
               nodeId: sb.node_id,
               lastHeartbeat: sb.last_heartbeat_at,
+              apiToken,
             });
           }
         } catch {
@@ -316,6 +320,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             client,
             nodeId: sb.node_id,
             lastHeartbeat: sb.last_heartbeat_at,
+            apiToken,
           });
         }
       }

@@ -67,11 +67,23 @@ export async function openWebUIWithPairing(
 }
 
 /**
- * Opens the Web UI directly (no pairing token needed).
+ * Opens the Web UI directly, optionally bootstrapping auth via `?token=`.
+ *
+ * When an `apiToken` is provided the agent URL is opened with `?token=<apiToken>`.
+ * The VPS nginx Lua router intercepts this, stores the token in sessionStorage,
+ * and redirects the browser to `/` — so the built-in web UI picks it up
+ * automatically without a manual pairing step.
+ *
  * Used for local and remote agents that don't require cloud auth handoff.
  */
-export function openWebUIDirect(url: string): void {
-  window.open(rewriteAgentUiUrl(url), "_blank", "noopener,noreferrer");
+export function openWebUIDirect(url: string, apiToken?: string): void {
+  let target = rewriteAgentUiUrl(url);
+  if (apiToken) {
+    // Append ?token= so the nginx Lua router injects it into sessionStorage
+    const sep = target.includes("?") ? "&" : "?";
+    target = `${target}${sep}token=${encodeURIComponent(apiToken)}`;
+  }
+  window.open(target, "_blank", "noopener,noreferrer");
 }
 
 /** Simple toast — uses sonner if available, falls back to console */

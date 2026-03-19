@@ -8,19 +8,28 @@ afterEach(() => {
 });
 
 describe("open-web-ui", () => {
-  it("rewrites direct Web UI links to milady.ai", () => {
+  it("preserves waifu.fun URLs when domain matches", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     openWebUIDirect("https://agent-123.waifu.fun");
 
-    expect(openSpy).toHaveBeenCalledWith(
-      "https://agent-123.milady.ai/",
-      "_blank",
-      "noopener,noreferrer",
-    );
+    // URL may be normalized (trailing slash) by the URL constructor
+    const url = (openSpy.mock.calls[0]?.[0] as string) ?? "";
+    expect(url.startsWith("https://agent-123.waifu.fun")).toBe(true);
+    expect(url).not.toContain("milady.ai");
   });
 
-  it("rewrites pairing redirect URLs to milady.ai", async () => {
+  it("appends api token to URL when provided", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    openWebUIDirect("https://agent-123.waifu.fun", "milady_abc123");
+
+    const url = (openSpy.mock.calls[0]?.[0] as string) ?? "";
+    expect(url).toContain("agent-123.waifu.fun");
+    expect(url).toContain("token=milady_abc123");
+  });
+
+  it("preserves pairing redirect URLs from cloud backend", async () => {
     const popup = {
       closed: false,
       document: {
@@ -48,8 +57,8 @@ describe("open-web-ui", () => {
 
     await openWebUIWithPairing("agent-123", cloudClient);
 
-    expect(popup.location.href).toBe(
-      "https://agent-123.milady.ai/pair?token=pair-token",
-    );
+    // When AGENT_UI_BASE_DOMAIN matches waifu.fun, redirect URL is preserved
+    expect(popup.location.href).toContain("agent-123.waifu.fun");
+    expect(popup.location.href).toContain("token=pair-token");
   });
 });

@@ -145,18 +145,19 @@ export function AgentGrid() {
                   setSelectedId(selectedId === agent.id ? null : agent.id)
                 }
                 onOpenUI={() => {
-                  // Cloud agents: use pairing token flow for proper auth handoff
+                  // Cloud agents without a direct sandbox token: use pairing token flow
                   if (
                     agent.source === "cloud" &&
                     agent.cloudClient &&
-                    agent.cloudAgentId
+                    agent.cloudAgentId &&
+                    !agent.apiToken
                   ) {
                     openWebUIWithPairing(agent.cloudAgentId, agent.cloudClient);
                     return;
                   }
-                  // Local/remote agents: open directly (no pairing token needed)
+                  // All other agents: open directly, bootstrapping auth via ?token= if available
                   const url = getWebUIUrl(agent);
-                  if (url) openWebUIDirect(url);
+                  if (url) openWebUIDirect(url, agent.apiToken);
                 }}
                 selected={selectedId === agent.id}
               />
