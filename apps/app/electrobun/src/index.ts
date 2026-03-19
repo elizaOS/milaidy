@@ -27,6 +27,12 @@ import {
   EMPTY_HEARTBEAT_MENU_SNAPSHOT,
   type HeartbeatMenuSnapshot,
 } from "./application-menu";
+import { showBackgroundNoticeOnce } from "./background-notice";
+import {
+  type CloudAuthWindowLike,
+  CloudAuthWindowManager,
+  readNavigationEventUrl,
+} from "./cloud-auth-window";
 import { getAgentManager } from "./native/agent";
 import { getDesktopManager } from "./native/desktop";
 import { disposeNativeModules, initializeNativeModules } from "./native/index";
@@ -328,6 +334,7 @@ function scheduleStateSave(statePath: string, win: BrowserWindow): void {
 let currentWindow: BrowserWindow | null = null;
 let currentSendToWebview: SendToWebview | null = null;
 let surfaceWindowManager: SurfaceWindowManager | null = null;
+let cloudAuthWindowManager: CloudAuthWindowManager | null = null;
 let rendererUrlPromise: Promise<string> | null = null;
 let backgroundWindowPromise: Promise<void> | null = null;
 let isQuitting = false;
@@ -546,8 +553,12 @@ function attachMainWindow(win: BrowserWindow): BrowserWindow {
   // The renderer is always served from localhost — any other navigation
   // (e.g. from a compromised plugin) should open in the default browser.
   win.webview.on("will-navigate", (event: unknown) => {
-    const e = event as { url?: string; preventDefault?: () => void };
-    const url = e.url ?? "";
+    const e = event as {
+      url?: string;
+      data?: { detail?: string };
+      preventDefault?: () => void;
+    };
+    const url = readNavigationEventUrl(e);
     try {
       const parsed = new URL(url);
       const isAllowed =
@@ -597,6 +608,7 @@ async function ensureBackgroundWindow(): Promise<void> {
     try {
       replacementWindow.minimize();
       console.log("[Main] Recreated minimized window after close");
+      showBackgroundRunNoticeOnce();
     } catch (err) {
       console.warn("[Main] Failed to minimize background window:", err);
     }
@@ -606,6 +618,20 @@ async function ensureBackgroundWindow(): Promise<void> {
   });
 
   await backgroundWindowPromise;
+}
+
+function showBackgroundRunNoticeOnce(): void {
+  try {
+    showBackgroundNoticeOnce({
+      fileSystem: fs,
+      userDataDir: Utils.paths.userData,
+      showNotification: (options) => {
+        Utils.showNotification(options);
+      },
+    });
+  } catch (error) {
+    console.warn("[Main] Failed to persist background notice marker:", error);
+  }
 }
 
 // ============================================================================
@@ -1166,6 +1192,13 @@ async function main(): Promise<void> {
     },
     onRegistryChanged: () => setupApplicationMenu(),
   });
+  cloudAuthWindowManager = new CloudAuthWindowManager({
+    createWindow: (options) =>
+      new BrowserWindow(options) as unknown as CloudAuthWindowLike,
+    onWindowFocused: (window) => {
+      lastFocusedWindow = window as unknown as ManagedWindowLike;
+    },
+  });
 
   // Set up app menu after the window (and its message loop) exists.
   setupApplicationMenu();
@@ -1180,6 +1213,9 @@ async function main(): Promise<void> {
   // Wire settings window callback so menus and RPC can open it.
   getDesktopManager().setOpenSettingsCallback(() => {
     void createSettingsWindow();
+  });
+  getDesktopManager().setOpenExternalHandler((url) => {
+    return cloudAuthWindowManager?.open(url) ?? false;
   });
 
   // If launched with --hidden (e.g. auto-launch with openAsHidden), minimize immediately.

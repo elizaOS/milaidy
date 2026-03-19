@@ -138,6 +138,9 @@ export class DesktopManager {
 
   // Callback to open the settings window (set by index.ts)
   private openSettingsCallback: (() => void) | null = null;
+  private openExternalHandler:
+    | ((url: string) => boolean | Promise<boolean>)
+    | null = null;
 
   // Track menu items for context-menu-clicked matching
   private trayMenuItems: Map<string, TrayMenuItem> = new Map();
@@ -177,6 +180,15 @@ export class DesktopManager {
    */
   setOpenSettingsCallback(cb: () => void): void {
     this.openSettingsCallback = cb;
+  }
+
+  /**
+   * Optionally handle trusted external URLs inside an app-managed window.
+   */
+  setOpenExternalHandler(
+    cb: ((url: string) => boolean | Promise<boolean>) | null,
+  ): void {
+    this.openExternalHandler = cb;
   }
 
   /**
@@ -1101,6 +1113,18 @@ X-GNOME-Autostart-enabled=true
       }
       throw err;
     }
+
+    if (this.openExternalHandler) {
+      try {
+        const handled = await this.openExternalHandler(url);
+        if (handled) {
+          return;
+        }
+      } catch (err) {
+        console.warn("[Desktop] openExternal handler failed:", err);
+      }
+    }
+
     Utils.openExternal(url);
   }
 

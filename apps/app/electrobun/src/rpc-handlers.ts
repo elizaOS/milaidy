@@ -1,3 +1,4 @@
+import fs from "node:fs";
 /**
  * RPC Handler Registration for Electrobun
  *
@@ -8,7 +9,8 @@
  * Called once during app startup after the BrowserView is created.
  */
 
-import { Updater } from "electrobun/bun";
+import { Updater, Utils } from "electrobun/bun";
+import { showBackgroundNoticeOnce } from "./background-notice";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
 import { getCanvasManager } from "./native/canvas";
@@ -161,6 +163,15 @@ export function registerRpcHandlers(
     desktopCloseNotification: async (
       params: Parameters<typeof desktop.closeNotification>[0],
     ) => desktop.closeNotification(params),
+    desktopShowBackgroundNotice: async () => ({
+      shown: showBackgroundNoticeOnce({
+        fileSystem: fs,
+        userDataDir: Utils.paths.userData,
+        showNotification: (options) => {
+          Utils.showNotification(options);
+        },
+      }),
+    }),
 
     // ---- Desktop: Power ----
     desktopGetPowerState: async () => desktop.getPowerState(),

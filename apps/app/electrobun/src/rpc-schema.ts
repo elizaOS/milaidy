@@ -368,6 +368,10 @@ export type MiladyRPCSchema = {
         response: { id: string };
       };
       desktopCloseNotification: { params: { id: string }; response: undefined };
+      desktopShowBackgroundNotice: {
+        params: undefined;
+        response: { shown: boolean };
+      };
 
       // ---- Desktop: Power ----
       desktopGetPowerState: { params: undefined; response: PowerState };
@@ -996,6 +1000,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   // Desktop: Notifications
   "desktop:showNotification": "desktopShowNotification",
   "desktop:closeNotification": "desktopCloseNotification",
+  "desktop:showBackgroundNotice": "desktopShowBackgroundNotice",
 
   // Desktop: Power
   "desktop:getPowerState": "desktopGetPowerState",

@@ -6,6 +6,7 @@
  */
 
 import "@elizaos/app-core/styles/styles.css";
+import "./onboarding-overrides.css";
 import "./native-plugin-entrypoints";
 
 import { App as CapacitorApp } from "@capacitor/app";
@@ -39,6 +40,8 @@ import { Desktop } from "@miladyai/capacitor-desktop";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { CharacterEditor } from "./components/CharacterEditor";
+import { DesktopOnboardingRuntime } from "./DesktopOnboardingRuntime";
+import { installDesktopPermissionsClientPatch } from "./desktop-permissions-client";
 import {
   applyForceFreshOnboardingReset,
   installForceFreshOnboardingClientPatch,
@@ -107,6 +110,7 @@ declare global {
 // persisted state and temporarily suppressing stale backend resume config.
 applyForceFreshOnboardingReset();
 installForceFreshOnboardingClientPatch(client);
+installDesktopPermissionsClientPatch(client);
 
 // Register custom character editor for app-core's ViewRouter to pick up
 window.__MILADY_CHARACTER_EDITOR__ = CharacterEditor;
@@ -441,6 +445,7 @@ function mountReactApp(): void {
   createRoot(rootEl).render(
     <StrictMode>
       <AppProvider branding={MILADY_BRANDING}>
+        <DesktopOnboardingRuntime />
         <App />
       </AppProvider>
     </StrictMode>,

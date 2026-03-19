@@ -69,6 +69,7 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   // Desktop: Notifications
   "desktop:showNotification": "desktopShowNotification",
   "desktop:closeNotification": "desktopCloseNotification",
+  "desktop:showBackgroundNotice": "desktopShowBackgroundNotice",
 
   // Desktop: Power
   "desktop:getPowerState": "desktopGetPowerState",
