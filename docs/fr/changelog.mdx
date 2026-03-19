@@ -3,31 +3,156 @@ title: Journal des modifications
 description: Nouveautés de Milady — fonctionnalités, améliorations et correctifs.
 ---
 
+<Update label="2026-05-14" description="Semaine du 8 au 14 mai" tags={["Feature", "Update"]}>
+<div id="media-generation">
+## Génération de médias
+</div>
+
+Votre agent peut désormais générer des images, des vidéos et de l'audio — et analyser des images avec la vision IA — le tout depuis le chat. Quatre nouvelles actions sont disponibles : `GENERATE_IMAGE`, `GENERATE_VIDEO`, `GENERATE_AUDIO` et `ANALYZE_IMAGE`. Chacune prend en charge plusieurs backends de fournisseurs, notamment FAL.ai, OpenAI, Google, xAI et Eliza Cloud. Choisissez entre le mode cloud (sans clé API nécessaire) et le mode apportez-votre-propre-clé par type de média. Une galerie multimédia dans le tableau de bord vous permet de parcourir tout ce que votre agent a créé. Consultez le [guide de génération de médias](/fr/guides/media-generation) pour plus de détails.
+
+<div id="event-hooks">
+## Hooks d'événements
+</div>
+
+Vous pouvez désormais étendre votre agent avec des hooks événementiels qui répondent aux commandes, aux événements de session, aux événements du cycle de vie de l'agent et aux événements de passerelle. Les hooks sont chargés depuis le disque au démarrage — chaque hook est un répertoire avec une configuration frontmatter et un module gestionnaire. Utilisez les hooks pour ajouter un comportement personnalisé sans modifier le code central. Consultez le [guide des hooks](/fr/guides/hooks) pour plus de détails.
+
+<div id="config-includes">
+## Inclusions de configuration
+</div>
+
+Divisez la configuration de votre agent en plusieurs fichiers avec la directive `$include`. Composez des configurations de base partagées, séparez les paramètres spécifiques à l'environnement et gardez les configurations volumineuses organisées. Les clés locales remplacent les clés incluses, ce qui permet de superposer proprement les surcharges. Consultez le [guide des inclusions de configuration](/fr/guides/config-includes) pour plus de détails.
+
+<div id="plugin-eject-system">
+## Système d'éjection de plugins
+</div>
+
+Vous pouvez désormais cloner le code source de n'importe quel plugin localement, le modifier et faire en sorte que le runtime charge votre version au lieu du paquet npm. Le système d'éjection prend en charge la synchronisation avec les modifications en amont, la contribution de modifications via des pull requests et le retour à l'original à tout moment. Demandez à votre agent d'éjecter un plugin ou utilisez la CLI. Consultez le [guide d'éjection de plugins](/fr/plugins/plugin-eject) pour plus de détails.
+
+<div id="skills-marketplace-with-security-review">
+## Marketplace de compétences avec revue de sécurité
+</div>
+
+La vue des compétences inclut désormais un marketplace alimenté par le registre clawhub.ai. Parcourez, recherchez et installez des compétences directement depuis le tableau de bord. Un système de revue de sécurité intégré analyse les compétences installées et signale les problèmes — les compétences en quarantaine sont visuellement marquées et les compétences bloquées ne peuvent pas être activées avant d'être examinées.
+
+<div id="six-more-platform-connectors">
+## Six connecteurs de plateforme supplémentaires
+</div>
+
+Votre agent peut désormais se connecter à six plateformes supplémentaires :
+
+- **Feishu / Lark** — bots, chats et notifications de flux de travail.
+- **Twilio** — messagerie vocale et SMS.
+- **Twitch** — intégration de chat en direct.
+- **Gmail Watch** — surveillance d'e-mails Pub/Sub avec renouvellement automatique.
+- **Linear** — intégration de suivi des tickets.
+- **Zalo** — messagerie sur la plus grande plateforme de chat du Vietnam.
+
+Installez n'importe quel connecteur avec `milady plugins install <name>` et configurez-le dans vos [paramètres sociaux](/fr/guides/connectors).
+
+<div id="updates">
+## Mises à jour
+</div>
+
+- **Mot d'activation vocale** — Vous pouvez désormais configurer un mot d'activation (par défaut : "milady") pour que votre agent écoute une phrase de déclenchement avant de répondre. Ajustez la sensibilité et la taille du modèle Whisper depuis le panneau des paramètres vocaux.
+- **Installer des plugins depuis le chat** — Demandez à votre agent d'installer un plugin par nom (par exemple, "install the discord plugin") et il gère le téléchargement, l'installation et le redémarrage automatiquement.
+- **Niveau de journalisation à l'exécution** — Modifiez la verbosité des journaux de votre agent à l'exécution en lui demandant de "set log level to debug" (ou trace, info, warn, error) sans redémarrer.
+- **Modèles de configuration** — Huit modèles de configuration prêts pour la production sont désormais disponibles pour les scénarios de déploiement courants — configuration minimale, bot Discord, multi-modèle et plus encore. Consultez le [guide des modèles de configuration](/fr/guides/config-templates).
+- **Thèmes et avatars du tableau de bord** — Six thèmes visuels et huit avatars 3D VRM intégrés avec 29 emotes répartis en six catégories. Les thèmes contrôlent les couleurs, la typographie, les bordures et les animations dans l'ensemble du tableau de bord. Consultez le [guide des thèmes](/fr/guides/themes).
+</Update>
+
+<Update label="2026-05-07" description="Semaine du 1er au 7 mai" tags={["Feature", "Update"]}>
+<div id="agent-export-and-import">
+## Exportation et importation d'agents
+</div>
+
+Vous pouvez désormais migrer votre agent entre machines avec un seul fichier chiffré. L'exportation capture l'état complet de l'agent — personnage, souvenirs, connaissances, relations et configuration — dans une archive `.eliza-agent` protégée par mot de passe. Importez-la sur une autre machine pour tout restaurer. Consultez le [guide d'exportation d'agent](/fr/guides/agent-export) pour plus de détails.
+
+<div id="sandbox-and-computer-use">
+## Sandbox et utilisation de l'ordinateur
+</div>
+
+Les agents peuvent désormais exécuter du code, naviguer sur le web, prendre des captures d'écran, enregistrer de l'audio et interagir avec des applications de bureau dans un sandbox de conteneur isolé. Le sandbox prend en charge quatre modes de sécurité configurables (off, light, standard, max), des politiques réseau, la journalisation d'audit et un service de signature distant qui conserve les clés de portefeuille sur l'hôte tandis que les agents en sandbox soumettent des transactions. Consultez le [guide du sandbox](/fr/guides/sandbox) pour plus de détails.
+
+<div id="mcp-marketplace">
+## Marketplace MCP
+</div>
+
+Vous pouvez désormais parcourir et installer des serveurs du Protocole de Contexte de Modèle directement depuis le registre officiel MCP. Recherchez des outils par nom, consultez les détails et installez-les en une seule étape — la configuration est générée automatiquement. Les serveurs MCP étendent votre agent avec des capacités externes comme l'accès aux fichiers, les requêtes de base de données et les intégrations d'API. Consultez le [guide du marketplace MCP](/fr/guides/mcp-marketplace) pour plus de détails.
+
+<div id="custom-actions-editor">
+## Éditeur d'actions personnalisées
+</div>
+
+Un éditeur visuel dans le tableau de bord vous permet de créer des actions d'agent personnalisées sans écrire de code de plugin. Définissez des actions avec des gestionnaires HTTP, shell ou code, configurez les paramètres et les en-têtes, et testez-les — le tout depuis l'interface. Consultez le [guide des actions personnalisées](/fr/guides/custom-actions) pour plus de détails.
+
+<div id="plugin-eject-system">
+## Système d'éjection de plugins
+</div>
+
+Vous pouvez désormais forker le code source de n'importe quel plugin localement, le modifier et faire en sorte que le runtime charge votre copie locale au lieu du paquet npm. Six nouvelles actions d'agent — eject, reinject, sync et status pour les plugins et le core — facilitent la personnalisation, les tests et la contribution des modifications en amont. Consultez le [guide d'éjection de plugins](/fr/plugins/plugin-eject) pour plus de détails.
+
+<div id="stream-overlay-widgets">
+## Widgets de superposition pour les streams
+</div>
+
+Les diffusions en direct prennent désormais en charge un système de superposition personnalisable avec des widgets intégrés — compteur de spectateurs, bulles de pensée, fenêtres d'alerte, tickers d'actions, branding et HTML personnalisé. Vous pouvez organiser les widgets avec l'éditeur de mise en page et enregistrer des dispositions par destination. Les plugins externes peuvent enregistrer leurs propres widgets de superposition.
+
+<div id="memory-and-embedding-explorer">
+## Explorateur de mémoire et d'embeddings
+</div>
+
+Un nouveau navigateur vectoriel dans le tableau de bord vous permet d'explorer visuellement le magasin de mémoire de votre agent. Parcourez les souvenirs dans une liste paginée, recherchez par contenu et inspectez les entrées individuelles. Un nuage de points 2D et une visualisation 3D interactive montrent comment les embeddings se regroupent, facilitant la compréhension de ce que votre agent retient et comment cela s'articule.
+
+<div id="three-new-platform-connectors">
+## Trois nouveaux connecteurs de plateforme
+</div>
+
+Votre agent peut désormais se connecter à trois plateformes de messagerie supplémentaires :
+
+- **Matrix** — chat fédéré avec configuration du homeserver, authentification par jeton d'accès, adhésion automatique, chiffrement de bout en bout et mode mentions uniquement.
+- **Nostr** — réseau social décentralisé basé sur les relais avec authentification par clé privée, liste de relais configurable et support des messages directs.
+- **Nextcloud Talk** — intégration de bot basée sur les webhooks avec filtrage par salon.
+
+Installez n'importe quel connecteur avec `milady plugins install <name>` et configurez-le dans vos [paramètres sociaux](/fr/guides/connectors).
+
+<div id="updates">
+## Mises à jour
+</div>
+
+- **Coffre-fort de secrets** — Une nouvelle vue Secrets dans le tableau de bord organise vos clés API et identifiants par catégorie (fournisseurs d'IA, blockchain, connecteurs, authentification). Vous pouvez ajouter, supprimer et gérer les secrets avec une découverte orientée plugins qui montre quels plugins nécessitent quelles clés.
+- **Galerie multimédia** — Une nouvelle galerie multimédia dans le tableau de bord vous permet de parcourir les photos, vidéos et fichiers audio stockés dans la base de données de votre agent, avec filtrage par type de média.
+- **API de diagnostics et d'audit de sécurité** — De nouveaux endpoints exposent des journaux d'exécution filtrables, la relecture d'événements d'autonomie avec pagination par curseur et un journal d'audit de sécurité avec filtrage par sévérité et streaming SSE. Consultez la [référence API](/fr/api-reference) pour plus de détails.
+- **Permissions de diffusion lors de l'intégration** — Les permissions de caméra et de microphone sont désormais demandées lors de l'assistant de configuration initiale et gérables depuis les Paramètres, pour que la diffusion fonctionne immédiatement sur mobile et ordinateur.
+- **Lisibilité des boutons en thème sombre** — Les boutons de couleur d'accentuation utilisent désormais un texte sombre pour un meilleur contraste, et les effets de survol mettent en évidence la bordure au lieu de changer la couleur du texte.
+- **Améliorations de la mise en page de l'intégration** — L'étape de connexion affiche désormais un interrupteur Démarrage rapide / Avancé, des cartes de fournisseurs pleine largeur et un bouton Continuer toujours visible à l'étape des permissions.
+- **Modèles de configuration** — Huit modèles de configuration prêts à l'emploi pour les scénarios de déploiement courants sont désormais disponibles. Consultez le [guide des modèles de configuration](/fr/guides/config-templates).
+</Update>
+
 <Update label="2026-04-30" description="Semaine du 24 au 30 avril" tags={["Feature", "Update"]}>
 <div id="streaming-response-recovery">
 ## Récupération des réponses en streaming
 </div>
 
-Lorsqu'une réponse de chat est interrompue en cours de streaming — que ce soit à cause d'un problème réseau ou d'un délai d'attente dépassé — le message est désormais marqué comme interrompu avec un bouton Réessayer. Vous pouvez relancer la réponse au lieu de rester avec un message partiel.
+Lorsqu'une réponse de chat est interrompue en cours de diffusion — que ce soit à cause d'un problème réseau ou d'un délai dépassé — le message est désormais marqué comme interrompu avec un bouton Réessayer. Vous pouvez redemander la réponse au lieu de rester avec un message partiel.
 
 <div id="orchestrator-trajectory-tagging">
 ## Étiquetage des trajectoires de l'orchestrateur
 </div>
 
-Les appels LLM effectués par l'[orchestrateur de l'essaim](/fr/guides/coding-swarms) sont désormais marqués d'un badge violet "orchestrator" dans le [visualiseur de trajectoires](/fr/advanced/trajectories). Chaque entrée inclut des métadonnées telles que le type de décision, l'ID de session et le libellé de la tâche, ce qui facilite la distinction entre le raisonnement de l'orchestrateur et les appels individuels des agents lors des exécutions multi-agents.
+Les appels LLM effectués par l'[orchestrateur d'essaim](/fr/guides/coding-swarms) sont désormais identifiés par un badge violet « orchestrateur » dans le [visualiseur de trajectoires](/fr/advanced/trajectories). Chaque entrée inclut des métadonnées telles que le type de décision, l'ID de session et le libellé de la tâche, ce qui facilite la distinction entre le raisonnement de l'orchestrateur et les appels individuels des agents lors d'exécutions multi-agents.
 
 <div id="training-backend-auto-detection">
-## Autodétection du backend d'entraînement
+## Détection automatique du backend d'entraînement
 </div>
 
-Le système de [fine-tuning](/fr/guides/training) détecte désormais les backends ML disponibles — MLX sur Apple Silicon, CUDA sur les GPU NVIDIA et le CPU en solution de repli — avant de lancer un travail d'entraînement. Si le backend demandé n'est pas disponible, vous recevez une erreur claire au lieu d'un échec cryptique en cours d'exécution.
+Le système de [réglage fin](/fr/guides/training) détecte désormais les backends ML disponibles — MLX sur Apple Silicon, CUDA sur GPU NVIDIA et CPU en solution de repli — avant de lancer un travail d'entraînement. Si le backend demandé n'est pas disponible, vous obtenez une erreur claire au lieu d'un échec cryptique en cours d'exécution.
 
 <div id="updates">
 ## Mises à jour
 </div>
 
 - **Les métadonnées du personnage persistent entre les redémarrages** — Le nom d'utilisateur et les sujets de votre agent survivent désormais aux redémarrages. Auparavant, ces champs étaient traités comme des données d'exécution uniquement et revenaient aux valeurs par défaut après un redémarrage. Consultez l'[éditeur de personnage](/fr/agents/character-interface) pour plus de détails.
-- **Indicateur de progression de reconnexion** — Lorsque la connexion WebSocket se coupe, le tableau de bord affiche désormais une bannière ambrée "Reconnexion en cours..." avec le nombre de tentatives en cours avant de passer à l'état d'échec rouge, vous offrant une visibilité en temps réel sur la progression de la récupération.
+- **Indicateur de progression de reconnexion** — Lorsque la connexion WebSocket est interrompue, le tableau de bord affiche désormais une bannière ambre « Reconnexion... » avec le nombre de tentatives en cours avant de passer à l'état d'échec rouge, vous offrant une visibilité en temps réel sur la progression de la récupération.
 </Update>
 
 <Update label="2026-04-23" description="Semaine du 17 au 23 avril" tags={["Update", "Fix"]}>

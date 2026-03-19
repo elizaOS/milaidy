@@ -3,31 +3,156 @@ title: 更新日志
 description: Milady 的最新动态——新功能、改进和修复。
 ---
 
-<Update label="2026-04-30" description="4月24日至30日当周" tags={["Feature", "Update"]}>
-<div id="streaming-response-recovery">
-## 流式响应恢复
+<Update label="2026-05-14" description="5月8日至14日当周" tags={["Feature", "Update"]}>
+<div id="media-generation">
+## 媒体生成
 </div>
 
-当聊天响应在流式传输过程中中断时——无论是由于网络故障还是超时——消息现在会被标记为已中断，并显示重试按钮。你可以重新请求响应，而不是停留在一条不完整的消息上。
+您的代理现在可以生成图像、视频和音频——并使用 AI 视觉分析图像——全部通过聊天完成。四个新操作现已可用：`GENERATE_IMAGE`、`GENERATE_VIDEO`、`GENERATE_AUDIO` 和 `ANALYZE_IMAGE`。每个操作支持多个提供商后端，包括 FAL.ai、OpenAI、Google、xAI 和 Eliza Cloud。按媒体类型在云模式（无需 API 密钥）和自带密钥模式之间选择。仪表板中的媒体库让您可以浏览代理创建的所有内容。详情请参阅[媒体生成指南](/zh/guides/media-generation)。
 
-<div id="orchestrator-trajectory-tagging">
-## 编排器轨迹标记
+<div id="event-hooks">
+## 事件钩子
 </div>
 
-由[集群编排器](/zh/guides/coding-swarms)发起的 LLM 调用现在在[轨迹查看器](/zh/advanced/trajectories)中带有紫色的"orchestrator"标记。每条记录包含决策类型、会话 ID 和任务标签等元数据，使你在多代理运行期间更容易区分编排器推理和单个代理调用。
+您现在可以使用事件驱动的钩子来扩展代理，这些钩子可响应命令、会话事件、代理生命周期事件和网关事件。钩子在启动时从磁盘加载——每个钩子是一个包含 frontmatter 配置和处理程序模块的目录。使用钩子添加自定义行为，无需修改核心代码。详情请参阅[钩子指南](/zh/guides/hooks)。
 
-<div id="training-backend-auto-detection">
-## 训练后端自动检测
+<div id="config-includes">
+## 配置包含
 </div>
 
-[微调](/zh/guides/training)系统现在会在启动训练任务前检测可用的 ML 后端——Apple Silicon 上的 MLX、NVIDIA GPU 上的 CUDA，以及 CPU 作为后备方案。如果请求的后端不可用，你会收到清晰的错误提示，而不是在运行过程中遇到难以理解的失败。
+使用 `$include` 指令将代理配置拆分到多个文件中。组合共享基础配置、分离特定环境的设置，并保持大型配置的条理性。本地键会覆盖包含的键，因此您可以干净地叠加覆盖。详情请参阅[配置包含指南](/zh/guides/config-includes)。
+
+<div id="plugin-eject-system">
+## 插件弹出系统
+</div>
+
+您现在可以在本地克隆任何插件的源代码，编辑它，并让运行时加载您的版本而不是 npm 包。弹出系统支持与上游更改同步、通过 pull request 贡献编辑以及随时恢复到原始版本。让您的代理弹出插件或使用 CLI。详情请参阅[插件弹出指南](/zh/plugins/plugin-eject)。
+
+<div id="skills-marketplace-with-security-review">
+## 带安全审查的技能市场
+</div>
+
+技能视图现在包含一个由 clawhub.ai 注册表支持的市场。直接从仪表板浏览、搜索和安装技能。内置的安全审查系统会扫描已安装的技能并标记问题——被隔离的技能会有视觉标记，被阻止的技能在审查通过前无法启用。
+
+<div id="six-more-platform-connectors">
+## 六个新平台连接器
+</div>
+
+您的代理现在可以连接到六个额外的平台：
+
+- **飞书 / Lark** — 机器人、聊天和工作流通知。
+- **Twilio** — 语音和短信消息。
+- **Twitch** — 直播聊天集成。
+- **Gmail Watch** — Pub/Sub 邮件监控，支持自动续期。
+- **Linear** — 问题跟踪集成。
+- **Zalo** — 越南最大聊天平台上的消息服务。
+
+使用 `milady plugins install <name>` 安装任何连接器，并在[社交设置](/zh/guides/connectors)中进行配置。
 
 <div id="updates">
 ## 更新
 </div>
 
-- **角色元数据在重启后持久保存** — 你的代理的用户名和主题现在可以在重启后保留。此前，这些字段被视为仅运行时数据，重启后会恢复为默认值。详情请参阅[角色编辑器](/zh/agents/character-interface)。
-- **重连进度指示器** — 当 WebSocket 连接断开时，仪表板现在会显示琥珀色的"正在重连..."横幅，并显示当前尝试次数，然后才升级为红色的失败状态，让你实时了解恢复进度。
+- **语音唤醒词** — 您现在可以配置唤醒词（默认："milady"），让代理在响应前先监听触发短语。从语音设置面板调整灵敏度和 Whisper 模型大小。
+- **从聊天中安装插件** — 让代理按名称安装插件（例如，"install the discord plugin"），它会自动处理下载、安装和重启。
+- **运行时日志级别** — 通过让代理"set log level to debug"（或 trace、info、warn、error）在运行时更改日志详细程度，无需重启。
+- **配置模板** — 八个生产就绪的配置模板现已可用于常见部署场景——最小设置、Discord 机器人、多模型等。请参阅[配置模板指南](/zh/guides/config-templates)。
+- **仪表板主题和头像** — 六个视觉主题和八个内置 3D VRM 头像，包含六个类别中的 29 个表情。主题控制整个仪表板的颜色、排版、边框和动画。请参阅[主题指南](/zh/guides/themes)。
+</Update>
+
+<Update label="2026-05-07" description="5月1日至7日当周" tags={["Feature", "Update"]}>
+<div id="agent-export-and-import">
+## 代理导出与导入
+</div>
+
+您现在可以使用一个加密文件在不同机器之间迁移代理。导出功能捕获代理的完整状态——角色、记忆、知识、关系和配置——生成一个受密码保护的 `.eliza-agent` 归档文件。在另一台机器上导入即可恢复所有内容。详情请参阅[代理导出指南](/zh/guides/agent-export)。
+
+<div id="sandbox-and-computer-use">
+## 沙箱与计算机使用
+</div>
+
+代理现在可以在隔离的容器沙箱内运行代码、浏览网页、截取屏幕截图、录制音频并与桌面应用程序交互。沙箱支持四种可配置的安全模式（off、light、standard、max）、网络策略、审计日志以及远程签名服务——该服务将钱包密钥保存在主机上，同时沙箱中的代理提交交易。详情请参阅[沙箱指南](/zh/guides/sandbox)。
+
+<div id="mcp-marketplace">
+## MCP 市场
+</div>
+
+您现在可以直接从官方 MCP 注册表浏览和安装模型上下文协议服务器。按名称搜索工具、查看详情并一步完成安装——配置会自动生成。MCP 服务器通过文件访问、数据库查询和 API 集成等外部功能扩展您的代理。详情请参阅 [MCP 市场指南](/zh/guides/mcp-marketplace)。
+
+<div id="custom-actions-editor">
+## 自定义操作编辑器
+</div>
+
+仪表板中的可视化编辑器让您无需编写插件代码即可创建自定义代理操作。使用 HTTP、shell 或代码处理程序定义操作，配置参数和标头，并进行测试——全部在 UI 中完成。详情请参阅[自定义操作指南](/zh/guides/custom-actions)。
+
+<div id="plugin-eject-system">
+## 插件弹出系统
+</div>
+
+您现在可以在本地 fork 任何插件的源代码，修改它，并让运行时加载您的本地副本而不是 npm 包。六个新的代理操作——eject、reinject、sync 和 status（适用于插件和核心）——使自定义、测试和向上游贡献更改变得简单。详情请参阅[插件弹出指南](/zh/plugins/plugin-eject)。
+
+<div id="stream-overlay-widgets">
+## 直播叠加层小部件
+</div>
+
+直播现在支持可自定义的叠加层系统，内置小部件包括——观众计数、思想气泡、警报弹窗、操作滚动条、品牌标识和自定义 HTML。您可以使用布局编辑器排列小部件并按目标保存布局。外部插件可以注册自己的叠加层小部件。
+
+<div id="memory-and-embedding-explorer">
+## 记忆与嵌入探索器
+</div>
+
+仪表板中新增的向量浏览器让您可以可视化地探索代理的记忆存储。在分页列表中浏览记忆、按内容搜索并检查单个条目。二维散点图和交互式三维可视化展示了嵌入的聚类方式，使您更容易理解代理记住了什么以及它们之间的关联。
+
+<div id="three-new-platform-connectors">
+## 三个新平台连接器
+</div>
+
+您的代理现在可以连接到三个额外的消息平台：
+
+- **Matrix** — 联邦式聊天，支持主服务器配置、访问令牌认证、自动加入、端到端加密和仅提及模式。
+- **Nostr** — 基于中继的去中心化社交，支持私钥认证、可配置的中继列表和私信支持。
+- **Nextcloud Talk** — 基于 Webhook 的机器人集成，支持按房间过滤。
+
+使用 `milady plugins install <name>` 安装任何连接器，并在[社交设置](/zh/guides/connectors)中进行配置。
+
+<div id="updates">
+## 更新
+</div>
+
+- **密钥保险库** — 仪表板中新增的密钥视图按类别（AI 提供商、区块链、连接器、认证）组织您的 API 密钥和凭据。您可以添加、删除和管理密钥，并通过插件感知发现功能显示哪些插件需要哪些密钥。
+- **媒体库** — 仪表板中新增的媒体库让您可以浏览代理数据库中存储的照片、视频和音频，支持按媒体类型过滤。
+- **诊断与安全审计 API** — 新的端点公开可过滤的运行时日志、基于游标分页的自主事件回放，以及带有严重性过滤和 SSE 流的安全审计日志。详情请参阅 [API 参考](/zh/api-reference)。
+- **入门引导中的直播权限** — 摄像头和麦克风权限现在在入门向导中请求，并可在设置中管理，因此直播功能在移动端和桌面端都能开箱即用。
+- **深色主题按钮可读性** — 强调色按钮现在使用深色文字以获得更好的对比度，悬停效果突出显示边框而不是更改文字颜色。
+- **入门引导布局改进** — 连接步骤现在显示快速开始/高级切换、全宽度提供商卡片以及权限步骤中始终可见的继续按钮。
+- **配置模板** — 八个适用于常见部署场景的即用配置模板现已可用。请参阅[配置模板指南](/zh/guides/config-templates)。
+</Update>
+
+<Update label="2026-04-30" description="4月24日至30日当周" tags={["Feature", "Update"]}>
+<div id="streaming-response-recovery">
+## 流式响应恢复
+</div>
+
+当聊天响应在传输过程中中断时——无论是网络故障还是超时——消息现在会被标记为已中断，并显示一个重试按钮。您可以重新请求响应，而不是面对一条不完整的消息。
+
+<div id="orchestrator-trajectory-tagging">
+## 编排器轨迹标记
+</div>
+
+[集群编排器](/zh/guides/coding-swarms)发出的 LLM 调用现在在[轨迹查看器](/zh/advanced/trajectories)中带有紫色的"编排器"徽章。每个条目包含决策类型、会话 ID 和任务标签等元数据，使您在多代理运行期间更容易区分编排器推理和单个代理调用。
+
+<div id="training-backend-auto-detection">
+## 训练后端自动检测
+</div>
+
+[微调](/zh/guides/training)系统现在会在开始训练任务之前检测可用的 ML 后端——Apple Silicon 上的 MLX、NVIDIA GPU 上的 CUDA，以及 CPU 作为后备方案。如果请求的后端不可用，您将获得清晰的错误提示，而不是在运行过程中遇到难以理解的故障。
+
+<div id="updates">
+## 更新
+</div>
+
+- **角色元数据在重启后保持不变** — 您的代理的用户名和主题现在可以在重启后保留。此前，这些字段被视为仅限运行时的数据，在重启后会恢复为默认值。详情请参阅[角色编辑器](/zh/agents/character-interface)。
+- **重连进度指示器** — 当 WebSocket 连接断开时，仪表板现在会显示一个琥珀色的"正在重新连接..."横幅，并显示当前尝试次数，然后再升级为红色的失败状态，让您实时了解恢复进度。
 </Update>
 
 <Update label="2026-04-23" description="4月17日至23日当周" tags={["Update", "Fix"]}>
