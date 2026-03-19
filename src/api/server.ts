@@ -3,7 +3,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AgentRuntime, Content } from "@elizaos/core";
+import type { AgentRuntime } from "@elizaos/core";
 
 // Re-export the full upstream server API.
 export * from "@elizaos/autonomous/api/server";
@@ -159,12 +159,12 @@ function patchMessageServiceForTrajectories(runtime: AgentRuntime): void {
   ms.handleMessage = async (
     rt: AgentRuntime,
     message: Parameters<typeof original>[1],
-    callback: (content: Content) => Promise<unknown[]>,
+    callback?: Parameters<typeof original>[2],
     options?: Parameters<typeof original>[3],
   ) => {
     // Resolve the trajectory logger service (may be registered under
     // "trajectory_logger" service type).
-    const trajLogger = rt.getService("trajectory_logger") as
+    const trajLogger = (rt as AgentRuntime).getService("trajectory_logger") as
       | {
           isEnabled?: () => boolean;
           startTrajectory?: (
@@ -199,11 +199,14 @@ function patchMessageServiceForTrajectories(runtime: AgentRuntime): void {
                 200,
               )
             : "";
-        stepId = await trajLogger.startTrajectory(rt.agentId, {
-          agentId: rt.agentId,
-          source: "chat",
-          metadata: { trigger: userText },
-        });
+        stepId = await trajLogger.startTrajectory(
+          (rt as AgentRuntime).agentId,
+          {
+            agentId: (rt as AgentRuntime).agentId,
+            source: "chat",
+            metadata: { trigger: userText },
+          },
+        );
       } catch {
         // Non-fatal — fall through without trajectory tracking.
       }

@@ -14,7 +14,10 @@
     "strict": true,
     "target": "es2023",
     "useDefineForClassFields": false,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "@elizaos/autonomous/*": ["./node_modules/@elizaos/autonomous/packages/autonomous/src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": [

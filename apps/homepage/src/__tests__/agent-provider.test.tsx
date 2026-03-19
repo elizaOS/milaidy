@@ -238,7 +238,7 @@ describe("AgentProvider", () => {
       );
       await vi.advanceTimersByTimeAsync(100);
     });
-    expect(result!.getByTestId("count").textContent).toBe("0");
+    expect(result?.getByTestId("count").textContent).toBe("0");
 
     setToken("new-api-key");
     mockFetch.mockImplementation((url: string) => {
@@ -265,8 +265,8 @@ describe("AgentProvider", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(31000);
     });
-    expect(result!.getByTestId("count").textContent).toBe("1");
-    expect(result!.getByTestId("agent-cloud-mid-1").textContent).toContain(
+    expect(result?.getByTestId("count").textContent).toBe("1");
+    expect(result?.getByTestId("agent-cloud-mid-1").textContent).toContain(
       "Post-Login Agent|cloud|running",
     );
   });
@@ -299,8 +299,8 @@ describe("AgentProvider", () => {
       );
       await vi.advanceTimersByTimeAsync(100);
     });
-    expect(result!.getByTestId("count").textContent).toBe("1");
-    expect(result!.getByTestId("agent-cloud-env-1").textContent).toContain(
+    expect(result?.getByTestId("count").textContent).toBe("1");
+    expect(result?.getByTestId("agent-cloud-env-1").textContent).toContain(
       "Envelope Agent|cloud|running",
     );
   });
@@ -338,7 +338,7 @@ describe("AgentProvider", () => {
       );
       await vi.advanceTimersByTimeAsync(100);
     });
-    expect(result!.getByTestId("agent-cloud-an-1").textContent).toContain(
+    expect(result?.getByTestId("agent-cloud-an-1").textContent).toContain(
       "Real Name|cloud|",
     );
   });

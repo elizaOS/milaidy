@@ -243,18 +243,6 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* ── Right panel mobile visibility ────────────────────────────── */
-
-.ce-panel-right[data-mobile-hidden] {
-  --ce-right-display: none;
-}
-
-@media (min-width: 769px) {
-  .ce-panel-right[data-mobile-hidden] {
-    --ce-right-display: flex;
-  }
-}
-
 /* ── Inputs ────────────────────────────────────────────────────── */
 
 .ce-input {

@@ -38,18 +38,13 @@ const Icon = ({ className, d }: { className?: string; d: string }) => (
     <path d={d} />
   </svg>
 );
-const Lock = ({ className }: { className?: string }) => (
+const _Lock = ({ className }: { className?: string }) => (
   <svg {...svgBase} className={className} aria-hidden="true">
     <rect width="18" x="3" y="11" height="11" rx="2" ry="2" />
     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </svg>
 );
-const LockOpen = ({ className }: { className?: string }) => (
-  <svg {...svgBase} className={className} aria-hidden="true">
-    <rect width="18" x="3" y="11" height="11" rx="2" ry="2" />
-    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-  </svg>
-);
+
 const RotateCcw = ({ className }: { className?: string }) => (
   <Icon className={className} d="M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
 );
@@ -262,13 +257,11 @@ export function CharacterEditor({
   const [voiceSaving, setVoiceSaving] = useState(false);
   const [voiceSaveError, setVoiceSaveError] = useState<string | null>(null);
   const [voiceTesting, setVoiceTesting] = useState(false);
-  const [voiceTestAudio, setVoiceTestAudio] = useState<HTMLAudioElement | null>(
-    null,
-  );
+  const [voiceTestAudio] = useState<HTMLAudioElement | null>(null);
   const [selectedVoicePresetId, setSelectedVoicePresetId] = useState<
     string | null
   >(null);
-  const [voiceSelectionLocked, setVoiceSelectionLocked] = useState(false);
+  const [voiceSelectionLocked] = useState(false);
 
   /* ── Load roster ────────────────────────────────────────────────── */
   // Use static STYLE_PRESETS shipped in the frontend bundle — no API call
@@ -336,7 +329,7 @@ export function CharacterEditor({
             setSelectedVoicePresetId(preset?.id ?? null);
           }
         }
-      } catch { }
+      } catch {}
       setVoiceLoading(false);
     })();
   }, []);
@@ -405,7 +398,7 @@ export function CharacterEditor({
           });
         }, 800);
         // Speak the catchphrase via TTS
-        void client.streamVoiceSpeak(entry.catchphrase).catch(() => { });
+        void client.streamVoiceSpeak(entry.catchphrase).catch(() => {});
       }
     },
     [
@@ -463,21 +456,6 @@ export function CharacterEditor({
   }, [d.style]);
 
   /* ── Voice test ─────────────────────────────────────────────────── */
-  const handleTestVoice = useCallback(
-    (previewUrl: string) => {
-      if (voiceTestAudio) {
-        voiceTestAudio.pause();
-        voiceTestAudio.currentTime = 0;
-      }
-      setVoiceTesting(true);
-      const audio = new Audio(previewUrl);
-      setVoiceTestAudio(audio);
-      audio.onended = () => setVoiceTesting(false);
-      audio.onerror = () => setVoiceTesting(false);
-      audio.play().catch(() => setVoiceTesting(false));
-    },
-    [voiceTestAudio],
-  );
 
   const handleStopTest = useCallback(() => {
     if (voiceTestAudio) {
@@ -582,7 +560,7 @@ export function CharacterEditor({
               if (parsed.chat) handleStyleEdit("chat", parsed.chat.join("\n"));
               if (parsed.post) handleStyleEdit("post", parsed.post.join("\n"));
             }
-          } catch { }
+          } catch {}
         } else if (field === "chatExamples") {
           try {
             const parsed = JSON.parse(generated);
@@ -596,7 +574,7 @@ export function CharacterEditor({
               }));
               handleFieldEdit("messageExamples", formatted);
             }
-          } catch { }
+          } catch {}
         } else if (field === "postExamples") {
           try {
             const parsed = JSON.parse(generated);
@@ -610,9 +588,9 @@ export function CharacterEditor({
                 handleCharacterArrayInput("postExamples", parsed.join("\n"));
               }
             }
-          } catch { }
+          } catch {}
         }
-      } catch { }
+      } catch {}
       setGenerating(null);
     },
     [
@@ -715,15 +693,21 @@ export function CharacterEditor({
         <div className="ce-page-tabs">
           <button
             type="button"
-            className={`ce-page-tab ${mobilePage === "style" || mobilePage === "identity" ? "ce-page-tab--active" : ""}`}
-            onClick={() => setMobilePage("style")}
+            className={`ce-page-tab ${rightTab === "style" ? "ce-page-tab--active" : ""}`}
+            onClick={() => {
+              setRightTab("style");
+              setMobilePage("style");
+            }}
           >
             Style Rules
           </button>
           <button
             type="button"
-            className={`ce-page-tab ${mobilePage === "examples" ? "ce-page-tab--active" : ""}`}
-            onClick={() => setMobilePage("examples")}
+            className={`ce-page-tab ${rightTab === "examples" ? "ce-page-tab--active" : ""}`}
+            onClick={() => {
+              setRightTab("examples");
+              setMobilePage("examples");
+            }}
           >
             Examples
           </button>
@@ -733,9 +717,7 @@ export function CharacterEditor({
       {customizing && (
         <div className="ce-panels">
           {/* ── LEFT PANEL ────────────────────────────────────────────── */}
-          <div
-            className="ce-panel ce-panel-left"
-          >
+          <div className="ce-panel ce-panel-left">
             {/* Name + Voice (50/50 split) */}
             <section className="ce-section">
               <div className="ce-name-voice-row">
@@ -782,12 +764,16 @@ export function CharacterEditor({
                         } else if (activeCharacterRosterEntry?.catchphrase) {
                           setVoiceTesting(true);
                           void client
-                            .streamVoiceSpeak(activeCharacterRosterEntry.catchphrase)
+                            .streamVoiceSpeak(
+                              activeCharacterRosterEntry.catchphrase,
+                            )
                             .then(() => setVoiceTesting(false))
                             .catch(() => setVoiceTesting(false));
                         }
                       }}
-                      aria-label={voiceTesting ? "Stop voice preview" : "Preview voice"}
+                      aria-label={
+                        voiceTesting ? "Stop voice preview" : "Preview voice"
+                      }
                       disabled={!activeVoicePreset || voiceLoading}
                     >
                       {voiceTesting ? (
@@ -854,23 +840,27 @@ export function CharacterEditor({
           </div>
 
           {/* ── RIGHT PANEL ───────────────────────────────────────────── */}
-          <div
-            className="ce-panel ce-panel-right"
-          >
+          <div className="ce-panel ce-panel-right">
             {/* ── Toggle: Style Rules / Examples ───────────────────────── */}
             <div className="ce-right-toggle-row">
               <div className="ce-right-toggle">
                 <button
                   type="button"
                   className={`ce-right-toggle-btn ${rightTab === "style" ? "ce-right-toggle-btn--active" : ""}`}
-                  onClick={() => { setRightTab("style"); setMobilePage("style"); }}
+                  onClick={() => {
+                    setRightTab("style");
+                    setMobilePage("style");
+                  }}
                 >
                   Style Rules
                 </button>
                 <button
                   type="button"
                   className={`ce-right-toggle-btn ${rightTab === "examples" ? "ce-right-toggle-btn--active" : ""}`}
-                  onClick={() => { setRightTab("examples"); setMobilePage("examples"); }}
+                  onClick={() => {
+                    setRightTab("examples");
+                    setMobilePage("examples");
+                  }}
                 >
                   Examples
                 </button>
@@ -1038,10 +1028,8 @@ export function CharacterEditor({
               </div>
               <div className="ce-examples-list">
                 {(d.messageExamples ?? []).map((convo, ci) => (
-                  <div
-                    key={`convo-${convo.examples?.[0]?.name ?? ""}-${convo.examples?.[0]?.content?.text?.slice(0, 10) ?? ""}`}
-                    className="ce-example-convo"
-                  >
+                  // biome-ignore lint/suspicious/noArrayIndexKey: order is static in designer
+                  <div key={`convo-${ci}`} className="ce-example-convo">
                     <div className="ce-example-convo-header">
                       <span className="ce-example-convo-label">
                         Conversation {ci + 1}
@@ -1071,10 +1059,8 @@ export function CharacterEditor({
                     </div>
                     <div className="ce-example-messages">
                       {convo.examples.map((msg, mi) => (
-                        <div
-                          key={`msg-${msg.name}-${msg.content?.text?.slice(0, 10) ?? ""}`}
-                          className="ce-example-msg"
-                        >
+                        // biome-ignore lint/suspicious/noArrayIndexKey: order is static in designer
+                        <div key={`msg-${ci}-${mi}`} className="ce-example-msg">
                           <span
                             className={`ce-example-msg-role ${msg.name === "{{user1}}" ? "" : "ce-example-msg-role--agent"}`}
                           >
@@ -1129,10 +1115,8 @@ export function CharacterEditor({
               </div>
               <div className="ce-examples-list">
                 {(d.postExamples ?? []).map((post, pi) => (
-                  <div
-                    key={`post-${post.slice(0, 30)}`}
-                    className="ce-example-post"
-                  >
+                  // biome-ignore lint/suspicious/noArrayIndexKey: order is static in designer
+                  <div key={`post-${pi}`} className="ce-example-post">
                     <input
                       type="text"
                       value={post}

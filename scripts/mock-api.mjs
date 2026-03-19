@@ -87,7 +87,7 @@ const server = http.createServer((req, res) => {
 
   // Prefix matches for sub-routes
   for (const [route, data] of Object.entries(MOCK_ROUTES)) {
-    if (url.startsWith(route + "/")) {
+    if (url.startsWith(`${route}/`)) {
       res.writeHead(200);
       res.end(JSON.stringify(data));
       return;

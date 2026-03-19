@@ -108,7 +108,7 @@ async function getPluginManager(): Promise<PluginManagerLike> {
   const { PluginManagerService } = await import(
     "@elizaos/plugin-plugin-manager"
   );
-  const PluginManagerServiceCtor = PluginManagerService as new (
+  const PluginManagerServiceCtor = PluginManagerService as unknown as new (
     runtime: IAgentRuntime,
   ) => PluginManagerLike;
   const mockRuntime = {
