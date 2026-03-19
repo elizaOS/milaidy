@@ -101,9 +101,8 @@ describe("open-web-ui", () => {
       expect(popup.location.href).toBeTruthy();
     });
 
-    // Pairing redirect URL stays as waifu.fun (milady.ai /pair is a static
-    // file that doesn't understand cloud tokens, waifu.fun routes to the agent)
-    expect(popup.location.href).toContain("waifu.fun");
+    // Pairing redirect URL is rewritten to milady.ai (canonical domain)
+    expect(popup.location.href).toContain("milady.ai");
     expect(popup.location.href).toContain("token=pair-token");
   });
 });
