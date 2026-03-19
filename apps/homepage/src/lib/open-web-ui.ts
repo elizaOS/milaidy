@@ -125,10 +125,9 @@ export async function openWebUIWithLaunchToken(
     // Request a signed launch token from the agent's VPS
     const target = rewriteAgentUiUrl(agentUrl);
     const launchRes = await fetch(`${target}/api/get-launch-url`, {
-      method: "POST",
+      method: "GET",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${cloudClient.getToken()}`,
+        "X-Api-Key": cloudClient.getToken(),
       },
     });
 
