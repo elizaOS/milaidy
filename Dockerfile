@@ -85,6 +85,8 @@ RUN set -e; \
         cp -a /tmp/milady-lfs-src/apps/app/public/animations/mixamo apps/app/public/animations/ || true; \
         cp -a /tmp/milady-lfs-src/apps/app/public/animations/emotes apps/app/public/animations/ || true; \
         cp -a /tmp/milady-lfs-src/apps/app/public/animations/idle.glb apps/app/public/animations/ || true; \
+        # Keep top-level animations/idle.glb for the live runtime; only strip the
+        # legacy duplicate emotes/idle copy plus other unused source-only files.
         rm -f apps/app/public/animations/emotes/idle.glb apps/app/public/animations/emotes/punch.glb apps/app/public/animations/mixamo/Crying.fbx; \
         find apps/app/public/animations -type f \( -name '*.glb' -o -name '*.fbx' \) -exec sh -c 'gzip -c "$1" > "$1.gz" && rm -f "$1"' _ {} \; ; \
         rm -rf /tmp/milady-lfs-src; \

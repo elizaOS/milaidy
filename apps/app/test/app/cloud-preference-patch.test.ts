@@ -78,6 +78,27 @@ describe("cloud preference patch", () => {
     expect(normalizeConfigForLocalProviderPreference(config)).toEqual(config);
   });
 
+  it("normalizes account-only cloud login so onboarding does not infer cloud inference", () => {
+    const normalized = normalizeConfigForLocalProviderPreference({
+      cloud: {
+        enabled: false,
+        apiKey: "eliza-account-key",
+        provider: "elizacloud",
+        inferenceMode: "byok",
+      },
+      models: {
+        small: "openai/gpt-5-mini",
+        large: "anthropic/claude-sonnet-4.5",
+      },
+    }) as Record<string, unknown>;
+
+    expect(normalized.cloud).toEqual({
+      enabled: false,
+      inferenceMode: "byok",
+    });
+    expect(normalized.models).toBeUndefined();
+  });
+
   it("masks api-key-only cloud status when local Claude is the active provider", () => {
     const config = {
       cloud: {

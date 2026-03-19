@@ -116,6 +116,17 @@ function cloudHandlesInference(
   return inferenceMode === "cloud" && inferenceToggle;
 }
 
+function hasAccountOnlyCloudConnection(
+  config: StorageConfig | null | undefined,
+): boolean {
+  const cloud = asRecord(config?.cloud);
+  return Boolean(
+    !hasRemoteConnection(config) &&
+      !cloudHandlesInference(config) &&
+      readString(cloud, "apiKey"),
+  );
+}
+
 function hasInactiveCloudSignals(
   config: StorageConfig | null | undefined,
 ): boolean {
@@ -142,10 +153,26 @@ export function shouldPreferLocalProviderConfig(
   );
 }
 
+function shouldNormalizeAccountOnlyCloudConfig(
+  config: StorageConfig | null | undefined,
+): boolean {
+  return Boolean(
+    hasAccountOnlyCloudConnection(config) &&
+      !resolveConfiguredLocalProvider(config),
+  );
+}
+
 export function normalizeConfigForLocalProviderPreference(
   config: StorageConfig | null | undefined,
 ): StorageConfig | null | undefined {
-  if (!config || !shouldPreferLocalProviderConfig(config)) {
+  const shouldNormalizeLocalProvider = shouldPreferLocalProviderConfig(config);
+  const shouldNormalizeAccountOnly =
+    shouldNormalizeAccountOnlyCloudConfig(config);
+
+  if (
+    !config ||
+    (!shouldNormalizeLocalProvider && !shouldNormalizeAccountOnly)
+  ) {
     return config;
   }
 
@@ -173,7 +200,7 @@ export function normalizeConfigForLocalProviderPreference(
 
   const nextConfig: StorageConfig = { ...config, cloud: nextCloud };
 
-  if (models) {
+  if (models && (shouldNormalizeLocalProvider || shouldNormalizeAccountOnly)) {
     const nextModels: Record<string, unknown> = { ...models };
     delete nextModels.small;
     delete nextModels.large;

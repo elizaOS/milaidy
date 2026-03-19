@@ -345,6 +345,58 @@ describe("AppProvider onboarding step resume", () => {
     }
   });
 
+  it("keeps account-only Eliza auth on the connection step without forcing cloud mode", async () => {
+    localStorage.setItem(ONBOARDING_STEP_STORAGE_KEY, "connection");
+    mockClient.getConfig.mockResolvedValue({
+      cloud: {
+        enabled: false,
+        apiKey: "eliza-account-key",
+        provider: "elizacloud",
+        inferenceMode: "byok",
+      },
+    });
+    mockClient.getCloudStatus.mockResolvedValue({
+      enabled: false,
+      connected: true,
+      hasApiKey: true,
+    });
+
+    const restoreCloudPreferencePatch =
+      installLocalProviderCloudPreferencePatch(mockClient);
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    try {
+      await act(async () => {
+        tree = TestRenderer.create(
+          React.createElement(
+            AppProvider,
+            null,
+            React.createElement(Probe, {
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
+            }),
+          ),
+        );
+      });
+      await flushEffects();
+
+      expect(api?.getSnapshot()).toEqual({
+        onboardingLoading: false,
+        onboardingStep: "connection",
+        onboardingRunMode: "",
+        onboardingCloudProvider: "",
+      });
+    } finally {
+      restoreCloudPreferencePatch();
+      await act(async () => {
+        tree?.unmount();
+      });
+    }
+  });
+
   it("starts at identity when forced fresh onboarding is enabled", async () => {
     mockClient.getConfig.mockResolvedValue({
       cloud: { enabled: true, apiKey: "sk-test" },

@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
@@ -20,6 +18,70 @@ const localWorkers = 2;
 const ciWorkers = isWindows ? 2 : 3;
 
 export default defineConfig({
+  plugins: [
+    {
+      name: "app-core-identity-step-override",
+      enforce: "pre",
+      resolveId(source, importer) {
+        if (
+          source === "./onboarding/IdentityStep" &&
+          importer?.includes("@elizaos/app-core") &&
+          importer.endsWith("/OnboardingWizard.tsx")
+        ) {
+          return path.join(
+            repoRoot,
+            "apps",
+            "app",
+            "src",
+            "components",
+            "IdentityStep.tsx",
+          );
+        }
+        return null;
+      },
+    },
+    {
+      name: "app-core-onboarding-config-override",
+      enforce: "pre",
+      resolveId(source, importer) {
+        if (
+          source === "../onboarding-config" &&
+          importer?.includes("app-core") &&
+          importer.includes("/state/")
+        ) {
+          return path.join(
+            repoRoot,
+            "apps",
+            "app",
+            "src",
+            "onboarding-config.ts",
+          );
+        }
+        return null;
+      },
+    },
+    {
+      name: "app-core-theme-toggle-override",
+      enforce: "pre",
+      resolveId(source, importer) {
+        if (
+          source === "./ThemeToggle" &&
+          importer?.includes("app-core") &&
+          importer.includes("/components/index.ts")
+        ) {
+          return path.join(
+            repoRoot,
+            "apps",
+            "app",
+            "src",
+            "components",
+            "ThemeToggle.tsx",
+          );
+        }
+        return null;
+      },
+    },
+  ],
   resolve: {
     dedupe: ["react", "react-dom", "ethers", "@elizaos/core"],
     alias: [
@@ -54,6 +116,19 @@ export default defineConfig({
         : []),
       ...(appCoreSourceRoot
         ? [
+            {
+              find: "@milady/upstream-app-core-connection-step",
+              replacement: path.join(
+                appCoreSourceRoot,
+                "components",
+                "onboarding",
+                "ConnectionStep.tsx",
+              ),
+            },
+            {
+              find: "@milady/upstream-app-core-onboarding-config",
+              replacement: path.join(appCoreSourceRoot, "onboarding-config.ts"),
+            },
             {
               find: "@elizaos/app-core/bridge/electrobun-rpc",
               replacement: path.join(

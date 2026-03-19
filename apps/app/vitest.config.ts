@@ -42,8 +42,77 @@ function appCoreBridgeStubPlugin(): Plugin {
   };
 }
 
+function appCoreOnboardingConfigOverridePlugin(): Plugin {
+  const miladyOnboardingConfig = path.join(here, "src", "onboarding-config.ts");
+  return {
+    name: "app-core-onboarding-config-override",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (
+        source === "../onboarding-config" &&
+        importer?.includes("app-core") &&
+        importer.includes("/state/")
+      ) {
+        return miladyOnboardingConfig;
+      }
+      return null;
+    },
+  };
+}
+
+function appCoreIdentityStepOverridePlugin(): Plugin {
+  const miladyIdentityStep = path.join(
+    here,
+    "src",
+    "components",
+    "IdentityStep.tsx",
+  );
+  return {
+    name: "app-core-identity-step-override",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (
+        source === "./onboarding/IdentityStep" &&
+        importer?.includes("@elizaos/app-core") &&
+        importer.endsWith("/OnboardingWizard.tsx")
+      ) {
+        return miladyIdentityStep;
+      }
+      return null;
+    },
+  };
+}
+
+function appCoreThemeToggleOverridePlugin(): Plugin {
+  const miladyThemeToggle = path.join(
+    here,
+    "src",
+    "components",
+    "ThemeToggle.tsx",
+  );
+  return {
+    name: "app-core-theme-toggle-override",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (
+        source === "./ThemeToggle" &&
+        importer?.includes("app-core") &&
+        importer.includes("/components/index.ts")
+      ) {
+        return miladyThemeToggle;
+      }
+      return null;
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [appCoreBridgeStubPlugin()],
+  plugins: [
+    appCoreBridgeStubPlugin(),
+    appCoreIdentityStepOverridePlugin(),
+    appCoreOnboardingConfigOverridePlugin(),
+    appCoreThemeToggleOverridePlugin(),
+  ],
   resolve: {
     alias: [
       {
@@ -56,6 +125,22 @@ export default defineConfig({
       },
       ...(appCorePackageRoot
         ? [
+            {
+              find: "@milady/upstream-app-core-connection-step",
+              replacement: path.join(
+                appCorePackageRoot,
+                "components",
+                "onboarding",
+                "ConnectionStep.tsx",
+              ),
+            },
+            {
+              find: "@milady/upstream-app-core-onboarding-config",
+              replacement: path.join(
+                appCorePackageRoot,
+                "onboarding-config.ts",
+              ),
+            },
             {
               find: /^@elizaos\/app-core\/(.*)/,
               replacement: path.join(appCorePackageRoot, "$1"),

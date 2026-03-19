@@ -5,10 +5,20 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
+import { getAppCoreSourceRoot } from "../../test/eliza-package-paths";
 import { MILADY_CHARACTER_ASSETS } from "./src/character-catalog";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const miladyRoot = path.resolve(here, "../..");
+const appCoreRoot = getAppCoreSourceRoot(miladyRoot);
+const upstreamConnectionStep = path.resolve(
+  appCoreRoot ?? here,
+  "components/onboarding/ConnectionStep.tsx",
+);
+const upstreamOnboardingConfig = path.resolve(
+  appCoreRoot ?? here,
+  "onboarding-config.ts",
+);
 
 // The dev script sets MILADY_API_PORT; default to 31337 for standalone vite dev.
 const apiPort = Number(process.env.MILADY_API_PORT) || 31337;
@@ -136,6 +146,83 @@ function characterOverridePlugin(): Plugin {
   };
 }
 
+function onboardingConnectionOverridePlugin(): Plugin {
+  const miladyConnectionStep = path.resolve(
+    here,
+    "src/components/ConnectionStep.tsx",
+  );
+  return {
+    name: "milady-onboarding-connection-override",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (
+        source === "./onboarding/ConnectionStep" &&
+        importer?.includes("@elizaos/app-core") &&
+        importer.endsWith("/OnboardingWizard.tsx")
+      ) {
+        return miladyConnectionStep;
+      }
+    },
+  };
+}
+
+function onboardingIdentityOverridePlugin(): Plugin {
+  const miladyIdentityStep = path.resolve(
+    here,
+    "src/components/IdentityStep.tsx",
+  );
+  return {
+    name: "milady-onboarding-identity-override",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (
+        source === "./onboarding/IdentityStep" &&
+        importer?.includes("@elizaos/app-core") &&
+        importer.endsWith("/OnboardingWizard.tsx")
+      ) {
+        return miladyIdentityStep;
+      }
+    },
+  };
+}
+
+function onboardingConfigOverridePlugin(): Plugin {
+  const miladyOnboardingConfig = path.resolve(here, "src/onboarding-config.ts");
+  return {
+    name: "milady-onboarding-config-override",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (
+        source === "../onboarding-config" &&
+        importer?.includes("app-core") &&
+        importer.includes("/state/")
+      ) {
+        return miladyOnboardingConfig;
+      }
+    },
+  };
+}
+
+function themeToggleOverridePlugin(): Plugin {
+  const miladyThemeToggle = path.resolve(
+    here,
+    "src/components/ThemeToggle.tsx",
+  );
+  return {
+    name: "milady-theme-toggle-override",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (
+        source === "./ThemeToggle" &&
+        importer?.includes("app-core") &&
+        importer.includes("/components/index.ts")
+      ) {
+        return miladyThemeToggle;
+      }
+    },
+  };
+}
+
 function sparkWasmDataUrlPlugin(): Plugin {
   return {
     name: "spark-wasm-data-url",
@@ -161,6 +248,10 @@ export default defineConfig({
   publicDir: path.resolve(here, "public"),
   plugins: [
     characterOverridePlugin(),
+    onboardingIdentityOverridePlugin(),
+    onboardingConnectionOverridePlugin(),
+    onboardingConfigOverridePlugin(),
+    themeToggleOverridePlugin(),
     publicSrcPlugin(),
     sparkWasmDataUrlPlugin(),
     tailwindcss(),
@@ -212,6 +303,14 @@ export default defineConfig({
       {
         find: /^@miladyai\/capacitor-talkmode$/,
         replacement: path.resolve(here, "plugins/talkmode/src/index.ts"),
+      },
+      {
+        find: /^@milady\/upstream-app-core-connection-step$/,
+        replacement: upstreamConnectionStep,
+      },
+      {
+        find: /^@milady\/upstream-app-core-onboarding-config$/,
+        replacement: upstreamOnboardingConfig,
       },
     ],
   },

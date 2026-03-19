@@ -16,6 +16,10 @@ import { PREMADE_VOICES, sanitizeApiKey } from "@elizaos/app-core/voice";
 import { Button, Input, Textarea, ThemedSelect } from "@elizaos/ui";
 import { STYLE_PRESETS } from "../../../../src/onboarding-presets";
 import {
+  CHARACTER_SELECTION_EMOTE_DELAY_MS,
+  resolveCharacterSelectionEmote,
+} from "../character-selection-emotes";
+import {
   CharacterRoster,
   type CharacterRosterEntry,
   resolveRosterEntries,
@@ -67,6 +71,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import "./CharacterEditor.css";
@@ -218,6 +223,9 @@ export function CharacterEditor({
 
   /* ── Generation ─────────────────────────────────────────────────── */
   const [generating, setGenerating] = useState<string | null>(null);
+  const characterSelectionEmoteTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const [mobilePage, setMobilePage] = useState<
     "identity" | "style" | "examples"
   >("identity");
@@ -385,19 +393,19 @@ export function CharacterEditor({
       if (applyDefaults) {
         applyCharacterDefaults(entry);
       }
-      // Play emote and speak catchphrase on character switch
+      if (isNewCharacter) {
+        const emote = resolveCharacterSelectionEmote(entry);
+        if (emote) {
+          if (characterSelectionEmoteTimeoutRef.current) {
+            clearTimeout(characterSelectionEmoteTimeoutRef.current);
+          }
+          characterSelectionEmoteTimeoutRef.current = setTimeout(() => {
+            dispatchWindowEvent(APP_EMOTE_EVENT, emote);
+            characterSelectionEmoteTimeoutRef.current = null;
+          }, CHARACTER_SELECTION_EMOTE_DELAY_MS);
+        }
+      }
       if (isNewCharacter && entry.catchphrase) {
-        // Dispatch a wave emote after the VRM swaps in
-        setTimeout(() => {
-          dispatchWindowEvent(APP_EMOTE_EVENT, {
-            emoteId: "wave",
-            path: "/animations/emotes/waving-both-hands.glb",
-            duration: 2.5,
-            loop: false,
-            showOverlay: false,
-          });
-        }, 800);
-        // Speak the catchphrase via TTS
         void client.streamVoiceSpeak(entry.catchphrase).catch(() => {});
       }
     },
@@ -408,6 +416,15 @@ export function CharacterEditor({
       setState,
       voiceSelectionLocked,
     ],
+  );
+
+  useEffect(
+    () => () => {
+      if (characterSelectionEmoteTimeoutRef.current) {
+        clearTimeout(characterSelectionEmoteTimeoutRef.current);
+      }
+    },
+    [],
   );
 
   /* ── Select character from roster ───────────────────────────────── */

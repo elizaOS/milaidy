@@ -35,6 +35,10 @@ const VRMS_DIR = join(PUBLIC, "vrms");
 const ANIMATIONS_DIR = join(PUBLIC, "animations");
 const BUNDLED_VRM_SOURCE_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
 const BUNDLED_BACKGROUND_SOURCE_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
+// Keep the real runtime idle at /animations/idle.glb(.gz). These removals only
+// strip legacy duplicate/source-only files that are not part of the live emote
+// catalog: the old emotes/idle copy, the unused punch emote, and the FBX crying
+// source that was replaced by /animations/emotes/crying.glb(.gz).
 const UNUSED_ANIMATION_PATHS = [
   join("emotes", "idle.glb"),
   join("emotes", "punch.glb"),

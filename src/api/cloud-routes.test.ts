@@ -1038,6 +1038,74 @@ describe("handleCloudRoute", () => {
     expect(updatePayload.secrets?.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
     expect(updatePayload.secrets?.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
   });
+
+  it("clears the authenticated cloud service session during disconnect", async () => {
+    let authenticated = true;
+    const logoutMock = vi.fn(() => {
+      authenticated = false;
+    });
+    const updateAgentMock = vi.fn(async () => undefined);
+    const setSettingMock = vi.fn();
+    const state = {
+      config: {
+        cloud: {
+          enabled: true,
+          apiKey: "ck-test",
+        },
+      },
+      runtime: {
+        agentId: "00000000-0000-0000-0000-000000000001",
+        character: {
+          settings: {
+            ELIZA_CLOUD_AUTH_TOKEN: "cloud-auth-token",
+          },
+          secrets: {
+            ELIZAOS_CLOUD_API_KEY: "ck-test",
+            ELIZAOS_CLOUD_ENABLED: "true",
+            ELIZA_CLOUD_AUTH_TOKEN: "cloud-auth-token",
+          },
+        },
+        getService: vi.fn((name: string) =>
+          name === "CLOUD_AUTH"
+            ? {
+                isAuthenticated: () => authenticated,
+                logout: logoutMock,
+              }
+            : null,
+        ),
+        setSetting: setSettingMock,
+        updateAgent: updateAgentMock,
+      },
+      cloudManager: null,
+    } as Partial<CloudRouteState> as CloudRouteState;
+
+    const { res, getStatus, getJson } = createMockHttpResponse();
+    const handled = await handleCloudRoute(
+      createMockIncomingMessage({
+        method: "POST",
+        url: "/api/cloud/disconnect",
+      }),
+      res,
+      "/api/cloud/disconnect",
+      "POST",
+      state,
+    );
+
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(200);
+    expect(getJson()).toEqual({ ok: true, status: "disconnected" });
+    expect(logoutMock).toHaveBeenCalledTimes(1);
+    expect(authenticated).toBe(false);
+    expect(setSettingMock).toHaveBeenCalledWith("ELIZA_CLOUD_AUTH_TOKEN", null);
+    expect(
+      state.runtime?.character.settings?.ELIZA_CLOUD_AUTH_TOKEN,
+    ).toBeUndefined();
+
+    const updatePayload = updateAgentMock.mock.calls[0]?.[1] as {
+      secrets?: Record<string, unknown>;
+    };
+    expect(updatePayload.secrets?.ELIZA_CLOUD_AUTH_TOKEN).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1388,8 +1456,10 @@ describe("handleCloudRoute timeout behavior", () => {
     expect(handled).toBe(true);
     expect(res.statusCode).toBe(200);
     expect(state.config.cloud).toMatchObject({
-      enabled: true,
+      enabled: false,
       apiKey: "ak-missing-config",
+      inferenceMode: "byok",
+      services: { inference: false },
     });
     expect(getJson()).toEqual({
       status: "authenticated",
@@ -1438,6 +1508,55 @@ describe("handleCloudRoute timeout behavior", () => {
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
     expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ak-test");
+    expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBeUndefined();
+    expect(state.config.cloud).toMatchObject({
+      enabled: false,
+      apiKey: "ak-test",
+      inferenceMode: "byok",
+      services: { inference: false },
+    });
+  });
+
+  it("preserves explicit cloud inference enablement when refreshing an authenticated login", async () => {
+    const state = cloudState();
+    state.config.cloud = {
+      baseUrl: "https://test.elizacloud.ai",
+      enabled: true,
+      inferenceMode: "cloud",
+      services: { inference: true },
+    };
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: "authenticated",
+        apiKey: "ak-enabled",
+      }),
+    } as Response);
+
+    const { res, getJson } = createMockHttpResponse<Record<string, unknown>>();
+    const handled = await handleCloudRoute(
+      createMockIncomingMessage({
+        url: "/api/cloud/login/status?sessionId=test-session",
+      }) as http.IncomingMessage,
+      res,
+      "/api/cloud/login/status",
+      "GET",
+      state,
+    );
+
+    expect(handled).toBe(true);
+    expect(res.statusCode).toBe(200);
+    expect(getJson()).toEqual({
+      status: "authenticated",
+      keyPrefix: undefined,
+    });
+    expect(state.config.cloud).toMatchObject({
+      enabled: true,
+      apiKey: "ak-enabled",
+      inferenceMode: "cloud",
+      services: { inference: true },
+    });
+    expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ak-enabled");
     expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBe("true");
   });
 
@@ -1552,7 +1671,6 @@ describe("handleCloudRoute timeout behavior", () => {
       {
         secrets: {
           ELIZAOS_CLOUD_API_KEY: "ak-runtime",
-          ELIZAOS_CLOUD_ENABLED: "true",
         },
       },
     );
@@ -1597,6 +1715,7 @@ describe("handleCloudRoute timeout behavior", () => {
     expect(initMock).toHaveBeenCalledTimes(1);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
     expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ak-test");
+    expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBeUndefined();
   });
 
   it("persists authenticated login to runtime secrets and handles runtime failures", async () => {
@@ -1645,7 +1764,6 @@ describe("handleCloudRoute timeout behavior", () => {
       {
         secrets: {
           ELIZAOS_CLOUD_API_KEY: "ak-runtime",
-          ELIZAOS_CLOUD_ENABLED: "true",
         },
       },
     );
@@ -1828,7 +1946,7 @@ describe("handleCloudRoute timeout behavior", () => {
       expect(process.env.ELIZAOS_CLOUD_API_KEY).toBeUndefined();
       // but the sealed store has the value
       expect(getCloudSecret("ELIZAOS_CLOUD_API_KEY")).toBe("ck-sealed");
-      expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBe("true");
+      expect(getCloudSecret("ELIZAOS_CLOUD_ENABLED")).toBeUndefined();
     });
 
     it("getCloudSecret falls back to process.env for docker entrypoint keys", () => {
