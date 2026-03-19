@@ -187,6 +187,35 @@ describe("DesktopManager", () => {
       expect(mockOpenExternal).toHaveBeenCalledWith("https://milady.ai");
     });
 
+    it("lets the in-app external handler capture trusted Eliza URLs", async () => {
+      const handler = vi.fn(
+        async (url: string) =>
+          url.includes("elizacloud.ai") || url.includes("elizaos.ai"),
+      );
+      manager.setOpenExternalHandler(handler);
+
+      await expect(
+        manager.openExternal({ url: "https://www.elizaos.ai/auth/cli-login" }),
+      ).resolves.toBeUndefined();
+
+      expect(handler).toHaveBeenCalledWith(
+        "https://www.elizaos.ai/auth/cli-login",
+      );
+      expect(mockOpenExternal).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the system browser when the handler declines the URL", async () => {
+      const handler = vi.fn(() => false);
+      manager.setOpenExternalHandler(handler);
+
+      await expect(
+        manager.openExternal({ url: "https://milady.ai/docs" }),
+      ).resolves.toBeUndefined();
+
+      expect(handler).toHaveBeenCalledWith("https://milady.ai/docs");
+      expect(mockOpenExternal).toHaveBeenCalledWith("https://milady.ai/docs");
+    });
+
     it("blocks non-http(s) protocols", async () => {
       await expect(
         manager.openExternal({ url: "file:///etc/passwd" }),

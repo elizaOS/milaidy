@@ -50,4 +50,15 @@ describe("Electrobun startup bootstrap", () => {
     expect(source).toContain('if (runtimeResolution.mode !== "local")');
     expect(source).toContain("[Main] Skipping embedded agent startup");
   });
+
+  it("shows a one-time background notice after recreating the minimized window", () => {
+    const source = fs.readFileSync(INDEX_PATH, "utf8");
+    const minimizeIndex = source.indexOf("replacementWindow.minimize();");
+    const noticeIndex = source.indexOf("showBackgroundRunNoticeOnce();");
+
+    expect(minimizeIndex).toBeGreaterThan(-1);
+    expect(noticeIndex).toBeGreaterThan(minimizeIndex);
+    expect(source).toContain("Milady Is Still Running");
+    expect(source).toContain("background after you close the window");
+  });
 });

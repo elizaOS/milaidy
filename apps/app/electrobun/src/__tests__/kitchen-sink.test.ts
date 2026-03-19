@@ -4144,6 +4144,16 @@ describe("System permissions (automated)", () => {
   it.todo("Permission status reflects actual system state (OS interaction)");
 });
 
+describe("Desktop background notice (automated)", () => {
+  it("desktopShowBackgroundNotice returns whether a notice was shown", async () => {
+    const { handlers } = await captureHandlers();
+    const result = (await handlers.desktopShowBackgroundNotice()) as {
+      shown: boolean;
+    };
+    expect(typeof result.shown).toBe("boolean");
+  });
+});
+
 describe("Deep links and URL schemes (automated)", () => {
   it("deep link handler is registered for milady:// scheme in source", async () => {
     const fs = await vi.importActual<typeof import("node:fs")>("node:fs");

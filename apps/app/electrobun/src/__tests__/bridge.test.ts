@@ -56,6 +56,12 @@ describe("CHANNEL_TO_RPC_METHOD mapping", () => {
     );
   });
 
+  it("maps the background notice channel correctly", () => {
+    expect(CHANNEL_TO_RPC_METHOD["desktop:showBackgroundNotice"]).toBe(
+      "desktopShowBackgroundNotice",
+    );
+  });
+
   it("maps canvas:eval to canvasEval", () => {
     expect(CHANNEL_TO_RPC_METHOD["canvas:eval"]).toBe("canvasEval");
   });
