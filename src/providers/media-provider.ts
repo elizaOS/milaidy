@@ -320,7 +320,7 @@ class ElizaCloudVisionProvider implements VisionAnalysisProvider {
 // FAL.ai Provider Implementations
 // ============================================================================
 
-class FalImageProvider implements ImageGenerationProvider {
+export class FalImageProvider implements ImageGenerationProvider {
   name = "fal";
   private apiKey: string;
   private model: string;
@@ -372,7 +372,7 @@ class FalImageProvider implements ImageGenerationProvider {
   }
 }
 
-class FalVideoProvider implements VideoGenerationProvider {
+export class FalVideoProvider implements VideoGenerationProvider {
   name = "fal";
   private apiKey: string;
   private model: string;
@@ -427,7 +427,7 @@ class FalVideoProvider implements VideoGenerationProvider {
 // OpenAI Provider Implementations
 // ============================================================================
 
-class OpenAIImageProvider implements ImageGenerationProvider {
+export class OpenAIImageProvider implements ImageGenerationProvider {
   name = "openai";
   private apiKey: string;
   private model: string;
@@ -486,7 +486,7 @@ class OpenAIImageProvider implements ImageGenerationProvider {
   }
 }
 
-class OpenAIVideoProvider implements VideoGenerationProvider {
+export class OpenAIVideoProvider implements VideoGenerationProvider {
   name = "openai";
   private apiKey: string;
   private model: string;
@@ -542,7 +542,7 @@ class OpenAIVideoProvider implements VideoGenerationProvider {
   }
 }
 
-class OpenAIVisionProvider implements VisionAnalysisProvider {
+export class OpenAIVisionProvider implements VisionAnalysisProvider {
   name = "openai";
   private apiKey: string;
   private model: string;
@@ -615,7 +615,7 @@ class OpenAIVisionProvider implements VisionAnalysisProvider {
 // Google Provider Implementations
 // ============================================================================
 
-class GoogleImageProvider implements ImageGenerationProvider {
+export class GoogleImageProvider implements ImageGenerationProvider {
   name = "google";
   private apiKey: string;
   private model: string;
@@ -631,10 +631,13 @@ class GoogleImageProvider implements ImageGenerationProvider {
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predict?key=${this.apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predict`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
         body: JSON.stringify({
           instances: [{ prompt: options.prompt }],
           parameters: {
@@ -669,7 +672,7 @@ class GoogleImageProvider implements ImageGenerationProvider {
   }
 }
 
-class GoogleVideoProvider implements VideoGenerationProvider {
+export class GoogleVideoProvider implements VideoGenerationProvider {
   name = "google";
   private apiKey: string;
   private model: string;
@@ -684,10 +687,13 @@ class GoogleVideoProvider implements VideoGenerationProvider {
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
     // Google Veo uses a different endpoint structure
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predictLongRunning?key=${this.apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predictLongRunning`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
         body: JSON.stringify({
           instances: [
             {
@@ -741,7 +747,7 @@ class GoogleVideoProvider implements VideoGenerationProvider {
   }
 }
 
-class GoogleVisionProvider implements VisionAnalysisProvider {
+export class GoogleVisionProvider implements VisionAnalysisProvider {
   name = "google";
   private apiKey: string;
   private model: string;
@@ -759,10 +765,13 @@ class GoogleVisionProvider implements VisionAnalysisProvider {
       : { file_data: { file_uri: options.imageUrl, mime_type: "image/jpeg" } };
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
         body: JSON.stringify({
           contents: [
             {
@@ -800,7 +809,7 @@ class GoogleVisionProvider implements VisionAnalysisProvider {
 // xAI Provider Implementations
 // ============================================================================
 
-class XAIImageProvider implements ImageGenerationProvider {
+export class XAIImageProvider implements ImageGenerationProvider {
   name = "xai";
   private apiKey: string;
   private model: string;
@@ -852,7 +861,7 @@ class XAIImageProvider implements ImageGenerationProvider {
   }
 }
 
-class XAIVisionProvider implements VisionAnalysisProvider {
+export class XAIVisionProvider implements VisionAnalysisProvider {
   name = "xai";
   private apiKey: string;
   private model: string;
@@ -1087,7 +1096,7 @@ class OllamaVisionProvider implements VisionAnalysisProvider {
 // Anthropic Provider Implementation
 // ============================================================================
 
-class AnthropicVisionProvider implements VisionAnalysisProvider {
+export class AnthropicVisionProvider implements VisionAnalysisProvider {
   name = "anthropic";
   private apiKey: string;
   private model: string;
@@ -1160,7 +1169,7 @@ class AnthropicVisionProvider implements VisionAnalysisProvider {
 // Suno Provider Implementation
 // ============================================================================
 
-class SunoAudioProvider implements AudioGenerationProvider {
+export class SunoAudioProvider implements AudioGenerationProvider {
   name = "suno";
   private apiKey: string;
   private model: string;
