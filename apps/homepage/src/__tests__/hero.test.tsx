@@ -21,21 +21,19 @@ describe("TypewriterLoop", () => {
 
 describe("PHRASES array", () => {
   const expected = [
-    "LOCAL FIRST",
-    "AUTONOMOUS BADASS",
-    "SHE IS IN CHARGE",
-    "TAKES THE LEAD",
-    "HEAD BITCH IN CHARGE",
-    "KNEEL BEFORE HER",
-    "GETS SHIT DONE",
-    "WAIFU WONDERWOMAN",
+    "YOUR INTERFACE",
+    "YOUR AGENTS",
+    "YOUR RUNTIME",
+    "YOUR CONTROL",
+    "YOUR DATA",
+    "YOUR MACHINE",
   ];
 
   it.each(expected)('contains "%s"', (phrase) => {
     expect(PHRASES).toContain(phrase);
   });
 
-  it("has exactly 8 entries", () => {
-    expect(PHRASES).toHaveLength(8);
+  it("has exactly 6 entries", () => {
+    expect(PHRASES).toHaveLength(6);
   });
 });

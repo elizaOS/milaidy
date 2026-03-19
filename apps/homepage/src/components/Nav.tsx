@@ -3,10 +3,10 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { releaseData } from "../generated/release-data";
 
 const NAV_ITEMS = [
-  { label: "Get the app", anchor: "install" },
+  { label: "Download", anchor: "install" },
   { label: "Privacy", anchor: "privacy" },
   { label: "Features", anchor: "features" },
-  { label: "Why Local", anchor: "comparison" },
+  { label: "Compare", anchor: "comparison" },
 ] as const;
 
 export function Nav() {

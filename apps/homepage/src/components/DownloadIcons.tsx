@@ -222,11 +222,11 @@ export function DownloadIcons() {
         })}
       </ul>
 
-      <div className="flex w-full max-w-sm flex-col items-center gap-2 font-mono text-[9px] sm:max-w-none sm:text-[11px] text-brand">
-        <code className="w-full px-3 sm:px-3 py-2 border border-brand/30 bg-brand/5 select-all cursor-text whitespace-pre-wrap break-all rounded-md text-center leading-relaxed sm:w-auto sm:text-left sm:whitespace-normal sm:break-normal">
+      <div className="flex w-full max-w-md flex-col items-center gap-2 font-mono text-[8px] sm:max-w-xl sm:text-[10px] text-brand/90">
+        <code className="w-full px-3 py-2 border border-brand/20 bg-brand/[0.03] select-all cursor-text whitespace-pre-wrap break-all rounded text-center leading-relaxed sm:text-left sm:whitespace-nowrap sm:break-normal overflow-x-auto">
           {releaseData.scripts.shell.command}
         </code>
-        <code className="w-full px-3 sm:px-3 py-2 border border-brand/30 bg-brand/5 select-all cursor-text whitespace-pre-wrap break-all rounded-md text-center leading-relaxed sm:w-auto sm:text-left sm:whitespace-normal sm:break-normal">
+        <code className="w-full px-3 py-2 border border-brand/20 bg-brand/[0.03] select-all cursor-text whitespace-pre-wrap break-all rounded text-center leading-relaxed sm:text-left sm:whitespace-nowrap sm:break-normal overflow-x-auto">
           {releaseData.scripts.powershell.command}
         </code>
       </div>

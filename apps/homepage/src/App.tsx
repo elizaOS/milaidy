@@ -20,10 +20,10 @@ export function Homepage() {
         >
           <HeroBackground />
 
-          <div className="relative z-30 flex min-h-[100svh] flex-col items-center px-4 pt-[max(5rem,12svh)] pb-8 sm:px-6 sm:pt-0 sm:pb-10 lg:pb-12 pointer-events-auto">
-            <div className="w-full min-h-[clamp(14rem,42svh,22rem)] sm:min-h-[62svh]" />
+          <div className="relative z-30 flex min-h-[100svh] flex-col items-center px-4 pt-[max(4rem,10svh)] pb-6 sm:px-6 sm:pt-0 sm:pb-8 lg:pb-10 pointer-events-auto">
+            <div className="w-full min-h-[clamp(12rem,38svh,20rem)] sm:min-h-[58svh] lg:min-h-[55svh]" />
 
-            <div className="mt-auto flex w-full flex-col items-center gap-4 sm:gap-6">
+            <div className="mt-auto flex w-full flex-col items-center gap-4 sm:gap-5">
               <DownloadIcons />
               <HeroInstallDock />
             </div>

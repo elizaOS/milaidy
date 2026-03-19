@@ -16,8 +16,7 @@ export function Footer() {
             MILADY
           </span>
           <p className="text-xs sm:text-sm text-text-muted mt-3 sm:mt-4 max-w-md font-mono mx-auto leading-relaxed">
-            Local-first agent runtime with desktop releases, CLI install
-            scripts, and public GitHub artifacts.
+            Your AI interface. Desktop app, CLI, open source. Built on Eliza.
           </p>
         </div>
 

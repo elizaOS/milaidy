@@ -4,14 +4,12 @@ import { Link } from "react-router-dom";
 import { releaseData } from "../generated/release-data";
 
 export const PHRASES = [
-  "LOCAL FIRST",
-  "AUTONOMOUS BADASS",
-  "SHE IS IN CHARGE",
-  "TAKES THE LEAD",
-  "HEAD BITCH IN CHARGE",
-  "KNEEL BEFORE HER",
-  "GETS SHIT DONE",
-  "WAIFU WONDERWOMAN",
+  "YOUR INTERFACE",
+  "YOUR AGENTS",
+  "YOUR RUNTIME",
+  "YOUR CONTROL",
+  "YOUR DATA",
+  "YOUR MACHINE",
 ];
 
 const TYPE_SPEED = 70;
@@ -82,7 +80,7 @@ export function HeroBackground() {
   };
 
   return (
-    <section className="absolute inset-0 flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 pt-24 sm:pt-12 pb-44 sm:pb-0 pointer-events-none overflow-hidden">
+    <section className="absolute inset-0 flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 pt-20 sm:pt-8 pb-36 sm:pb-0 pointer-events-none overflow-hidden">
       <div className="hidden sm:block absolute top-12 left-12 w-6 h-6 border-t-2 border-l-2 border-white/20" />
       <div className="hidden sm:block absolute top-12 right-12 w-6 h-6 border-t-2 border-r-2 border-white/20" />
       <div className="hidden sm:block absolute bottom-12 left-12 w-6 h-6 border-b-2 border-l-2 border-white/20" />
@@ -100,10 +98,10 @@ export function HeroBackground() {
       >
         <motion.h1
           variants={itemVariants}
-          className="text-[16vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.76] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-4 sm:mt-12 max-w-[10ch] sm:max-w-none"
+          className="text-[15vw] sm:text-[10vw] md:text-[11vw] lg:text-[12vw] xl:text-[10vw] 2xl:text-[9vw] font-black leading-[0.8] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-4 sm:mt-8 max-w-[12ch] sm:max-w-none"
         >
           <span>MILADY</span>
-          <span className="text-brand drop-shadow-lg text-[13vw] sm:text-inherit">
+          <span className="text-brand drop-shadow-lg text-[12vw] sm:text-[9vw] md:text-[10vw] lg:text-[11vw] xl:text-[9vw] 2xl:text-[8vw]">
             <TypewriterLoop />
           </span>
         </motion.h1>
@@ -137,28 +135,37 @@ export function HeroInstallDock() {
       initial="hidden"
       animate="visible"
     >
-      <div className="flex flex-wrap items-center justify-center gap-2 text-[9px] sm:text-[11px] tracking-wider uppercase font-mono text-center">
-        <span className="text-brand/80 border border-brand/25 px-2 py-0.5 bg-brand/5">
+      <div className="flex flex-wrap items-center justify-center gap-2 text-[8px] sm:text-[10px] tracking-wider uppercase font-mono text-center">
+        <span className="text-brand/70 border border-brand/20 px-2 py-0.5 bg-brand/[0.03]">
           {tagName}
         </span>
-        <span className="text-text-muted/40">{publishedAt}</span>
+        <span className="text-text-muted/30">{publishedAt}</span>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] tracking-[0.24em] uppercase text-text-muted/50">
+      <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[8px] sm:text-[10px] tracking-[0.2em] uppercase text-text-muted/40">
         <Link
           to="/dashboard"
-          className="hover:text-brand/70 transition-colors duration-200"
+          className="hover:text-brand/60 transition-colors duration-200"
         >
           dashboard
         </Link>
-        <span className="text-white/10 hidden sm:inline">·</span>
+        <span className="text-white/10">·</span>
         <a
           href="https://github.com/milady-ai/milady"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-brand/70 transition-colors duration-200"
+          className="hover:text-brand/60 transition-colors duration-200"
         >
-          src
+          source
+        </a>
+        <span className="text-white/10">·</span>
+        <a
+          href="https://docs.milady.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-brand/60 transition-colors duration-200"
+        >
+          docs
         </a>
       </div>
     </motion.div>

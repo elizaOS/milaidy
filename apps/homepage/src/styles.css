@@ -345,8 +345,22 @@ body {
   .download-icons {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    width: min(100%, 22rem);
+    gap: 8px;
+    width: min(100%, 20rem);
+  }
+}
+
+/* Wide screen constraints */
+@media (min-width: 1920px) {
+  .download-icons {
+    gap: 24px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .download-icons .download {
+    width: 64px;
+    height: 64px;
   }
 }
 

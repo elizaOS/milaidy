@@ -1,8 +1,8 @@
 const features = [
   {
-    title: "Runs Locally",
+    title: "Your Machine",
     description:
-      "Your AI runs on your machine. Your data never leaves your device. No cloud dependency.",
+      "Run on your hardware when you want. Connect to hosted services when you need. The choice is always yours.",
     icon: (
       <svg
         className="w-10 h-10 sm:w-12 sm:h-12"
@@ -11,7 +11,7 @@ const features = [
         stroke="currentColor"
         strokeWidth={1.5}
       >
-        <title>Runs locally</title>
+        <title>Your machine</title>
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -34,9 +34,9 @@ const features = [
     },
   },
   {
-    title: "Offline Capable",
+    title: "Works Anywhere",
     description:
-      "Run local models with Ollama. Fully functional without an internet connection.",
+      "Local models via Ollama, cloud APIs when online, or hybrid setups. Milady adapts to how you work.",
     icon: (
       <svg
         className="w-10 h-10 sm:w-12 sm:h-12"
@@ -45,7 +45,7 @@ const features = [
         stroke="currentColor"
         strokeWidth={1.5}
       >
-        <title>Offline capable</title>
+        <title>Works anywhere</title>
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -69,9 +69,9 @@ const features = [
     },
   },
   {
-    title: "Zero Telemetry",
+    title: "Transparent",
     description:
-      "No tracking. No analytics. No backdoors. Your conversations are yours alone.",
+      "Open source, public releases, inspectable builds. Know exactly what's running.",
     icon: (
       <svg
         className="w-10 h-10 sm:w-12 sm:h-12"
@@ -80,7 +80,7 @@ const features = [
         stroke="currentColor"
         strokeWidth={1.5}
       >
-        <title>Zero telemetry</title>
+        <title>Transparent</title>
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -114,12 +114,12 @@ export function Privacy() {
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-12 relative z-10">
         <div className="mb-14 sm:mb-20 lg:mb-32">
           <p className="font-mono text-brand text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-3 sm:mb-4">
-            Secure Environment
+            Your Terms
           </p>
           <h2 className="text-4xl sm:text-6xl md:text-8xl lg:text-[9rem] font-black leading-[0.85] tracking-tighter max-w-5xl uppercase">
-            Absolute
+            Your
             <br />
-            Silence.
+            Control.
           </h2>
         </div>
 
