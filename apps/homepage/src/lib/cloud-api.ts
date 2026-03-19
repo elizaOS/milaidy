@@ -368,6 +368,24 @@ export interface LogEntry {
   agentName: string;
 }
 
+function makeUnauthenticatedHealthResponse() {
+  return {
+    status: "ok",
+    ready: true,
+    uptime: 0,
+    agentState: "running",
+  };
+}
+
+function makeUnauthenticatedAgentStatus(): AgentStatus {
+  return {
+    state: "running",
+    agentName: "",
+    model: "—",
+    uptime: 0,
+  };
+}
+
 export class CloudApiClient {
   private baseUrl: string;
   private type: ConnectionType;
@@ -420,17 +438,15 @@ export class CloudApiClient {
     // If auth is required (401/403), try /api/auth/status as a lightweight
     // probe — it doesn't require a token and confirms the agent is alive.
     if (primary.status === 401 || primary.status === 403) {
-      const authProbe = await this.rawFetch("/api/auth/status", {
-        method: "GET",
-      });
-      if (authProbe.ok) {
-        return {
-          status: "ok",
-          ready: true,
-          uptime: 0,
-          agentState: "running",
-        };
+      if (!this.authToken) {
+        const authProbe = await this.rawFetch("/api/auth/status", {
+          method: "GET",
+        });
+        if (authProbe.ok) {
+          return makeUnauthenticatedHealthResponse();
+        }
       }
+      throw new Error(`API ${primary.status}: /api/health`);
     }
 
     if (primary.status !== 404) {
@@ -447,28 +463,57 @@ export class CloudApiClient {
   async getAgentStatus(): Promise<AgentStatus> {
     // Our self-hosted agents expose /api/status (not /api/agent/status).
     // Try /api/status first (returns agentName, state, uptime directly),
-    // fall back to /api/agent/status for compatibility with other implementations.
-    try {
-      const data = await this.request<{
-        state?: string;
-        agentName?: string;
-        uptime?: number;
-        memories?: number;
-        model?: string;
-      }>("/api/status", { method: "GET" });
-      if (data.state) {
-        return {
-          state: data.state as AgentStatus["state"],
-          agentName: data.agentName ?? "Agent",
-          model: data.model ?? "—",
-          uptime: data.uptime,
-          memories: data.memories,
+    // then fall back to /api/agent/status for compatibility with older or
+    // partially implemented backends.
+    let primaryFailure: Error | null = null;
+    const primary = await this.rawFetch("/api/status", { method: "GET" });
+    if (primary.ok) {
+      try {
+        const data = (await primary.json()) as {
+          state?: string;
+          agentName?: string;
+          uptime?: number;
+          memories?: number;
+          model?: string;
         };
+        if (data.state) {
+          return {
+            state: data.state as AgentStatus["state"],
+            agentName: data.agentName ?? "Agent",
+            model: data.model ?? "—",
+            uptime: data.uptime,
+            memories: data.memories,
+          };
+        }
+      } catch {
+        primaryFailure = new Error("Invalid JSON: /api/status");
       }
-    } catch {
-      // fall through to legacy endpoint
+    } else if (primary.status === 401 || primary.status === 403) {
+      // If status is auth-protected and we have no token to send, a 401/403
+      // still proves the agent is up.
+      if (!this.authToken) {
+        return makeUnauthenticatedAgentStatus();
+      }
+      throw new Error(`API ${primary.status}: /api/status`);
+    } else if (primary.status !== 404) {
+      primaryFailure = new Error(`API ${primary.status}: /api/status`);
     }
-    return this.request("/api/agent/status", { method: "GET" });
+
+    const legacy = await this.rawFetch("/api/agent/status", { method: "GET" });
+    if (legacy.ok) {
+      return legacy.json();
+    }
+    if (legacy.status === 401 || legacy.status === 403) {
+      if (!this.authToken && primaryFailure === null) {
+        return makeUnauthenticatedAgentStatus();
+      }
+      throw (
+        primaryFailure ?? new Error(`API ${legacy.status}: /api/agent/status`)
+      );
+    }
+    throw (
+      primaryFailure ?? new Error(`API ${legacy.status}: /api/agent/status`)
+    );
   }
 
   async startAgent(): Promise<{ ok: boolean; status: { state: string } }> {

@@ -55,6 +55,42 @@ describe("CloudApiClient", () => {
     expect(result.status).toBe("ok");
   });
 
+  it("health() returns a running probe response when /api/health is unauthorized", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ authenticated: false }),
+      });
+
+    await expect(client.health()).resolves.toEqual({
+      status: "ok",
+      ready: true,
+      uptime: 0,
+      agentState: "running",
+    });
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:2138/api/auth/status",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("health() preserves invalid-token failures when auth is provided", async () => {
+    const remoteClient = new CloudApiClient({
+      url: "https://agent.example.com",
+      type: "remote",
+      authToken: "bad-token",
+    });
+
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(remoteClient.health()).rejects.toThrow("API 401: /api/health");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("startAgent() calls POST /api/agent/start", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -161,7 +197,7 @@ describe("CloudApiClient", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("getAgentStatus() calls GET /api/agent/status", async () => {
+  it("getAgentStatus() reads /api/status first", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -173,8 +209,120 @@ describe("CloudApiClient", () => {
         }),
     });
     const result = await client.getAgentStatus();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://localhost:2138/api/status",
+      expect.objectContaining({ method: "GET" }),
+    );
     expect(result.agentName).toBe("Test");
     expect(result.state).toBe("running");
+  });
+
+  it("getAgentStatus() returns running when /api/status is unauthorized", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      state: "running",
+      agentName: "",
+      model: "—",
+      uptime: 0,
+    });
+  });
+
+  it("getAgentStatus() preserves invalid-token failures when auth is provided", async () => {
+    const remoteClient = new CloudApiClient({
+      url: "https://agent.example.com",
+      type: "remote",
+      authToken: "bad-token",
+    });
+
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(remoteClient.getAgentStatus()).rejects.toThrow(
+      "API 401: /api/status",
+    );
+  });
+
+  it("getAgentStatus() falls back to /api/agent/status on 404", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy",
+            model: "gpt-4",
+            state: "paused",
+          }),
+      });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy",
+      model: "gpt-4",
+      state: "paused",
+    });
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:2138/api/agent/status",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("getAgentStatus() falls back to /api/agent/status on other /api/status errors", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy Error Fallback",
+            model: "gpt-4",
+            state: "running",
+          }),
+      });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy Error Fallback",
+      model: "gpt-4",
+      state: "running",
+    });
+  });
+
+  it("getAgentStatus() preserves primary server failures when legacy status is auth-protected", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(client.getAgentStatus()).rejects.toThrow(
+      "API 500: /api/status",
+    );
+  });
+
+  it("getAgentStatus() falls back to /api/agent/status when /api/status JSON is invalid", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new Error("invalid json")),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy Parse Fallback",
+            model: "gpt-4",
+            state: "running",
+          }),
+      });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy Parse Fallback",
+      model: "gpt-4",
+      state: "running",
+    });
   });
 
   it("getMetrics() calls GET /api/metrics", async () => {
