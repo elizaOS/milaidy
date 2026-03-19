@@ -351,6 +351,10 @@
             "pages": ["cli/environment"]
           }
         ]
+      },
+      {
+        "tab": "Changelog",
+        "href": "/changelog"
       }
     ]
   },
