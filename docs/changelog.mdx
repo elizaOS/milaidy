@@ -3,6 +3,14 @@ title: Changelog
 description: The latest updates and improvements to Milady.
 ---
 
+<Update label="2026-04-09" description="Week of April 3–9" tags={["Update"]}>
+## Character generation API improvements
+
+The `POST /api/character/generate` endpoint now returns a richer output format for chat examples. Generated `chatExamples` use `{name, content}` message objects grouped under an `examples` key, replacing the previous `{user, content}` flat array format. This makes generated examples consistent with the `messageExamples` schema used elsewhere in the character config.
+
+You can also now generate the `system` prompt field alongside `bio`, `style`, `chatExamples`, and `postExamples`. A new `context.topics` parameter lets you pass the agent's topic list as context for more relevant generation results. See the [character API reference](/rest/character) for the updated schema.
+</Update>
+
 <Update label="2026-04-02" description="Week of March 27 – April 2" tags={["Feature", "Update", "Fix"]}>
 ## Multi-destination streaming with pump.fun and X/Twitter
 
