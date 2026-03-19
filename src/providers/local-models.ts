@@ -211,6 +211,7 @@ export class LocalModelManager {
   private manifestPath: string;
   private manifest: Record<string, { downloadedAt: string; path: string }> = {};
   private ollamaUrl: string;
+  private downloadLocks = new Map<string, Promise<string>>();
 
   constructor(options?: { cacheDir?: string; ollamaUrl?: string }) {
     this.cacheDir =
@@ -273,6 +274,28 @@ export class LocalModelManager {
    * Download a model from HuggingFace.
    */
   async downloadModel(
+    modelId: string,
+    onProgress?: (progress: ModelDownloadProgress) => void,
+  ): Promise<string> {
+    // Fast path: already downloaded
+    if (this.isModelDownloaded(modelId)) {
+      return this.manifest[modelId].path;
+    }
+
+    // Dedup concurrent calls for the same model
+    const existing = this.downloadLocks.get(modelId);
+    if (existing) return existing;
+
+    const promise = this._doDownload(modelId, onProgress);
+    this.downloadLocks.set(modelId, promise);
+    try {
+      return await promise;
+    } finally {
+      this.downloadLocks.delete(modelId);
+    }
+  }
+
+  private async _doDownload(
     modelId: string,
     onProgress?: (progress: ModelDownloadProgress) => void,
   ): Promise<string> {
