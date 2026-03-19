@@ -3,6 +3,11 @@
 import React, { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearForceFreshOnboarding,
+  enableForceFreshOnboarding,
+  installForceFreshOnboardingClientPatch,
+} from "../../src/onboarding-reset";
 
 const ONBOARDING_STEP_STORAGE_KEY = "eliza:onboarding:step";
 
@@ -241,6 +246,7 @@ describe("AppProvider onboarding step resume", () => {
       triggers: [],
       todos: [],
     });
+    clearForceFreshOnboarding();
   });
 
   it("reopens on senses when partial onboarding connection config already exists", async () => {
@@ -276,6 +282,49 @@ describe("AppProvider onboarding step resume", () => {
     await act(async () => {
       tree?.unmount();
     });
+  });
+
+  it("starts at identity when forced fresh onboarding is enabled", async () => {
+    mockClient.getConfig.mockResolvedValue({
+      cloud: { enabled: true, apiKey: "sk-test" },
+    });
+    mockClient.getOnboardingStatus.mockResolvedValue({ complete: true });
+
+    enableForceFreshOnboarding();
+    const restoreClient = installForceFreshOnboardingClientPatch(mockClient);
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    try {
+      await act(async () => {
+        tree = TestRenderer.create(
+          React.createElement(
+            AppProvider,
+            null,
+            React.createElement(Probe, {
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
+            }),
+          ),
+        );
+      });
+      await flushEffects();
+
+      expect(api?.getSnapshot()).toEqual({
+        onboardingLoading: false,
+        onboardingStep: "identity",
+        onboardingRunMode: "",
+        onboardingCloudProvider: "",
+      });
+    } finally {
+      restoreClient();
+      clearForceFreshOnboarding();
+      await act(async () => {
+        tree?.unmount();
+      });
+    }
   });
 
   it("persists the current onboarding step across quit and reopen", async () => {

@@ -32,6 +32,7 @@ import {
   patchExtensionlessJsExports,
   patchMissingLifecycleScript,
   patchNobleHashesCompat,
+  patchPluginVisionPermissionHandling,
   patchProperLockfileSignalExitCompat,
 } from "./lib/patch-bun-exports.mjs";
 
@@ -66,6 +67,7 @@ patchBrokenElizaCoreRuntimeDists(root);
 patchAutonomousMiladyOnboardingPresets(root);
 patchAppCoreMiladyAssets(root);
 patchAutonomousTypeError(root);
+patchPluginVisionPermissionHandling(root);
 
 /**
  * Patch @elizaos/plugin-pdf broken ESM bundle.
