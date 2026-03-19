@@ -18,6 +18,7 @@ import {
   applyAppCoreMiladyVrmViewerPatch,
   applyAppCoreOnboardingConnectionStepPatch,
   applyAppCoreVoiceConfigApiKeyPersistencePatch,
+  applyAppCoreVoiceConfigLanguageScaffoldPatch,
   applyAppCoreVoiceConfigSelectionVisibilityPatch,
   applyAppCoreVoiceConfigViewLiveTestPatch,
   applyAppCoreVoiceConfigViewSaveUxPatch,
@@ -945,6 +946,48 @@ return (_jsxs("div", { children: [selectedPreset && (_jsxs("div", { className: "
       expect(updated).toContain("setTestError(");
       expect(updated).toContain("onClick: () => void handleTestVoice()");
       expect(updated).toContain('className: "text-[10px] text-[var(--warn)]"');
+      expect(updated.match(/children: testError/g)?.length ?? 0).toBe(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreVoiceConfigLanguageScaffoldPatch adds language filters and custom voice id import", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "VoiceConfigView.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const [testError, setTestError] = useState(null);
+const selectedVoiceId = voiceConfig.elevenlabs?.voiceId;
+const selectedPreset = PREMADE_VOICES.find((p) => p.voiceId === selectedVoiceId);
+return (_jsxs("div", { className: "flex flex-col gap-4", children: [_jsxs("div", { className: "flex flex-col gap-2", children: [_jsx("div", { className: "text-xs font-semibold", children: t("voiceconfigview.Voice") }), _jsx("div", { className: "grid grid-cols-3 gap-1.5", children: PREMADE_VOICES.map((preset) => {
+                                    const active = selectedVoiceId === preset.voiceId;
+                                    return (_jsxs(Button, { variant: "outline", size: "sm", className: \`h-auto \${active ? "x" : ""}\`, onClick: () => handleVoiceSelect(preset.voiceId), children: [_jsx("div", { children: preset.name }), _jsx("div", { children: preset.hint })] }, preset.id));
+                                }) })] })] }));
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreVoiceConfigLanguageScaffoldPatch(filePath);
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        'const [voiceLanguageFilter, setVoiceLanguageFilter] = useState("all");',
+      );
+      expect(updated).toContain("const visibleVoices = PREMADE_VOICES");
+      expect(updated).toContain("All Languages");
+      expect(updated).toContain("Paste custom ElevenLabs voice ID");
+      expect(updated).toContain("Use Voice ID");
+      expect(updated).toContain("visibleVoices.map((preset) => {");
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

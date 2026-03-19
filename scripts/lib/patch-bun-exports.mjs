@@ -775,11 +775,16 @@ export function applyAppCoreVoiceConfigViewLiveTestPatch(filePath) {
   const testErrorDecl = "const [testError, setTestError] = useState(null);";
   const hasDuplicateTestErrorDecl =
     compatSource.split(testErrorDecl).length - 1 > 1;
+  const testErrorRenderNeedle =
+    'testError && (_jsx("div", { className: "text-[10px] text-[var(--warn)]", children: testError }))';
+  const hasDuplicateTestErrorRender =
+    compatSource.split(testErrorRenderNeedle).length - 1 > 1;
   if (
     compatSource.includes("/api/tts/elevenlabs") &&
     !compatSource.includes("?? selectedVoiceId") &&
     !compatSource.includes("[selectedVoiceId, voiceConfig]") &&
     !hasDuplicateTestErrorDecl &&
+    !hasDuplicateTestErrorRender &&
     compatSource.includes("paid_plan_required")
   ) {
     return false;
@@ -877,12 +882,19 @@ export function applyAppCoreVoiceConfigViewLiveTestPatch(filePath) {
 
   const testErrorNeedle =
     ")), _jsx(WakeWordSection, { serverConfig: swabbleServerConfig })";
-  if (updatedSource.includes(testErrorNeedle)) {
+  if (
+    updatedSource.includes(testErrorNeedle) &&
+    !updatedSource.includes("children: testError")
+  ) {
     updatedSource = updatedSource.replace(
       testErrorNeedle,
       `)), testError && (_jsx("div", { className: "text-[10px] text-[var(--warn)]", children: testError })), _jsx(WakeWordSection, { serverConfig: swabbleServerConfig })`,
     );
   }
+  updatedSource = updatedSource.replace(
+    /(?:,\s*testError && \(_jsx\("div", \{ className: "text-\[10px\] text-\[var\(--warn\)\]", children: testError \}\)\)){2,}/g,
+    ', testError && (_jsx("div", { className: "text-[10px] text-[var(--warn)]", children: testError }))',
+  );
 
   updatedSource = updatedSource.replace(
     "const voiceId = voiceConfig.elevenlabs?.voiceId ?? selectedVoiceId;",
@@ -934,6 +946,75 @@ export function applyAppCoreVoiceConfigViewLiveTestPatch(filePath) {
                 }
                 throw new Error(upstreamBody || \`Voice test failed (\${response.status})\`);
             }`,
+  );
+
+  if (updatedSource === compatSource) return false;
+  writeFileSync(filePath, updatedSource, "utf8");
+  return true;
+}
+
+export function applyAppCoreVoiceConfigLanguageScaffoldPatch(filePath) {
+  if (!existsSync(filePath)) return false;
+
+  const compatSource = readFileSync(filePath, "utf8");
+  if (
+    compatSource.includes(
+      'const [voiceLanguageFilter, setVoiceLanguageFilter] = useState("all");',
+    ) &&
+    compatSource.includes("Paste custom ElevenLabs voice ID")
+  ) {
+    return false;
+  }
+
+  const statePattern = /(\s*const \[testError, setTestError\] = useState\(null\);)/;
+  if (!statePattern.test(compatSource)) return false;
+
+  let updatedSource = compatSource.replace(
+    statePattern,
+    `$1
+    const [voiceLanguageFilter, setVoiceLanguageFilter] = useState("all");
+    const [customVoiceIdInput, setCustomVoiceIdInput] = useState("");`,
+  );
+
+  const selectedPresetPattern =
+    /(const selectedPreset = PREMADE_VOICES\.find\(\(p\) => p\.voiceId === selectedVoiceId\);)/;
+  if (!selectedPresetPattern.test(updatedSource)) return false;
+  updatedSource = updatedSource.replace(
+    selectedPresetPattern,
+    `$1
+    const voiceLanguageLabel = (preset) => {
+        const hintPrefix = typeof preset?.hint === "string"
+            ? preset.hint.split(",")[0]?.trim()
+            : "";
+        return hintPrefix || "Other";
+    };
+    const availableVoiceLanguages = [
+        "all",
+        ...new Set(PREMADE_VOICES.map((preset) => voiceLanguageLabel(preset))),
+    ];
+    const visibleVoices = PREMADE_VOICES
+        .filter((preset) => voiceLanguageFilter === "all"
+        ? true
+        : voiceLanguageLabel(preset) === voiceLanguageFilter)
+        .sort((left, right) => {
+        const languageCmp = voiceLanguageLabel(left).localeCompare(voiceLanguageLabel(right));
+        if (languageCmp !== 0)
+            return languageCmp;
+        return left.name.localeCompare(right.name);
+    });`,
+  );
+
+  const voiceSectionNeedle =
+    `children: [_jsx("div", { className: "text-xs font-semibold", children: t("voiceconfigview.Voice") }), _jsx("div", { className: "grid grid-cols-3 gap-1.5", children: PREMADE_VOICES.map((preset) => {`;
+  if (!updatedSource.includes(voiceSectionNeedle)) return false;
+  updatedSource = updatedSource.replace(
+    voiceSectionNeedle,
+    `children: [_jsx("div", { className: "text-xs font-semibold", children: t("voiceconfigview.Voice") }), _jsx("div", { className: "flex flex-wrap gap-1.5", children: availableVoiceLanguages.map((lang) => (_jsx(Button, { variant: "outline", size: "sm", className: \`text-[10px] px-2 py-1 \${voiceLanguageFilter === lang ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white" : ""}\`, onClick: () => setVoiceLanguageFilter(lang), children: lang === "all" ? "All Languages" : lang }, \`voice-lang-\${lang}\`))) }), _jsxs("div", { className: "flex items-center gap-2", children: [_jsx(Input, { type: "text", className: "bg-card text-xs", placeholder: "Paste custom ElevenLabs voice ID", value: customVoiceIdInput, onChange: (e) => setCustomVoiceIdInput(e.target.value) }), _jsx(Button, { variant: "outline", size: "sm", className: "shrink-0 font-semibold", onClick: () => {
+                                    const trimmed = customVoiceIdInput.trim();
+                                    if (!trimmed)
+                                        return;
+                                    handleVoiceSelect(trimmed);
+                                }, children: "Use Voice ID" })] }), _jsx("div", { className: "grid grid-cols-3 gap-1.5", children: visibleVoices.map((preset) => {`,
   );
 
   if (updatedSource === compatSource) return false;
@@ -1352,6 +1433,13 @@ export function patchAppCoreMiladyAssets(
       apply: (filePath) => applyAppCoreVoiceTypesPresetsPatch(filePath),
       description:
         "voice preset roster now matches Milady EN/ZH character voices",
+    },
+    {
+      relativePath: "components/VoiceConfigView.js",
+      apply: (filePath) =>
+        applyAppCoreVoiceConfigLanguageScaffoldPatch(filePath),
+      description:
+        "voice picker now supports language filters and custom voice-id import scaffolding",
     },
     {
       relativePath: "components/VoiceConfigView.js",
