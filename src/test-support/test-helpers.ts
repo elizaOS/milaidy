@@ -246,6 +246,34 @@ export function resolveNostrPluginImportSpecifier(): string | null {
   return null;
 }
 
+const MATRIX_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-matrix";
+const MATRIX_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-matrix/typescript/dist/index",
+  "../plugins/plugin-matrix/dist/index",
+] as const;
+
+/**
+ * Resolve the Matrix plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveMatrixPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(MATRIX_PLUGIN_PACKAGE_NAME)) {
+    return MATRIX_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  for (const relativeEntryPath of MATRIX_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
 /** Build a mock update check result with deterministic defaults. */
 export function buildMockUpdateCheckResult(
   overrides: Partial<MockUpdateCheckResult> = {},
