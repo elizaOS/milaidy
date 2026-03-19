@@ -4,60 +4,48 @@ description: Novedades en Milady — funcionalidades, mejoras y correcciones.
 ---
 
 <Update label="2026-05-14" description="Semana del 8 al 14 de mayo" tags={["Feature", "Update"]}>
-<div id="media-generation">
-## Generación de medios
-</div>
+## Extensión de Chrome para automatización del navegador
 
-Tu agente ahora puede generar imágenes, videos y audio — y analizar imágenes con visión de IA — todo desde el chat. Cuatro nuevas acciones están disponibles: `GENERATE_IMAGE`, `GENERATE_VIDEO`, `GENERATE_AUDIO` y `ANALYZE_IMAGE`. Cada una admite múltiples backends de proveedores, incluyendo FAL.ai, OpenAI, Google, xAI y Eliza Cloud. Elige entre el modo cloud (sin necesidad de clave API) y el modo trae-tu-propia-clave por tipo de medio. Una galería multimedia en el panel te permite explorar todo lo que tu agente ha creado. Consulta la [guía de generación de medios](/es/guides/media-generation) para más detalles.
+Tu agente ahora puede controlar pestañas del navegador directamente usando la extensión Chrome Milady Browser Relay. La extensión conecta el protocolo DevTools de Chrome con el entorno de ejecución del agente, permitiendo inspección de páginas, ejecución de JavaScript, navegación, captura de pantalla y flujos de navegación autónomos — todo desde un botón en la barra de herramientas. Instálala desde el código fuente con `milady browser extension install`. Consulta la [guía de la extensión de Chrome](/apps/chrome-extension) para más detalles.
 
-<div id="event-hooks">
+## Modo autónomo
+
+Los agentes ahora pueden razonar y actuar de forma independiente entre conversaciones. Cuando está habilitado, un bucle continuo observa el entorno, toma decisiones y ejecuta acciones sin esperar la intervención del usuario — útil para monitoreo en segundo plano, flujos programados y comportamiento proactivo. Actívalo desde el panel o mediante el endpoint `GET /api/agent/autonomy`. Consulta la [guía del modo autónomo](/guides/autonomous-mode) para más detalles.
+
 ## Hooks de eventos
-</div>
 
-Ahora puedes extender tu agente con hooks basados en eventos que responden a comandos, eventos de sesión, eventos del ciclo de vida del agente y eventos de gateway. Los hooks se cargan desde disco al inicio — cada hook es un directorio con una configuración frontmatter y un módulo controlador. Usa hooks para agregar comportamiento personalizado sin modificar el código central. Consulta la [guía de hooks](/es/guides/hooks) para más detalles.
+Ahora puedes extender tu agente con manejadores basados en eventos que responden a comandos, sesiones, ciclo de vida del agente y eventos del gateway. Coloca un archivo `HOOK.md` en un directorio de hooks, define tu manejador y el agente lo cargará al iniciar. Los hooks permiten lógica personalizada al crear sesiones, al iniciar el agente o ante comandos del usuario — sin necesidad de escribir un plugin completo. Consulta la [guía de hooks](/guides/hooks) para más detalles.
 
-<div id="config-includes">
-## Inclusiones de configuración
-</div>
+## Marketplace de skills
 
-Divide la configuración de tu agente en múltiples archivos con la directiva `$include`. Compón configuraciones base compartidas, separa ajustes específicos por entorno y mantén las configuraciones grandes organizadas. Las claves locales anulan las claves incluidas, para que puedas superponer sobrecargas de forma limpia. Consulta la [guía de inclusiones de configuración](/es/guides/config-includes) para más detalles.
+Las skills — extensiones basadas en Markdown que enseñan al agente a realizar tareas específicas — ahora se pueden explorar, buscar, instalar y gestionar desde el panel. Cada skill es una carpeta con instrucciones que se inyectan en el contexto del agente en tiempo de ejecución. También puedes crear las tuyas. Consulta la [guía de skills](/plugins/skills) para más detalles.
 
-<div id="plugin-eject-system">
-## Sistema de expulsión de plugins
-</div>
+## Generación de medios
 
-Ahora puedes clonar el código fuente de cualquier plugin localmente, editarlo y hacer que el runtime cargue tu versión en lugar del paquete npm. El sistema de expulsión admite la sincronización con cambios upstream, la contribución de ediciones mediante pull requests y la reversión al original en cualquier momento. Pídele a tu agente que expulse un plugin o usa la CLI. Consulta la [guía de expulsión de plugins](/es/plugins/plugin-eject) para más detalles.
+Los agentes ahora pueden generar imágenes, video y audio, o analizar imágenes usando visión artificial — todo mediante acciones integradas. Los proveedores compatibles incluyen FAL, OpenAI, Google, xAI y Eliza Cloud (sin necesidad de clave API). Pídele a tu agente que "dibuje un atardecer" o "describa esta imagen" y seleccionará el proveedor automáticamente. Consulta la [guía de generación de medios](/guides/media-generation) para más detalles.
 
-<div id="skills-marketplace-with-security-review">
-## Marketplace de habilidades con revisión de seguridad
-</div>
+## Triggers y tareas programadas
 
-La vista de habilidades ahora incluye un marketplace respaldado por el registro clawhub.ai. Explora, busca e instala habilidades directamente desde el panel. Un sistema de revisión de seguridad integrado escanea las habilidades instaladas y señala problemas — las habilidades en cuarentena se marcan visualmente y las habilidades bloqueadas no se pueden habilitar hasta que sean revisadas.
+Ahora puedes programar tareas que despierten al agente en intervalos definidos, en momentos específicos o mediante expresiones cron. Crea triggers desde el panel o mediante la API REST con tres tipos: `interval` para tareas recurrentes, `once` para tareas futuras únicas y `cron` para operaciones programadas con cron. Consulta la [guía de triggers](/guides/triggers) para más detalles.
 
-<div id="six-more-platform-connectors">
-## Seis conectores de plataforma más
-</div>
+## Editor de acciones personalizadas
 
-Tu agente ahora puede conectarse a seis plataformas adicionales:
+Define nuevas capacidades del agente directamente desde el panel sin escribir código de plugin. Las acciones personalizadas admiten manejadores HTTP, shell y código. Describe la acción, configura los parámetros y el agente podrá invocarla durante las conversaciones. Consulta la [guía de acciones personalizadas](/guides/custom-actions) para más detalles.
 
-- **Feishu / Lark** — bots, chats y notificaciones de flujos de trabajo.
-- **Twilio** — mensajería de voz y SMS.
-- **Twitch** — integración de chat en vivo.
-- **Gmail Watch** — monitoreo de correo electrónico Pub/Sub con renovación automática.
-- **Linear** — integración de seguimiento de incidencias.
-- **Zalo** — mensajería en la plataforma de chat más grande de Vietnam.
+## Sistema de eject de plugins
 
-Instala cualquier conector con `milady plugins install <name>` y configúralo en tus [ajustes sociales](/es/guides/connectors).
+Ahora puedes clonar el código fuente de cualquier plugin localmente, modificarlo y hacer que el entorno de ejecución cargue tu copia local en lugar del paquete npm. El sistema de eject soporta sincronización con upstream, contribución de cambios mediante pull requests y eject de paquetes core para personalización profunda. Consulta la [guía de eject de plugins](/plugins/plugin-eject) para más detalles.
 
-<div id="updates">
+## Aplicación móvil
+
+Milady ya está disponible en iOS y Android a través de una app nativa basada en Capacitor. La experiencia completa del panel se ejecuta dentro de un WebView nativo con acceso al hardware del dispositivo — cámara, hápticos, notificaciones push y más. Consulta la [guía de la app móvil](/apps/mobile) para instrucciones de configuración y compilación.
+
 ## Actualizaciones
-</div>
 
-- **Palabra de activación por voz** — Ahora puedes configurar una palabra de activación (predeterminada: "milady") para que tu agente escuche una frase de activación antes de responder. Ajusta la sensibilidad y el tamaño del modelo Whisper desde el panel de ajustes de voz.
-- **Instalar plugins desde el chat** — Pídele a tu agente que instale un plugin por nombre (por ejemplo, "install the discord plugin") y se encarga de la descarga, instalación y reinicio automáticamente.
-- **Nivel de registro en tiempo de ejecución** — Cambia la verbosidad de los registros de tu agente en tiempo de ejecución pidiéndole que "set log level to debug" (o trace, info, warn, error) sin reiniciar.
-- **Plantillas de configuración** — Ocho plantillas de configuración listas para producción ahora están disponibles para escenarios de despliegue comunes — configuración mínima, bot de Discord, multi-modelo y más. Consulta la [guía de plantillas de configuración](/es/guides/config-templates).
-- **Temas y avatares del panel** — Seis temas visuales y ocho avatares 3D VRM integrados con 29 emotes en seis categorías. Los temas controlan colores, tipografía, bordes y animaciones en todo el panel. Consulta la [guía de temas](/es/guides/themes).
+- **Temas y personalización de avatares** — Seis temas visuales integrados y ocho avatares 3D VRM con 29 emotes ahora son configurables desde Ajustes. Cambia de tema al instante y arrastra avatares VRM personalizados. Consulta la [guía de temas](/guides/themes).
+- **Inclusión de configuraciones** — Divide la configuración del agente en múltiples archivos usando la directiva `$include`. Compón configuraciones modulares para diferentes entornos o comparte configuraciones base entre agentes. Consulta la [guía de config includes](/guides/config-includes).
+- **Soporte de modelos locales** — Ejecuta modelos localmente con Ollama sin enviar datos a proveedores externos. Consulta la [guía de modelos locales](/guides/local-models).
+- **Animaciones de emotes** — Los agentes pueden expresar emociones a través de 30 animaciones VRM de emotes en seis categorías, activadas automáticamente durante las conversaciones o manualmente desde el selector de emotes. Consulta la [guía de emotes](/guides/emotes).
 </Update>
 
 <Update label="2026-05-07" description="Semana del 1 al 7 de mayo" tags={["Feature", "Update"]}>
@@ -71,25 +59,13 @@ Ahora puedes migrar tu agente entre máquinas con un solo archivo cifrado. La ex
 ## Sandbox y uso de computadora
 </div>
 
-Los agentes ahora pueden ejecutar código, navegar por la web, tomar capturas de pantalla, grabar audio e interactuar con aplicaciones de escritorio dentro de un sandbox de contenedor aislado. El sandbox admite cuatro modos de seguridad configurables (off, light, standard, max), políticas de red, registro de auditoría y un servicio de firma remota que mantiene las claves de billetera en el host mientras los agentes en sandbox envían transacciones. Consulta la [guía de sandbox](/es/guides/sandbox) para más detalles.
+Los agentes ahora pueden ejecutar código, navegar por la web, tomar capturas de pantalla, grabar audio e interactuar con aplicaciones de escritorio dentro de un sandbox de contenedor aislado. El sandbox admite modos de seguridad configurables, políticas de red, registro de auditoría y un servicio de firma remota que mantiene las claves de billetera en el host mientras los agentes en sandbox envían transacciones. Consulta la [guía de sandbox](/es/guides/sandbox) para más detalles.
 
 <div id="mcp-marketplace">
 ## Marketplace de MCP
 </div>
 
 Ahora puedes explorar e instalar servidores del Protocolo de Contexto de Modelo directamente desde el registro oficial de MCP. Busca herramientas por nombre, consulta los detalles e instálalas en un solo paso — la configuración se genera automáticamente. Los servidores MCP amplían tu agente con capacidades externas como acceso a archivos, consultas a bases de datos e integraciones con API. Consulta la [guía del marketplace de MCP](/es/guides/mcp-marketplace) para más detalles.
-
-<div id="custom-actions-editor">
-## Editor de acciones personalizadas
-</div>
-
-Un editor visual en el panel te permite crear acciones de agente personalizadas sin escribir código de plugin. Define acciones con manejadores HTTP, shell o código, configura parámetros y encabezados, y pruébalas — todo desde la interfaz. Consulta la [guía de acciones personalizadas](/es/guides/custom-actions) para más detalles.
-
-<div id="plugin-eject-system">
-## Sistema de expulsión de plugins
-</div>
-
-Ahora puedes bifurcar el código fuente de cualquier plugin localmente, modificarlo y hacer que el runtime cargue tu copia local en lugar del paquete npm. Seis nuevas acciones de agente — eject, reinject, sync y status tanto para plugins como para el core — facilitan personalizar, probar y contribuir cambios de vuelta al proyecto original. Consulta la [guía de expulsión de plugins](/es/plugins/plugin-eject) para más detalles.
 
 <div id="stream-overlay-widgets">
 ## Widgets de superposición para transmisiones
@@ -119,13 +95,10 @@ Instala cualquier conector con `milady plugins install <name>` y configúralo en
 ## Actualizaciones
 </div>
 
-- **Bóveda de secretos** — Una nueva vista de Secretos en el panel organiza tus claves API y credenciales por categoría (proveedores de IA, blockchain, conectores, autenticación). Puedes agregar, eliminar y gestionar secretos con descubrimiento orientado a plugins que muestra qué plugins necesitan qué claves.
-- **Galería multimedia** — Una nueva galería multimedia en el panel te permite explorar fotos, videos y audio almacenados en la base de datos de tu agente, con filtrado por tipo de medio.
 - **API de diagnósticos y auditoría de seguridad** — Nuevos endpoints exponen registros de ejecución filtrables, reproducción de eventos de autonomía con paginación basada en cursor y un registro de auditoría de seguridad con filtrado por severidad y streaming SSE. Consulta la [referencia de API](/es/api-reference) para más detalles.
 - **Permisos de transmisión en el onboarding** — Los permisos de cámara y micrófono ahora se solicitan durante el asistente de configuración inicial y se pueden gestionar desde Ajustes, para que la transmisión funcione de inmediato tanto en móvil como en escritorio.
 - **Legibilidad de botones en tema oscuro** — Los botones con color de acento ahora usan texto oscuro para mejor contraste, y los efectos hover resaltan el borde en lugar de cambiar el color del texto.
 - **Mejoras en el diseño del onboarding** — El paso de conexión ahora muestra un interruptor Inicio Rápido / Avanzado, tarjetas de proveedores a ancho completo y un botón Continuar siempre visible en el paso de permisos.
-- **Plantillas de configuración** — Ocho plantillas de configuración listas para usar para escenarios de despliegue comunes ya están disponibles. Consulta la [guía de plantillas de configuración](/es/guides/config-templates).
 </Update>
 
 <Update label="2026-04-30" description="Semana del 24 al 30 de abril" tags={["Feature", "Update"]}>
