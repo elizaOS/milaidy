@@ -90,3 +90,73 @@ The Windows desktop app no longer crashes on startup due to an embedding initial
 - Oversized voice API requests are properly rejected with a 413 error
 - Performance improved for LLM turns and streaming by eliminating redundant sorting and string allocations
 </Update>
+
+<Update label="2026-03-13" description="Week of March 8–13" tags={["Feature", "Security", "Fix"]}>
+## Game-style onboarding redesign
+
+First-run setup has been rebuilt as a streamlined six-step flow with a three-column glassmorphism layout and a dark game-style theme applied across all modals and overlays. The new steps — Wake Up, Identity, Language, Connection, Permissions, and Activate — replace the previous ten-step wizard.
+
+## New CLI commands
+
+Three new CLI commands ship this week:
+
+- **`milady doctor`** — runs a full environment health check, flagging missing dependencies, port conflicts, and configuration issues. See the [doctor reference](/cli/doctor).
+- **`milady db reset`** — safely resets the database with a confirmation prompt. See the [db reference](/cli/db).
+- **`milady setup`** — an interactive wizard that walks you through model provider selection with support for nine providers. See the [setup reference](/cli/setup).
+
+## Six new installation channels
+
+Milady is now available through significantly more package managers:
+
+- **Homebrew** — `brew install milaidy` (CLI) or `brew install --cask milaidy` (desktop)
+- **Snap Store** — `snap install milady` with strict confinement
+- **Flatpak / Flathub** — production-ready Flatpak with AppStream metadata
+- **APT** — Debian/Ubuntu install via APT with a systemd service and auto-restart
+- **Google Play Store** — Android app with signed releases
+- **iOS and Mac App Store** — available via TestFlight and App Store Connect
+
+See the [installation guide](/installation) for platform-specific instructions.
+
+## Native GPU companion rendering
+
+Desktop builds now include WebGPU-powered native rendering infrastructure for companion visuals, providing a faster alternative to the webview-based renderer for GPU-accelerated scenes.
+
+## Game client canvas windows
+
+Game clients on [desktop](/apps/desktop) now open in a dedicated native window with isolated cookies and storage instead of an embedded iframe. This improves stability and security for in-app game experiences.
+
+## Streaming controls in companion mode
+
+You can now manage live streaming directly from companion mode — including destination and source pickers, stream settings, and new agent actions like go live, go offline, and speak on stream. See the [stream guide](/dashboard/stream) for details.
+
+## NFA wallet flow
+
+A new identity and NFA wallet flow adds an identity card surface, wallet-style confirmation UX, and public BSC RPC defaults. See the [wallet guide](/guides/wallet) for details.
+
+## Chat link sanitization
+
+Chat message links are now sanitized to block `javascript:`, `data:`, and `vbscript:` URI schemes, preventing XSS through untrusted content. Normal links and relative paths continue to work as expected.
+
+## Wallet transfer guard
+
+Agent-originated wallet transfer requests can no longer bypass the manual-local-key confirmation guard. All transfers now require explicit user signature approval.
+
+## Desktop bug fixes
+
+- Window position is now restored correctly after hide/show
+- Clipboard image encoding works reliably across platforms
+- TTS interruption now fully stops in-flight audio
+- Navigation guard blocks external URLs from loading in the main app window
+- VRM avatar face orientation no longer flips incorrectly
+
+## Additional fixes
+
+- Voice and agent-mode dropdowns are no longer hidden behind other elements
+- Settings sidebar now shows section labels for easier navigation
+- Avatar selector prevents double-click during load
+- Conversation sidebar now shows title on the left and timestamp on the right
+- Cloud model provider no longer re-enables itself on restart after you switch away
+- Remote server access works correctly with wildcard bind and reverse proxy path prefixes
+- Marketplace-installed skills now appear in the UI
+- Oversized voice API requests are properly rejected with a 413 error
+</Update>
