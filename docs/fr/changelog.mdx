@@ -14,13 +14,25 @@ Vous pouvez désormais migrer votre agent entre machines avec un seul fichier ch
 ## Sandbox et utilisation de l'ordinateur
 </div>
 
-Les agents peuvent désormais exécuter du code, naviguer sur le web, prendre des captures d'écran, enregistrer de l'audio et interagir avec des applications de bureau dans un sandbox de conteneur isolé. Le sandbox prend en charge des modes de sécurité configurables, des politiques réseau, la journalisation d'audit et un service de signature distant qui conserve les clés de portefeuille sur l'hôte tandis que les agents en sandbox soumettent des transactions. Consultez le [guide du sandbox](/fr/guides/sandbox) pour plus de détails.
+Les agents peuvent désormais exécuter du code, naviguer sur le web, prendre des captures d'écran, enregistrer de l'audio et interagir avec des applications de bureau dans un sandbox de conteneur isolé. Le sandbox prend en charge quatre modes de sécurité configurables (off, light, standard, max), des politiques réseau, la journalisation d'audit et un service de signature distant qui conserve les clés de portefeuille sur l'hôte tandis que les agents en sandbox soumettent des transactions. Consultez le [guide du sandbox](/fr/guides/sandbox) pour plus de détails.
 
 <div id="mcp-marketplace">
 ## Marketplace MCP
 </div>
 
 Vous pouvez désormais parcourir et installer des serveurs du Protocole de Contexte de Modèle directement depuis le registre officiel MCP. Recherchez des outils par nom, consultez les détails et installez-les en une seule étape — la configuration est générée automatiquement. Les serveurs MCP étendent votre agent avec des capacités externes comme l'accès aux fichiers, les requêtes de base de données et les intégrations d'API. Consultez le [guide du marketplace MCP](/fr/guides/mcp-marketplace) pour plus de détails.
+
+<div id="custom-actions-editor">
+## Éditeur d'actions personnalisées
+</div>
+
+Un éditeur visuel dans le tableau de bord vous permet de créer des actions d'agent personnalisées sans écrire de code de plugin. Définissez des actions avec des gestionnaires HTTP, shell ou code, configurez les paramètres et les en-têtes, et testez-les — le tout depuis l'interface. Consultez le [guide des actions personnalisées](/fr/guides/custom-actions) pour plus de détails.
+
+<div id="plugin-eject-system">
+## Système d'éjection de plugins
+</div>
+
+Vous pouvez désormais forker le code source de n'importe quel plugin localement, le modifier et faire en sorte que le runtime charge votre copie locale au lieu du paquet npm. Six nouvelles actions d'agent — eject, reinject, sync et status pour les plugins et le core — facilitent la personnalisation, les tests et la contribution des modifications en amont. Consultez le [guide d'éjection de plugins](/fr/plugins/plugin-eject) pour plus de détails.
 
 <div id="stream-overlay-widgets">
 ## Widgets de superposition pour les streams
@@ -50,10 +62,13 @@ Installez n'importe quel connecteur avec `milady plugins install <name>` et conf
 ## Mises à jour
 </div>
 
+- **Coffre-fort de secrets** — Une nouvelle vue Secrets dans le tableau de bord organise vos clés API et identifiants par catégorie (fournisseurs d'IA, blockchain, connecteurs, authentification). Vous pouvez ajouter, supprimer et gérer les secrets avec une découverte orientée plugins qui montre quels plugins nécessitent quelles clés.
+- **Galerie multimédia** — Une nouvelle galerie multimédia dans le tableau de bord vous permet de parcourir les photos, vidéos et fichiers audio stockés dans la base de données de votre agent, avec filtrage par type de média.
 - **API de diagnostics et d'audit de sécurité** — De nouveaux endpoints exposent des journaux d'exécution filtrables, la relecture d'événements d'autonomie avec pagination par curseur et un journal d'audit de sécurité avec filtrage par sévérité et streaming SSE. Consultez la [référence API](/fr/api-reference) pour plus de détails.
 - **Permissions de diffusion lors de l'intégration** — Les permissions de caméra et de microphone sont désormais demandées lors de l'assistant de configuration initiale et gérables depuis les Paramètres, pour que la diffusion fonctionne immédiatement sur mobile et ordinateur.
 - **Lisibilité des boutons en thème sombre** — Les boutons de couleur d'accentuation utilisent désormais un texte sombre pour un meilleur contraste, et les effets de survol mettent en évidence la bordure au lieu de changer la couleur du texte.
 - **Améliorations de la mise en page de l'intégration** — L'étape de connexion affiche désormais un interrupteur Démarrage rapide / Avancé, des cartes de fournisseurs pleine largeur et un bouton Continuer toujours visible à l'étape des permissions.
+- **Modèles de configuration** — Huit modèles de configuration prêts à l'emploi pour les scénarios de déploiement courants sont désormais disponibles. Consultez le [guide des modèles de configuration](/fr/guides/config-templates).
 </Update>
 
 <Update label="2026-04-30" description="Semaine du 24 au 30 avril" tags={["Feature", "Update"]}>
