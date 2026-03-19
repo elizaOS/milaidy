@@ -21,6 +21,23 @@ import type {
 } from "../config/types.eliza";
 
 // ============================================================================
+// Fetch Utilities
+// ============================================================================
+
+/** Fetch with an AbortController-based timeout (default 30s). */
+export function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 30_000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
+}
+
+// ============================================================================
 // Result Types
 // ============================================================================
 
@@ -137,7 +154,7 @@ class ElizaCloudImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/media/image/generate`, {
+    const response = await fetchWithTimeout(`${this.baseUrl}/media/image/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -185,7 +202,7 @@ class ElizaCloudVideoProvider implements VideoGenerationProvider {
   async generate(
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/media/video/generate`, {
+    const response = await fetchWithTimeout(`${this.baseUrl}/media/video/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -233,7 +250,7 @@ class ElizaCloudAudioProvider implements AudioGenerationProvider {
   async generate(
     options: AudioGenerationOptions,
   ): Promise<MediaProviderResult<AudioGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/media/audio/generate`, {
+    const response = await fetchWithTimeout(`${this.baseUrl}/media/audio/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -281,7 +298,7 @@ class ElizaCloudVisionProvider implements VisionAnalysisProvider {
   async analyze(
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
-    const response = await fetch(`${this.baseUrl}/media/vision/analyze`, {
+    const response = await fetchWithTimeout(`${this.baseUrl}/media/vision/analyze`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -338,7 +355,7 @@ export class FalImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/${this.model}`, {
+    const response = await fetchWithTimeout(`${this.baseUrl}/${this.model}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -393,7 +410,7 @@ export class FalVideoProvider implements VideoGenerationProvider {
   async generate(
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/${this.model}`, {
+    const response = await fetchWithTimeout(`${this.baseUrl}/${this.model}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -453,7 +470,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       "https://api.openai.com/v1/images/generations",
       {
         method: "POST",
@@ -512,7 +529,7 @@ export class OpenAIVideoProvider implements VideoGenerationProvider {
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
     // OpenAI Sora API (video generation)
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       "https://api.openai.com/v1/videos/generations",
       {
         method: "POST",
@@ -582,7 +599,7 @@ export class OpenAIVisionProvider implements VisionAnalysisProvider {
           image_url: { url: options.imageUrl ?? "" },
         };
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -648,7 +665,7 @@ export class GoogleImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predict`,
       {
         method: "POST",
@@ -707,7 +724,7 @@ export class GoogleVideoProvider implements VideoGenerationProvider {
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
     // Google Veo uses a different endpoint structure
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:predictLongRunning`,
       {
         method: "POST",
@@ -788,7 +805,7 @@ export class GoogleVisionProvider implements VisionAnalysisProvider {
       ? { inline_data: { mime_type: "image/jpeg", data: options.imageBase64 } }
       : { file_data: { file_uri: options.imageUrl, mime_type: "image/jpeg" } };
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
       {
         method: "POST",
@@ -850,7 +867,7 @@ export class XAIImageProvider implements ImageGenerationProvider {
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
     // xAI uses OpenAI-compatible API format for image generation
-    const response = await fetch("https://api.x.ai/v1/images/generations", {
+    const response = await fetchWithTimeout("https://api.x.ai/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -915,7 +932,7 @@ export class XAIVisionProvider implements VisionAnalysisProvider {
           image_url: { url: options.imageUrl ?? "" },
         };
 
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+    const response = await fetchWithTimeout("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -987,7 +1004,7 @@ class OllamaVisionProvider implements VisionAnalysisProvider {
 
     try {
       // Check if model exists
-      const response = await fetch(`${this.baseUrl}/api/tags`);
+      const response = await fetchWithTimeout(`${this.baseUrl}/api/tags`, {}, 120_000);
       if (!response.ok) {
         throw new Error(`Ollama server not reachable: ${response.statusText}`);
       }
@@ -1026,11 +1043,15 @@ class OllamaVisionProvider implements VisionAnalysisProvider {
   }
 
   private async downloadModel(): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/pull`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: this.model, stream: false }),
-    });
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/pull`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: this.model, stream: false }),
+      },
+      300_000,
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -1059,7 +1080,7 @@ class OllamaVisionProvider implements VisionAnalysisProvider {
     if (!imageData && options.imageUrl) {
       // Fetch the image and convert to base64
       try {
-        const imageResponse = await fetch(options.imageUrl);
+        const imageResponse = await fetchWithTimeout(options.imageUrl, {}, 120_000);
         if (!imageResponse.ok) {
           return {
             success: false,
@@ -1083,24 +1104,28 @@ class OllamaVisionProvider implements VisionAnalysisProvider {
       };
     }
 
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [
-          {
-            role: "user",
-            content: options.prompt ?? "Describe this image in detail.",
-            images: [imageData],
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            {
+              role: "user",
+              content: options.prompt ?? "Describe this image in detail.",
+              images: [imageData],
+            },
+          ],
+          stream: false,
+          options: {
+            num_predict: this.maxTokens,
           },
-        ],
-        stream: false,
-        options: {
-          num_predict: this.maxTokens,
-        },
-      }),
-    });
+        }),
+      },
+      120_000,
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -1150,7 +1175,7 @@ export class AnthropicVisionProvider implements VisionAnalysisProvider {
         }
       : { type: "url" as const, url: options.imageUrl ?? "" };
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1220,7 +1245,7 @@ export class SunoAudioProvider implements AudioGenerationProvider {
   async generate(
     options: AudioGenerationOptions,
   ): Promise<MediaProviderResult<AudioGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/generate`, {
+    const response = await fetchWithTimeout(`${this.baseUrl}/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
