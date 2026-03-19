@@ -16,6 +16,23 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 // ============================================================================
+// Security Guards
+// ============================================================================
+
+/** Guard against path traversal in filenames from external sources (e.g. HuggingFace). */
+export function validateFilename(filename: string): void {
+  if (
+    filename.startsWith("/") ||
+    filename.includes("\\") ||
+    filename.split("/").some((seg) => seg === ".." || seg === "")
+  ) {
+    throw new Error(
+      `Invalid filename "${filename}": path traversal or empty segments not allowed`,
+    );
+  }
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -325,6 +342,7 @@ export class LocalModelManager {
 
     let totalDownloaded = 0;
     for (const filename of downloadList) {
+      validateFilename(filename);
       const fileUrl = `https://huggingface.co/${modelId}/resolve/main/${filename}`;
       const filePath = join(modelPath, filename);
 
