@@ -194,7 +194,7 @@ curl -X POST http://localhost:2138/api/agent/autonomy \
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/agent/events` | Get buffered agent events. Params: `after` (event ID), `limit` (1-1000, default 200) |
+| `GET` | `/api/agent/events` | Get buffered agent events. Params: `after` (event ID cursor), `limit` (1-1000, default 200), `runId` (filter by run), `fromSeq` (min sequence number) |
 
 ---
 
