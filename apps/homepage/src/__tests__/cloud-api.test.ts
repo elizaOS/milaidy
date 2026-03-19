@@ -489,12 +489,12 @@ describe("CloudClient", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ id: "new-agent" }),
+      json: () => Promise.resolve({ success: true, data: { id: "new-agent" } }),
     });
     const result = await cc.createAgent({ name: "Test Agent" });
     expect(result.id).toBe("new-agent");
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.name).toBe("Test Agent");
+    expect(body.agentName).toBe("Test Agent");
   });
 
   it("getAgent() calls GET /api/v1/milady/agents/:id", async () => {
