@@ -2,7 +2,7 @@ import { Comparison } from "./components/Comparison";
 import { DownloadIcons } from "./components/DownloadIcons";
 import { Features } from "./components/Features";
 import { Footer } from "./components/Footer";
-import { HeroBackground } from "./components/Hero";
+import { HeroBackground, HeroInstallDock } from "./components/Hero";
 import { Privacy } from "./components/Privacy";
 
 export function Homepage() {
@@ -16,24 +16,24 @@ export function Homepage() {
 
       {/* Main scrolling container */}
       <div className="relative w-full">
-        {/* LAYER 1: Hero with CTA */}
-        <div className="relative z-10 w-full min-h-screen">
+        {/* LAYER 1: Background Layout (The massive typography, moves with scroll) */}
+        <div className="relative z-10 w-full min-h-screen pointer-events-none">
           <HeroBackground />
+        </div>
+
+        {/* LAYER 2: Foreground UI — Download dock pinned to hero bottom */}
+        <div
+          id="install"
+          className="absolute top-0 left-0 right-0 z-30 pointer-events-none"
+        >
+          <div className="w-full min-h-screen flex flex-col items-center justify-end pb-8 sm:pb-12 px-4 gap-6 pointer-events-auto">
+            <DownloadIcons />
+            <HeroInstallDock />
+          </div>
         </div>
 
         {/* Content sections below Hero */}
         <main className="relative z-30 pointer-events-auto bg-dark">
-          {/* Download section */}
-          <section id="install" className="py-16 sm:py-24 flex flex-col items-center px-4">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-light mb-3 text-center">
-              Get the App
-            </h2>
-            <p className="text-text-muted text-sm mb-8 text-center max-w-md">
-              Run Milady locally on any platform. Your agents stay on your machine.
-            </p>
-            <DownloadIcons />
-          </section>
-
           <Privacy />
           <Features />
           <Comparison />

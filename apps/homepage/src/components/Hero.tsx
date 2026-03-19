@@ -1,6 +1,7 @@
 import { motion, type Variants } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { releaseData } from "../generated/release-data";
 
 export const PHRASES = [
   "LOCAL FIRST",
@@ -65,14 +66,14 @@ export function HeroBackground() {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.12,
-        delayChildren: 0.15,
+        staggerChildren: 0.15,
+        delayChildren: 0.2,
       },
     },
   };
 
   const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 24 },
+    hidden: { opacity: 0, y: 30 },
     visible: {
       opacity: 1,
       y: 0,
@@ -81,26 +82,26 @@ export function HeroBackground() {
   };
 
   return (
-    <section className="absolute inset-0 flex flex-col items-center justify-center px-6 md:px-12 overflow-hidden">
+    <section className="absolute inset-0 flex flex-col items-center justify-center px-6 md:px-12 pointer-events-none overflow-hidden">
       {/* HUD Frame Elements */}
       <div className="absolute top-12 left-12 w-6 h-6 border-t-2 border-l-2 border-white/20" />
       <div className="absolute top-12 right-12 w-6 h-6 border-t-2 border-r-2 border-white/20" />
       <div className="absolute bottom-12 left-12 w-6 h-6 border-b-2 border-l-2 border-white/20" />
       <div className="absolute bottom-12 right-12 w-6 h-6 border-b-2 border-r-2 border-white/20" />
 
-      {/* Grid Lines */}
+      {/* Crosshairs & Grid Lines */}
       <div className="absolute top-0 bottom-0 left-[20%] w-[1px] bg-white/[0.03]" />
       <div className="absolute top-0 bottom-0 right-[20%] w-[1px] bg-white/[0.03]" />
       <div className="absolute top-[30%] left-0 right-0 h-[1px] bg-white/[0.03]" />
 
-      {/* Central Content */}
+      {/* Central Editorial Content */}
       <motion.div
         className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {/* PRIMARY: Original Massive MILADY Title + Typewriter */}
+        {/* Massive MILADY Title + Typewriter */}
         <motion.h1
           variants={itemVariants}
           className="text-[10vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.8] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-12"
@@ -110,54 +111,64 @@ export function HeroBackground() {
             <TypewriterLoop />
           </span>
         </motion.h1>
-
-        {/* SECONDARY: Value prop + Dashboard CTA */}
-        <motion.p
-          variants={itemVariants}
-          className="max-w-xl text-sm sm:text-base text-text-muted leading-relaxed px-4 mt-8"
-        >
-          Deploy autonomous AI agents in one click.{" "}
-          <span className="text-text-light font-medium">
-            Your agents. Your data. Your cloud.
-          </span>
-        </motion.p>
-
-        <motion.div
-          variants={itemVariants}
-          className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 mt-5"
-        >
-          <Link
-            to="/dashboard"
-            className="px-7 py-3 bg-brand text-dark font-bold text-sm rounded-xl
-              hover:bg-brand-hover active:scale-[0.97] transition-all duration-150
-              shadow-[0_0_30px_rgba(240,185,11,0.25)] hover:shadow-[0_0_40px_rgba(240,185,11,0.35)]"
-          >
-            Launch Dashboard →
-          </Link>
-          <a
-            href="#install"
-            className="px-5 py-2.5 text-text-muted text-sm font-medium rounded-xl border border-border
-              hover:text-text-light hover:border-text-muted hover:bg-surface transition-all duration-150"
-          >
-            Download Desktop App
-          </a>
-        </motion.div>
-
-        {/* Trust line */}
-        <motion.div
-          variants={itemVariants}
-          className="flex items-center gap-4 text-xs text-text-muted/60 mt-4"
-        >
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            Free to start
-          </span>
-          <span className="w-px h-3 bg-border" />
-          <span>No credit card required</span>
-          <span className="w-px h-3 bg-border" />
-          <span>Open source</span>
-        </motion.div>
       </motion.div>
     </section>
+  );
+}
+
+/* ── Hero Install Dock — version badge + nav links ──────────────── */
+
+export function HeroInstallDock() {
+  const tagName = releaseData.release.tagName;
+  const publishedAt = releaseData.release.publishedAtLabel;
+
+  const dockVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 80,
+        damping: 18,
+        delay: 0.6,
+      },
+    },
+  };
+
+  return (
+    <motion.div
+      className="flex flex-col items-center gap-5"
+      variants={dockVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Version badge */}
+      <div className="flex items-center gap-2 text-[10px] sm:text-[11px] tracking-wider uppercase font-mono">
+        <span className="text-brand/80 border border-brand/25 px-2 py-0.5 bg-brand/5">
+          {tagName}
+        </span>
+        <span className="text-text-muted/40">{publishedAt}</span>
+      </div>
+
+      {/* Subtle nav row */}
+      <div className="flex items-center gap-3 text-[10px] sm:text-[11px] tracking-widest uppercase text-text-muted/40">
+        <Link
+          to="/dashboard"
+          className="hover:text-brand/70 transition-colors duration-200"
+        >
+          dashboard
+        </Link>
+        <span className="text-white/10">·</span>
+        <a
+          href="https://github.com/0xSolace/milaidy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-brand/70 transition-colors duration-200"
+        >
+          src
+        </a>
+      </div>
+    </motion.div>
   );
 }
