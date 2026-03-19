@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -44,10 +45,15 @@ export interface ManagedAgent {
   lastHeartbeat?: string;
 }
 
+export type SourceFilter = "all" | "local" | "cloud" | "remote";
+
 interface AgentContextValue {
   agents: ManagedAgent[];
+  filteredAgents: ManagedAgent[];
   loading: boolean;
   cloudClient: CloudClient | null;
+  sourceFilter: SourceFilter;
+  setSourceFilter: (f: SourceFilter) => void;
   refresh: () => Promise<void>;
   addRemoteUrl: (name: string, url: string, token?: string) => void;
   removeRemote: (id: string) => void;
@@ -60,23 +66,66 @@ const AgentContext = createContext<AgentContextValue | null>(null);
 // Fallback: a same-host discovery service on port 3456 for direct dashboard access.
 const MILADY_AGENT_BASE_DOMAIN = "waifu.fun";
 
+/** Shallow-compare two agent lists to avoid unnecessary re-renders. */
+function agentsEqual(a: ManagedAgent[], b: ManagedAgent[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const aa = a[i], bb = b[i];
+    if (
+      aa.id !== bb.id ||
+      aa.name !== bb.name ||
+      aa.status !== bb.status ||
+      aa.model !== bb.model ||
+      aa.uptime !== bb.uptime ||
+      aa.memories !== bb.memories ||
+      aa.webUiUrl !== bb.webUiUrl ||
+      aa.sourceUrl !== bb.sourceUrl ||
+      aa.lastHeartbeat !== bb.lastHeartbeat
+    ) return false;
+  }
+  return true;
+}
+
 export function AgentProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cloudClientRef, setCloudClientRef] = useState<CloudClient | null>(
-    null,
-  );
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const cloudClientRef = useRef<CloudClient | null>(null);
+  const cloudTokenRef = useRef<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
+
+  // Sort agents: local first, then remote, then cloud (memoized to avoid re-creating on every render)
+  const sortedAgents = useMemo(() =>
+    [...agents].sort((a, b) => {
+      const order: Record<string, number> = { local: 0, remote: 1, cloud: 2 };
+      return (order[a.source] ?? 3) - (order[b.source] ?? 3);
+    }),
+    [agents],
+  );
+
+  const filteredAgents = useMemo(() =>
+    sourceFilter === "all"
+      ? sortedAgents
+      : sortedAgents.filter((a) => a.source === sourceFilter),
+    [sortedAgents, sourceFilter],
+  );
 
   const fetchAll = useCallback(async () => {
     const results: ManagedAgent[] = [];
 
     // 1. Cloud agents (if authenticated with Eliza Cloud)
-    if (getToken()) {
-      const cc = new CloudClient(getToken() ?? "");
-      setCloudClientRef(cc);
+    let cloudAuthOk = false;
+    const token = getToken();
+    if (token) {
+      // Reuse existing CloudClient if token hasn't changed
+      if (cloudTokenRef.current !== token || !cloudClientRef.current) {
+        cloudClientRef.current = new CloudClient(token);
+        cloudTokenRef.current = token;
+      }
+      const cc = cloudClientRef.current;
       try {
         const cloudAgents = await cc.listAgents();
+        cloudAuthOk = true;
         for (const ca of cloudAgents) {
           results.push({
             id: `cloud-${ca.id}`,
@@ -96,10 +145,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch {
-        // Cloud API failed — skip
+        // Cloud API failed — skip cloud agents but continue with sandbox discovery
       }
     } else {
-      setCloudClientRef(null);
+      cloudClientRef.current = null;
+      cloudTokenRef.current = null;
     }
 
     // 2. Milady self-hosted agents (auto-discovery)
@@ -133,7 +183,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     }
 
     // Build a set of cloud agent names/ids for cross-referencing.
-    // Only sandbox agents that match a cloud agent belong to this user.
+    // When cloud auth succeeded, use cross-reference to scope sandbox agents to this user.
+    // When cloud auth failed, show ALL discovered sandboxes (fallback for self-hosted setups).
     const cloudAgentNames = new Set(
       results
         .filter((a) => a.source === "cloud")
@@ -145,15 +196,25 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         .map((a) => a.cloudAgentId),
     );
 
-    // Only show discovered sandboxes when the user is authenticated
-    // AND filter to only those matching cloud agents (org-scoped).
-    if (sandboxes.length > 0 && authToken) {
-      // Filter sandboxes to only those belonging to the current user
-      const ownedSandboxes = sandboxes.filter((sb) => {
-        const nameMatch = cloudAgentNames.has((sb.agent_name || "").toLowerCase());
-        const idMatch = cloudAgentIds.has(sb.id);
-        return nameMatch || idMatch;
-      });
+    if (sandboxes.length > 0) {
+      // When cloud auth succeeded and returned agents, filter sandboxes to only matching ones.
+      // When cloud auth failed (or returned 0 agents), show all sandboxes as fallback.
+      const ownedSandboxes = cloudAuthOk && cloudAgentNames.size > 0
+        ? sandboxes.filter((sb) => {
+            const nameMatch = cloudAgentNames.has((sb.agent_name || "").toLowerCase());
+            const idMatch = cloudAgentIds.has(sb.id);
+            return nameMatch || idMatch;
+          })
+        : sandboxes;
+
+      // Build a lookup from cloud agent name (lowercase) → index in results
+      const cloudAgentIndexByName = new Map<string, number>();
+      for (let i = 0; i < results.length; i++) {
+        if (results[i].source === "cloud") {
+          cloudAgentIndexByName.set(results[i].name.toLowerCase(), i);
+        }
+      }
+
       for (const sb of ownedSandboxes) {
           discoveredIds.add(sb.id);
           // Each sandbox is accessible at https://{uuid}.waifu.fun
@@ -164,8 +225,44 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             type: "remote",
             authToken: apiToken,
           });
+
+          // Check if this sandbox matches an existing cloud agent (dedup by name)
+          const sbName = (sb.agent_name || "").toLowerCase();
+          const matchingCloudIdx = cloudAgentIndexByName.get(sbName);
+
+          if (matchingCloudIdx !== undefined) {
+            // Merge sandbox data INTO the existing cloud agent instead of creating a duplicate.
+            // Cloud agent is preferred (richer data), but sandbox provides live status + connectivity.
+            const cloudEntry = results[matchingCloudIdx];
+            cloudEntry.sourceUrl = url;
+            cloudEntry.client = client;
+            cloudEntry.nodeId = sb.node_id;
+            cloudEntry.lastHeartbeat = sb.last_heartbeat_at;
+            // Set webUiUrl to the sandbox's public URL (https://{uuid}.waifu.fun)
+            // TODO: Integrate pairing token flow for proper auth handoff (see WEB_UI_URL_NOTES.md)
+            cloudEntry.webUiUrl = url;
+            // Try to enrich with live status from the sandbox
+            try {
+              await client.health();
+              try {
+                const status = await client.getAgentStatus();
+                // Only override cloud fields if sandbox has real data
+                if (status.state && status.state !== "unknown") cloudEntry.status = status.state;
+                if (status.model && status.model !== "—") cloudEntry.model = status.model;
+                if (status.uptime) cloudEntry.uptime = status.uptime;
+                if (status.memories) cloudEntry.memories = status.memories;
+              } catch {
+                // Health OK but no detailed status — mark as running if cloud says unknown
+                if (cloudEntry.status === "unknown") cloudEntry.status = "running";
+              }
+            } catch {
+              // Sandbox unreachable — keep cloud data as-is
+            }
+            continue;
+          }
+
+          // No matching cloud agent — add as standalone remote agent
           try {
-            // health() won't throw if the agent is reachable + auth OK
             await client.health();
             try {
               const status = await client.getAgentStatus();
@@ -178,31 +275,32 @@ export function AgentProvider({ children }: { children: ReactNode }) {
                 uptime: status.uptime,
                 memories: status.memories,
                 sourceUrl: url,
+                webUiUrl: url,
                 client,
                 nodeId: sb.node_id,
                 lastHeartbeat: sb.last_heartbeat_at,
               });
             } catch {
-              // Health OK but no status detail — show as running
               results.push({
                 id: `milady-${sb.id}`,
                 name: sb.agent_name || sb.id,
                 source: "remote",
                 status: "running",
                 sourceUrl: url,
+                webUiUrl: url,
                 client,
                 nodeId: sb.node_id,
                 lastHeartbeat: sb.last_heartbeat_at,
               });
             }
           } catch {
-            // Agent unreachable
             results.push({
               id: `milady-${sb.id}`,
               name: sb.agent_name || sb.id,
               source: "remote",
               status: "unknown",
               sourceUrl: url,
+              webUiUrl: url,
               client,
               nodeId: sb.node_id,
               lastHeartbeat: sb.last_heartbeat_at,
@@ -302,7 +400,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setAgents(results);
+    // Only update state if data actually changed (prevents unnecessary re-renders)
+    setAgents((prev) => agentsEqual(prev, results) ? prev : results);
     setLoading(false);
   }, []);
 
@@ -329,17 +428,20 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     [fetchAll],
   );
 
+  const contextValue = useMemo<AgentContextValue>(() => ({
+    agents: sortedAgents,
+    filteredAgents,
+    loading,
+    cloudClient: cloudClientRef.current,
+    sourceFilter,
+    setSourceFilter,
+    refresh: fetchAll,
+    addRemoteUrl,
+    removeRemote,
+  }), [sortedAgents, filteredAgents, loading, sourceFilter, fetchAll, addRemoteUrl, removeRemote]);
+
   return (
-    <AgentContext
-      value={{
-        agents,
-        loading,
-        cloudClient: cloudClientRef,
-        refresh: fetchAll,
-        addRemoteUrl,
-        removeRemote,
-      }}
-    >
+    <AgentContext value={contextValue}>
       {children}
     </AgentContext>
   );
