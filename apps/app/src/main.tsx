@@ -13,6 +13,7 @@ import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { App } from "@elizaos/app-core";
+import { client } from "@elizaos/app-core/api";
 // Import Capacitor bridge utilities
 import {
   initializeCapacitorBridge,
@@ -38,6 +39,10 @@ import { Desktop } from "@miladyai/capacitor-desktop";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { CharacterEditor } from "./components/CharacterEditor";
+import {
+  applyForceFreshOnboardingReset,
+  installForceFreshOnboardingClientPatch,
+} from "./onboarding-reset";
 
 const MILADY_BRANDING: Partial<BrandingConfig> = {
   appName: "Milady",
@@ -98,17 +103,10 @@ declare global {
   }
 }
 
-// Dev escape hatch: ?reset in URL clears persisted connection state so the
-// app always shows fresh onboarding instead of polling a dead backend.
-if (new URLSearchParams(window.location.search).has("reset")) {
-  localStorage.removeItem("eliza:connection-mode");
-  localStorage.removeItem("eliza:onboarding-step");
-  localStorage.removeItem("eliza:onboarding-complete");
-  // Strip ?reset from URL to avoid loop
-  const clean = new URL(window.location.href);
-  clean.searchParams.delete("reset");
-  window.history.replaceState(null, "", clean.toString());
-}
+// Dev escape hatch: ?reset forces a truly fresh onboarding session by clearing
+// persisted state and temporarily suppressing stale backend resume config.
+applyForceFreshOnboardingReset();
+installForceFreshOnboardingClientPatch(client);
 
 // Register custom character editor for app-core's ViewRouter to pick up
 window.__MILADY_CHARACTER_EDITOR__ = CharacterEditor;
