@@ -10,6 +10,60 @@ For setup, architecture, auth, and debug/benchmark guidance, see:
 
 - [Coding Swarms (Orchestrator)](/guides/coding-swarms)
 
+## Preflight
+
+```
+GET /api/coding-agents/preflight
+```
+
+Returns available coding agent adapters and their installation status. Use this to check which coding agents (e.g. Claude Code, Codex) are ready for use.
+
+**Response:**
+```json
+[
+  {
+    "adapter": "eliza",
+    "installed": true
+  },
+  {
+    "adapter": "claude-code",
+    "installed": false,
+    "installCommand": "npm install -g @anthropic-ai/claude-code",
+    "docsUrl": "https://docs.anthropic.com/en/docs/claude-code"
+  }
+]
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `adapter` | string | Coding agent adapter identifier |
+| `installed` | boolean | Whether the adapter is available |
+| `installCommand` | string \| undefined | Command to install the adapter (if not installed) |
+| `docsUrl` | string \| undefined | Link to adapter documentation |
+
+---
+
+## Scratch Workspaces
+
+```
+GET /api/coding-agents/scratch
+```
+
+List temporary scratch workspaces created by coding agent sessions.
+
+**Response:**
+```json
+[
+  {
+    "id": "scratch-uuid",
+    "path": "/tmp/milady-scratch/scratch-uuid",
+    "createdAt": "2026-03-19T10:00:00.000Z"
+  }
+]
+```
+
+---
+
 ## Coordinator Status
 
 ```

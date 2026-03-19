@@ -346,6 +346,73 @@ Manually trigger TTS on the live stream.
 
 **Errors:** `400` text missing/too long; `429` already speaking; `503` bridge not attached.
 
+## Stream Source
+
+### Get Stream Source
+
+```
+GET /api/stream/source
+```
+
+Returns the currently active stream capture source.
+
+**Response:**
+```json
+{
+  "source": {
+    "type": "stream-tab",
+    "url": null
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source.type` | string | Active source type: `"stream-tab"`, `"game"`, or `"custom-url"` |
+| `source.url` | string \| null | URL for `game` or `custom-url` sources, `null` for `stream-tab` |
+
+### Set Stream Source
+
+```
+POST /api/stream/source
+```
+
+Switches the active stream capture source. If a stream is currently running, frame capture is automatically restarted with the new source.
+
+**Request body:**
+```json
+{
+  "sourceType": "game",
+  "customUrl": "https://example.com/game"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sourceType` | string | yes | One of `"stream-tab"`, `"game"`, or `"custom-url"` |
+| `customUrl` | string | conditional | Required when `sourceType` is `"game"` or `"custom-url"`. Must use `http://` or `https://` scheme |
+
+**Response (200):**
+```json
+{
+  "ok": true,
+  "source": {
+    "type": "game",
+    "url": "https://example.com/game"
+  }
+}
+```
+
+**Errors:**
+
+| Status | Condition |
+|--------|-----------|
+| `400` | Invalid `sourceType` value |
+| `400` | Missing `customUrl` for `game` or `custom-url` source |
+| `400` | `customUrl` uses a non-HTTP scheme |
+
+---
+
 ## Visual Settings
 
 ### Get Stream Settings

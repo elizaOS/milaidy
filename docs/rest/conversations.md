@@ -15,6 +15,7 @@ The conversations API manages the agent's web-chat interface. Each conversation 
 | GET | `/api/conversations/:id/messages` | Get messages for a conversation |
 | POST | `/api/conversations/:id/messages` | Send a message (synchronous) |
 | POST | `/api/conversations/:id/messages/stream` | Send a message (SSE streaming) |
+| POST | `/api/conversations/:id/messages/truncate` | Truncate message history at a given message |
 | POST | `/api/conversations/:id/greeting` | Generate a greeting message |
 | PATCH | `/api/conversations/:id` | Update conversation metadata |
 | DELETE | `/api/conversations/:id` | Delete a conversation |
@@ -164,6 +165,43 @@ data: {"type":"done","fullText":"Here's what I think...","agentName":"Milady"}
 ```
 
 The conversation title is auto-generated in the background if it is still `"New Chat"`, and a `conversation-updated` WebSocket event is broadcast.
+
+---
+
+### POST /api/conversations/:id/messages/truncate
+
+Delete messages from a conversation starting at a specific message. Useful for rolling back conversation history.
+
+**Request Body**
+
+```json
+{
+  "messageId": "uuid-of-message",
+  "inclusive": true
+}
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `messageId` | string | yes | ID of the message to truncate from |
+| `inclusive` | boolean | no | If `true`, deletes the specified message as well. Default `false` |
+
+**Response**
+
+```json
+{
+  "ok": true,
+  "deleted": 5
+}
+```
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Missing `messageId` |
+| 404 | Conversation not found |
+| 503 | Agent is not running |
 
 ---
 
