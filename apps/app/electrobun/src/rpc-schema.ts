@@ -206,6 +206,8 @@ export interface DetectedProvider {
   apiKey?: string;
   authMode?: string;
   cliInstalled: boolean;
+  status: "valid" | "invalid" | "unchecked" | "error";
+  statusDetail?: string;
 }
 
 // -- Screencapture --
@@ -395,6 +397,7 @@ export type MiladyRPCSchema = {
         response: { path: string };
       };
       desktopBeep: { params: undefined; response: undefined };
+      desktopOpenSettingsWindow: { params: undefined; response: undefined };
 
       // ---- Desktop: Clipboard ----
       desktopWriteToClipboard: {
@@ -740,7 +743,11 @@ export type MiladyRPCSchema = {
 
       // ---- Credentials Auto-Detection ----
       credentialsScanProviders: {
-        params: { context: "onboarding" };
+        params: { context: "onboarding" | "tray-refresh" };
+        response: { providers: DetectedProvider[] };
+      };
+      credentialsScanAndValidate: {
+        params: { context: "onboarding" | "tray-refresh" };
         response: { providers: DetectedProvider[] };
       };
 
@@ -1009,6 +1016,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "desktop:isPackaged": "desktopIsPackaged",
   "desktop:getPath": "desktopGetPath",
   "desktop:beep": "desktopBeep",
+  "desktop:openSettingsWindow": "desktopOpenSettingsWindow",
 
   // Desktop: Clipboard
   "desktop:writeToClipboard": "desktopWriteToClipboard",
@@ -1125,6 +1133,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
 
   // Credentials
   "credentials:scanProviders": "credentialsScanProviders",
+  "credentials:scanAndValidate": "credentialsScanAndValidate",
 
   // GPU Window
   "gpuWindow:create": "gpuWindowCreate",

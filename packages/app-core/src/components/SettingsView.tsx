@@ -31,9 +31,11 @@ import {
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../state";
+import type { FlaminaGuideTopic } from "../state/types";
 import { CodingAgentSettingsSection } from "./CodingAgentSettingsSection";
 import { ConfigPageView } from "./ConfigPageView";
 import { CloudDashboard } from "./ElizaCloudDashboard";
+import { DeferredSetupChecklist, FlaminaGuideCard } from "./FlaminaGuide";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
@@ -234,7 +236,11 @@ function UpdatesSection() {
 
 /* ── Advanced Section ─────────────────────────────────────────────────── */
 
-function AdvancedSection() {
+function AdvancedSection({
+  onJumpToSection,
+}: {
+  onJumpToSection: (sectionId: string) => void;
+}) {
   const { t } = useApp();
   const {
     handleReset,
@@ -254,7 +260,21 @@ function AdvancedSection() {
   } = useApp();
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [guideTopic, setGuideTopic] = useState<FlaminaGuideTopic>("provider");
   const importFileInputRef = useRef<HTMLInputElement>(null);
+  const jumpToTask = useCallback(
+    (task: FlaminaGuideTopic) => {
+      setGuideTopic(task);
+      const targetSection: Record<FlaminaGuideTopic, string> = {
+        provider: "ai-model",
+        rpc: "wallet-rpc",
+        permissions: "permissions",
+        voice: "voice",
+      };
+      onJumpToSection(targetSection[task]);
+    },
+    [onJumpToSection],
+  );
 
   const resetExportState = useCallback(() => {
     setState("exportPassword", "");
@@ -296,6 +316,46 @@ function AdvancedSection() {
   return (
     <>
       <div className="space-y-6">
+        <div className="space-y-4 rounded-2xl border border-border/50 bg-card/40 p-4 backdrop-blur-sm">
+          <div>
+            <div className="text-sm font-semibold text-txt-strong">
+              Flamina walkthrough
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Advanced configuration stays explainable and deferrable. Open a
+              topic to see what it changes about the character before you touch
+              the setting.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["provider", "Provider"],
+                ["rpc", "RPC"],
+                ["permissions", "Permissions"],
+                ["voice", "Voice"],
+              ] as Array<[FlaminaGuideTopic, string]>
+            ).map(([topic, label]) => (
+              <button
+                key={topic}
+                type="button"
+                className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+                  guideTopic === topic
+                    ? "border-accent/40 bg-accent/10 text-txt"
+                    : "border-border/60 bg-bg/50 text-muted hover:text-txt"
+                }`}
+                onClick={() => setGuideTopic(topic)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <FlaminaGuideCard topic={guideTopic} />
+          <DeferredSetupChecklist onOpenTask={jumpToTask} />
+        </div>
+
         {/* Export/Import */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
@@ -753,7 +813,7 @@ export function SettingsView({
           description={t("settings.advancedDescription")}
           className="p-4 sm:p-5 lg:p-6"
         >
-          <AdvancedSection />
+          <AdvancedSection onJumpToSection={handleSectionChange} />
         </SectionCard>
       )}
 

@@ -279,6 +279,8 @@
   "characterview.core": "Core",
   "characterview.style": "Style",
   "characterview.examples": "Examples",
+  "characterview.chatExamples": "Chat Examples",
+  "characterview.noChatExamplesYet": "No chat examples yet.",
   "characterview.aboutMe": "About Me",
   "characterview.directionsAndThing": "Directions & Things to Remember",
   "characterview.StyleRules": "Style Rules",

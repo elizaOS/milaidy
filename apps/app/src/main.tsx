@@ -49,6 +49,13 @@ function isDesktopPlatform(): boolean {
   return isElectrobunRuntime();
 }
 
+function isSettingsShell(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    new URLSearchParams(window.location.search).get("shell") === "settings"
+  );
+}
+
 function isWebPlatform(): boolean {
   return platform === "web" && !isElectrobunRuntime();
 }
@@ -461,6 +468,31 @@ async function main(): Promise<void> {
     // Popout mode — skip platform init (agent lifecycle, Capacitor bridges,
     // shortcuts, tray). Just inject the API base and mount the React app.
     injectPopoutApiBase();
+    mountReactApp();
+    return;
+  }
+
+  if (isSettingsShell()) {
+    // Settings shell — inject the API base from URL params so the client
+    // connects to the same agent backend as the main window.
+    const settingsParams = new URLSearchParams(window.location.search);
+    const settingsApiBase = settingsParams.get("apiBase");
+    if (settingsApiBase) {
+      window.__MILADY_API_BASE__ = settingsApiBase;
+    }
+    // Apply stored theme (default to dark)
+    try {
+      const stored = localStorage.getItem("milady:ui-theme");
+      const theme = stored === "light" ? "light" : "dark";
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch {
+      document.documentElement.classList.add("dark");
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+    // Initialize storage and bridge so AppProvider can read cached auth state.
+    await initializeStorageBridge();
+    initializeCapacitorBridge();
     mountReactApp();
     return;
   }

@@ -103,7 +103,11 @@ function createMockProcess(
           c.close();
         },
       }),
-    kill: overrides.kill ?? vi.fn(),
+    kill:
+      overrides.kill ??
+      vi.fn(() => {
+        exitDeferred.resolve(0);
+      }),
     _exitDeferred: exitDeferred,
   };
 }
@@ -116,6 +120,13 @@ function makeReadableStream(text: string) {
       c.close();
     },
   });
+}
+
+function makeHealthyResponse() {
+  return {
+    ok: true,
+    json: async () => ({ ready: true }),
+  };
 }
 
 /** Get the mocked fs.existsSync function to configure behavior per-test */
@@ -222,7 +233,7 @@ describe("AgentManager", () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
     Object.defineProperty(process, "execPath", {
       configurable: true,
@@ -232,7 +243,7 @@ describe("AgentManager", () => {
       configurable: true,
       value: ORIGINAL_PLATFORM,
     });
-    manager.dispose();
+    await manager.dispose();
   });
 
   describe("initial state", () => {
@@ -326,7 +337,7 @@ describe("AgentManager", () => {
       mockSpawn.mockReturnValue(mockProc);
 
       // Health check to succeed
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       // Agent name fetch
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -346,7 +357,7 @@ describe("AgentManager", () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [{ name: "Milady" }] }),
@@ -377,7 +388,7 @@ describe("AgentManager", () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [{ name: "Milady" }] }),
@@ -430,7 +441,7 @@ describe("AgentManager", () => {
         const mockProc = createMockProcess();
         mockSpawn.mockReturnValue(mockProc);
 
-        mockFetch.mockResolvedValueOnce({ ok: true });
+        mockFetch.mockResolvedValueOnce(makeHealthyResponse());
         mockFetch.mockResolvedValueOnce({
           ok: true,
           json: async () => ({ agents: [{ name: "Milady" }] }),
@@ -466,7 +477,7 @@ describe("AgentManager", () => {
         const mockProc = createMockProcess();
         mockSpawn.mockReturnValue(mockProc);
 
-        mockFetch.mockResolvedValueOnce({ ok: true });
+        mockFetch.mockResolvedValueOnce(makeHealthyResponse());
         mockFetch.mockResolvedValueOnce({
           ok: true,
           json: async () => ({ agents: [] }),
@@ -487,7 +498,7 @@ describe("AgentManager", () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
 
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       // Agent name fetch fails
       mockFetch.mockRejectedValueOnce(new Error("fetch failed"));
 
@@ -505,12 +516,12 @@ describe("AgentManager", () => {
       const mockProc2 = createMockProcess({ pid: 222 });
       mockSpawn.mockReturnValueOnce(mockProc1).mockReturnValueOnce(mockProc2);
 
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [{ name: "Milady" }] }),
       });
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [{ name: "Milady" }] }),
@@ -542,7 +553,7 @@ describe("AgentManager", () => {
       });
       mockSpawn.mockReturnValueOnce(mockProc);
 
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [{ name: "Milady" }] }),
@@ -570,7 +581,7 @@ describe("AgentManager", () => {
     it("transitions from running to stopped", async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [{ name: "TestAgent" }] }),
@@ -592,7 +603,7 @@ describe("AgentManager", () => {
     it("sends SIGTERM to the child process", async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [] }),
@@ -610,7 +621,7 @@ describe("AgentManager", () => {
     it("is a no-op when already stopped", async () => {
       const mockProc = createMockProcess();
       mockSpawn.mockReturnValue(mockProc);
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [] }),
@@ -634,7 +645,7 @@ describe("AgentManager", () => {
       mockSpawn.mockReturnValueOnce(mockProc1).mockReturnValueOnce(mockProc2);
 
       // First start
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [{ name: "Agent1" }] }),
@@ -647,7 +658,7 @@ describe("AgentManager", () => {
       mockProc1._exitDeferred.resolve(0);
 
       // Restart: health check and agent name for new process
-      mockFetch.mockResolvedValueOnce({ ok: true });
+      mockFetch.mockResolvedValueOnce(makeHealthyResponse());
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ agents: [{ name: "Agent2" }] }),

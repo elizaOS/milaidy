@@ -2222,12 +2222,34 @@ export class MiladyClient {
     if (!res.ok && !options?.allowNonOk) {
       const body = (await res
         .json()
-        .catch(() => ({ error: res.statusText }))) as Record<string, string>;
+        .catch(() => ({ error: res.statusText }))) as Record<string, unknown>;
+      const validationErrors = Array.isArray(body.validationErrors)
+        ? body.validationErrors
+            .map((issue) => {
+              if (!issue || typeof issue !== "object") return null;
+              const record = issue as Record<string, unknown>;
+              const path =
+                typeof record.path === "string" && record.path.trim()
+                  ? record.path.trim()
+                  : "character";
+              const message =
+                typeof record.message === "string" && record.message.trim()
+                  ? record.message.trim()
+                  : null;
+              if (!message) return null;
+              return `${path}: ${message}`;
+            })
+            .filter((issue): issue is string => Boolean(issue))
+        : [];
       throw new ApiError({
         kind: "http",
         path,
         status: res.status,
-        message: body.error ?? `HTTP ${res.status}`,
+        message:
+          (typeof body.error === "string" ? body.error : null) ??
+          (validationErrors.length > 0
+            ? `Validation failed: ${validationErrors.join("; ")}`
+            : `HTTP ${res.status}`),
       });
     }
     return res;

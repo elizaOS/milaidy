@@ -217,6 +217,8 @@
   "characterview.core": "核心",
   "characterview.style": "风格",
   "characterview.examples": "示例",
+  "characterview.chatExamples": "聊天示例",
+  "characterview.noChatExamplesYet": "还没有聊天示例。",
   "characterview.aboutMe": "关于我",
   "characterview.directionsAndThing": "指引和注意事项",
   "characterview.StyleRules": "风格规则",

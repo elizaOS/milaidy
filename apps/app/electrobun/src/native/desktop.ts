@@ -136,6 +136,9 @@ export class DesktopManager {
   private _focusPoller: ReturnType<typeof setInterval> | null = null;
   private _appActive = false;
 
+  // Callback to open the settings window (set by index.ts)
+  private openSettingsCallback: (() => void) | null = null;
+
   // Track menu items for context-menu-clicked matching
   private trayMenuItems: Map<string, TrayMenuItem> = new Map();
   private trayClickHandler: (() => void) | null = null;
@@ -167,6 +170,20 @@ export class DesktopManager {
    */
   setSendToWebview(fn: SendToWebview): void {
     this.sendToWebview = fn;
+  }
+
+  /**
+   * Set the callback used to open the settings window from menus.
+   */
+  setOpenSettingsCallback(cb: () => void): void {
+    this.openSettingsCallback = cb;
+  }
+
+  /**
+   * Open the settings window via the registered callback.
+   */
+  openSettings(): void {
+    this.openSettingsCallback?.();
   }
 
   private getWindow(): BrowserWindow {
@@ -338,7 +355,13 @@ export class DesktopManager {
       this.applicationMenuHandler,
     );
 
-    this.contextMenuHandler = (action: string) => {
+    // Tray menu item clicks fire "tray-clicked" on the global event bus
+    // (NOT "context-menu-clicked" — that's for right-click context menus).
+    // The event data shape is { data: { id, action, data? } }.
+    this.contextMenuHandler = (e: { data?: { action?: string } }) => {
+      const action = e?.data?.action;
+      if (!action) return;
+
       // Native actions
       if (action === "show") {
         void this.showWindow().catch((err: unknown) => {
@@ -348,6 +371,8 @@ export class DesktopManager {
         triggerAgentRestart();
       } else if (action === "quit") {
         Utils.quit();
+      } else if (action === "open-settings") {
+        this.openSettingsCallback?.();
       }
 
       // Renderer notification for all items
@@ -360,7 +385,7 @@ export class DesktopManager {
         });
       }
     };
-    Electrobun.events.on("context-menu-clicked", this.contextMenuHandler);
+    Electrobun.events.on("tray-clicked", this.contextMenuHandler);
   }
 
   private teardownTrayEvents(): void {
@@ -372,7 +397,7 @@ export class DesktopManager {
     );
     this.removeEventHandler(
       Electrobun.events,
-      "context-menu-clicked",
+      "tray-clicked",
       this.contextMenuHandler,
     );
     this.trayClickHandler = null;
