@@ -207,12 +207,17 @@ describe("Electrobun release workflow drift", () => {
 
   it("installs Inno Setup 6.7.1 and builds a standalone Windows installer", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const installIndex = workflow.lastIndexOf("name: Install Inno Setup 6.7.1");
+    const signIndex = workflow.indexOf("name: Sign Windows executables");
+    const buildIndex = workflow.indexOf("name: Build Inno Setup installer");
 
     expect(workflow).toContain("name: Install Inno Setup 6.7.1");
     expect(workflow).toContain("JRSoftware.InnoSetup");
     expect(workflow).toContain("--version 6.7.1");
     expect(workflow).toContain("name: Build Inno Setup installer");
     expect(workflow).toContain("packaging/inno/build-inno.ps1");
+    expect(installIndex).toBeGreaterThan(signIndex);
+    expect(installIndex).toBeLessThan(buildIndex);
     expect(workflow).toContain(
       "name: Verify Windows public installer looks complete",
     );

@@ -59,6 +59,7 @@ export interface ShareTargetPayload {
 
 declare global {
   interface Window {
+    __MILADY_API_BASE__?: string;
     __MILADY_SHARE_QUEUE__?: ShareTargetPayload[];
   }
 }

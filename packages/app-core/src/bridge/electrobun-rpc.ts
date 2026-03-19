@@ -47,6 +47,8 @@ export interface DetectedProvider {
   apiKey?: string;
   authMode?: string;
   cliInstalled: boolean;
+  status: "valid" | "invalid" | "unchecked" | "error";
+  statusDetail?: string;
 }
 
 export async function scanProviderCredentials(): Promise<DetectedProvider[]> {
@@ -56,6 +58,17 @@ export async function scanProviderCredentials(): Promise<DetectedProvider[]> {
     rpcMethod: "credentialsScanProviders",
     ipcChannel: "credentials:scanProviders",
     params: { context: "onboarding" },
+  });
+  return result?.providers ?? [];
+}
+
+export async function scanAndValidateProviderCredentials(): Promise<DetectedProvider[]> {
+  const result = await invokeDesktopBridgeRequest<{
+    providers: DetectedProvider[];
+  }>({
+    rpcMethod: "credentialsScanAndValidate",
+    ipcChannel: "credentials:scanAndValidate",
+    params: { context: "tray-refresh" },
   });
   return result?.providers ?? [];
 }
