@@ -74,6 +74,18 @@ function stopProp(handler: () => void) {
   };
 }
 
+function handleCardKeyDown(
+  e: React.KeyboardEvent<HTMLDivElement>,
+  onSelect: () => void,
+) {
+  if (e.target !== e.currentTarget) return;
+
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    onSelect();
+  }
+}
+
 export function AgentCard({
   agent,
   source,
@@ -97,9 +109,11 @@ export function AgentCard({
   const uiUrl = webUiUrl || sourceUrl;
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => handleCardKeyDown(e, onSelect)}
       className={`group relative rounded-2xl cursor-pointer transition-all duration-200 text-left w-full
         ${
           selected
@@ -362,7 +376,7 @@ export function AgentCard({
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 

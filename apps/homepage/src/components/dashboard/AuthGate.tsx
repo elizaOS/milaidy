@@ -21,7 +21,7 @@ export function CloudLoginBanner({
   }
 
   return (
-    <div className="mx-6 md:mx-8 mt-4 px-4 py-3 bg-surface/50 border border-border rounded-xl flex items-center gap-4">
+    <div className="mx-4 sm:mx-5 md:mx-8 mt-4 px-4 py-4 bg-surface/50 border border-border rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-4">
       <div className="flex-1">
         {state === "polling" ? (
           <>
@@ -67,11 +67,11 @@ export function CloudLoginBanner({
         )}
       </div>
       {state !== "polling" && (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex w-full sm:w-auto items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={signIn}
-            className="px-4 py-2 bg-brand text-dark font-medium text-xs rounded-lg
+            className="px-4 py-2.5 w-full sm:w-auto bg-brand text-dark font-medium text-xs rounded-lg
               hover:bg-brand-hover active:scale-[0.98] transition-all duration-150"
           >
             Sign In
@@ -79,7 +79,7 @@ export function CloudLoginBanner({
           <button
             type="button"
             onClick={() => setDismissed(true)}
-            className="px-3 py-2 text-text-muted text-xs rounded-lg
+            className="px-3 py-2.5 w-full sm:w-auto text-text-muted text-xs rounded-lg
               hover:text-text-light hover:bg-surface transition-all duration-150"
           >
             Dismiss

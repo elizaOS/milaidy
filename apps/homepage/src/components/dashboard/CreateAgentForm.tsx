@@ -411,15 +411,15 @@ export function CreateAgentForm({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               type="button"
               onClick={handleCreate}
               disabled={!name.trim()}
-              className="px-5 py-2.5 bg-brand text-dark font-medium text-sm rounded-xl
+              className="px-5 py-3 bg-brand text-dark font-medium text-sm rounded-xl
                 hover:bg-brand-hover active:scale-[0.98] transition-all duration-150
                 disabled:opacity-30 disabled:cursor-not-allowed
-                flex items-center gap-2 shadow-[0_0_16px_rgba(240,185,11,0.12)]"
+                flex items-center justify-center gap-2 shadow-[0_0_16px_rgba(240,185,11,0.12)]"
             >
               <svg
                 aria-hidden="true"
@@ -440,7 +440,7 @@ export function CreateAgentForm({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2.5 text-text-muted text-sm rounded-xl
+              className="px-4 py-3 text-text-muted text-sm rounded-xl
                 hover:text-text-light hover:bg-dark transition-all duration-150"
             >
               Cancel
