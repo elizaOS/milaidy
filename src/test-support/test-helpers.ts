@@ -218,6 +218,47 @@ export function resolveFarcasterPluginImportSpecifier(): string | null {
   return null;
 }
 
+const FEISHU_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-feishu";
+const FEISHU_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-feishu/typescript/dist/index",
+  "../plugins/plugin-feishu/dist/index",
+] as const;
+
+/**
+ * Resolve the Feishu plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ */
+export function resolveFeishuPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(FEISHU_PLUGIN_PACKAGE_NAME)) {
+    return FEISHU_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  // ESM-only package — check node_modules directly (same approach as Lens resolver)
+  const nodeModulesDistEntry = path.resolve(
+    packageRoot,
+    "node_modules",
+    "@elizaos",
+    "plugin-feishu",
+    "dist",
+    "index.js",
+  );
+  if (existsSync(nodeModulesDistEntry)) {
+    return pathToFileURL(nodeModulesDistEntry).href;
+  }
+
+  for (const relativeEntryPath of FEISHU_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
 /** Build a mock update check result with deterministic defaults. */
 export function buildMockUpdateCheckResult(
   overrides: Partial<MockUpdateCheckResult> = {},
