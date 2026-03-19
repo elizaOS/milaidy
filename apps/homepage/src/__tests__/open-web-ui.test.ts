@@ -93,7 +93,7 @@ describe("open-web-ui", () => {
     // Should have called the backend pairing-token endpoint
     const fetchUrl = fetchSpy.mock.calls[0]?.[0] as string;
     expect(fetchUrl).toContain(
-      "/api/agents/abcd1234-1234-1234-1234-123456789abc/pairing-token",
+      "/api/v1/milady/agents/abcd1234-1234-1234-1234-123456789abc/pairing-token",
     );
 
     // Wait for redirect

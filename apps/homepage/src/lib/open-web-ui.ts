@@ -14,9 +14,9 @@ async function fetchPairingRedirectUrl(
   agentUuid: string,
   apiKey: string,
 ): Promise<string> {
-  // The local Express backend mounts the route at /api/agents/:id/pairing-token
+  // The Eliza Cloud backend mounts the route at /api/v1/milady/agents/:id/pairing-token
   const res = await fetch(
-    `${CLOUD_BASE}/api/agents/${agentUuid}/pairing-token`,
+    `${CLOUD_BASE}/api/v1/milady/agents/${agentUuid}/pairing-token`,
     {
       method: "POST",
       headers: {
