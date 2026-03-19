@@ -1,11 +1,30 @@
 import type { IAgentRuntime } from "@elizaos/core";
 import chalk from "chalk";
 import type { Command } from "commander";
+import nodePath from "node:path";
+import os from "node:os";
 import type {
   InstallProgressLike,
   PluginManagerLike,
 } from "../services/plugin-manager-types";
 import { parseClampedInteger } from "../utils/number-parsing";
+
+/** Validate that a resolved plugin path is within allowed boundaries. */
+export function validatePluginPath(resolved: string): void {
+  const home = os.homedir();
+  const cwd = process.cwd();
+  if (
+    !nodePath.isAbsolute(resolved) ||
+    (!resolved.startsWith(home + nodePath.sep) &&
+      resolved !== home &&
+      !resolved.startsWith(cwd + nodePath.sep) &&
+      resolved !== cwd)
+  ) {
+    throw new Error(
+      `Plugin path ${resolved} is outside allowed boundaries (must be under ${home} or ${cwd})`,
+    );
+  }
+}
 
 /**
  * Normalize a user-provided plugin name to its fully-qualified form.
@@ -474,7 +493,9 @@ export function registerPluginsCli(program: Command): void {
         );
       }
       for (const p of config?.plugins?.load?.paths ?? []) {
-        scanDirs.push(resolveUserPath(p));
+        const rp = resolveUserPath(p);
+        validatePluginPath(rp);
+        scanDirs.push(rp);
       }
 
       console.log(
@@ -599,6 +620,7 @@ export function registerPluginsCli(program: Command): void {
       );
 
       const resolved = resolveUserPath(rawPath);
+      validatePluginPath(resolved);
 
       if (
         !nodeFs.existsSync(resolved) ||
@@ -622,7 +644,11 @@ export function registerPluginsCli(program: Command): void {
       if (!config.plugins.load) config.plugins.load = {};
       if (!config.plugins.load.paths) config.plugins.load.paths = [];
 
-      const existing = config.plugins.load.paths.map(resolveUserPath);
+      const existing = config.plugins.load.paths.map((p: string) => {
+        const rp = resolveUserPath(p);
+        validatePluginPath(rp);
+        return rp;
+      });
       if (existing.includes(resolved)) {
         console.log(`\n${chalk.yellow("Already registered:")} ${rawPath}\n`);
         return;
