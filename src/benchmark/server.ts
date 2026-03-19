@@ -934,8 +934,7 @@ export async function startBenchmarkServer() {
             })
           : {};
         const taskId =
-          typeof parsed.task_id === "string" &&
-          parsed.task_id.trim().length > 0
+          typeof parsed.task_id === "string" && parsed.task_id.trim().length > 0
             ? parsed.task_id
             : "default-task";
         const benchmark =
@@ -966,8 +965,7 @@ export async function startBenchmarkServer() {
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         elizaLogger.error(`[bench] Reset error: ${formatUnknownError(err)}`);
-        const status =
-          errorMessage === "Request body too large" ? 413 : 500;
+        const status = errorMessage === "Request body too large" ? 413 : 500;
         res.writeHead(status, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: errorMessage }));
       }
@@ -1098,142 +1096,136 @@ export async function startBenchmarkServer() {
           image?: unknown;
         };
 
-        const text =
-            typeof parsed.text === "string" ? parsed.text.trim() : "";
-          if (!text) {
-            throw new Error(
-              "Request body must include non-empty string `text`",
-            );
-          }
+        const text = typeof parsed.text === "string" ? parsed.text.trim() : "";
+        if (!text) {
+          throw new Error("Request body must include non-empty string `text`");
+        }
 
-          const context = extractRecord(parsed.context);
-          const taskId = extractTaskId(context);
-          const benchmark = extractBenchmarkName(context);
-          const session =
-            resolveSession(taskId, benchmark, true) ??
-            activeSession ??
-            resolveSession("default-task", "unknown", true);
-          if (!session) {
-            throw new Error("Failed to resolve benchmark session");
-          }
-          const key = sessionKey(session);
-          const trajectory = trajectoriesBySession.get(key) ?? [];
-          const startedAt = Date.now();
+        const context = extractRecord(parsed.context);
+        const taskId = extractTaskId(context);
+        const benchmark = extractBenchmarkName(context);
+        const session =
+          resolveSession(taskId, benchmark, true) ??
+          activeSession ??
+          resolveSession("default-task", "unknown", true);
+        if (!session) {
+          throw new Error("Failed to resolve benchmark session");
+        }
+        const key = sessionKey(session);
+        const trajectory = trajectoriesBySession.get(key) ?? [];
+        const startedAt = Date.now();
 
-          await ensureBenchmarkSessionContext(runtime, session);
+        await ensureBenchmarkSessionContext(runtime, session);
 
-          const benchmarkContext = normalizeBenchmarkContext(session, context);
-          const composedPrompt = composeBenchmarkPrompt({
-            text,
-            context: benchmarkContext,
-            image: parsed.image,
-          });
+        const benchmarkContext = normalizeBenchmarkContext(session, context);
+        const composedPrompt = composeBenchmarkPrompt({
+          text,
+          context: benchmarkContext,
+          image: parsed.image,
+        });
 
-          const incomingMessage: Memory = {
-            id: stringToUuid(`benchmark-msg:${Date.now()}:${Math.random()}`),
-            content: {
-              text: composedPrompt,
-              source: "benchmark",
-              metadata: {
-                benchmark: session.benchmark,
-                taskId: session.taskId,
-                ...(context ? { contextJson: JSON.stringify(context) } : {}),
-              },
+        const incomingMessage: Memory = {
+          id: stringToUuid(`benchmark-msg:${Date.now()}:${Math.random()}`),
+          content: {
+            text: composedPrompt,
+            source: "benchmark",
+            metadata: {
+              benchmark: session.benchmark,
+              taskId: session.taskId,
+              ...(context ? { contextJson: JSON.stringify(context) } : {}),
             },
-            entityId: session.userEntityId,
-            agentId: runtime.agentId,
-            roomId: session.roomId,
-            createdAt: Date.now(),
-          };
+          },
+          entityId: session.userEntityId,
+          agentId: runtime.agentId,
+          roomId: session.roomId,
+          createdAt: Date.now(),
+        };
 
-          const callbackTexts: string[] = [];
-          const callback = async (content: Content): Promise<Memory[]> => {
-            if (
-              typeof content.text === "string" &&
-              content.text.trim().length > 0
-            ) {
-              callbackTexts.push(content.text.trim());
-            }
-            return [];
-          };
-
-          if (!runtime.messageService) {
-            throw new Error("Runtime message service is not available");
+        const callbackTexts: string[] = [];
+        const callback = async (content: Content): Promise<Memory[]> => {
+          if (
+            typeof content.text === "string" &&
+            content.text.trim().length > 0
+          ) {
+            callbackTexts.push(content.text.trim());
           }
-          const messageService = runtime.messageService;
+          return [];
+        };
 
-          clearCapturedAction();
-          setBenchmarkContext(benchmarkContext);
-          const result = await (async () => {
-            try {
-              return await messageService.handleMessage(
-                runtime,
-                incomingMessage,
-                callback,
-              );
-            } finally {
-              setBenchmarkContext(null);
-            }
-          })();
+        if (!runtime.messageService) {
+          throw new Error("Runtime message service is not available");
+        }
+        const messageService = runtime.messageService;
 
-          const capturedAction = getCapturedAction();
+        clearCapturedAction();
+        setBenchmarkContext(benchmarkContext);
+        const result = await (async () => {
+          try {
+            return await messageService.handleMessage(
+              runtime,
+              incomingMessage,
+              callback,
+            );
+          } finally {
+            setBenchmarkContext(null);
+          }
+        })();
 
-          const responseText =
-            typeof result.responseContent?.text === "string"
-              ? result.responseContent.text
-              : callbackTexts.join("\n\n");
-          const thought =
-            typeof result.responseContent?.thought === "string"
-              ? result.responseContent.thought
-              : null;
-          const actionList = coerceActions(result.responseContent?.actions);
-          const actions =
-            actionList.length > 0
-              ? actionList
-              : capturedAction
-                ? ["BENCHMARK_ACTION"]
-                : [];
-          const parsedParams = coerceParams(result.responseContent?.params);
-          const params =
-            Object.keys(parsedParams).length > 0
-              ? parsedParams
-              : capturedActionToParams(capturedAction);
-          const finishedAt = Date.now();
+        const capturedAction = getCapturedAction();
 
-          trajectory.push({
-            step: trajectory.length + 1,
-            startedAt,
-            finishedAt,
-            inputText: text,
-            promptText: composedPrompt,
-            context,
+        const responseText =
+          typeof result.responseContent?.text === "string"
+            ? result.responseContent.text
+            : callbackTexts.join("\n\n");
+        const thought =
+          typeof result.responseContent?.thought === "string"
+            ? result.responseContent.thought
+            : null;
+        const actionList = coerceActions(result.responseContent?.actions);
+        const actions =
+          actionList.length > 0
+            ? actionList
+            : capturedAction
+              ? ["BENCHMARK_ACTION"]
+              : [];
+        const parsedParams = coerceParams(result.responseContent?.params);
+        const params =
+          Object.keys(parsedParams).length > 0
+            ? parsedParams
+            : capturedActionToParams(capturedAction);
+        const finishedAt = Date.now();
+
+        trajectory.push({
+          step: trajectory.length + 1,
+          startedAt,
+          finishedAt,
+          inputText: text,
+          promptText: composedPrompt,
+          context,
+          thought,
+          responseText,
+          actions,
+          params,
+        });
+        trajectoriesBySession.set(key, trajectory);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            text: responseText,
             thought,
-            responseText,
             actions,
             params,
-          });
-          trajectoriesBySession.set(key, trajectory);
-
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              text: responseText,
-              thought,
-              actions,
-              params,
-              benchmark: session.benchmark,
-              task_id: session.taskId,
-              room_id: session.roomId,
-              trajectory_step: trajectory.length,
-            }),
-          );
+            benchmark: session.benchmark,
+            task_id: session.taskId,
+            room_id: session.roomId,
+            trajectory_step: trajectory.length,
+          }),
+        );
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        elizaLogger.error(
-          `[bench] Request error: ${formatUnknownError(err)}`,
-        );
-        const status =
-          errorMessage === "Request body too large" ? 413 : 500;
+        elizaLogger.error(`[bench] Request error: ${formatUnknownError(err)}`);
+        const status = errorMessage === "Request body too large" ? 413 : 500;
         res.writeHead(status, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: errorMessage }));
       }
