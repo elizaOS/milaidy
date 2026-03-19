@@ -308,16 +308,15 @@ export class WhatsAppBaileysService extends Service {
         ? target.channelId
         : `${target.channelId}@s.whatsapp.net`;
     } else if (target.entityId) {
-      // entityId might be a phone number or a UUID — try to use it
-      const cleaned = target.entityId.replace(/[^0-9]/g, "");
-      if (cleaned.length >= 8) {
-        jid = `${cleaned}@s.whatsapp.net`;
-      } else {
+      // entityId might be a phone number or a UUID — validate E.164 format
+      const raw = target.entityId.trim();
+      if (!/^\+?[1-9]\d{1,14}$/.test(raw)) {
         throw new Error(
-          "Cannot determine WhatsApp recipient from target: " +
-            JSON.stringify(target),
+          `Invalid phone number format, expected E.164: "${target.entityId}"`,
         );
       }
+      const cleaned = raw.replace(/[^0-9]/g, "");
+      jid = `${cleaned}@s.whatsapp.net`;
     } else {
       throw new Error(
         "WhatsApp SendHandler requires channelId or entityId. Got: " +
