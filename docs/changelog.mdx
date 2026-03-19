@@ -3,6 +3,25 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-04-30" description="Week of April 24–30" tags={["Feature", "Update"]}>
+## Streaming response recovery
+
+When a chat response is interrupted mid-stream — whether from a network hiccup or a timeout — the message is now marked as interrupted with a Retry button. You can re-request the response instead of being left with a partial message.
+
+## Orchestrator trajectory tagging
+
+LLM calls made by the [swarm orchestrator](/guides/coding-swarms) are now tagged with a purple "orchestrator" badge in the [trajectories viewer](/advanced/trajectories). Each entry includes metadata like decision type, session ID, and task label, making it easier to distinguish orchestrator reasoning from individual agent calls during multi-agent runs.
+
+## Training backend auto-detection
+
+The [fine-tuning](/guides/training) system now detects available ML backends — MLX on Apple Silicon, CUDA on NVIDIA GPUs, and CPU as a fallback — before starting a training job. If the requested backend isn't available, you get a clear error instead of a cryptic failure mid-run.
+
+## Updates
+
+- **Character metadata persists across restarts** — Your agent's username and topics now survive restarts. Previously, these fields were treated as runtime-only and would revert to defaults after a reboot. See the [character editor](/agents/character-interface) for details.
+- **Reconnection progress indicator** — When the WebSocket connection drops, the dashboard now shows an amber "Reconnecting..." banner with the current attempt count before escalating to the red failure state, giving you real-time visibility into recovery progress.
+</Update>
+
 <Update label="2026-04-23" description="Week of April 17–23" tags={["Update", "Fix"]}>
 ## Telegram connector reliability
 
