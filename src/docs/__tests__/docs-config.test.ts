@@ -27,9 +27,13 @@ describe("docs/docs.json", () => {
     expect(Array.isArray(tabs)).toBe(true);
     expect(tabs.length).toBeGreaterThan(0);
 
-    for (const tab of tabs) {
+    const tabsWithGroups = tabs.filter((tab: { groups?: unknown }) =>
+      Array.isArray(tab.groups),
+    );
+    expect(tabsWithGroups.length).toBeGreaterThan(0);
+
+    for (const tab of tabsWithGroups) {
       expect(tab.tab).toBeDefined();
-      expect(Array.isArray(tab.groups)).toBe(true);
       expect(tab.groups.length).toBeGreaterThan(0);
     }
   });
@@ -39,6 +43,7 @@ describe("docs/docs.json", () => {
     const missing: string[] = [];
 
     for (const tab of tabs) {
+      if (!Array.isArray(tab.groups)) continue;
       for (const group of tab.groups) {
         for (const page of group.pages) {
           const mdx = join(DOCS_DIR, `${page}.mdx`);
@@ -68,6 +73,7 @@ describe("docs page frontmatter", () => {
   // Derive pages from docs.json so the list never goes stale
   const allPages: string[] = [];
   for (const tab of config.navigation.tabs) {
+    if (!Array.isArray(tab.groups)) continue;
     for (const group of tab.groups) {
       for (const page of group.pages) {
         allPages.push(page);

@@ -62,7 +62,7 @@ describeIfPluginAvailable("Lens Connector - Basic Validation", () => {
 
     expect(plugin?.clients).toBeDefined();
     expect(Array.isArray(plugin?.clients)).toBe(true);
-    expect(plugin!.clients!.length).toBeGreaterThan(0);
+    expect(plugin?.clients?.length).toBeGreaterThan(0);
   });
 });
 
@@ -90,9 +90,9 @@ describe("Lens Connector - Protocol Constraints", () => {
     ).toBe(true);
     expect(addressPattern.test("0xabc")).toBe(false);
     expect(addressPattern.test("not-an-address")).toBe(false);
-    expect(addressPattern.test("d8dA6BF26964aF9D7eEd9e03E53415D37aA96045")).toBe(
-      false,
-    );
+    expect(
+      addressPattern.test("d8dA6BF26964aF9D7eEd9e03E53415D37aA96045"),
+    ).toBe(false);
   });
 
   it("private key format validation", () => {
