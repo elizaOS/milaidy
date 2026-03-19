@@ -67,21 +67,27 @@ export async function openWebUIWithPairing(
 }
 
 /**
- * Opens the Web UI directly, optionally bootstrapping auth via `?token=`.
+ * Opens the Web UI directly, bootstrapping auth via `?token=`.
  *
- * When an `apiToken` is provided the agent URL is opened with `?token=<apiToken>`.
- * The VPS nginx Lua router intercepts this, stores the token in sessionStorage,
- * and redirects the browser to `/` — so the built-in web UI picks it up
- * automatically without a manual pairing step.
+ * For remote/sandbox agents on milady.ai, appending `?token=<anything>`
+ * triggers the nginx Lua router to fetch the real MILADY_API_TOKEN from
+ * the internal agent-lookup service and inject it into sessionStorage.
+ * The actual token value in the URL doesn't matter — it's just a trigger.
  *
- * Used for local and remote agents that don't require cloud auth handoff.
+ * For local agents (localhost), opens without a token (no nginx Lua router).
  */
-export function openWebUIDirect(url: string, apiToken?: string): void {
+export function openWebUIDirect(
+  url: string,
+  opts?: { apiToken?: string; isLocal?: boolean },
+): void {
   let target = rewriteAgentUiUrl(url);
-  if (apiToken) {
-    // Append ?token= so the nginx Lua router injects it into sessionStorage
+  if (!opts?.isLocal) {
+    // Remote/sandbox agents: trigger nginx Lua auth bootstrap
+    // The Lua router intercepts /?token=..., fetches the real API key
+    // from the internal agent-lookup service, and injects it.
+    const token = opts?.apiToken || "bootstrap";
     const sep = target.includes("?") ? "&" : "?";
-    target = `${target}${sep}token=${encodeURIComponent(apiToken)}`;
+    target = `${target}${sep}token=${encodeURIComponent(token)}`;
   }
   window.open(target, "_blank", "noopener,noreferrer");
 }

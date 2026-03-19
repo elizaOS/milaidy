@@ -51,8 +51,14 @@ export function isHostedRuntime(): boolean {
   );
 }
 
+/**
+ * Public sandbox discovery is disabled everywhere.  The sandbox endpoint
+ * lists ALL running agents across the cluster — unauthenticated users
+ * should never see other people's agents.  Only cloud-authenticated
+ * sessions use sandbox data (to enrich their own agent list).
+ */
 export function shouldAllowPublicSandboxDiscoveryFallback(): boolean {
-  return !isHostedRuntime();
+  return false;
 }
 
 export function getCloudTokenStorageKey(): string {
