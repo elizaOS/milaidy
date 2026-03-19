@@ -76,12 +76,16 @@ describe("SurfaceWindowManager", () => {
 
     await manager.openSurfaceWindow("chat");
     await manager.openSurfaceWindow("chat");
+    await manager.openSurfaceWindow("browser");
     await manager.openSurfaceWindow("plugins");
     await manager.openSurfaceWindow("cloud");
 
     expect(manager.listWindows("chat").map((entry) => entry.title)).toEqual([
       "Milady Chat",
       "Milady Chat 2",
+    ]);
+    expect(manager.listWindows("browser").map((entry) => entry.title)).toEqual([
+      "Milady Browser",
     ]);
     expect(manager.listWindows("plugins").map((entry) => entry.title)).toEqual([
       "Milady Plugins",
@@ -131,6 +135,9 @@ describe("buildSurfaceShellQuery", () => {
   it("builds detached surface shell queries", () => {
     expect(buildSurfaceShellQuery("plugins")).toBe(
       "?shell=surface&tab=plugins",
+    );
+    expect(buildSurfaceShellQuery("browser")).toBe(
+      "?shell=surface&tab=browser",
     );
     expect(buildSurfaceShellQuery("triggers")).toBe(
       "?shell=surface&tab=triggers",

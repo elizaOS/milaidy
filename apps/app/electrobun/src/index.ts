@@ -644,9 +644,10 @@ async function createSettingsWindow(tabHint?: string): Promise<void> {
 }
 
 function showMainSurface(surface: string): void {
-  const itemId = surface === "chat" ? "navigate-chat" : `navigate-${surface}`;
   void getDesktopManager().showWindow();
-  sendToActiveRenderer("desktopTrayMenuClick", { itemId });
+  sendToActiveRenderer("desktopTrayMenuClick", {
+    itemId: `show-main:${surface}`,
+  });
 }
 
 function resolveDefaultDialogPath(): string {
