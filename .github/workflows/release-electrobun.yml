@@ -584,6 +584,26 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "MILADY_INNO_SETUP_COMPILER=$iscc"
           Write-Host "Using ISCC compiler: $iscc"
 
+      - name: Extract Windows app bundle for Inno Setup
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $buildRoot = Join-Path $PWD "apps/app/electrobun/build"
+          $tarball = Get-ChildItem -Path (Join-Path $PWD "apps/app/electrobun/artifacts") -File -Filter "*.tar.zst" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if (-not $tarball) {
+            Write-Error "No .tar.zst archive found in artifacts"
+            exit 1
+          }
+
+          $extractDir = Join-Path $buildRoot "inno-extract"
+          New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
+          Write-Host "Extracting $($tarball.Name) to $extractDir ..."
+          tar -xf $tarball.FullName -C $extractDir
+          Write-Host "Extracted contents:"
+          Get-ChildItem -Path $extractDir -Recurse -Depth 2 | ForEach-Object { Write-Host "  $($_.FullName)" }
+
       - name: Build Inno Setup installer
         if: matrix.platform.os == 'windows'
         env:

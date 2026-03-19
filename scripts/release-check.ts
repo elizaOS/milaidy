@@ -55,6 +55,8 @@ const requiredWorkflowSnippets = [
   "Install Inno Setup 6.7.1",
   "jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe",
   "Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing",
+  "Extract Windows app bundle for Inno Setup",
+  "tar -xf $tarball.FullName -C $extractDir",
   "Build Inno Setup installer",
   "packaging/inno/build-inno.ps1",
   "Verify Windows public installer looks complete",
