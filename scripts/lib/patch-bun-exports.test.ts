@@ -1065,6 +1065,10 @@ export const VOICE_PROVIDERS = [{ id: "elevenlabs" }];
         'name: "Aerisita - Bubbly, Feminine and Outgoing"',
       );
       expect(updated).toContain('voiceId: "IRHApOXLvnW57QJPQH2P"');
+      expect(updated).toContain('voiceId: "YxbjaPemDJV2xlfvkiIG"');
+      expect(updated).toContain('voiceId: "hkfHEbBvdQFNX4uWHqRF"');
+      expect(updated).toContain('voiceId: "hMK7c1GPJmptCzI4bQIu"');
+      expect(updated).toContain('voiceId: "lhTvHflPVOqgSWyuWQry"');
       expect(updated).toContain("export const VOICE_PROVIDERS =");
       expect(updated).not.toContain('name: "Rachel"');
     } finally {

@@ -1147,6 +1147,54 @@ function buildMiladyPremadeVoicesSource() {
       hint: "English, character",
       previewUrl: "",
     },
+    {
+      id: "english-alt-evit",
+      name: "English Alt - eVItLK1UvXctxuaRV2Oq",
+      voiceId: "eVItLK1UvXctxuaRV2Oq",
+      gender: "character",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "english-alt-cenj",
+      name: "English Alt - cENJycK4Wg62xVikqkaA",
+      voiceId: "cENJycK4Wg62xVikqkaA",
+      gender: "character",
+      hint: "English, character",
+      previewUrl: "",
+    },
+    {
+      id: "chinese-alt-yxbja",
+      name: "Chinese Alt - YxbjaPemDJV2xlfvkiIG",
+      voiceId: "YxbjaPemDJV2xlfvkiIG",
+      gender: "character",
+      hint: "Chinese, character",
+      previewUrl: "",
+    },
+    {
+      id: "chinese-alt-hkfhe",
+      name: "Chinese Alt - hkfHEbBvdQFNX4uWHqRF",
+      voiceId: "hkfHEbBvdQFNX4uWHqRF",
+      gender: "character",
+      hint: "Chinese, character",
+      previewUrl: "",
+    },
+    {
+      id: "japanese-alt-hmk7",
+      name: "Japanese Alt - hMK7c1GPJmptCzI4bQIu",
+      voiceId: "hMK7c1GPJmptCzI4bQIu",
+      gender: "character",
+      hint: "Japanese, character",
+      previewUrl: "",
+    },
+    {
+      id: "japanese-alt-lhtv",
+      name: "Japanese Alt - lhTvHflPVOqgSWyuWQry",
+      voiceId: "lhTvHflPVOqgSWyuWQry",
+      gender: "character",
+      hint: "Japanese, character",
+      previewUrl: "",
+    },
   ];
 
   const lines = voices.map(
@@ -1172,7 +1220,8 @@ export function applyAppCoreVoiceTypesPresetsPatch(filePath) {
   const compatSource = readFileSync(filePath, "utf8");
   if (
     compatSource.includes('"name: "Yun - Elegant, Sweet and Gentle"') &&
-    compatSource.includes('"name: "Aerisita - Bubbly, Feminine and Outgoing"')
+    compatSource.includes('"name: "Aerisita - Bubbly, Feminine and Outgoing"') &&
+    compatSource.includes('"voiceId: "hkfHEbBvdQFNX4uWHqRF"')
   ) {
     return false;
   }
