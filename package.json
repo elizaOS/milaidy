@@ -116,6 +116,7 @@
     "dev:win": "node scripts/dev-win.mjs"
   },
   "dependencies": {
+    "@miladyai/autonomous": "workspace:*",
     "@ai-sdk/anthropic": "^3.0.13",
     "@ai-sdk/gateway": "^3.0.12",
     "@ai-sdk/provider": "^3.0.2",
@@ -145,7 +146,7 @@
     "@elizaos/plugin-groq": "2.0.0-alpha.7",
     "@elizaos/plugin-knowledge": "2.0.0-alpha.6",
     "@elizaos/plugin-local-embedding": "2.0.0-alpha.11",
-    "@elizaos/plugin-nostr": "^2.0.0-alpha.3",
+    "@elizaos/plugin-nostr": "2.0.0-alpha.3",
     "@elizaos/plugin-ollama": "2.0.0-alpha.6",
     "@elizaos/plugin-openai": "2.0.0-alpha.8",
     "@elizaos/plugin-openrouter": "2.0.0-alpha.7",
@@ -176,7 +177,6 @@
     "@lunchtable/plugin-ltcg": "^0.1.0",
     "@mariozechner/pi-ai": "0.52.12",
     "@mariozechner/pi-tui": "0.54.0",
-    "@miladyai/autonomous": "workspace:*",
     "@noble/curves": "^2.0.1",
     "@opinion-labs/opinion-clob-sdk": "0.5.2",
     "@tensorflow-models/coco-ssd": "^2.2.3",
