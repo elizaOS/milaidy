@@ -22,7 +22,7 @@ const forbiddenPrefixes = ["dist/Milady.app/"];
 const orchestratorPackageName = "@elizaos/plugin-agent-orchestrator";
 const orchestratorBrokenLifecycleTarget = "./scripts/ensure-node-pty.mjs";
 const requiredWorkflowSnippets = [
-  'BUN_VERSION: "1.3.9"',
+  'BUN_VERSION: "1.3.11"',
   "name: Validate Release Inputs",
   "bun-version: $" + "{{ env.BUN_VERSION }}",
   "name: Release readiness checks",
