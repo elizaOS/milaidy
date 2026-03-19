@@ -3,6 +3,25 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-06-11" description="Week of June 5–11" tags={["Update", "Fix"]}>
+## Unified provider configuration
+
+Onboarding, settings, and subscription flows now share a single provider configuration contract. Previously, changing your model provider in one place didn't always reflect in another — now provider selections stay consistent everywhere. Wallet RPC provider choices are also initialized from your saved wallet configuration instead of falling back to hardcoded defaults.
+
+## Updates
+
+- **Companion shell startup stability** — The companion view no longer stalls or misbehaves on launch. Routing after startup is now tied to the active tab, and greeting animations are properly sequenced so the shell loads cleanly on first open.
+- **TTS language accuracy** — Text-to-speech now sets the language tag explicitly on each utterance, preventing the system from falling back to your OS locale and producing unexpected pronunciation.
+- **Dark mode shell header visibility** — The toggle border in the shell header is now visible in dark mode, fixing a contrast issue that made it hard to see.
+- **Connector search auto-fill blocked** — The search input in the connectors panel no longer triggers browser auto-fill suggestions, which could cover the results list.
+- **Button hit targets normalized** — Small and large button variants now have consistent vertical padding, making tap and click targets more reliable across the dashboard.
+
+## Bug fixes
+
+- Fixed a race condition in embedding disposal that could cause in-flight operations to fail during cleanup
+- Fixed one-time error hints not displaying — transient action errors now surface once and dismiss automatically instead of being silently swallowed
+</Update>
+
 <Update label="2026-06-04" description="Week of May 29 – June 4" tags={["Feature", "Update"]}>
 ## Privy server wallets
 
