@@ -13,7 +13,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { ImageConfig, VisionConfig } from "../config/types.milady";
+import type { ImageConfig, VisionConfig } from "../config/types.eliza";
 import {
   createImageProvider,
   createVisionProvider,

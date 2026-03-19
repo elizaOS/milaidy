@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 
 // Skip this test when the plugin-training submodule isn't available (CI)
 let TrainingService: new (
@@ -35,7 +35,7 @@ try {
 
 describe.skipIf(!hasModule)("training service importModelToOllama", () => {
   test("uses manual redirect mode to prevent redirect-based SSRF escapes", async () => {
-    const config = {} as MiladyConfig;
+    const config = {} as ElizaConfig;
     const service = new TrainingService({
       getRuntime: () => null,
       getConfig: () => config,
@@ -65,7 +65,7 @@ describe.skipIf(!hasModule)("training service importModelToOllama", () => {
       benchmark: { status: "not_run", lastRunAt: null, output: null },
     };
     (
-      service as unknown as {
+      service as {
         models: Map<string, TrainingModelRecord>;
       }
     ).models.set(model.id, model);

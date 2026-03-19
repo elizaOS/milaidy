@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/services/browser-capture";
+export * from "@elizaos/autonomous/services/browser-capture";

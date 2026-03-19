@@ -58,10 +58,7 @@ export default [
     // import that fails when the desktop runtime loads server.js via dynamic import().
     outputOptions: { codeSplitting: false },
   },
-  {
-    ...commonConfig,
-    entry: "src/plugins/whatsapp/index.ts",
-  },
+
   {
     ...commonConfig,
     entry: "src/plugins/retake/index.ts",

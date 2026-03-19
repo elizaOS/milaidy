@@ -49,8 +49,10 @@ Get buffered agent events (autonomy loop events and heartbeats). Use `after` to 
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `after` | string | No | Event ID — returns only events after this ID |
+| `after` | string | No | Event ID — returns only events after this ID (cursor-based pagination) |
 | `limit` | integer | No | Maximum events to return (min: 1, max: 1000, default: 200) |
+| `runId` | string | No | Filter events by autonomy run ID |
+| `fromSeq` | integer | No | Filter events with sequence number at or above this value (min: 0). Returns 400 if non-numeric. |
 
 **Response**
 
@@ -59,9 +61,12 @@ Get buffered agent events (autonomy loop events and heartbeats). Use `after` to 
   "events": [
     {
       "type": "agent_event",
+      "version": 1,
       "eventId": "evt-001",
-      "timestamp": 1718000000000,
-      "data": { "action": "thinking_started" }
+      "ts": 1718000000000,
+      "runId": "run-abc",
+      "seq": 12,
+      "payload": { "action": "thinking_started" }
     }
   ],
   "latestEventId": "evt-001",
@@ -80,11 +85,11 @@ Query the security audit log. Supports filtering by event type and severity. Set
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `type` | string | No | Filter by audit event type (e.g., `"policy_decision"`, `"auth_attempt"`) |
-| `severity` | string | No | Filter by severity (e.g., `"info"`, `"warn"`, `"error"`) |
+| `type` | string | No | Filter by audit event type. Valid values: `sandbox_mode_transition`, `secret_token_replacement_outbound`, `secret_sanitization_inbound`, `privileged_capability_invocation`, `policy_decision`, `signing_request_submitted`, `signing_request_rejected`, `signing_request_approved`, `plugin_fallback_attempt`, `security_kill_switch`, `sandbox_lifecycle`, `fetch_proxy_error`. Returns 400 if invalid. |
+| `severity` | string | No | Filter by severity: `"info"`, `"warn"`, `"error"`, `"critical"`. Returns 400 if invalid. |
 | `since` | string | No | Unix ms timestamp or ISO 8601 string — only return entries after this time |
 | `limit` | integer | No | Maximum entries (min: 1, max: 1000, default: 200) |
-| `stream` | string | No | Set to `"1"`, `"true"`, or `"yes"` to enable SSE streaming |
+| `stream` | string | No | Set to `"1"`, `"true"`, `"yes"`, or `"on"` to enable SSE streaming. Alternatively, set the `Accept: text/event-stream` header. |
 
 **Response (one-shot)**
 
@@ -92,11 +97,12 @@ Query the security audit log. Supports filtering by event type and severity. Set
 {
   "entries": [
     {
-      "type": "policy_decision",
-      "severity": "warn",
       "timestamp": "2024-06-10T12:00:00.000Z",
-      "message": "Shell command blocked by policy",
-      "data": { "command": "rm -rf /" }
+      "type": "policy_decision",
+      "summary": "Shell command blocked by policy",
+      "metadata": { "command": "rm -rf /" },
+      "severity": "warn",
+      "traceId": "trace-abc-123"
     }
   ],
   "totalBuffered": 152,

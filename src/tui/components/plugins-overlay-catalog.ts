@@ -66,7 +66,7 @@ function findPackageRoot(startDir: string): string {
           string,
           unknown
         >;
-        if (pkg.name === "milady") {
+        if (pkg.name === "eliza") {
           return dir;
         }
       } catch {

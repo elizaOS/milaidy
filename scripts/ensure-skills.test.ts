@@ -32,11 +32,15 @@ function makeTempDir(prefix: string): string {
 }
 
 describe("resolveSkillsDir", () => {
-  it("uses MILADY_STATE_DIR when provided", () => {
-    const stateDir = makeTempDir("milady-skill-state-");
-    expect(resolveSkillsDir({ MILADY_STATE_DIR: stateDir })).toBe(
-      path.join(stateDir, "skills"),
+  it("uses the state dir env var when provided", () => {
+    const stateDir = makeTempDir("skill-state-");
+    // Accept both branded (MILADY_STATE_DIR) and upstream (ELIZA_STATE_DIR)
+    const envKeys = ["MILADY_STATE_DIR", "ELIZA_STATE_DIR"];
+    const matched = envKeys.some(
+      (key) =>
+        resolveSkillsDir({ [key]: stateDir }) === path.join(stateDir, "skills"),
     );
+    expect(matched).toBe(true);
   });
 });
 

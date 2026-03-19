@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/api/early-logs";
+export * from "@elizaos/autonomous/api/early-logs";

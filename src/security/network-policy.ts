@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/security/network-policy";
+export * from "@elizaos/autonomous/security/network-policy";

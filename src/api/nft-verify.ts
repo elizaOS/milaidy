@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/api/nft-verify";
+export * from "@elizaos/autonomous/api/nft-verify";

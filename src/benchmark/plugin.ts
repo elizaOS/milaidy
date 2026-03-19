@@ -1,8 +1,8 @@
 /**
- * Benchmark plugin for Milady.
+ * Benchmark plugin for Eliza.
  *
  * Provides:
- * - MILADY_BENCHMARK provider: injects benchmark task context into agent state
+ * - ELIZA_BENCHMARK provider: injects benchmark task context into agent state
  * - BENCHMARK_ACTION action: captures the agent's chosen action + params
  * - Custom messageHandlerTemplate tuned for benchmark execution
  *
@@ -265,13 +265,13 @@ function formatContextAsText(ctx: BenchmarkContext): string {
 
 export function createBenchmarkPlugin(): Plugin {
   return {
-    name: "milady-benchmark",
+    name: "eliza-benchmark",
     description:
       "Benchmark adapter plugin — injects task context and captures actions",
 
     providers: [
       {
-        name: "MILADY_BENCHMARK",
+        name: "ELIZA_BENCHMARK",
         description:
           "Provides benchmark task context including goals, observations, tools, and elements",
         dynamic: true,

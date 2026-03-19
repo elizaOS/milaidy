@@ -104,7 +104,7 @@ Create agents that answer questions from your documentation, codebase, or custom
 - Context-aware responses grounded in your content
 - Continuous learning from new uploads
 
-**Plugins**: `knowledge`, `bootstrap` plugins
+**Plugins**: `knowledge` plugin
 
 ---
 

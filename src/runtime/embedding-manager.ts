@@ -1,17 +1,19 @@
 /**
- * MiladyEmbeddingManager — wraps node-llama-cpp to provide:
+ * ElizaEmbeddingManager — wraps node-llama-cpp to provide:
  *   • Metal GPU acceleration on Apple Silicon (gpuLayers: "auto")
  *   • Configurable embedding model with hardware-adaptive defaults
  *   • Idle timeout unloading (default: 30 min) with transparent lazy re-init
  *   • Dimension migration detection with warning logging
  */
 
+import { getLogPrefix } from "../utils/log-prefix.js";
 import {
   checkDimensionMigration,
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MODELS_DIR,
   type EmbeddingManagerConfig,
   type EmbeddingManagerStats,
+  type EmbeddingProgressCallback,
   ensureModel,
   getErrorMessage,
   getLogger,
@@ -55,7 +57,7 @@ async function importNodeLlamaCpp(): Promise<any> {
  */
 const SAFE_CHARS_PER_TOKEN = 2;
 
-export class MiladyEmbeddingManager {
+export class ElizaEmbeddingManager {
   private readonly model: string;
   private readonly modelRepo: string;
   private readonly dimensions: number;
@@ -63,6 +65,7 @@ export class MiladyEmbeddingManager {
   private readonly gpuLayers: "auto" | "max" | number;
   private readonly idleTimeoutMs: number;
   private readonly modelsDir: string;
+  private readonly onProgress: EmbeddingProgressCallback | undefined;
 
   // Runtime state
   private llama: LlamaInstance | null = null;
@@ -92,11 +95,12 @@ export class MiladyEmbeddingManager {
     this.gpuLayers = config.gpuLayers ?? detected.gpuLayers;
     this.idleTimeoutMs = config.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
     this.modelsDir = config.modelsDir ?? DEFAULT_MODELS_DIR;
+    this.onProgress = config.onProgress;
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
     if (this.disposed) {
-      throw new Error("[milady] EmbeddingManager has been disposed");
+      throw new Error(`${getLogPrefix()} EmbeddingManager has been disposed`);
     }
 
     // Increment BEFORE any async operations to close TOCTOU window:
@@ -110,7 +114,9 @@ export class MiladyEmbeddingManager {
       await this.ensureInitialized();
 
       if (!this.embeddingContext) {
-        throw new Error("[milady] Embedding context not available after init");
+        throw new Error(
+          `${getLogPrefix()} Embedding context not available after init`,
+        );
       }
 
       // Truncate to prevent GGML assertion crash when text exceeds context window.
@@ -118,7 +124,7 @@ export class MiladyEmbeddingManager {
       let input = text;
       if (input.length > maxChars) {
         getLogger().warn(
-          `[milady] Embedding input too long (${input.length} chars, ~${Math.ceil(input.length / SAFE_CHARS_PER_TOKEN)} tokens est.) ` +
+          `${getLogPrefix()} Embedding input too long (${input.length} chars, ~${Math.ceil(input.length / SAFE_CHARS_PER_TOKEN)} tokens est.) ` +
             `— truncating to ${maxChars} chars for ${this.contextSize}-token context window`,
         );
         input = input.slice(0, maxChars);
@@ -127,7 +133,9 @@ export class MiladyEmbeddingManager {
       const result = await this.embeddingContext.getEmbeddingFor(input);
       return Array.from(result.vector);
     } catch (err) {
-      getLogger().error(`[milady] Embedding generation failed: ${err}`);
+      getLogger().error(
+        `${getLogPrefix()} Embedding generation failed: ${err}`,
+      );
       return new Array(this.dimensions).fill(0);
     } finally {
       this.inFlightCount -= 1;
@@ -165,6 +173,15 @@ export class MiladyEmbeddingManager {
     };
   }
 
+  /**
+   * Eagerly initialize the embedding model (download if needed + load).
+   * Call during boot to avoid lazy-init delays on first embedding request.
+   */
+  async warmup(): Promise<void> {
+    if (this.disposed) return;
+    await this.ensureInitialized();
+  }
+
   private async ensureInitialized(): Promise<void> {
     if (this.initialized && this.embeddingModel && this.embeddingContext)
       return;
@@ -194,12 +211,16 @@ export class MiladyEmbeddingManager {
       this.modelsDir,
       this.modelRepo,
       this.model,
+      false,
+      this.onProgress,
     );
+
+    this.onProgress?.("loading", this.model);
 
     const { getLlama, LlamaLogLevel } = await importNodeLlamaCpp();
 
     log.info(
-      `[milady] Initializing embedding model: ${this.model} ` +
+      `${getLogPrefix()} Initializing embedding model: ${this.model} ` +
         `(dims=${this.dimensions}, gpuLayers=${this.gpuLayers})`,
     );
 
@@ -233,7 +254,7 @@ export class MiladyEmbeddingManager {
       const failureMessage = getErrorMessage(err);
       safeUnlink(modelPath);
       log.warn(
-        `[milady] Embedding model load failed due to a likely corrupted/incomplete ` +
+        `${getLogPrefix()} Embedding model load failed due to a likely corrupted/incomplete ` +
           `file (${failureMessage}) at ${modelPath}. Deleting file and ` +
           `re-downloading, then retrying once.`,
       );
@@ -273,7 +294,8 @@ export class MiladyEmbeddingManager {
     this.embeddingModel = model;
     this.embeddingContext = context;
     this.initialized = true;
-    log.info(`[milady] Embedding model loaded: ${this.model}`);
+    log.info(`${getLogPrefix()} Embedding model loaded: ${this.model}`);
+    this.onProgress?.("ready", this.model);
 
     this.startIdleTimer();
   }
@@ -290,7 +312,7 @@ export class MiladyEmbeddingManager {
         Date.now() - this.lastUsedAt > this.idleTimeoutMs
       ) {
         getLogger().info(
-          `[milady] Embedding model idle for >${Math.round(this.idleTimeoutMs / 60_000)} min — unloading to free memory`,
+          `${getLogPrefix()} Embedding model idle for >${Math.round(this.idleTimeoutMs / 60_000)} min — unloading to free memory`,
         );
         void this.idleUnload();
       }
@@ -329,7 +351,7 @@ export class MiladyEmbeddingManager {
       try {
         await this.embeddingContext.dispose();
       } catch (err) {
-        log.warn(`[milady] Error disposing embedding context: ${err}`);
+        log.warn(`${getLogPrefix()} Error disposing embedding context: ${err}`);
       }
       this.embeddingContext = null;
     }
@@ -338,7 +360,7 @@ export class MiladyEmbeddingManager {
       try {
         await this.embeddingModel.dispose();
       } catch (err) {
-        log.warn(`[milady] Error disposing embedding model: ${err}`);
+        log.warn(`${getLogPrefix()} Error disposing embedding model: ${err}`);
       }
       this.embeddingModel = null;
     }
@@ -353,8 +375,10 @@ export class MiladyEmbeddingManager {
 }
 
 export type {
+  DownloadProgressCallback,
   EmbeddingManagerConfig,
   EmbeddingManagerStats,
+  EmbeddingProgressCallback,
 } from "./embedding-manager-support.js";
 export {
   checkDimensionMigration,

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --force",
     "preview": "vite preview",
     "design-review": "node --import tsx test/design-review/run-design-review.ts",
     "test": "vitest run --config vitest.config.ts",
@@ -26,13 +26,13 @@
   "dependencies": {
     "@capacitor/android": "^8.0.2",
     "@capacitor/app": "^8.0.1",
-    "@capacitor/core": "8.0.2",
+    "@capacitor/core": "8.2.0",
     "@capacitor/haptics": "8.0.0",
     "@capacitor/ios": "^8.0.2",
     "@capacitor/keyboard": "8.0.0",
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/status-bar": "^8.0.1",
-    "@miladyai/app-core": "workspace:*",
+    "@elizaos/app-core": "alpha",
     "@miladyai/capacitor-agent": "workspace:*",
     "@miladyai/capacitor-camera": "workspace:*",
     "@miladyai/capacitor-canvas": "workspace:*",
@@ -42,7 +42,7 @@
     "@miladyai/capacitor-screencapture": "workspace:*",
     "@miladyai/capacitor-swabble": "workspace:*",
     "@miladyai/capacitor-talkmode": "workspace:*",
-    "@miladyai/ui": "workspace:*",
+    "@elizaos/ui": "alpha",
     "@noble/curves": "^2.0.1",
     "@pixiv/three-vrm": "^3.4.5",
     "@sparkjsdev/spark": "^0.1.10",
@@ -52,7 +52,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@capacitor/cli": "8.0.2",
+    "@capacitor/cli": "8.2.0",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.1.18",
     "@types/react": "^19.0.0",

@@ -8,7 +8,7 @@ const runtime = {} as IAgentRuntime;
 const state = {} as State;
 
 function makeMessage(channelType?: ChannelType): Memory {
-  return { content: { channelType } } as Memory;
+  return { content: { channelType } } as unknown as Memory;
 }
 
 describe("uiCatalogProvider", () => {

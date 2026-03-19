@@ -14,69 +14,65 @@ import {
 
 describe("argv helpers", () => {
   it("detects help/version flags", () => {
-    expect(hasHelpOrVersion(["node", "milady", "--help"])).toBe(true);
-    expect(hasHelpOrVersion(["node", "milady", "-V"])).toBe(true);
-    expect(hasHelpOrVersion(["node", "milady", "config"])).toBe(false);
+    expect(hasHelpOrVersion(["node", "eliza", "--help"])).toBe(true);
+    expect(hasHelpOrVersion(["node", "eliza", "-V"])).toBe(true);
+    expect(hasHelpOrVersion(["node", "eliza", "config"])).toBe(false);
   });
 
   it("extracts command path ignoring flags and terminator", () => {
-    expect(getCommandPath(["node", "milady", "config", "--json"], 2)).toEqual([
+    expect(getCommandPath(["node", "eliza", "config", "--json"], 2)).toEqual([
       "config",
     ]);
-    expect(getCommandPath(["node", "milady", "agents", "list"], 2)).toEqual([
+    expect(getCommandPath(["node", "eliza", "agents", "list"], 2)).toEqual([
       "agents",
       "list",
     ]);
     expect(
-      getCommandPath(["node", "milady", "config", "--", "ignored"], 2),
+      getCommandPath(["node", "eliza", "config", "--", "ignored"], 2),
     ).toEqual(["config"]);
   });
 
   it("returns primary command", () => {
-    expect(getPrimaryCommand(["node", "milady", "agents", "list"])).toBe(
+    expect(getPrimaryCommand(["node", "eliza", "agents", "list"])).toBe(
       "agents",
     );
-    expect(getPrimaryCommand(["node", "milady"])).toBeNull();
+    expect(getPrimaryCommand(["node", "eliza"])).toBeNull();
   });
 
   it("parses boolean flags and ignores terminator", () => {
-    expect(hasFlag(["node", "milady", "config", "--json"], "--json")).toBe(
-      true,
-    );
-    expect(hasFlag(["node", "milady", "--", "--json"], "--json")).toBe(false);
+    expect(hasFlag(["node", "eliza", "config", "--json"], "--json")).toBe(true);
+    expect(hasFlag(["node", "eliza", "--", "--json"], "--json")).toBe(false);
   });
 
   it("extracts flag values with equals and missing values", () => {
     expect(
       getFlagValue(
-        ["node", "milady", "config", "--timeout", "5000"],
+        ["node", "eliza", "config", "--timeout", "5000"],
         "--timeout",
       ),
     ).toBe("5000");
     expect(
-      getFlagValue(["node", "milady", "config", "--timeout=2500"], "--timeout"),
+      getFlagValue(["node", "eliza", "config", "--timeout=2500"], "--timeout"),
     ).toBe("2500");
     expect(
-      getFlagValue(["node", "milady", "config", "--timeout"], "--timeout"),
+      getFlagValue(["node", "eliza", "config", "--timeout"], "--timeout"),
     ).toBeNull();
     expect(
       getFlagValue(
-        ["node", "milady", "config", "--timeout", "--json"],
+        ["node", "eliza", "config", "--timeout", "--json"],
         "--timeout",
       ),
     ).toBe(null);
     expect(
-      getFlagValue(["node", "milady", "--", "--timeout=99"], "--timeout"),
+      getFlagValue(["node", "eliza", "--", "--timeout=99"], "--timeout"),
     ).toBeUndefined();
   });
 
   it("parses verbose flags", () => {
-    expect(getVerboseFlag(["node", "milady", "config", "--verbose"])).toBe(
-      true,
-    );
-    expect(getVerboseFlag(["node", "milady", "config", "--debug"])).toBe(false);
+    expect(getVerboseFlag(["node", "eliza", "config", "--verbose"])).toBe(true);
+    expect(getVerboseFlag(["node", "eliza", "config", "--debug"])).toBe(false);
     expect(
-      getVerboseFlag(["node", "milady", "config", "--debug"], {
+      getVerboseFlag(["node", "eliza", "config", "--debug"], {
         includeDebug: true,
       }),
     ).toBe(true);
@@ -84,23 +80,23 @@ describe("argv helpers", () => {
 
   it("parses positive integer flag values", () => {
     expect(
-      getPositiveIntFlagValue(["node", "milady", "config"], "--timeout"),
+      getPositiveIntFlagValue(["node", "eliza", "config"], "--timeout"),
     ).toBeUndefined();
     expect(
       getPositiveIntFlagValue(
-        ["node", "milady", "config", "--timeout"],
+        ["node", "eliza", "config", "--timeout"],
         "--timeout",
       ),
     ).toBeNull();
     expect(
       getPositiveIntFlagValue(
-        ["node", "milady", "config", "--timeout", "5000"],
+        ["node", "eliza", "config", "--timeout", "5000"],
         "--timeout",
       ),
     ).toBe(5000);
     expect(
       getPositiveIntFlagValue(
-        ["node", "milady", "config", "--timeout", "nope"],
+        ["node", "eliza", "config", "--timeout", "nope"],
         "--timeout",
       ),
     ).toBeUndefined();
@@ -108,89 +104,89 @@ describe("argv helpers", () => {
 
   it("builds parse argv from raw args", () => {
     const nodeArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["node", "milady", "config"],
+      programName: "eliza",
+      rawArgs: ["node", "eliza", "config"],
     });
-    expect(nodeArgv).toEqual(["node", "milady", "config"]);
+    expect(nodeArgv).toEqual(["node", "eliza", "config"]);
 
     const versionedNodeArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["node-22", "milady", "config"],
+      programName: "eliza",
+      rawArgs: ["node-22", "eliza", "config"],
     });
-    expect(versionedNodeArgv).toEqual(["node-22", "milady", "config"]);
+    expect(versionedNodeArgv).toEqual(["node-22", "eliza", "config"]);
 
     const versionedNodeWindowsArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["node-22.2.0.exe", "milady", "config"],
+      programName: "eliza",
+      rawArgs: ["node-22.2.0.exe", "eliza", "config"],
     });
     expect(versionedNodeWindowsArgv).toEqual([
       "node-22.2.0.exe",
-      "milady",
+      "eliza",
       "config",
     ]);
 
     const versionedNodePatchlessArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["node-22.2", "milady", "config"],
+      programName: "eliza",
+      rawArgs: ["node-22.2", "eliza", "config"],
     });
     expect(versionedNodePatchlessArgv).toEqual([
       "node-22.2",
-      "milady",
+      "eliza",
       "config",
     ]);
 
     const versionedNodeWindowsPatchlessArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["node-22.2.exe", "milady", "config"],
+      programName: "eliza",
+      rawArgs: ["node-22.2.exe", "eliza", "config"],
     });
     expect(versionedNodeWindowsPatchlessArgv).toEqual([
       "node-22.2.exe",
-      "milady",
+      "eliza",
       "config",
     ]);
 
     const versionedNodeWithPathArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["/usr/bin/node-22.2.0", "milady", "config"],
+      programName: "eliza",
+      rawArgs: ["/usr/bin/node-22.2.0", "eliza", "config"],
     });
     expect(versionedNodeWithPathArgv).toEqual([
       "/usr/bin/node-22.2.0",
-      "milady",
+      "eliza",
       "config",
     ]);
 
     const nodejsArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["nodejs", "milady", "config"],
+      programName: "eliza",
+      rawArgs: ["nodejs", "eliza", "config"],
     });
-    expect(nodejsArgv).toEqual(["nodejs", "milady", "config"]);
+    expect(nodejsArgv).toEqual(["nodejs", "eliza", "config"]);
 
     const nonVersionedNodeArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["node-dev", "milady", "config"],
+      programName: "eliza",
+      rawArgs: ["node-dev", "eliza", "config"],
     });
     expect(nonVersionedNodeArgv).toEqual([
       "node",
-      "milady",
+      "eliza",
       "node-dev",
-      "milady",
+      "eliza",
       "config",
     ]);
 
     const directArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["milady", "config"],
+      programName: "eliza",
+      rawArgs: ["eliza", "config"],
     });
-    expect(directArgv).toEqual(["node", "milady", "config"]);
+    expect(directArgv).toEqual(["node", "eliza", "config"]);
 
-    const directMiladyAiArgv = buildParseArgv({
-      programName: "milady",
-      rawArgs: ["miladyai", "config"],
+    const directElizaAiArgv = buildParseArgv({
+      programName: "eliza",
+      rawArgs: ["elizaai", "config"],
     });
-    expect(directMiladyAiArgv).toEqual(["node", "milady", "config"]);
+    expect(directElizaAiArgv).toEqual(["node", "eliza", "config"]);
 
     const bunArgv = buildParseArgv({
-      programName: "milady",
+      programName: "eliza",
       rawArgs: ["bun", "src/entry.ts", "config"],
     });
     expect(bunArgv).toEqual(["bun", "src/entry.ts", "config"]);
@@ -198,23 +194,21 @@ describe("argv helpers", () => {
 
   it("builds parse argv from fallback args", () => {
     const fallbackArgv = buildParseArgv({
-      programName: "milady",
+      programName: "eliza",
       fallbackArgv: ["config"],
     });
-    expect(fallbackArgv).toEqual(["node", "milady", "config"]);
+    expect(fallbackArgv).toEqual(["node", "eliza", "config"]);
   });
 
   it("decides when to migrate state", () => {
-    expect(shouldMigrateState(["node", "milady", "memory", "status"])).toBe(
+    expect(shouldMigrateState(["node", "eliza", "memory", "status"])).toBe(
       false,
     );
     expect(
-      shouldMigrateState(["node", "milady", "agent", "--message", "hi"]),
+      shouldMigrateState(["node", "eliza", "agent", "--message", "hi"]),
     ).toBe(false);
-    expect(shouldMigrateState(["node", "milady", "agents", "list"])).toBe(true);
-    expect(shouldMigrateState(["node", "milady", "message", "send"])).toBe(
-      true,
-    );
+    expect(shouldMigrateState(["node", "eliza", "agents", "list"])).toBe(true);
+    expect(shouldMigrateState(["node", "eliza", "message", "send"])).toBe(true);
   });
 
   it("reuses command path for migrate state decisions", () => {

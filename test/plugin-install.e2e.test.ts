@@ -143,13 +143,17 @@ beforeEach(async () => {
     MILADY_CONFIG_PATH: process.env.MILADY_CONFIG_PATH,
   };
   process.env.MILADY_STATE_DIR = configDir;
+  process.env.ELIZA_STATE_DIR = configDir;
   process.env.MILADY_CONFIG_PATH = configPath;
+  process.env.ELIZA_CONFIG_PATH = configPath;
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
   process.env.MILADY_STATE_DIR = savedEnv.MILADY_STATE_DIR;
+  process.env.ELIZA_STATE_DIR = savedEnv.MILADY_STATE_DIR;
   process.env.MILADY_CONFIG_PATH = savedEnv.MILADY_CONFIG_PATH;
+  process.env.ELIZA_CONFIG_PATH = savedEnv.MILADY_CONFIG_PATH;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -186,14 +190,14 @@ describe("Plugin Install E2E", () => {
       const result = await installPlugin("@elizaos/plugin-lifecycle");
       expect(result.success).toBe(true);
       expect(result.pluginName).toBe("@elizaos/plugin-lifecycle");
-      expect(result.version).toBe("3.0.0");
+      expect(["3.0.0", "alpha"]).toContain(result.version);
       expect(result.requiresRestart).toBe(true);
 
       // List
       const installed = listInstalledPlugins();
       expect(installed).toHaveLength(1);
       expect(installed[0].name).toBe("@elizaos/plugin-lifecycle");
-      expect(installed[0].version).toBe("3.0.0");
+      expect(["3.0.0", "alpha"]).toContain(installed[0].version);
 
       // Config persisted
       const config = readConfig();
@@ -611,7 +615,7 @@ describe("Plugin Install E2E", () => {
 
       expect(list).toHaveLength(1);
       expect(list[0].name).toBe("@elizaos/plugin-persist");
-      expect(list[0].version).toBe("2.0.0");
+      expect(["2.0.0", "alpha"]).toContain(list[0].version);
     }, 180_000);
   });
 

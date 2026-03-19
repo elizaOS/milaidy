@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/triggers/types";
+export * from "@elizaos/autonomous/triggers/types";

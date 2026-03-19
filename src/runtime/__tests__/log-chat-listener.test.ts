@@ -1,5 +1,5 @@
+import { logToChatListener } from "@elizaos/autonomous/runtime/eliza";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { logToChatListener } from "../eliza";
 
 // Mock @elizaos/core
 vi.mock("@elizaos/core", async (importOriginal) => {

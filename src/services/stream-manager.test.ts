@@ -92,7 +92,7 @@ async function startWithMock(config: StreamConfig): Promise<string[]> {
 
   const isTts = config.audioSource === "tts";
   const proc = makeMockProc({ withTtsPipe: isTts });
-  (spawn as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+  vi.mocked(spawn).mockReturnValueOnce(
     // biome-ignore lint/suspicious/noExplicitAny: mock proc shape doesn't fully match ChildProcess
     proc as any,
   );
@@ -109,7 +109,7 @@ async function startWithMock(config: StreamConfig): Promise<string[]> {
     vi.useRealTimers();
   }
 
-  const calls = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls;
+  const calls = vi.mocked(spawn).mock.calls;
   const lastCall = calls[calls.length - 1];
   if (!lastCall) {
     throw new Error("startWithMock: spawn was never called");
@@ -123,7 +123,7 @@ async function startWithMock(config: StreamConfig): Promise<string[]> {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  (spawn as unknown as ReturnType<typeof vi.fn>).mockReset();
+  vi.mocked(spawn).mockReset();
 });
 
 afterEach(async () => {
@@ -291,7 +291,7 @@ describe("mute() / unmute()", () => {
   });
 
   it("mute() does NOT call spawn when stream is not running", async () => {
-    (spawn as unknown as ReturnType<typeof vi.fn>).mockReset();
+    vi.mocked(spawn).mockReset();
     await streamManager.mute();
 
     expect(spawn).not.toHaveBeenCalled();
@@ -299,7 +299,7 @@ describe("mute() / unmute()", () => {
 
   it("unmute() does NOT call spawn when stream is not running", async () => {
     await streamManager.mute();
-    (spawn as unknown as ReturnType<typeof vi.fn>).mockReset();
+    vi.mocked(spawn).mockReset();
     await streamManager.unmute();
 
     expect(spawn).not.toHaveBeenCalled();
@@ -700,7 +700,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
     await streamManager.stop();
 
     const proc = makeMockProc();
-    (spawn as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+    vi.mocked(spawn).mockReturnValue(
       // biome-ignore lint/suspicious/noExplicitAny: mock proc
       proc as any,
     );
@@ -734,7 +734,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
     await streamManager.stop();
 
     const proc = makeMockProc();
-    (spawn as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+    vi.mocked(spawn).mockReturnValue(
       // biome-ignore lint/suspicious/noExplicitAny: mock proc
       proc as any,
     );
@@ -753,8 +753,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
     await streamManager.stop();
     expect(streamManager.isRunning()).toBe(false);
 
-    const spawnCountBefore = (spawn as unknown as ReturnType<typeof vi.fn>).mock
-      .calls.length;
+    const spawnCountBefore = vi.mocked(spawn).mock.calls.length;
 
     // Simulate exit event after intentional stop — should NOT trigger restart
     const exitHandler = getExitHandler(proc);
@@ -768,8 +767,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
       vi.useRealTimers();
     }
 
-    const spawnCountAfter = (spawn as unknown as ReturnType<typeof vi.fn>).mock
-      .calls.length;
+    const spawnCountAfter = vi.mocked(spawn).mock.calls.length;
     // No new spawn calls — restart was prevented by intentionalStop
     expect(spawnCountAfter).toBe(spawnCountBefore);
   });
@@ -779,7 +777,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
     await streamManager.stop();
 
     const proc = makeMockProc();
-    (spawn as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+    vi.mocked(spawn).mockReturnValue(
       // biome-ignore lint/suspicious/noExplicitAny: mock proc
       proc as any,
     );
@@ -796,8 +794,7 @@ describe("autoRestart on unexpected FFmpeg exit", () => {
     }
 
     // spawn should only have been called once (second start was rejected)
-    const spawnCalls = (spawn as unknown as ReturnType<typeof vi.fn>).mock
-      .calls;
+    const spawnCalls = vi.mocked(spawn).mock.calls;
     expect(spawnCalls.length).toBe(1);
   });
 });
@@ -882,7 +879,7 @@ describe("stdio array for TTS mode", () => {
       audioSource: "tts",
     });
 
-    const calls = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = vi.mocked(spawn).mock.calls;
     const lastCall = calls[calls.length - 1];
     const opts = lastCall[2] as { stdio: unknown[] };
 
@@ -897,7 +894,7 @@ describe("stdio array for TTS mode", () => {
       audioSource: "silent",
     });
 
-    const calls = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = vi.mocked(spawn).mock.calls;
     const lastCall = calls[calls.length - 1];
     const opts = lastCall[2] as { stdio: unknown[] };
 
@@ -911,7 +908,7 @@ describe("stdio array for TTS mode", () => {
       audioSource: "silent",
     });
 
-    const calls = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = vi.mocked(spawn).mock.calls;
     const lastCall = calls[calls.length - 1];
     const opts = lastCall[2] as { stdio: unknown[] };
 
@@ -927,7 +924,7 @@ describe("stdio array for TTS mode", () => {
       audioSource: "tts",
     });
 
-    const calls = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = vi.mocked(spawn).mock.calls;
     const lastCall = calls[calls.length - 1];
     const opts = lastCall[2] as { stdio: unknown[] };
 

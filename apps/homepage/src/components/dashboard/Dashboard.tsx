@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { AgentProvider } from "../../lib/AgentProvider";
+import { AgentProvider, useAgents } from "../../lib/AgentProvider";
+import { isAuthenticated } from "../../lib/auth";
 import { AgentGrid } from "./AgentGrid";
-import { AuthGate } from "./AuthGate";
+import { CloudLoginBanner } from "./AuthGate";
 import { BillingPanel } from "./BillingPanel";
 import { CreditsPanel } from "./CreditsPanel";
-import { ExportPanel } from "./ExportPanel";
 import { LogsPanel } from "./LogsPanel";
 import { MetricsPanel } from "./MetricsPanel";
 import { type DashboardSection, Sidebar } from "./Sidebar";
@@ -14,25 +14,31 @@ export function Dashboard() {
   const [section, setSection] = useState<DashboardSection>("agents");
 
   return (
-    <AuthGate>
-      <AgentProvider>
-        <div
-          data-testid="dashboard"
-          className="min-h-screen bg-dark text-text-light"
-        >
-          <div className="pt-[100px] flex min-h-screen">
-            <Sidebar active={section} onChange={setSection} />
-            <div className="flex-1 flex flex-col min-w-0">
-              <SourceBar />
-              <main className="flex-1 px-8 py-6">
-                <DashboardContent section={section} />
-              </main>
-            </div>
+    <AgentProvider>
+      <div
+        data-testid="dashboard"
+        className="min-h-screen bg-dark text-text-light"
+      >
+        <div className="pt-[56px] md:pt-[72px] flex min-h-screen flex-col md:flex-row">
+          <Sidebar active={section} onChange={setSection} />
+          <div className="flex-1 flex flex-col min-w-0">
+            <SourceBar />
+            <CloudLoginPrompt />
+            <main className="flex-1 px-4 sm:px-5 md:px-8 py-4 sm:py-6">
+              <DashboardContent section={section} />
+            </main>
           </div>
         </div>
-      </AgentProvider>
-    </AuthGate>
+      </div>
+    </AgentProvider>
   );
+}
+
+/** Show cloud login banner only when user isn't authenticated */
+function CloudLoginPrompt() {
+  const { refresh } = useAgents();
+  if (isAuthenticated()) return null;
+  return <CloudLoginBanner onAuthenticated={() => refresh()} />;
 }
 
 function DashboardContent({ section }: { section: DashboardSection }) {
@@ -43,8 +49,6 @@ function DashboardContent({ section }: { section: DashboardSection }) {
       return <MetricsPanel />;
     case "logs":
       return <LogsPanel />;
-    case "snapshots":
-      return <ExportPanel connectionId="" />;
     case "credits":
       return <CreditsPanel />;
     case "billing":

@@ -6,5 +6,3 @@ const loadWeb = () => import("./web").then((m) => new m.GatewayWeb());
 export const Gateway = registerPlugin<GatewayPlugin>("Gateway", {
   web: loadWeb,
 });
-
-export * from "./definitions";

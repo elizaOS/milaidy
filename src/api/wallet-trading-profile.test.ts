@@ -12,7 +12,7 @@ import {
   updateWalletTradeLedgerEntryStatus,
 } from "./wallet-trading-profile.js";
 
-const TMP_PREFIX = "milady-wallet-profile-";
+const TMP_PREFIX = "eliza-wallet-profile-";
 
 function createTempStateDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), TMP_PREFIX));
@@ -37,7 +37,7 @@ function buildEntry(
       amountWei: "1000000000000000000",
     },
     quoteOut: partial.quoteOut ?? {
-      symbol: "MILADY",
+      symbol: "ELIZA",
       amount: "10",
       amountWei: "10000000000000000000",
     },
@@ -77,7 +77,7 @@ describe("wallet-trading-profile", () => {
           amountWei: "1000000000000000000",
         },
         quoteOut: {
-          symbol: "MILADY",
+          symbol: "ELIZA",
           amount: "10",
           amountWei: "10000000000000000000",
         },
@@ -94,7 +94,7 @@ describe("wallet-trading-profile", () => {
           amountWei: "2000000000000000000",
         },
         quoteOut: {
-          symbol: "MILADY",
+          symbol: "ELIZA",
           amount: "10",
           amountWei: "10000000000000000000",
         },
@@ -106,7 +106,7 @@ describe("wallet-trading-profile", () => {
         status: "success",
         tokenAddress: "0xtoken",
         quoteIn: {
-          symbol: "MILADY",
+          symbol: "ELIZA",
           amount: "15",
           amountWei: "15000000000000000000",
         },
@@ -128,7 +128,7 @@ describe("wallet-trading-profile", () => {
           amountWei: "300000000000000000",
         },
         quoteOut: {
-          symbol: "MILADY",
+          symbol: "ELIZA",
           amount: "3",
           amountWei: "3000000000000000000",
         },
@@ -145,7 +145,7 @@ describe("wallet-trading-profile", () => {
           amountWei: "200000000000000000",
         },
         quoteOut: {
-          symbol: "MILADY",
+          symbol: "ELIZA",
           amount: "2",
           amountWei: "2000000000000000000",
         },
@@ -170,7 +170,7 @@ describe("wallet-trading-profile", () => {
     expect(profile.summary.volumeBnb).toBe("5.7");
 
     expect(profile.tokenBreakdown).toHaveLength(1);
-    expect(profile.tokenBreakdown[0]?.symbol).toBe("MILADY");
+    expect(profile.tokenBreakdown[0]?.symbol).toBe("ELIZA");
     expect(profile.tokenBreakdown[0]?.realizedPnlBnb).toBe("0.7");
     expect(profile.recentSwaps[0]?.hash).toBe("0xpending1");
   });
@@ -236,7 +236,7 @@ describe("wallet-trading-profile", () => {
           amountWei: "1000000000000000000",
         },
         quoteOut: {
-          symbol: "MILADY",
+          symbol: "ELIZA",
           amount: "10",
           amountWei: "10000000000000000000",
         },

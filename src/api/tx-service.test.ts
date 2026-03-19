@@ -55,7 +55,7 @@ describe("tx-service", () => {
   it("throws when waiting for a transaction times out", async () => {
     const service = createService();
     const provider = (
-      service as unknown as {
+      service as {
         provider: {
           waitForTransaction: (
             txHash: string,
@@ -76,7 +76,7 @@ describe("tx-service", () => {
   it("throws when a mined transaction reverted", async () => {
     const service = createService();
     const provider = (
-      service as unknown as {
+      service as {
         provider: {
           waitForTransaction: (
             txHash: string,
@@ -91,7 +91,7 @@ describe("tx-service", () => {
       status: 0,
       hash: "0xreverted",
       logs: [],
-    } as unknown as ethers.TransactionReceipt;
+    } as ethers.TransactionReceipt;
 
     vi.spyOn(provider, "waitForTransaction").mockResolvedValue(revertedReceipt);
 
@@ -103,7 +103,7 @@ describe("tx-service", () => {
   it("returns the receipt for successful transactions", async () => {
     const service = createService();
     const provider = (
-      service as unknown as {
+      service as {
         provider: {
           waitForTransaction: (
             txHash: string,
@@ -118,7 +118,7 @@ describe("tx-service", () => {
       status: 1,
       hash: "0xsuccess",
       logs: [],
-    } as unknown as ethers.TransactionReceipt;
+    } as ethers.TransactionReceipt;
 
     vi.spyOn(provider, "waitForTransaction").mockResolvedValue(receipt);
 
@@ -178,7 +178,7 @@ describe("tx-service", () => {
       gasPrice: 1_000_000_000n,
       maxFeePerGas: null,
       maxPriorityFeePerGas: null,
-    } as unknown as ethers.FeeData);
+    } as ethers.FeeData);
 
     const cost = await service.estimateGasCostEth({ to: "0x0" });
 
@@ -195,7 +195,7 @@ describe("tx-service", () => {
       gasPrice: 1_000_000_000n,
       maxFeePerGas: null,
       maxPriorityFeePerGas: null,
-    } as unknown as ethers.FeeData);
+    } as ethers.FeeData);
 
     const result = await service.hasEnoughBalance(0n, 21_000n);
 
@@ -211,7 +211,7 @@ describe("tx-service", () => {
       gasPrice: 1_000_000_000n,
       maxFeePerGas: null,
       maxPriorityFeePerGas: null,
-    } as unknown as ethers.FeeData);
+    } as ethers.FeeData);
 
     const result = await service.hasEnoughBalance(
       1_000_000_000_000_000_000n,
@@ -226,7 +226,7 @@ describe("tx-service", () => {
   it("waitForTransaction forwards default 120s timeout to provider", async () => {
     const service = createService();
     const provider = (
-      service as unknown as {
+      service as {
         provider: {
           waitForTransaction: (
             txHash: string,
@@ -241,7 +241,7 @@ describe("tx-service", () => {
       status: 1,
       hash: "0xdefault",
       logs: [],
-    } as unknown as ethers.TransactionReceipt;
+    } as ethers.TransactionReceipt;
 
     const spy = vi
       .spyOn(provider, "waitForTransaction")
@@ -255,7 +255,7 @@ describe("tx-service", () => {
   it("waitForTransaction forwards custom confirmations and timeout", async () => {
     const service = createService();
     const provider = (
-      service as unknown as {
+      service as {
         provider: {
           waitForTransaction: (
             txHash: string,
@@ -270,7 +270,7 @@ describe("tx-service", () => {
       status: 1,
       hash: "0xcustom",
       logs: [],
-    } as unknown as ethers.TransactionReceipt;
+    } as ethers.TransactionReceipt;
 
     const spy = vi
       .spyOn(provider, "waitForTransaction")

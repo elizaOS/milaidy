@@ -5,37 +5,54 @@
  * features, and mounts the React application.
  */
 
-import "@miladyai/app-core/styles/styles.css";
+import "@elizaos/app-core/styles/styles.css";
 import "./native-plugin-entrypoints";
 
 import { App as CapacitorApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { App } from "@elizaos/app-core";
 // Import Capacitor bridge utilities
 import {
   initializeCapacitorBridge,
   initializeStorageBridge,
   isElectrobunRuntime,
-} from "@miladyai/app-core/bridge";
+} from "@elizaos/app-core/bridge";
+import type { BrandingConfig } from "@elizaos/app-core/config";
 import {
   AGENT_READY_EVENT,
   APP_PAUSE_EVENT,
   APP_RESUME_EVENT,
   COMMAND_PALETTE_EVENT,
   CONNECT_EVENT,
-  dispatchMiladyEvent,
+  dispatchElizaEvent as dispatchMiladyEvent,
   SHARE_TARGET_EVENT,
   TRAY_ACTION_EVENT,
-} from "@miladyai/app-core/events";
-import { applyLaunchConnectionFromUrl } from "@miladyai/app-core/platform";
-import { AppProvider } from "@miladyai/app-core/state";
+} from "@elizaos/app-core/events";
+import { applyLaunchConnectionFromUrl } from "@elizaos/app-core/platform";
+import { AppProvider } from "@elizaos/app-core/state";
 // Import the agent plugin
 import { Agent } from "@miladyai/capacitor-agent";
 import { Desktop } from "@miladyai/capacitor-desktop";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import { CharacterEditor } from "./components/CharacterEditor";
+
+const MILADY_BRANDING: Partial<BrandingConfig> = {
+  appName: "Milady",
+  orgName: "milady-ai",
+  repoName: "milady",
+  docsUrl: "https://docs.milady.ai",
+  appUrl: "https://app.milady.ai",
+  bugReportUrl:
+    "https://github.com/milady-ai/milady/issues/new?template=bug_report.yml",
+  hashtag: "#MiladyAgent",
+  fileExtension: ".milady-agent",
+  packageScope: "miladyai",
+  // Cloud-only in production; local dev mode allows running a local backend.
+  cloudOnly: !import.meta.env.DEV,
+};
 
 /**
  * Platform detection utilities
@@ -76,8 +93,48 @@ interface ShareTargetPayload {
 declare global {
   interface Window {
     __MILADY_SHARE_QUEUE__?: ShareTargetPayload[];
+    __MILADY_CHARACTER_EDITOR__?: typeof CharacterEditor;
+    __MILADY_API_BASE__?: string;
   }
 }
+
+// Dev escape hatch: ?reset in URL clears persisted connection state so the
+// app always shows fresh onboarding instead of polling a dead backend.
+if (new URLSearchParams(window.location.search).has("reset")) {
+  localStorage.removeItem("eliza:connection-mode");
+  localStorage.removeItem("eliza:onboarding-step");
+  localStorage.removeItem("eliza:onboarding-complete");
+  // Strip ?reset from URL to avoid loop
+  const clean = new URL(window.location.href);
+  clean.searchParams.delete("reset");
+  window.history.replaceState(null, "", clean.toString());
+}
+
+// Register custom character editor for app-core's ViewRouter to pick up
+window.__MILADY_CHARACTER_EDITOR__ = CharacterEditor;
+
+// Point Eliza Cloud API to the correct base URL.
+(window as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ =
+  import.meta.env.VITE_CLOUD_BASE ?? "https://www.elizacloud.ai";
+
+// Inject onboarding style presets so the frontend-only onboarding flow
+// can populate character data without an API call.
+import { STYLE_PRESETS } from "../../../src/onboarding-presets";
+
+(window as Record<string, unknown>).__APP_ONBOARDING_STYLES__ = STYLE_PRESETS;
+
+// Override the VRM asset roster with Milady characters so avatar URLs
+// resolve to milady-*.vrm.gz instead of the upstream eliza-*.vrm.gz.
+window.__APP_VRM_ASSETS__ = [
+  { title: "Chen", slug: "milady-1" },
+  { title: "Jin", slug: "milady-2" },
+  { title: "Kei", slug: "milady-3" },
+  { title: "Momo", slug: "milady-4" },
+  { title: "Rin", slug: "milady-5" },
+  { title: "Ryu", slug: "milady-6" },
+  { title: "Satoshi", slug: "milady-7" },
+  { title: "Yuki", slug: "milady-8" },
+];
 
 function dispatchShareTarget(payload: ShareTargetPayload): void {
   if (!window.__MILADY_SHARE_QUEUE__) {
@@ -385,7 +442,7 @@ function mountReactApp(): void {
 
   createRoot(rootEl).render(
     <StrictMode>
-      <AppProvider>
+      <AppProvider branding={MILADY_BRANDING}>
         <App />
       </AppProvider>
     </StrictMode>,

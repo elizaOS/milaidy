@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/api/wallet-rpc";
+export * from "@elizaos/autonomous/api/wallet-rpc";

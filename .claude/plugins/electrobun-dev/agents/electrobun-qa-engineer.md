@@ -79,7 +79,7 @@ Flag every discrepancy.
 
 Check each implemented file for:
 - `console.log` debug statements left in (flag as MINOR)
-- TODO/FIXME comments without associated tasks (flag as MINOR)
+- Placeholder comments without associated tasks (flag as MINOR)
 - Unused imports (flag as MINOR)
 - Functions longer than ~80 lines without obvious justification (flag as MINOR)
 - Missing error handling on async operations that can fail (flag as IMPORTANT)

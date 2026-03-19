@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeStreamingDelta } from "../../packages/app-core/src/state";
+import { computeStreamingDelta } from "../api/streaming-text";
 
 function computeStreamingDeltaLegacy(
   existing: string,

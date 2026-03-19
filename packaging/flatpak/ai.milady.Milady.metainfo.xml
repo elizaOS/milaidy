@@ -44,7 +44,7 @@
   <launchable type="desktop-id">ai.milady.Milady.desktop</launchable>
 
   <screenshots>
-    <!-- TODO: Add screenshots before Flathub submission
+    <!-- Add screenshots before Flathub submission.
     <screenshot type="default">
       <caption>Milady web dashboard showing agent management</caption>
       <image type="source">https://milady.ai/screenshots/dashboard.png</image>

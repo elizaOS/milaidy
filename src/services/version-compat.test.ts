@@ -242,7 +242,7 @@ describe("version-compat", () => {
         [
           {
             name: "@elizaos/plugin-openai",
-            error: "Export named MAX_EMBEDDING_TOKENS not found in module",
+            error: "Export named VERSION_CONSTANT not found in module",
           },
         ],
       );
@@ -271,7 +271,7 @@ describe("version-compat", () => {
           {
             name: "@elizaos/plugin-openrouter",
             error:
-              "Module @elizaos/core does not provide an export named MAX_EMBEDDING_TOKENS",
+              "Module @elizaos/core does not provide an export named VERSION_CONSTANT",
           },
         ],
       );

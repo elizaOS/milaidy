@@ -281,7 +281,7 @@ describe("Deferred restart E2E (with restart handler)", () => {
       character: { name: "TestAgent" },
       plugins: [],
       getService: () => null,
-    } as unknown as AgentRuntime;
+    } as unknown as unknown as AgentRuntime;
 
     const server = await startApiServer({
       port: 0,

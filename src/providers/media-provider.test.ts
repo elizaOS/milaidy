@@ -73,7 +73,7 @@ import type {
   MediaConfig,
   VideoConfig,
   VisionConfig,
-} from "../config/types.milady";
+} from "../config/types.eliza";
 import {
   type AudioGenerationOptions,
   createAudioProvider,

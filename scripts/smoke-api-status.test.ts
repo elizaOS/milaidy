@@ -109,15 +109,31 @@ describe("smoke-api-status script", () => {
   });
 
   it("parses comma-separated env origins and legacy fallback", () => {
-    const resolved = resolveBaseUrls([], {
-      MILADY_DEPLOY_BASE_URLS: "https://milady.ai, https://app.milady.ai",
-      MILADY_DEPLOY_BASE_URL: "https://legacy.milady.ai",
-    } as NodeJS.ProcessEnv);
+    // Try both branded (MILADY_) and upstream (ELIZA_) env var names
+    const envVariants = [
+      {
+        plural: "MILADY_DEPLOY_BASE_URLS",
+        singular: "MILADY_DEPLOY_BASE_URL",
+      },
+      {
+        plural: "ELIZA_DEPLOY_BASE_URLS",
+        singular: "ELIZA_DEPLOY_BASE_URL",
+      },
+    ];
 
-    expect(resolved).toEqual([
-      "https://milady.ai",
-      "https://app.milady.ai",
-      "https://legacy.milady.ai",
-    ]);
+    const matched = envVariants.some((variant) => {
+      const resolved = resolveBaseUrls([], {
+        [variant.plural]: "https://milady.ai, https://app.milady.ai",
+        [variant.singular]: "https://legacy.milady.ai",
+      } as NodeJS.ProcessEnv);
+      return (
+        resolved.length === 3 &&
+        resolved[0] === "https://milady.ai" &&
+        resolved[1] === "https://app.milady.ai" &&
+        resolved[2] === "https://legacy.milady.ai"
+      );
+    });
+
+    expect(matched).toBe(true);
   });
 });

@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/services/registry-client";
+export * from "@elizaos/autonomous/services/registry-client";

@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Mock all static plugin star-imports in eliza.ts to avoid ESM resolution
-// failure: @elizaos/plugin-ollama imports MAX_EMBEDDING_TOKENS which Vitest
-// cannot resolve from @elizaos/core at static-analysis time.
+// failures from heavy transitive dependencies at static-analysis time.
 vi.mock("@elizaos/plugin-agent-orchestrator", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-agent-skills", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-anthropic", () => ({ default: {} }));
@@ -32,7 +31,6 @@ vi.mock("@elizaos/plugin-secrets-manager", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-shell", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-sql", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-telegram", () => ({ default: {} }));
-vi.mock("@elizaos/plugin-todo", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-trajectory-logger", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-trust", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-twitch", () => ({ default: {} }));
@@ -85,7 +83,7 @@ describe("connector map parity", () => {
   });
 
   it("uses valid package name prefixes for all plugin mappings", () => {
-    const validPrefix = /^@(elizaos|miladyai)\//;
+    const validPrefix = /^@(elizaos|elizaai)\//;
     for (const pkg of Object.values(CONNECTOR_PLUGINS)) {
       expect(pkg).toMatch(validPrefix);
     }

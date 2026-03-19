@@ -7,5 +7,3 @@ const loadWeb = () => import("./web").then((m) => new m.SwabbleWeb());
 export const Swabble = registerPlugin<SwabblePlugin>("Swabble", {
   web: loadWeb,
 });
-
-export * from "./definitions";

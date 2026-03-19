@@ -75,7 +75,7 @@ describe("admin-trust provider", () => {
         roomId: "room-1",
         entityId: "admin-1",
         content: { text: "admin trust" },
-      } as Memory;
+      } as unknown as Memory;
 
       const result = await provider?.get?.(runtime, message, state);
       const values = result?.values as Record<string, string | boolean>;
@@ -98,7 +98,7 @@ describe("admin-trust provider", () => {
       roomId: "room-1",
       entityId: "user-2",
       content: { text: "admin trust" },
-    } as Memory;
+    } as unknown as Memory;
 
     const result = await provider?.get?.(runtime, message, state);
     const values = result?.values as Record<string, string | boolean>;
@@ -111,7 +111,7 @@ describe("admin-trust provider", () => {
       roomId: "room-1",
       entityId: "admin-1",
       content: { text: "admin trust" },
-    } as Memory;
+    } as unknown as Memory;
 
     const result = await provider?.get?.(runtime, message, state);
     const values = result?.values as Record<string, string | boolean>;

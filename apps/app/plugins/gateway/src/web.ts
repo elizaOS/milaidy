@@ -102,7 +102,6 @@ export class GatewayWeb extends WebPlugin {
   async startDiscovery(
     _options?: GatewayDiscoveryOptions,
   ): Promise<GatewayDiscoveryResult> {
-    console.warn("[Gateway] Discovery not supported on web platform");
     return {
       gateways: [],
       status: "Discovery not supported on web platform",

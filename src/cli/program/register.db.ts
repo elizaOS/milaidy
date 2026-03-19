@@ -8,7 +8,7 @@ import { runCommandWithRuntime } from "../cli-utils";
 const defaultRuntime = { error: console.error, exit: process.exit };
 
 function resolveDbDir(env = process.env): string {
-  const stateDir = env.MILADY_STATE_DIR ?? path.join(os.homedir(), ".milady");
+  const stateDir = env.ELIZA_STATE_DIR ?? path.join(os.homedir(), ".eliza");
   return path.join(stateDir, "workspace", ".eliza", ".elizadb");
 }
 
@@ -56,7 +56,7 @@ export function registerDbCommand(program: Command) {
         fs.rmSync(dbDir, { recursive: true, force: true });
         console.log(`${theme.success("✓")} Database deleted: ${dbDir}`);
         console.log(
-          `${theme.muted("→")} Run ${theme.command("milady start")} to initialize a fresh database.`,
+          `${theme.muted("→")} Run ${theme.command("eliza start")} to initialize a fresh database.`,
         );
       });
     });

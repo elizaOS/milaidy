@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * Generate plugins.json — a static manifest of all available plugins
- * that ships with the milady package.
+ * that ships with the eliza package.
  *
  * Fetches plugin metadata from the elizaos-plugins registry and writes
- * plugins.json to the milady package root.
+ * plugins.json to the eliza package root.
  *
- * Run from the milady package directory:
+ * Run from the eliza package directory:
  *   node scripts/generate-plugin-index.js
  */
 import fs from "node:fs";
@@ -118,7 +118,7 @@ const SOCIAL_FEED_CONNECTORS = new Set([
 const DATABASES = new Set(["sql", "localdb", "inmemorydb"]);
 
 export const PLUGIN_SETUP_GUIDE_ROOT =
-  "https://docs.milady.ai/plugin-setup-guide";
+  "https://docs.eliza.ai/plugin-setup-guide";
 
 const SETUP_GUIDE_ANCHORS = {
   openai: "#openai",
@@ -169,6 +169,7 @@ const SETUP_GUIDE_ANCHORS = {
   "custom-rtmp": "#custom-rtmp",
 };
 
+const _ELIZA_REPO_ROOT = "https://github.com/elizaos/eliza";
 const MILADY_REPO_ROOT = "https://github.com/milady-ai/milady";
 const TAG_STOPWORDS = new Set([
   "plugin",
@@ -242,7 +243,7 @@ export function normalizeRepositoryUrl(repository) {
 }
 
 function deriveMiladyRepositoryUrl(npmName, dirName) {
-  if (!npmName?.startsWith("@miladyai/")) return undefined;
+  if (!npmName?.startsWith("@elizaai/")) return undefined;
   if (!dirName?.startsWith("plugin-")) return undefined;
   return `${MILADY_REPO_ROOT}/tree/main/packages/${dirName}`;
 }

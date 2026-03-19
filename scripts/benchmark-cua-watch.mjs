@@ -4,15 +4,15 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-const BASE_URL = process.env.MILADY_BENCH_URL ?? "http://127.0.0.1:3939";
+const BASE_URL = process.env.ELIZA_BENCH_URL ?? "http://127.0.0.1:3939";
 const SHOULD_SPAWN_SERVER =
   process.argv.includes("--spawn-server") ||
-  process.env.MILADY_BENCH_SPAWN === "1";
+  process.env.ELIZA_BENCH_SPAWN === "1";
 const SAVE_SCREENSHOTS =
   process.argv.includes("--save-screenshots") ||
-  process.env.MILADY_BENCH_SAVE_SHOTS === "1";
+  process.env.ELIZA_BENCH_SAVE_SHOTS === "1";
 const OUTPUT_DIR =
-  process.env.MILADY_BENCH_SCREENSHOT_DIR ??
+  process.env.ELIZA_BENCH_SCREENSHOT_DIR ??
   path.join(process.cwd(), ".local", "benchmark-cua-shots");
 
 const hasCuaConfig = Boolean(
@@ -100,7 +100,7 @@ async function waitForCuaService(timeoutMs = 120_000) {
   }
 
   throw new Error(
-    `CUA service did not become available within ${timeoutMs}ms. Ensure MILADY_ENABLE_CUA=1 and CUA_HOST/keys are configured.`,
+    `CUA service did not become available within ${timeoutMs}ms. Ensure ELIZA_ENABLE_CUA=1 and CUA_HOST/keys are configured.`,
   );
 }
 
@@ -139,8 +139,8 @@ async function maybeStartServer() {
 
   const childEnv = {
     ...process.env,
-    MILADY_ENABLE_CUA: process.env.MILADY_ENABLE_CUA ?? "1",
-    MILADY_BENCH_MOCK: process.env.MILADY_BENCH_MOCK ?? "false",
+    ELIZA_ENABLE_CUA: process.env.ELIZA_ENABLE_CUA ?? "1",
+    ELIZA_BENCH_MOCK: process.env.ELIZA_BENCH_MOCK ?? "false",
     CUA_OS_TYPE: process.env.CUA_OS_TYPE ?? "linux",
     CUA_COMPUTER_USE_MODEL:
       process.env.CUA_COMPUTER_USE_MODEL ??

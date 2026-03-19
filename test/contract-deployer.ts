@@ -43,7 +43,7 @@ function loadCompiledContract(
 
   if (!artifactPath) {
     throw new Error(
-      `Contract artifact not found for any of: ${candidates.join(", ")}. Did you run 'forge build' in test/contracts?`,
+      `Contract artifact not found for any of: ${candidates.join(", ")}. Did you run 'forge build --skip Harness' in test/contracts?`,
     );
   }
 
@@ -79,11 +79,11 @@ export async function deployContracts(
   // Load compiled artifacts
   const registryArtifact = loadCompiledContract([
     "MockMiladyAgentRegistry",
-    "MockMilaidyAgentRegistry",
+    "MockMiladyAgentRegistry",
   ]);
   const collectionArtifact = loadCompiledContract([
     "MockMiladyCollection",
-    "MockMilaidyCollection",
+    "MockMiladyCollection",
   ]);
 
   // Get current nonce explicitly to avoid race conditions
@@ -137,11 +137,11 @@ export function getContractABIs(): {
 } {
   const registryArtifact = loadCompiledContract([
     "MockMiladyAgentRegistry",
-    "MockMilaidyAgentRegistry",
+    "MockMiladyAgentRegistry",
   ]);
   const collectionArtifact = loadCompiledContract([
     "MockMiladyCollection",
-    "MockMilaidyCollection",
+    "MockMiladyCollection",
   ]);
 
   return {

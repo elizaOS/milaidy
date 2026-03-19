@@ -1,3 +1,14 @@
+/** @elizaos/plugin-streaming-base does not ship .d.ts; declare the type we import. */
+declare module "@elizaos/plugin-streaming-base" {
+  export interface StreamingDestination {
+    id: string;
+    name: string;
+    getCredentials(): Promise<{ rtmpUrl: string; rtmpKey: string }>;
+    onStreamStart?(): Promise<void>;
+    onStreamStop?(): Promise<void>;
+  }
+}
+
 /** Optional: used by NFA routes when present. WHY: allows typecheck without resolving packages/ (excluded from tsconfig). */
 declare module "@elizaos/plugin-bnb-identity" {
   export function buildMerkleRoot(leafHashes: string[]): string;

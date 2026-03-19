@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/api/connector-health";
+export * from "@elizaos/autonomous/api/connector-health";

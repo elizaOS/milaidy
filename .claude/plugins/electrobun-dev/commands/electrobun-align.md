@@ -142,7 +142,7 @@ Scan all `.ts` files in `src/`:
 
 Scan all `.ts` files for:
 - `console.log(` statements → flag each file that has them
-- `TODO` / `FIXME` comments → list files
+- Placeholder or `FIXME` comments → list files
 - `as any` without adjacent comment → flag
 
 ---
@@ -194,7 +194,7 @@ Group H: File Size
 
 Group I: Debug Artifacts
   ⚠️  src/bun/index.ts — 3 console.log statements
-  ⚠️  src/mainview/index.ts — 1 TODO comment
+  ⚠️  src/mainview/index.ts — 1 placeholder comment
 
 ═══════════════════════════════════════════════════════
  SUMMARY
@@ -351,7 +351,7 @@ Backed up:
 
 Remaining issues (not fixed):
   ⚠️  src/bun/index.ts — files over 500 LOC (manual refactor needed)
-  ⚠️  src/mainview/index.ts — TODO comment (manual review needed)
+  ⚠️  src/mainview/index.ts — placeholder comment (manual review needed)
 
 ═══════════════════════════════════════════════════════
 

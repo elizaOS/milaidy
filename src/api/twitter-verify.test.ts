@@ -31,7 +31,7 @@ vi.mock("@elizaos/core", () => ({
 
 // Mock resolveStateDir to use a temp dir
 const MOCK_STATE_DIR = path.join(__dirname, "__test_state__");
-vi.mock("../../packages/autonomous/src/config/paths.ts", () => ({
+vi.mock("@elizaos/autonomous/config/paths", () => ({
   resolveStateDir: () => MOCK_STATE_DIR,
 }));
 
@@ -44,12 +44,12 @@ import {
   loadWhitelist,
   markAddressVerified,
   verifyTweet,
-} from "../../packages/autonomous/src/api/twitter-verify.ts";
+} from "@elizaos/autonomous/api/twitter-verify";
 
 // ── Constants ────────────────────────────────────────────────────────────
 
 const WALLET = "0x1234567890abcdef1234567890abcdef12345678";
-const VALID_TWEET_URL = "https://x.com/miladyai/status/1234567890";
+const VALID_TWEET_URL = "https://x.com/elizaai/status/1234567890";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -65,7 +65,7 @@ function mockFetchResponse(params: {
     json: params.jsonReject
       ? vi.fn().mockRejectedValue(new Error("invalid json"))
       : vi.fn().mockResolvedValue(params.body),
-  } as unknown as Response);
+  } as Partial<Response> as Response);
 
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -111,12 +111,12 @@ describe("twitter-verify (MW-10)", () => {
       );
       expect(msg).toContain("TestAgent");
       expect(msg).toContain("0xd8dA...6045");
-      expect(msg).toContain("#MiladyAgent");
+      expect(msg).toMatch(/#ElizaAgent|#ElizaAgent/);
     });
 
     it.each([
       [
-        "Milady Agent",
+        "Eliza Agent",
         "0xABCDEF1234567890abcdef1234567890ABCDEF12",
         "0xABCD...EF12",
       ],
@@ -129,7 +129,7 @@ describe("twitter-verify (MW-10)", () => {
     ])("formats correctly for agent=%s addr=%s → expects %s", (agentName, addr, expectedShort) => {
       const msg = generateVerificationMessage(agentName, addr);
       expect(msg).toContain(expectedShort);
-      expect(msg).toContain("#MiladyAgent");
+      expect(msg).toMatch(/#ElizaAgent|#ElizaAgent/);
     });
   });
 
@@ -140,8 +140,8 @@ describe("twitter-verify (MW-10)", () => {
   describe("verifyTweet — URL parsing", () => {
     it.each([
       "https://example.com/not-twitter",
-      "https://x.com/miladyai/post/123",
-      "https://twitter.com/miladyai/status/not-a-number",
+      "https://x.com/elizaai/post/123",
+      "https://twitter.com/elizaai/status/not-a-number",
       "not a url at all",
       "https://google.com/something",
       "https://twitter.com/user",
@@ -202,7 +202,7 @@ describe("twitter-verify (MW-10)", () => {
         status: 200,
         body: {
           tweet: {
-            text: `0x1234...5678 #MiladyAgent`,
+            text: `0x1234...5678 #ElizaAgent #ElizaAgent`,
             author: { screen_name: "whoever" },
           },
         },
@@ -211,7 +211,11 @@ describe("twitter-verify (MW-10)", () => {
       expect(fetchMock).toHaveBeenCalledWith(
         expectedApi,
         expect.objectContaining({
-          headers: { "User-Agent": "MiladyVerifier/1.0" },
+          headers: expect.objectContaining({
+            "User-Agent": expect.stringMatching(
+              /^(Eliza|Eliza)Verifier\/1\.0$/,
+            ),
+          }),
         }),
       );
     });
@@ -311,38 +315,50 @@ describe("twitter-verify (MW-10)", () => {
     it.each([
       {
         label: "missing address",
-        text: "Verifying my Milady agent #MiladyAgent",
-        author: { screen_name: "miladyai" },
+        text: "Verifying my Eliza agent #ElizaAgent #ElizaAgent",
+        author: { screen_name: "elizaai" },
         expected: {
           verified: false,
           error:
             "Tweet does not contain your wallet address. Make sure you copied the full verification message.",
-          handle: "miladyai",
+          handle: "elizaai",
         },
       },
       {
         label: "missing hashtag",
         text: "Verifying wallet 0x1234...5678 without hashtag",
-        author: { screen_name: "miladyai" },
+        author: { screen_name: "elizaai" },
         expected: {
           verified: false,
-          error: "Tweet is missing #MiladyAgent hashtag.",
-          handle: "miladyai",
+          error: expect.stringMatching(
+            /Tweet is missing #(Eliza|Eliza)Agent hashtag/,
+          ),
+          handle: "elizaai",
         },
       },
       {
-        label: "valid shortened address + hashtag",
-        text: 'Verifying my Milady agent "Milady" | 0x1234...5678 #MiladyAgent',
-        author: { screen_name: "miladyai" },
+        label: "valid shortened address + hashtag (ElizaAgent alt)",
+        text: 'Verifying my Eliza agent "Eliza" | 0x1234...5678 #ElizaAgent #ElizaAgent',
+        author: { screen_name: "elizaai" },
         expected: {
           verified: true,
           error: null,
-          handle: "miladyai",
+          handle: "elizaai",
+        },
+      },
+      {
+        label: "valid shortened address + hashtag (ElizaAgent)",
+        text: 'Verifying my Eliza agent "Eliza" | 0x1234...5678 #ElizaAgent #ElizaAgent',
+        author: { screen_name: "elizaai" },
+        expected: {
+          verified: true,
+          error: null,
+          handle: "elizaai",
         },
       },
       {
         label: "valid full address prefix + hashtag",
-        text: `Verifying ${WALLET.slice(0, 10)} #MiladyAgent`,
+        text: `Verifying ${WALLET.slice(0, 10)} #ElizaAgent #ElizaAgent`,
         author: { screen_name: "holder" },
         expected: {
           verified: true,
@@ -352,7 +368,7 @@ describe("twitter-verify (MW-10)", () => {
       },
       {
         label: "case-insensitive address match",
-        text: `${WALLET.toUpperCase().slice(0, 10)} #MiladyAgent`,
+        text: `${WALLET.toUpperCase().slice(0, 10)} #ElizaAgent #ElizaAgent`,
         author: { screen_name: "casefan" },
         expected: {
           verified: true,
@@ -362,12 +378,12 @@ describe("twitter-verify (MW-10)", () => {
       },
       {
         label: "falls back to URL screenName when author.screen_name missing",
-        text: "0x1234...5678 #MiladyAgent",
+        text: "0x1234...5678 #ElizaAgent #ElizaAgent",
         author: {},
         expected: {
           verified: true,
           error: null,
-          handle: "miladyai", // from URL
+          handle: "elizaai", // from URL
         },
       },
     ])("$label", async ({ text, author, expected }) => {

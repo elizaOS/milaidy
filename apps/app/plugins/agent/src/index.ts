@@ -6,5 +6,3 @@ export const Agent = registerPlugin<AgentPlugin>("Agent", {
   // Electrobun uses the preload bridge (agent:start, agent:stop, etc.)
   // iOS/Android will use the web fallback (HTTP to API server) for now
 });
-
-export * from "./definitions";

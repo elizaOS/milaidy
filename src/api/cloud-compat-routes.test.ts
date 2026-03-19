@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import type http from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import type { CloudCompatRouteState } from "./cloud-compat-routes";
 import {
   handleCloudCompatRoute,
@@ -13,24 +13,24 @@ vi.mock("@elizaos/core", () => ({
   logger: { warn: vi.fn(), info: vi.fn() },
 }));
 
-vi.mock("@miladyai/autonomous/cloud/validate-url", () => ({
+vi.mock("@elizaos/autonomous/cloud/validate-url", () => ({
   validateCloudBaseUrl: vi.fn(() => Promise.resolve(null)),
 }));
 
-vi.mock("@miladyai/autonomous/api/http-helpers", () => ({
+vi.mock("@elizaos/autonomous/api/http-helpers", () => ({
   sendJson: vi.fn(),
   sendJsonError: vi.fn(),
 }));
 
 const { sendJson, sendJsonError } = await import(
-  "@miladyai/autonomous/api/http-helpers"
+  "@elizaos/autonomous/api/http-helpers"
 );
 const { validateCloudBaseUrl } = await import(
-  "@miladyai/autonomous/cloud/validate-url"
+  "@elizaos/autonomous/cloud/validate-url"
 );
 
 function makeState(
-  overrides?: Partial<MiladyConfig["cloud"]>,
+  overrides?: Partial<ElizaConfig["cloud"]>,
 ): CloudCompatRouteState {
   return {
     config: {
@@ -39,7 +39,7 @@ function makeState(
         baseUrl: "https://cloud.example.com",
         ...overrides,
       },
-    } as MiladyConfig,
+    } as ElizaConfig,
   };
 }
 
@@ -48,7 +48,7 @@ function makeReq(opts: {
   url?: string;
   body?: string;
 }): http.IncomingMessage {
-  const emitter = new EventEmitter() as unknown as http.IncomingMessage;
+  const emitter = new EventEmitter() as http.IncomingMessage;
   emitter.url = opts.url ?? "/api/cloud/compat/agents";
   // Schedule body emission after construction
   if (opts.body) {
@@ -80,14 +80,14 @@ describe("cloud-compat-routes", () => {
 
   describe("resolveCloudBaseUrl", () => {
     it("uses default URL when no baseUrl configured", () => {
-      const config = { cloud: {} } as MiladyConfig;
+      const config = { cloud: {} } as ElizaConfig;
       expect(resolveCloudBaseUrl(config)).toBe("https://www.elizacloud.ai");
     });
 
     it("strips trailing slashes", () => {
       const config = {
         cloud: { baseUrl: "https://cloud.example.com///" },
-      } as MiladyConfig;
+      } as ElizaConfig;
       expect(resolveCloudBaseUrl(config)).toBe("https://cloud.example.com");
     });
   });
@@ -329,7 +329,7 @@ describe("cloud-compat-routes", () => {
             baseUrl: "https://cloud.example.com",
             serviceKey: "svc-key-123",
           },
-        } as unknown as MiladyConfig,
+        } as Partial<ElizaConfig> as ElizaConfig,
       };
 
       await handleCloudCompatRoute(

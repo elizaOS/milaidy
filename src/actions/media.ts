@@ -14,7 +14,7 @@
  */
 
 import type { Action, HandlerOptions, IAgentRuntime } from "@elizaos/core";
-import { loadMiladyConfig } from "../config/config";
+import { loadElizaConfig } from "../config/config";
 import {
   createAudioProvider,
   createImageProvider,
@@ -24,7 +24,7 @@ import {
 } from "../providers/media-provider";
 
 function getMediaProviderOptions(): MediaProviderFactoryOptions {
-  const config = loadMiladyConfig();
+  const config = loadElizaConfig();
   return {
     elizaCloudBaseUrl: config.cloud?.baseUrl ?? "https://elizacloud.ai/api/v1",
     elizaCloudApiKey: config.cloud?.apiKey,
@@ -75,7 +75,7 @@ export const generateImageAction: Action = {
       };
     }
 
-    const config = loadMiladyConfig();
+    const config = loadElizaConfig();
     const provider = createImageProvider(
       config.media?.image,
       getMediaProviderOptions(),
@@ -197,7 +197,7 @@ export const generateVideoAction: Action = {
       };
     }
 
-    const config = loadMiladyConfig();
+    const config = loadElizaConfig();
     const provider = createVideoProvider(
       config.media?.video,
       getMediaProviderOptions(),
@@ -307,7 +307,7 @@ export const generateAudioAction: Action = {
       };
     }
 
-    const config = loadMiladyConfig();
+    const config = loadElizaConfig();
     const provider = createAudioProvider(
       config.media?.audio,
       getMediaProviderOptions(),
@@ -422,7 +422,7 @@ export const analyzeImageAction: Action = {
       };
     }
 
-    const config = loadMiladyConfig();
+    const config = loadElizaConfig();
     const provider = createVisionProvider(
       config.media?.vision,
       getMediaProviderOptions(),

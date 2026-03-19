@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 const BIOME_CRASHER_PATHS = new Set([
   "apps/app/plugins/screencapture/src/web.ts",
@@ -28,7 +29,8 @@ function getBiomeFiles() {
   return output
     .split("\0")
     .filter(Boolean)
-    .filter((file) => !BIOME_CRASHER_PATHS.has(file));
+    .filter((file) => !BIOME_CRASHER_PATHS.has(file))
+    .filter((file) => existsSync(file));
 }
 
 function chunk(items, size) {

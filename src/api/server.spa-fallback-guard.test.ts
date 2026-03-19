@@ -15,9 +15,9 @@ describe("shouldServeSpaFallback", () => {
   });
 
   it("rejects .vrm asset requests", () => {
-    expect(shouldServeSpaFallback("/milady-1.vrm")).toBe(false);
-    expect(shouldServeSpaFallback("/vrms/milady-1.vrm")).toBe(false);
-    expect(shouldServeSpaFallback("/vrms/milady-1.vrm.gz")).toBe(false);
+    expect(shouldServeSpaFallback("/eliza-1.vrm")).toBe(false);
+    expect(shouldServeSpaFallback("/vrms/eliza-1.vrm")).toBe(false);
+    expect(shouldServeSpaFallback("/vrms/eliza-1.vrm.gz")).toBe(false);
   });
 
   it("rejects .glb asset requests", () => {

@@ -22,10 +22,10 @@ function getBenchmarkAction() {
 function getBenchmarkProvider() {
   const plugin = createBenchmarkPlugin();
   const provider = plugin.providers?.find(
-    (entry) => entry.name === "MILADY_BENCHMARK",
+    (entry) => entry.name === "ELIZA_BENCHMARK",
   );
   if (!provider?.get) {
-    throw new Error("MILADY_BENCHMARK provider is not configured");
+    throw new Error("ELIZA_BENCHMARK provider is not configured");
   }
   return provider;
 }
@@ -39,19 +39,11 @@ describe("benchmark plugin action capture", () => {
   it("only validates BENCHMARK_ACTION when benchmark context exists", async () => {
     const action = getBenchmarkAction();
 
-    const withoutContext = await action.validate(
-      {} as never,
-      {} as never,
-      {} as never,
-    );
+    const withoutContext = await action.validate({} as never);
     expect(withoutContext).toBe(false);
 
     setBenchmarkContext({ benchmark: "agentbench", taskId: "task-1" });
-    const withContext = await action.validate(
-      {} as never,
-      {} as never,
-      {} as never,
-    );
+    const withContext = await action.validate({} as never);
     expect(withContext).toBe(true);
   });
 
@@ -59,17 +51,11 @@ describe("benchmark plugin action capture", () => {
     const action = getBenchmarkAction();
     setBenchmarkContext({ benchmark: "agentbench", taskId: "task-2" });
 
-    await action.handler(
-      {} as never,
-      {} as never,
-      {} as never,
-      {
-        parameters: {
-          command: "search[laptop under $500]",
-        },
+    await action.handler({} as never, {} as never, undefined as never, {
+      parameters: {
+        command: "search[laptop under $500]",
       },
-      [] as never,
-    );
+    });
 
     expect(getCapturedAction()).toMatchObject({
       command: "search[laptop under $500]",
@@ -80,18 +66,12 @@ describe("benchmark plugin action capture", () => {
     const action = getBenchmarkAction();
     setBenchmarkContext({ benchmark: "tau-bench", taskId: "task-3" });
 
-    await action.handler(
-      {} as never,
-      {} as never,
-      {} as never,
-      {
-        parameters: {
-          tool_name: "lookup_order",
-          arguments: '{"order_id":"A-123"}',
-        },
+    await action.handler({} as never, {} as never, undefined as never, {
+      parameters: {
+        tool_name: "lookup_order",
+        arguments: '{"order_id":"A-123"}',
       },
-      [] as never,
-    );
+    });
 
     expect(getCapturedAction()).toMatchObject({
       toolName: "lookup_order",
@@ -103,18 +83,12 @@ describe("benchmark plugin action capture", () => {
     const action = getBenchmarkAction();
     setBenchmarkContext({ benchmark: "tau-bench", taskId: "task-4" });
 
-    await action.handler(
-      {} as never,
-      {} as never,
-      {} as never,
-      {
-        parameters: {
-          tool_name: "lookup_order",
-          arguments: "{not-json}",
-        },
+    await action.handler({} as never, {} as never, undefined as never, {
+      parameters: {
+        tool_name: "lookup_order",
+        arguments: "{not-json}",
       },
-      [] as never,
-    );
+    });
 
     expect(getCapturedAction()).toMatchObject({
       toolName: "lookup_order",
@@ -126,21 +100,15 @@ describe("benchmark plugin action capture", () => {
     const action = getBenchmarkAction();
     setBenchmarkContext({ benchmark: "mind2web", taskId: "task-5" });
 
-    await action.handler(
-      {} as never,
-      {} as never,
-      {} as never,
-      {
-        parameters: {
-          fields: {
-            operation: { stringValue: "CLICK" },
-            element_id: { stringValue: "btn-1" },
-            value: { stringValue: "" },
-          },
+    await action.handler({} as never, {} as never, undefined as never, {
+      parameters: {
+        fields: {
+          operation: { stringValue: "CLICK" },
+          element_id: { stringValue: "btn-1" },
+          value: { stringValue: "" },
         },
       },
-      [] as never,
-    );
+    });
 
     expect(getCapturedAction()).toMatchObject({
       operation: "CLICK",

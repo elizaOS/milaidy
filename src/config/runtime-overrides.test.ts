@@ -6,7 +6,7 @@ import {
   setConfigOverride,
   unsetConfigOverride,
 } from "./runtime-overrides";
-import type { MiladyConfig } from "./types";
+import type { ElizaConfig } from "./types";
 
 describe("runtime overrides", () => {
   beforeEach(() => {
@@ -15,8 +15,8 @@ describe("runtime overrides", () => {
 
   it("sets and applies nested overrides", () => {
     const cfg = {
-      messages: { responsePrefix: "[milady]" },
-    } as MiladyConfig;
+      messages: { responsePrefix: "[eliza]" },
+    } as ElizaConfig;
     setConfigOverride("messages.responsePrefix", "[debug]");
     const next = applyConfigOverrides(cfg);
     expect(next.messages?.responsePrefix).toBe("[debug]");
@@ -25,7 +25,7 @@ describe("runtime overrides", () => {
   it("merges object overrides without clobbering siblings", () => {
     const cfg = {
       connectors: { whatsapp: { dmPolicy: "pairing", allowFrom: ["+1"] } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     setConfigOverride("connectors.whatsapp.dmPolicy", "open");
     const next = applyConfigOverrides(cfg);
     expect(next.connectors?.whatsapp?.dmPolicy).toBe("open");

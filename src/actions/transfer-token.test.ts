@@ -15,12 +15,9 @@ const VALID_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";
 const VALID_TOKEN_CONTRACT = "0x55d398326f99059fF775485246999027B3197955";
 
 function callHandler(params: Record<string, unknown>) {
-  return transferTokenAction.handler(
-    {} as never,
-    {} as never,
-    {} as never,
-    { parameters: params } as HandlerOptions,
-  );
+  return transferTokenAction.handler({} as never, {} as never, undefined, {
+    parameters: params,
+  } as HandlerOptions);
 }
 
 // ── Test suite ───────────────────────────────────────────────────────────────
@@ -78,7 +75,6 @@ describe("TRANSFER_TOKEN action", () => {
     const result = await transferTokenAction.validate(
       mockRuntime as never,
       {} as never,
-      {} as never,
     );
     expect(result).toBe(true);
   });
@@ -91,7 +87,6 @@ describe("TRANSFER_TOKEN action", () => {
     const result = await transferTokenAction.validate(
       mockRuntime as never,
       {} as never,
-      {} as never,
     );
     expect(result).toBe(true);
   });
@@ -100,7 +95,6 @@ describe("TRANSFER_TOKEN action", () => {
     const mockRuntime = { getSetting: () => undefined };
     const result = await transferTokenAction.validate(
       mockRuntime as never,
-      {} as never,
       {} as never,
     );
     expect(result).toBe(false);
@@ -307,7 +301,7 @@ describe("TRANSFER_TOKEN action", () => {
     expect(url).toBe("http://127.0.0.1:2138/api/wallet/transfer/execute");
     expect(opts.method).toBe("POST");
     expect(
-      (opts.headers as Record<string, string>)["X-Milady-Agent-Action"],
+      (opts.headers as Record<string, string>)["X-Eliza-Agent-Action"],
     ).toBe("1");
     expect((opts.headers as Record<string, string>)["Content-Type"]).toBe(
       "application/json",
@@ -571,12 +565,7 @@ describe("TRANSFER_TOKEN action", () => {
   });
 
   it("handles missing parameters entirely", async () => {
-    const result = await transferTokenAction.handler(
-      {} as never,
-      {} as never,
-      {} as never,
-      undefined,
-    );
+    const result = await transferTokenAction.handler({} as never, undefined);
     expect((result as { success: boolean }).success).toBe(false);
   });
 });

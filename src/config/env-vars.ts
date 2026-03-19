@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/config/env-vars";
+export * from "@elizaos/autonomous/config/env-vars";

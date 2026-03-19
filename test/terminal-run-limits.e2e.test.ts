@@ -74,9 +74,9 @@ describe("Terminal run validation and limit guards", () => {
   beforeAll(async () => {
     envBackup = saveEnv(
       "MILADY_TERMINAL_MAX_CONCURRENT",
+      "ELIZA_TERMINAL_MAX_CONCURRENT",
       "MILADY_TERMINAL_MAX_DURATION_MS",
-      "MILAIDY_TERMINAL_MAX_CONCURRENT",
-      "MILAIDY_TERMINAL_MAX_DURATION_MS",
+      "ELIZA_TERMINAL_MAX_DURATION_MS",
     );
     const result = await startApiServer({ port: 0 });
     port = result.port;
@@ -86,9 +86,13 @@ describe("Terminal run validation and limit guards", () => {
   beforeEach(async () => {
     await req(port, "PUT", "/api/permissions/shell", { enabled: true });
     delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
+    delete process.env.ELIZA_TERMINAL_MAX_CONCURRENT;
     delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
-    delete process.env.MILAIDY_TERMINAL_MAX_CONCURRENT;
-    delete process.env.MILAIDY_TERMINAL_MAX_DURATION_MS;
+    delete process.env.ELIZA_TERMINAL_MAX_DURATION_MS;
+    delete process.env.MILADY_TERMINAL_MAX_CONCURRENT;
+    delete process.env.ELIZA_TERMINAL_MAX_CONCURRENT;
+    delete process.env.MILADY_TERMINAL_MAX_DURATION_MS;
+    delete process.env.ELIZA_TERMINAL_MAX_DURATION_MS;
   });
 
   afterAll(async () => {
@@ -110,7 +114,8 @@ describe("Terminal run validation and limit guards", () => {
   });
 
   it("enforces max concurrent terminal runs", async () => {
-    process.env.MILAIDY_TERMINAL_MAX_CONCURRENT = "1";
+    process.env.MILADY_TERMINAL_MAX_CONCURRENT = "1";
+    process.env.ELIZA_TERMINAL_MAX_CONCURRENT = "1";
 
     const first = await req(port, "POST", "/api/terminal/run", {
       command: 'node -e "setTimeout(() => process.exit(0), 1200)"',

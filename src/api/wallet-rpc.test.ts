@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import {
   applyWalletRpcConfigUpdate,
   getInventoryProviderOptions,
@@ -85,7 +85,7 @@ describe("wallet RPC helpers", () => {
           solana: "helius",
         },
       },
-    } as MiladyConfig);
+    } as ElizaConfig);
 
     expect(readiness.selectedRpcProviders).toEqual({
       evm: "eliza-cloud",
@@ -103,7 +103,7 @@ describe("wallet RPC helpers", () => {
     process.env.BSC_RPC_URL = "https://legacy-bsc.example";
     process.env.SOLANA_RPC_URL = "https://legacy-solana.example";
 
-    const readiness = resolveWalletRpcReadiness({ env: {} } as MiladyConfig);
+    const readiness = resolveWalletRpcReadiness({ env: {} } as ElizaConfig);
 
     expect(readiness.selectedRpcProviders).toEqual({
       evm: "alchemy",
@@ -119,7 +119,7 @@ describe("wallet RPC helpers", () => {
     process.env.BSC_RPC_URL = "https://legacy-bsc.example";
     process.env.SOLANA_RPC_URL = "https://legacy-solana.example";
 
-    const readiness = resolveWalletRpcReadiness({ env: {} } as MiladyConfig);
+    const readiness = resolveWalletRpcReadiness({ env: {} } as ElizaConfig);
 
     expect(readiness.selectedRpcProviders).toEqual({
       evm: "eliza-cloud",
@@ -140,7 +140,7 @@ describe("wallet RPC helpers", () => {
         NODEREAL_BSC_RPC_URL: "https://old-nodereal.example",
         BSC_RPC_URL: "https://legacy-bsc.example",
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyWalletRpcConfigUpdate(config, {
       selections: {

@@ -73,21 +73,21 @@ function printGrouped(results: CheckResult[]): void {
 function attemptFix(result: CheckResult): boolean {
   if (!result.fix || !result.autoFixable) return false;
 
-  // Only auto-run milady sub-commands — don't blindly shell out to arbitrary
+  // Only auto-run eliza sub-commands — don't blindly shell out to arbitrary
   // fix strings (e.g. chmod commands require explicit user confirmation).
-  if (!result.fix.startsWith("milady ")) return false;
+  if (!result.fix.startsWith("eliza ")) return false;
 
-  const args = result.fix.split(/\s+/).slice(1); // strip "milady"
+  const args = result.fix.split(/\s+/).slice(1); // strip "eliza"
   console.log(
     `\n  ${theme.muted("→ auto-fix:")} ${theme.command(result.fix)}\n`,
   );
 
-  // Resolve the milady binary: prefer the one already running, fall back to
+  // Resolve the eliza binary: prefer the one already running, fall back to
   // looking it up in PATH.
   const bin =
-    process.env.MILADY_BIN ??
+    process.env.ELIZA_BIN ??
     (process.execArgv.length === 0 ? process.argv[1] : null) ??
-    "milady";
+    "eliza";
 
   const result2 = spawnSync(bin, args, { stdio: "inherit" });
   return result2.status === 0;
@@ -126,7 +126,7 @@ export function registerDoctorCommand(program: Command) {
         }
 
         // ── Human output ─────────────────────────────────────────────────
-        console.log(`\n${theme.heading("Milady Health Check")}\n`);
+        console.log(`\n${theme.heading("Eliza Health Check")}\n`);
         printGrouped(results);
 
         const failures = results.filter((r) => r.status === "fail");
@@ -135,12 +135,12 @@ export function registerDoctorCommand(program: Command) {
         console.log();
         if (failures.length === 0 && warnings.length === 0) {
           console.log(
-            `  ${theme.success("Everything looks good.")} Ready to run ${theme.command("milady start")}.`,
+            `  ${theme.success("Everything looks good.")} Ready to run ${theme.command("eliza start")}.`,
           );
         } else if (failures.length > 0) {
           const plural = failures.length === 1 ? "issue" : "issues";
           console.log(
-            `  ${theme.error(`${failures.length} ${plural} found.`)}${opts.fix ? "" : ` Run ${theme.command("milady doctor --fix")} to auto-remediate.`}`,
+            `  ${theme.error(`${failures.length} ${plural} found.`)}${opts.fix ? "" : ` Run ${theme.command("eliza doctor --fix")} to auto-remediate.`}`,
           );
         } else {
           console.log(

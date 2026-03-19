@@ -17,6 +17,47 @@ const ORANGE = supportsColor ? "\x1b[38;2;255;165;0m" : "";
 const DIM = supportsColor ? "\x1b[2m" : "";
 const RESET = supportsColor ? "\x1b[0m" : "";
 
+import { readFileSync } from "node:fs";
+
+function getCliName() {
+  const nameArgMatch = process.argv.find((a) => a.startsWith("--name="));
+  if (nameArgMatch) return nameArgMatch.split("=")[1];
+
+  try {
+    const pkgPath = path.join(process.cwd(), "package.json");
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      if (pkg.name) {
+        let name = pkg.name;
+        if (name.startsWith("@")) name = name.split("/")[1];
+        if (
+          name === "miladyai" ||
+          name === "milady-ai" ||
+          name.includes("milady")
+        )
+          return "milady";
+        if (name === "elizaos" || name.includes("eliza")) return "eliza";
+        return name;
+      }
+    }
+  } catch (_e) {
+    // Ignore parsing errors
+  }
+
+  // Fallbacks based on directory structure
+  if (
+    process.cwd().includes("eliza-workspace") ||
+    process.cwd().includes("milady")
+  ) {
+    return "milady";
+  }
+
+  return "eliza";
+}
+
+const cliName = getCliName();
+const logPrefix = `[${cliName}]`;
+
 function green(text) {
   return `${GREEN}${text}${RESET}`;
 }
@@ -61,81 +102,81 @@ function which(cmd) {
 
 function installMacOs() {
   if (which("imagesnap")) {
-    console.log(`  ${green("[milady]")} ${dim("imagesnap installed")}`);
+    console.log(`  ${green(logPrefix)} ${dim("imagesnap installed")}`);
     return;
   }
 
   if (!which("brew")) {
     console.warn(
-      `  ${orange("[milady]")} ${dim("Homebrew not found. Install manually: brew install imagesnap")}`,
+      `  ${orange(logPrefix)} ${dim("Homebrew not found. Install manually: brew install imagesnap")}`,
     );
     return;
   }
 
-  console.log(`  ${green("[milady]")} Installing imagesnap via Homebrew...`);
+  console.log(`  ${green(logPrefix)} Installing imagesnap via Homebrew...`);
   try {
     execSync("brew install imagesnap", { stdio: "inherit" });
-    console.log(`  ${green("[milady]")} imagesnap installed successfully`);
+    console.log(`  ${green(logPrefix)} imagesnap installed successfully`);
   } catch (_err) {
     console.error(
-      `  ${orange("[milady]")} ${dim("Failed to install imagesnap")}`,
+      `  ${orange(logPrefix)} ${dim("Failed to install imagesnap")}`,
     );
   }
 }
 
 function installLinux() {
   if (which("fswebcam")) {
-    console.log(`  ${green("[milady]")} ${dim("fswebcam installed")}`);
+    console.log(`  ${green(logPrefix)} ${dim("fswebcam installed")}`);
     return;
   }
 
   if (!which("apt-get")) {
     console.warn(
-      `  ${orange("[milady]")} ${dim("apt-get not found. Install manually: sudo apt-get install fswebcam")}`,
+      `  ${orange(logPrefix)} ${dim("apt-get not found. Install manually: sudo apt-get install fswebcam")}`,
     );
     return;
   }
 
-  console.log(`  ${green("[milady]")} Installing fswebcam via apt-get...`);
+  console.log(`  ${green(logPrefix)} Installing fswebcam via apt-get...`);
   try {
     execSync("sudo apt-get install -y fswebcam", { stdio: "inherit" });
-    console.log(`  ${green("[milady]")} fswebcam installed successfully`);
+    console.log(`  ${green(logPrefix)} fswebcam installed successfully`);
   } catch (_err) {
     console.error(
-      `  ${orange("[milady]")} ${dim("Failed to install fswebcam. (Sudo privileges may be required)")}`,
+      `  ${orange(logPrefix)} ${dim("Failed to install fswebcam. (Sudo privileges may be required)")}`,
     );
   }
 }
 
 function installWindows() {
   if (which("ffmpeg")) {
-    console.log(`  ${green("[milady]")} ${dim("ffmpeg installed")}`);
+    console.log(`  ${green(logPrefix)} ${dim("ffmpeg installed")}`);
     return;
   }
 
   if (!which("winget")) {
     console.warn(
-      `  ${orange("[milady]")} ${dim("winget not found. Install manually from ffmpeg.org and add to PATH.")}`,
+      `  ${orange(logPrefix)} ${dim("winget not found. Install manually from ffmpeg.org and add to PATH.")}`,
     );
     return;
   }
 
-  console.log(`  ${green("[milady]")} Installing ffmpeg via winget...`);
+  console.log(`  ${green(logPrefix)} Installing ffmpeg via winget...`);
   try {
     execSync(
       "winget install -e --id Gyan.FFmpeg --accept-source-agreements --accept-package-agreements",
       { stdio: "inherit" },
     );
     console.log(
-      `  ${green("[milady]")} ffmpeg installed successfully. Restart your terminal if necessary.`,
+      `  ${green(logPrefix)} ffmpeg installed successfully. Restart your terminal if necessary.`,
     );
   } catch (_err) {
-    console.error(`  ${orange("[milady]")} ${dim("Failed to install ffmpeg")}`);
+    console.error(`  ${orange(logPrefix)} ${dim("Failed to install ffmpeg")}`);
   }
 }
 
 function main() {
-  const disableFlag = process.env.MILADY_NO_VISION_DEPS === "1";
+  const disableFlag = process.env.ELIZA_NO_VISION_DEPS === "1";
   if (disableFlag) {
     return;
   }
@@ -149,7 +190,7 @@ function main() {
   } else {
     // Unsupported platform
     console.log(
-      `  ${green("[milady]")} ${dim(`Platform ${platform} unsupported for automatic camera deps`)}`,
+      `  ${green(logPrefix)} ${dim(`Platform ${platform} unsupported for automatic camera deps`)}`,
     );
   }
 }

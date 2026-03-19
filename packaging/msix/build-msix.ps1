@@ -6,8 +6,9 @@
 #
 # Prerequisites:
 #   - Windows SDK installed (for makeappx.exe and signtool.exe)
-#   - Executables already code-signed (sign-windows.ps1)
-#   - WINDOWS_SIGN_CERT_BASE64 + WINDOWS_SIGN_CERT_PASSWORD env vars set
+#   - Executables already code-signed (sign-windows.ps1 or Azure Trusted Signing)
+#   - Either WINDOWS_SIGN_CERT_BASE64 + WINDOWS_SIGN_CERT_PASSWORD, or AZURE_TENANT_ID,
+#     or SKIP_MSIX_SIGN (build unsigned MSIX for SKIP_WINDOWS_SIGNING / Azure path)
 
 param(
   [Parameter(Mandatory)][string]$BuildDir,
@@ -20,9 +21,10 @@ $ErrorActionPreference = "Stop"
 $certBase64 = $env:WINDOWS_SIGN_CERT_BASE64
 $certPassword = $env:WINDOWS_SIGN_CERT_PASSWORD
 $timestampUrl = if ($env:WINDOWS_SIGN_TIMESTAMP_URL) { $env:WINDOWS_SIGN_TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
+$azureSigning = $env:AZURE_TENANT_ID -or $env:AZURE_CLIENT_ID -or $env:SKIP_MSIX_SIGN -or $env:SKIP_WINDOWS_SIGNING
 
-if (-not $certBase64) {
-  Write-Host "::warning::WINDOWS_SIGN_CERT_BASE64 not set - skipping MSIX generation (unsigned MSIX won't pass Store review)"
+if (-not $certBase64 -and -not $azureSigning) {
+  Write-Host "::warning::WINDOWS_SIGN_CERT_BASE64 not set and no Azure Trusted Signing - skipping MSIX generation"
   exit 0
 }
 
@@ -104,7 +106,16 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "MSIX package created: $msixOutput"
 
-# Sign the MSIX package
+if ($env:SKIP_MSIX_SIGN -or ($azureSigning -and -not $certBase64)) {
+  if ($env:SKIP_WINDOWS_SIGNING) {
+    Write-Host "SKIP_WINDOWS_SIGNING - delivering unsigned MSIX"
+  } else {
+    Write-Host "Azure Trusted Signing path - skipping PFX signing. Azure will sign the MSIX next."
+  }
+  exit 0
+}
+
+# Sign the MSIX package (requires WINDOWS_SIGN_CERT_BASE64)
 $pfxPath = Join-Path $env:RUNNER_TEMP "code-signing-cert.pfx"
 [System.IO.File]::WriteAllBytes($pfxPath, [System.Convert]::FromBase64String($certBase64))
 

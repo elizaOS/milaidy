@@ -1,4 +1,4 @@
-import { loadMiladyConfig, saveMiladyConfig } from "../../config/config.js";
+import { loadElizaConfig, saveElizaConfig } from "../../config/config.js";
 import { installPlugin } from "../../services/plugin-installer.js";
 import { getRegistryPlugins } from "../../services/registry-client.js";
 import type { PluginListItem } from "./plugins-installed-tab.js";
@@ -30,14 +30,14 @@ export class PluginsOverlayDataBridge {
   getApiBaseUrl(): string | null {
     const base =
       this.options.apiBaseUrl?.trim() ||
-      process.env.MILADY_API_BASE_URL?.trim() ||
-      process.env.MILADY_API_BASE?.trim();
+      process.env.ELIZA_API_BASE_URL?.trim() ||
+      process.env.ELIZA_API_BASE?.trim();
     if (!base) return null;
     return base.replace(/\/+$/, "");
   }
 
   private getApiToken(): string | null {
-    const token = process.env.MILADY_API_TOKEN?.trim();
+    const token = process.env.ELIZA_API_TOKEN?.trim();
     return token ? token : null;
   }
 
@@ -250,7 +250,7 @@ export class PluginsOverlayDataBridge {
   }
 
   private async getInstalledPluginsFromConfig(): Promise<PluginListItem[]> {
-    const cfg = loadMiladyConfig();
+    const cfg = loadElizaConfig();
     const entries = cfg.plugins?.entries ?? {};
     const installs = cfg.plugins?.installs ?? {};
     const catalog = buildPluginCatalogIndex();
@@ -343,12 +343,12 @@ export class PluginsOverlayDataBridge {
       return;
     }
 
-    const cfg = loadMiladyConfig();
+    const cfg = loadElizaConfig();
     if (!cfg.plugins) cfg.plugins = {};
     if (!cfg.plugins.entries) cfg.plugins.entries = {};
     if (!cfg.plugins.entries[id]) cfg.plugins.entries[id] = {};
     cfg.plugins.entries[id].enabled = enabled;
-    saveMiladyConfig(cfg);
+    saveElizaConfig(cfg);
   }
 
   async savePluginConfig(
@@ -373,12 +373,12 @@ export class PluginsOverlayDataBridge {
       return;
     }
 
-    const cfg = loadMiladyConfig();
+    const cfg = loadElizaConfig();
     if (!cfg.plugins) cfg.plugins = {};
     if (!cfg.plugins.entries) cfg.plugins.entries = {};
     if (!cfg.plugins.entries[id]) cfg.plugins.entries[id] = {};
     cfg.plugins.entries[id].config = config;
-    saveMiladyConfig(cfg);
+    saveElizaConfig(cfg);
   }
 
   async installPlugin(
@@ -401,7 +401,7 @@ export class PluginsOverlayDataBridge {
     }
 
     const restartHint = result.requiresRestart
-      ? " Restart milady to load it."
+      ? " Restart eliza to load it."
       : "";
     return {
       success: true,
@@ -416,7 +416,7 @@ export class PluginsOverlayDataBridge {
     }
 
     const registry = await getRegistryPlugins();
-    const cfg = loadMiladyConfig();
+    const cfg = loadElizaConfig();
     const installs = cfg.plugins?.installs ?? {};
 
     const items: StorePluginItem[] = [];
@@ -446,7 +446,7 @@ export class PluginsOverlayDataBridge {
       "../../services/registry-client.js"
     );
     const results = await searchNonAppPlugins(query, limit);
-    const cfg = loadMiladyConfig();
+    const cfg = loadElizaConfig();
     const installs = cfg.plugins?.installs ?? {};
 
     return results.map((r) => ({
@@ -470,7 +470,7 @@ export class PluginsOverlayDataBridge {
     }
 
     try {
-      const cfg = loadMiladyConfig();
+      const cfg = loadElizaConfig();
       const installs = cfg.plugins?.installs ?? {};
       return name in installs;
     } catch {

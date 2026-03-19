@@ -8,7 +8,7 @@ const defineRpc = vi.fn();
 vi.mock("electrobun/view", () => {
   const Electroview = vi.fn(function MockElectroview(options: unknown) {
     electroviewInstances(options);
-  }) as unknown as {
+  }) as {
     new (options: unknown): unknown;
     defineRPC: typeof defineRpc;
   };

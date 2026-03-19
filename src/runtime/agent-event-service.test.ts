@@ -4,11 +4,11 @@ import {
   AGENT_EVENT_SERVICE_TYPES,
   getAgentEventService,
 } from "./agent-event-service";
-import { createMiladyPlugin } from "./milady-plugin";
+import { createElizaPlugin } from "./eliza-plugin";
 
 describe("getAgentEventService", () => {
   it("prefers the canonical lowercase service type", () => {
-    const lowercaseService = { name: "lowercase" };
+    const lowercaseService = { name: "lowercase", subscribe: vi.fn() };
     const runtime = {
       getService: vi.fn((serviceType: string) => {
         if (serviceType === "agent_event") return lowercaseService;
@@ -21,7 +21,7 @@ describe("getAgentEventService", () => {
   });
 
   it("falls back to the legacy uppercase service type", () => {
-    const uppercaseService = { name: "uppercase" };
+    const uppercaseService = { name: "uppercase", subscribe: vi.fn() };
     const runtime = {
       getService: vi.fn((serviceType: string) => {
         if (serviceType === "AGENT_EVENT") return uppercaseService;
@@ -44,15 +44,15 @@ describe("getAgentEventService", () => {
   });
 });
 
-describe("createMiladyPlugin", () => {
+describe("createElizaPlugin", () => {
   it("registers the core AgentEventService", () => {
-    const plugin = createMiladyPlugin();
+    const plugin = createElizaPlugin();
 
     expect(plugin.services).toContain(AgentEventService);
   });
 
   it("exposes emote IDs via the PLAY_EMOTE action parameter enum, not a provider", () => {
-    const plugin = createMiladyPlugin();
+    const plugin = createElizaPlugin();
 
     // Emote provider should no longer exist — IDs moved to action param enum
     const emoteProvider = plugin.providers?.find(
@@ -79,7 +79,7 @@ describe("createMiladyPlugin", () => {
   });
 
   it("honours DISABLE_EMOTES by removing PLAY_EMOTE at init", async () => {
-    const plugin = createMiladyPlugin();
+    const plugin = createElizaPlugin();
     const runtime = {
       character: { settings: { DISABLE_EMOTES: true } },
       getService: vi.fn(() => null),

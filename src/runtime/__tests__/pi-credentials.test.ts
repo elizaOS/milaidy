@@ -268,10 +268,10 @@ describe("createPiCredentialProvider", () => {
     });
   });
 
-  // ---- Fallback behavior (Milady subscription) ----
+  // ---- Fallback behavior (Eliza subscription) ----
 
-  describe("fallback to Milady subscription credentials", () => {
-    it("falls back to Milady subscription for openai-codex", async () => {
+  describe("fallback to Eliza subscription credentials", () => {
+    it("falls back to Eliza subscription for openai-codex", async () => {
       mockReadFile.mockRejectedValue(new Error("ENOENT"));
       mockGetEnvApiKey.mockReturnValue(undefined);
       mockGetAccessToken.mockResolvedValue("codex-subscription-token");
@@ -283,7 +283,7 @@ describe("createPiCredentialProvider", () => {
       expect(mockGetAccessToken).toHaveBeenCalledWith("openai-codex");
     });
 
-    it("falls back to Milady subscription for anthropic", async () => {
+    it("falls back to Eliza subscription for anthropic", async () => {
       mockReadFile.mockRejectedValue(new Error("ENOENT"));
       mockGetEnvApiKey.mockReturnValue(undefined);
       mockGetAccessToken.mockResolvedValue("anthropic-sub-token");
@@ -306,7 +306,7 @@ describe("createPiCredentialProvider", () => {
       expect(key).toBeUndefined();
     });
 
-    it("hasCredentials checks Milady subscription as fallback", async () => {
+    it("hasCredentials checks Eliza subscription as fallback", async () => {
       mockReadFile.mockRejectedValue(new Error("ENOENT"));
       mockGetEnvApiKey.mockReturnValue(undefined);
       mockLoadCredentials.mockImplementation((p: string) => {

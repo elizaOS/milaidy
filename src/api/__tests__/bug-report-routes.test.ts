@@ -19,7 +19,7 @@ function makeCtx(
   return {
     req: {
       socket: { remoteAddress: "127.0.0.1" },
-    } as unknown as http.IncomingMessage,
+    } as http.IncomingMessage,
     res: {} as http.ServerResponse,
     json: vi.fn(),
     error: vi.fn(),
@@ -183,7 +183,7 @@ describe("POST /api/bug-report", () => {
       const handled = await handleBugReportRoutes(ctx);
       expect(handled).toBe(true);
       expect(ctx.json).toHaveBeenCalledWith(ctx.res, {
-        fallback: expect.stringContaining("github.com/milady-ai/milady"),
+        fallback: expect.stringContaining("github.com/elizaos/eliza"),
       });
     });
   });
@@ -202,7 +202,7 @@ describe("POST /api/bug-report", () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            html_url: "https://github.com/milady-ai/milady/issues/42",
+            html_url: "https://github.com/elizaos/eliza/issues/42",
           }),
       });
       vi.stubGlobal("fetch", mockFetch);
@@ -217,14 +217,14 @@ describe("POST /api/bug-report", () => {
 
       expect(mockFetch).toHaveBeenCalledOnce();
       const [url, opts] = mockFetch.mock.calls[0];
-      expect(url).toContain("api.github.com/repos/milady-ai/milady/issues");
+      expect(url).toContain("api.github.com/repos/elizaos/eliza/issues");
       expect(opts.method).toBe("POST");
       const body = JSON.parse(opts.body);
       expect(body.title).toContain("[Bug]");
       expect(body.labels).toEqual(["bug", "triage", "user-reported"]);
 
       expect(ctx.json).toHaveBeenCalledWith(ctx.res, {
-        url: "https://github.com/milady-ai/milady/issues/42",
+        url: "https://github.com/elizaos/eliza/issues/42",
       });
     });
 
@@ -257,7 +257,7 @@ describe("POST /api/bug-report", () => {
           ok: true,
           json: () =>
             Promise.resolve({
-              html_url: "https://github.com/milady-ai/milady/issues/99",
+              html_url: "https://github.com/elizaos/eliza/issues/99",
             }),
         }),
       );

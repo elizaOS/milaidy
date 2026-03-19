@@ -63,8 +63,7 @@ function extractAbortSignal(
   if (fromGetter) return fromGetter;
 
   // Best-effort: some ElizaOS callers pass abortSignal in model params.
-  const maybe = (params as unknown as { abortSignal?: AbortSignal })
-    .abortSignal;
+  const maybe = (params as { abortSignal?: AbortSignal }).abortSignal;
   return maybe;
 }
 
@@ -79,7 +78,7 @@ function emitModelUsed(
 ): void {
   try {
     (
-      runtime as unknown as {
+      runtime as {
         emitEvent?: (event: string, params: Record<string, unknown>) => void;
       }
     ).emitEvent?.("MODEL_USED", {

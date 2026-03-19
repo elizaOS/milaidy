@@ -7,15 +7,15 @@ import { replaceCliName, resolveCliName } from "../cli-name";
 const CLI_NAME = resolveCliName();
 
 const EXAMPLES = [
-  ["milady", "Start Milady in the interactive TUI."],
-  ["milady start", "Start the classic runtime/chat loop."],
-  ["milady dashboard", "Open the Control UI in your browser."],
-  ["milady setup", "Initialize ~/.milady/milady.json and the agent workspace."],
-  ["milady config get agents.defaults.model.primary", "Read a config value."],
-  ["milady models", "Show configured model providers."],
-  ["milady plugins list", "List available plugins."],
-  ["milady update", "Check for and install the latest version."],
-  ["milady update channel beta", "Switch to the beta release channel."],
+  ["eliza", "Start Eliza in the interactive TUI."],
+  ["eliza start", "Start the classic runtime/chat loop."],
+  ["eliza dashboard", "Open the Control UI in your browser."],
+  ["eliza setup", "Initialize ~/.eliza/eliza.json and the agent workspace."],
+  ["eliza config get agents.defaults.model.primary", "Read a config value."],
+  ["eliza models", "Show configured model providers."],
+  ["eliza plugins list", "List available plugins."],
+  ["eliza update", "Check for and install the latest version."],
+  ["eliza update channel beta", "Switch to the beta release channel."],
 ] as const;
 
 export function configureProgramHelp(program: Command, programVersion: string) {
@@ -27,11 +27,11 @@ export function configureProgramHelp(program: Command, programVersion: string) {
     .option("--debug", "Enable debug-level runtime logs")
     .option(
       "--dev",
-      "Dev profile: isolate state under ~/.milady-dev with separate config and ports",
+      "Dev profile: isolate state under ~/.eliza-dev with separate config and ports",
     )
     .option(
       "--profile <name>",
-      "Use a named profile (isolates MILADY_STATE_DIR/MILADY_CONFIG_PATH under ~/.milady-<name>)",
+      "Use a named profile (isolates ELIZA_STATE_DIR/ELIZA_CONFIG_PATH under ~/.eliza-<name>)",
     );
 
   program.option("--no-color", "Disable ANSI colors", false);
@@ -71,7 +71,7 @@ export function configureProgramHelp(program: Command, programVersion: string) {
     if (command !== program) {
       return "";
     }
-    const docs = formatDocsLink("/cli", "docs.milady.ai/cli");
+    const docs = formatDocsLink("/cli", "docs.eliza.ai/cli");
     return `\n${theme.heading("Examples:")}\n${fmtExamples}\n\n${theme.muted("Docs:")} ${docs}\n`;
   });
 }

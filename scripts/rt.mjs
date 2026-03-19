@@ -8,7 +8,7 @@ import process from "node:process";
 const args = process.argv.slice(2);
 
 if (args.length === 0) {
-  console.error("[milady] No runtime command provided.");
+  console.error("[eliza] No runtime command provided.");
   process.exit(1);
 }
 
@@ -96,7 +96,7 @@ if (bunPath) {
 } else if (isTypeScriptScript(command)) {
   const nodePath = resolveNode();
   if (!nodePath) {
-    console.error("[milady] Node.js is required to run TypeScript scripts.");
+    console.error("[eliza] Node.js is required to run TypeScript scripts.");
     process.exit(1);
   }
   executable = nodePath;
@@ -104,7 +104,7 @@ if (bunPath) {
 } else if (isJavaScriptScript(command)) {
   const nodePath = resolveNode();
   if (!nodePath) {
-    console.error("[milady] Node.js is required to run JavaScript scripts.");
+    console.error("[eliza] Node.js is required to run JavaScript scripts.");
     process.exit(1);
   }
   executable = nodePath;
@@ -113,7 +113,7 @@ if (bunPath) {
   const npmPath = resolveNpm();
   if (!npmPath) {
     console.error(
-      "[milady] Bun is not installed and npm is unavailable for this command.",
+      "[eliza] Bun is not installed and npm is unavailable for this command.",
     );
     process.exit(1);
   }

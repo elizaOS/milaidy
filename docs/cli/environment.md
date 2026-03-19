@@ -168,7 +168,7 @@ These variables control elizaOS runtime initialization behavior.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ELIZA_ALLOW_DESTRUCTIVE_MIGRATIONS` | Allow destructive database migrations on startup. Automatically set to `true` by Milady. | `true` (set by Milady) |
-| `IGNORE_BOOTSTRAP` | Skip the elizaOS bootstrap plugin. Automatically set to `true` by Milady (Milady provides its own bootstrap). | `true` (set by Milady) |
+| `ELIZA_CONFIG_PATH` | Override the path to `milady.json`. | `~/.milady/milady.json` |
 | `MILADY_DISABLE_WORKSPACE_PLUGIN_OVERRIDES` | When set to `1`, disables loading plugin overrides from workspace directories. | (unset) |
 | `MILADY_BUNDLED_VERSION` | Override the bundled version string returned by the version resolver. Used in special packaging scenarios. | (unset) |
 

@@ -8,7 +8,7 @@ import {
   type SettingsListTheme,
 } from "@mariozechner/pi-tui";
 import chalk from "chalk";
-import type { RegistryEndpoint } from "../../config/types.milady.js";
+import type { RegistryEndpoint } from "../../config/types.eliza.js";
 import { tuiTheme } from "../theme.js";
 
 // ---------------------------------------------------------------------------

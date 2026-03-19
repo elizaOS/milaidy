@@ -163,7 +163,7 @@ function createTriggerRuntimeHarness(): TriggerRuntimeHarness {
   };
 
   return {
-    runtime: runtimePartial as AgentRuntime,
+    runtime: runtimePartial as unknown as AgentRuntime,
     injectAutonomousInstruction,
   };
 }

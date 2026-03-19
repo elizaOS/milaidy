@@ -9,7 +9,7 @@ function normalizeApiBaseUrl(value: string): string {
   return value.trim().replace(/\/+$/, "");
 }
 
-interface MiladyApiProbe {
+interface ElizaApiProbe {
   baseUrl: string;
   reachable: boolean;
   runtimeState: string | null;
@@ -54,22 +54,22 @@ async function fetchJsonWithTimeout(
   }
 }
 
-function getMiladyApiProbeHeaders(
+function getElizaApiProbeHeaders(
   includeAuth: boolean,
 ): Record<string, string> | undefined {
   if (!includeAuth) return undefined;
 
-  const token = process.env.MILADY_API_TOKEN?.trim();
+  const token = process.env.ELIZA_API_TOKEN?.trim();
   if (!token) return undefined;
 
   return { Authorization: `Bearer ${token}` };
 }
 
-async function probeMiladyApi(
+async function probeElizaApi(
   baseUrl: string,
   includeAuth = false,
-): Promise<MiladyApiProbe> {
-  const headers = getMiladyApiProbeHeaders(includeAuth);
+): Promise<ElizaApiProbe> {
+  const headers = getElizaApiProbeHeaders(includeAuth);
   const statusRes = await fetchJsonWithTimeout(
     `${baseUrl}/api/status`,
     1200,
@@ -155,8 +155,8 @@ async function resolveTuiApiBaseUrl(
   }
 
   const envValue =
-    process.env.MILADY_API_BASE_URL?.trim() ||
-    process.env.MILADY_API_BASE?.trim();
+    process.env.ELIZA_API_BASE_URL?.trim() ||
+    process.env.ELIZA_API_BASE?.trim();
   if (envValue) {
     return {
       baseUrl: normalizeApiBaseUrl(envValue),
@@ -166,8 +166,8 @@ async function resolveTuiApiBaseUrl(
   }
 
   const candidates = [
-    process.env.MILADY_PORT?.trim()
-      ? `http://127.0.0.1:${process.env.MILADY_PORT.trim()}`
+    process.env.ELIZA_PORT?.trim()
+      ? `http://127.0.0.1:${process.env.ELIZA_PORT.trim()}`
       : null,
     "http://127.0.0.1:31337",
     "http://127.0.0.1:2138",
@@ -182,9 +182,9 @@ async function resolveTuiApiBaseUrl(
     normalizedCandidates.push(normalized);
   }
 
-  const probes: MiladyApiProbe[] = [];
+  const probes: ElizaApiProbe[] = [];
   for (const candidate of normalizedCandidates) {
-    probes.push(await probeMiladyApi(candidate, false));
+    probes.push(await probeElizaApi(candidate, false));
   }
 
   const reachableCandidateCount = probes.filter(
@@ -244,22 +244,72 @@ async function tuiAction(options: {
 
     if (options.localRuntime) {
       const { bootElizaRuntime } = await import("../../runtime/eliza");
-      const runtime = await bootElizaRuntime({ requireConfig: true });
-      await launchTUI(runtime, {
-        modelOverride: options.model,
+      const { LoadingScreen } = await import("../../tui/loading-screen");
+      const { BootProgressReporter } = await import(
+        "../../runtime/boot-progress"
+      );
+
+      const reporter = new BootProgressReporter();
+      const loadingScreen = new LoadingScreen();
+
+      reporter.on("progress", (event) => {
+        loadingScreen.update(event.progress, event.label, event.detail);
       });
+
+      loadingScreen.start();
+      reporter.phase("config");
+
+      try {
+        reporter.phase("embeddings");
+        const runtime = await bootElizaRuntime({
+          requireConfig: true,
+          onEmbeddingProgress: (phase, detail) => {
+            if (phase === "downloading" && detail) {
+              // Parse percentage from detail like "model.gguf 45% of 95.0 MB"
+              const pctMatch = detail.match(/(\d+)%/);
+              const fraction = pctMatch
+                ? Number.parseInt(pctMatch[1], 10) / 100
+                : 0;
+              reporter.subProgress(
+                "embeddings",
+                fraction,
+                `Downloading ${detail}`,
+              );
+            } else {
+              const labels: Record<string, string> = {
+                checking: "Checking embedding model",
+                downloading: "Downloading embedding model",
+                loading: "Loading embedding model",
+                ready: "Embedding model ready",
+              };
+              reporter.phase("embeddings", detail ?? labels[phase]);
+            }
+          },
+        });
+
+        reporter.phase("runtime");
+        reporter.complete();
+        loadingScreen.stop();
+
+        await launchTUI(runtime, {
+          modelOverride: options.model,
+        });
+      } catch (err) {
+        loadingScreen.stop();
+        throw err;
+      }
       return;
     }
 
     const resolvedApi = await resolveTuiApiBaseUrl(options.apiBaseUrl);
     if (!resolvedApi) {
       throw new Error(
-        "No Milady API runtime detected. Start frontend/API first, pass --api-base-url, or use --local-runtime.",
+        "No Eliza API runtime detected. Start frontend/API first, pass --api-base-url, or use --local-runtime.",
       );
     }
 
     const apiBaseUrl = resolvedApi.baseUrl;
-    const hasToken = Boolean(process.env.MILADY_API_TOKEN?.trim());
+    const hasToken = Boolean(process.env.ELIZA_API_TOKEN?.trim());
     const includeAuthProbe =
       resolvedApi.source !== "auto" ||
       resolvedApi.reachableCandidateCount === 1;
@@ -268,46 +318,46 @@ async function tuiAction(options: {
       resolvedApi.source === "auto" &&
       resolvedApi.reachableCandidateCount > 1;
 
-    const probe = await probeMiladyApi(apiBaseUrl, includeAuthProbe);
+    const probe = await probeElizaApi(apiBaseUrl, includeAuthProbe);
     if (!probe.reachable) {
       throw new Error(
-        `Could not reach Milady API runtime at ${apiBaseUrl}. Check port and network connectivity.`,
+        `Could not reach Eliza API runtime at ${apiBaseUrl}. Check port and network connectivity.`,
       );
     }
 
     if (probe.authDenied) {
       if (!hasToken) {
         throw new Error(
-          `Milady API runtime at ${apiBaseUrl} requires authentication. Set MILADY_API_TOKEN and retry.`,
+          `Eliza API runtime at ${apiBaseUrl} requires authentication. Set ELIZA_API_TOKEN and retry.`,
         );
       }
 
       if (suppressApiTokenForwarding) {
         throw new Error(
-          `Milady API runtime at ${apiBaseUrl} requires authentication, but multiple local API candidates were detected. For token safety, auto-discovery does not send MILADY_API_TOKEN to all ports. Re-run with --api-base-url ${apiBaseUrl} to opt in explicitly.`,
+          `Eliza API runtime at ${apiBaseUrl} requires authentication, but multiple local API candidates were detected. For token safety, auto-discovery does not send ELIZA_API_TOKEN to all ports. Re-run with --api-base-url ${apiBaseUrl} to opt in explicitly.`,
         );
       }
 
       throw new Error(
-        `Milady API runtime at ${apiBaseUrl} rejected MILADY_API_TOKEN (401/403). Verify token scope/value and retry.`,
+        `Eliza API runtime at ${apiBaseUrl} rejected ELIZA_API_TOKEN (401/403). Verify token scope/value and retry.`,
       );
     }
 
     if (probe.runtimeState !== "running") {
       throw new Error(
-        `Milady API runtime at ${apiBaseUrl} is not ready (state=${probe.runtimeState ?? "unknown"}). Wait for runtime startup to complete and resolve backend errors in frontend logs.`,
+        `Eliza API runtime at ${apiBaseUrl} is not ready (state=${probe.runtimeState ?? "unknown"}). Wait for runtime startup to complete and resolve backend errors in frontend logs.`,
       );
     }
 
     if (probe.onboardingComplete === false) {
       throw new Error(
-        `Milady API runtime at ${apiBaseUrl} is not onboarded yet (complete=false). Complete onboarding in the frontend for this runtime.`,
+        `Eliza API runtime at ${apiBaseUrl} is not onboarded yet (complete=false). Complete onboarding in the frontend for this runtime.`,
       );
     }
 
     if (probe.pluginCount === 0) {
       throw new Error(
-        `Milady API runtime at ${apiBaseUrl} has no model/provider plugins loaded. Configure a provider in onboarding first.`,
+        `Eliza API runtime at ${apiBaseUrl} has no model/provider plugins loaded. Configure a provider in onboarding first.`,
       );
     }
 
@@ -322,7 +372,7 @@ async function tuiAction(options: {
 export function registerTuiCommand(program: Command) {
   program
     .command("tui", { isDefault: true })
-    .description("Start Milady with the interactive TUI")
+    .description("Start Eliza with the interactive TUI")
     .option(
       "-m, --model <model>",
       "Model to use (e.g. anthropic/claude-sonnet-4-20250514)",
@@ -338,7 +388,7 @@ export function registerTuiCommand(program: Command) {
     .addHelpText(
       "after",
       () =>
-        `\n${theme.muted("Docs:")} ${formatDocsLink("/tui", "docs.milady.ai/tui")}\n${theme.muted("Default mode:")} API runtime mode (shared with frontend).\n${theme.muted("API auth:")} Set MILADY_API_TOKEN when the API/websocket server requires auth.\n`,
+        `\n${theme.muted("Docs:")} ${formatDocsLink("/tui", "docs.eliza.ai/tui")}\n${theme.muted("Default mode:")} API runtime mode (shared with frontend).\n${theme.muted("API auth:")} Set ELIZA_API_TOKEN when the API/websocket server requires auth.\n`,
     )
     .action(tuiAction);
 }

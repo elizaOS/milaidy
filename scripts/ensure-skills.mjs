@@ -3,9 +3,9 @@
  * Ensure required skills exist in the managed skills store.
  *
  * This script is run during startup to seed shipped skills into:
- *   $MILADY_STATE_DIR/skills
+ *   $ELIZA_STATE_DIR/skills
  * or, by default:
- *   ~/.milady/skills
+ *   ~/.eliza/skills
  *
  * Run automatically during startup, or manually:
  *   node scripts/ensure-skills.mjs
@@ -32,11 +32,11 @@ function resolveUserPath(input, home = homedir) {
 }
 
 export function resolveStateDir(env = process.env, home = homedir) {
-  const override = env.MILADY_STATE_DIR?.trim();
+  const override = env.ELIZA_STATE_DIR?.trim();
   if (override) {
     return resolveUserPath(override, home);
   }
-  return join(home(), ".milady");
+  return join(home(), ".eliza");
 }
 
 export function resolveSkillsDir(env = process.env, home = homedir) {

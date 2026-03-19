@@ -2,9 +2,9 @@ import { DEFAULT_PI_MODEL_SPEC, parseModelSpec } from "@elizaos/plugin-pi-ai";
 
 export interface ResolveTuiModelSpecParams {
   modelOverride?: string;
-  /** Primary model from milady.json (agents.defaults.model.primary). */
+  /** Primary model from eliza.json (agents.defaults.model.primary). */
   configPrimaryModelSpec?: string;
-  /** Optional pi-ai plugin model override from milady config env vars. */
+  /** Optional pi-ai plugin model override from eliza config env vars. */
   configPiAiModelSpec?: string;
   runtimeModelSpec?: string;
   piDefaultModelSpec?: string;
@@ -30,8 +30,8 @@ function toValidModelSpec(spec?: string): string | undefined {
  *
  * Priority:
  * 1) explicit CLI override (--model)
- * 2) milady config primary model (agents.defaults.model.primary)
- * 3) milady config PI_AI_MODEL_SPEC
+ * 2) eliza config primary model (agents.defaults.model.primary)
+ * 3) eliza config PI_AI_MODEL_SPEC
  * 4) runtime MODEL_PROVIDER
  * 5) pi settings default (settings.json)
  * 6) built-in safe default

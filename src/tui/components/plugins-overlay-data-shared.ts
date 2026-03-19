@@ -34,7 +34,7 @@ export type ApiInstalledPluginInfo = {
   version?: string;
 };
 
-export const API_MASKED_SENTINEL = "__MILADY_API_MASKED__";
+export const API_MASKED_SENTINEL = "__ELIZA_API_MASKED__";
 
 export function registerPluginNameVariants(
   names: Set<string>,

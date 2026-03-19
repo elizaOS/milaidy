@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
-import type { ElectrobunRendererRpc } from "@miladyai/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@elizaos/app-core/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TalkModeElectrobun } from "../../plugins/talkmode/electrobun/src/index.ts";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 type TalkModeElectrobunPrivate = TalkModeElectrobun & {
@@ -29,7 +29,7 @@ let processorStub: ProcessorStub;
 function installAudioCaptureStubs(): void {
   const mockStream = {
     getTracks: () => [{ stop: vi.fn() }],
-  } as unknown as MediaStream;
+  } as Partial<MediaStream> as MediaStream;
 
   if (!navigator.mediaDevices) {
     Object.defineProperty(navigator, "mediaDevices", {
@@ -89,7 +89,7 @@ describe("TalkModeElectrobun direct Electrobun RPC bridge", () => {
   });
 
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     vi.restoreAllMocks();
 
     if (originalAudioContext) {
@@ -105,7 +105,7 @@ describe("TalkModeElectrobun direct Electrobun RPC bridge", () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
     const talkmodeAudioChunk = vi.fn().mockResolvedValue(undefined);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         talkmodeAudioChunk,
       },
@@ -253,7 +253,7 @@ describe("TalkModeElectrobun direct Electrobun RPC bridge", () => {
   it("uses direct talkmode error push messages when Electrobun exposes them", async () => {
     const directListeners = new Map<string, Set<(payload: unknown) => void>>();
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {},
       onMessage: vi.fn(
         (messageName: string, listener: (payload: unknown) => void) => {

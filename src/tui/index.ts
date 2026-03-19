@@ -10,11 +10,11 @@ import {
 } from "@elizaos/plugin-pi-ai";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import { Text } from "@mariozechner/pi-tui";
-import { loadMiladyConfig, saveMiladyConfig } from "../config/config.js";
+import { loadElizaConfig, saveElizaConfig } from "../config/config.js";
 import {
   DEFAULT_MODELS_DIR,
+  ElizaEmbeddingManager,
   ensureModel,
-  MiladyEmbeddingManager,
 } from "../runtime/embedding-manager.js";
 import {
   EMBEDDING_PRESETS,
@@ -23,11 +23,11 @@ import {
 import { getEmbeddingState } from "../runtime/embedding-state.js";
 import { ElizaTUIBridge } from "./eliza-tui-bridge.js";
 import { resolveTuiModelSpec } from "./model-spec.js";
-import { MiladyTUI } from "./tui-app.js";
+import { ElizaTUI } from "./tui-app.js";
 
 export { registerPiAiModelHandler } from "@elizaos/plugin-pi-ai";
 export { ElizaTUIBridge } from "./eliza-tui-bridge.js";
-export { MiladyTUI } from "./tui-app.js";
+export { ElizaTUI } from "./tui-app.js";
 
 export interface LaunchTUIOptions {
   /** Override model, format: provider/modelId (e.g. anthropic/claude-sonnet-4-20250514) */
@@ -36,7 +36,7 @@ export interface LaunchTUIOptions {
   apiBaseUrl?: string;
   /**
    * Optional API auth token override for API mode.
-   * - undefined: use MILADY_API_TOKEN from environment
+   * - undefined: use ELIZA_API_TOKEN from environment
    * - null/empty: suppress auth header forwarding
    */
   apiToken?: string | null;
@@ -72,7 +72,7 @@ function getEmbeddingOptions() {
   });
 }
 
-async function switchEmbeddingTier(tier: EmbeddingTier, tui: MiladyTUI) {
+async function switchEmbeddingTier(tier: EmbeddingTier, tui: ElizaTUI) {
   const state = getEmbeddingState();
 
   if (!state) {
@@ -123,7 +123,7 @@ async function switchEmbeddingTier(tier: EmbeddingTier, tui: MiladyTUI) {
     // best-effort cleanup
   }
 
-  const newManager = new MiladyEmbeddingManager({
+  const newManager = new ElizaEmbeddingManager({
     model: preset.model,
     modelRepo: preset.modelRepo,
     dimensions: preset.dimensions,
@@ -136,7 +136,7 @@ async function switchEmbeddingTier(tier: EmbeddingTier, tui: MiladyTUI) {
   state.dimensions = preset.dimensions;
 
   try {
-    const cfg = loadMiladyConfig();
+    const cfg = loadElizaConfig();
     cfg.embedding = {
       ...cfg.embedding,
       model: preset.model,
@@ -144,7 +144,7 @@ async function switchEmbeddingTier(tier: EmbeddingTier, tui: MiladyTUI) {
       dimensions: preset.dimensions,
       gpuLayers: preset.gpuLayers,
     };
-    saveMiladyConfig(cfg);
+    saveElizaConfig(cfg);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     tui.addToChatContainer(
@@ -165,7 +165,7 @@ function createApiModeRuntimeStub(agentName: string): AgentRuntime {
   const noopAsync = async () => {};
 
   return {
-    agentId: stringToUuid(`milady-tui-api:${agentName}`) as UUID,
+    agentId: stringToUuid(`eliza-tui-api:${agentName}`) as UUID,
     character: { name: agentName },
     getSetting: () => undefined,
     setSetting: () => {},
@@ -174,7 +174,7 @@ function createApiModeRuntimeStub(agentName: string): AgentRuntime {
     ensureRoomExists: noopAsync,
     ensureConnection: noopAsync,
     stop: noopAsync,
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 export async function launchTUI(
@@ -184,8 +184,8 @@ export async function launchTUI(
   const apiMode = Boolean(options.apiBaseUrl);
 
   const piCreds = await createPiCredentialProvider();
-  const miladyConfig = loadMiladyConfig();
-  const fallbackAgentName = miladyConfig.agents?.list?.[0]?.name ?? "milady";
+  const elizaConfig = loadElizaConfig();
+  const fallbackAgentName = elizaConfig.agents?.list?.[0]?.name ?? "eliza";
 
   if (!runtime && !apiMode) {
     throw new Error("Runtime is required when API mode is not configured");
@@ -193,8 +193,8 @@ export async function launchTUI(
 
   const runtimeRef = runtime ?? createApiModeRuntimeStub(fallbackAgentName);
 
-  const configPrimaryModel = miladyConfig.agents?.defaults?.model?.primary;
-  const configEnv = miladyConfig.env as
+  const configPrimaryModel = elizaConfig.agents?.defaults?.model?.primary;
+  const configEnv = elizaConfig.env as
     | (Record<string, unknown> & { vars?: Record<string, unknown> })
     | undefined;
   const configPiAiModelSpec =
@@ -221,7 +221,7 @@ export async function launchTUI(
   const largeModel = getPiModel(provider, id);
   const smallModel = largeModel;
 
-  const tui = new MiladyTUI({
+  const tui = new ElizaTUI({
     runtime: runtimeRef,
     apiBaseUrl: options.apiBaseUrl,
     modelRegistry: {
@@ -288,7 +288,7 @@ export async function launchTUI(
     if (!piCreds.hasCredentials(model.provider)) {
       tui.addToChatContainer(
         new Text(
-          `Warning: no credentials found for provider "${model.provider}" (neither Milady env nor pi auth). ` +
+          `Warning: no credentials found for provider "${model.provider}" (neither Eliza env nor pi auth). ` +
             "Model calls may fail.",
           1,
           0,
@@ -375,7 +375,7 @@ export async function launchTUI(
             );
             return;
           }
-          const cfg = loadMiladyConfig();
+          const cfg = loadElizaConfig();
           const ctxEnabled = cfg.knowledge?.contextualEnrichment === true;
 
           if (!argText) {
@@ -428,7 +428,7 @@ export async function launchTUI(
             }
             cfg.knowledge = { ...cfg.knowledge, contextualEnrichment: true };
             try {
-              saveMiladyConfig(cfg);
+              saveElizaConfig(cfg);
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               tui.addToChatContainer(
@@ -459,7 +459,7 @@ export async function launchTUI(
             }
             cfg.knowledge = { ...cfg.knowledge, contextualEnrichment: false };
             try {
-              saveMiladyConfig(cfg);
+              saveElizaConfig(cfg);
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               tui.addToChatContainer(

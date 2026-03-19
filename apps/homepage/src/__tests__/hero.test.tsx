@@ -1,4 +1,5 @@
 import { cleanup, render } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { HeroBackground, PHRASES } from "../components/Hero";
 
@@ -6,7 +7,11 @@ afterEach(cleanup);
 
 describe("TypewriterLoop", () => {
   it("renders without crashing (text content appears)", () => {
-    const { container } = render(<HeroBackground />);
+    const { container } = render(
+      <MemoryRouter>
+        <HeroBackground />
+      </MemoryRouter>,
+    );
     const heading = container.querySelector("h1");
     expect(heading).toBeTruthy();
     // The heading should contain "MILADY" text at minimum

@@ -11,7 +11,7 @@ vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
 }));
 
-const mockedDnsLookup = dnsLookup as unknown as {
+const mockedDnsLookup = dnsLookup as {
   mockRejectedValue: (value: unknown) => unknown;
   mockResolvedValue: (value: unknown) => unknown;
 };
@@ -493,12 +493,12 @@ describe("resolveMcpServersRejection", () => {
 
 describe("resolveMcpTerminalAuthorizationRejection", () => {
   afterEach(() => {
-    delete process.env.MILADY_API_TOKEN;
-    delete process.env.MILADY_TERMINAL_RUN_TOKEN;
+    delete process.env.ELIZA_API_TOKEN;
+    delete process.env.ELIZA_TERMINAL_RUN_TOKEN;
   });
 
   it("requires terminal authorization for stdio MCP server configs", () => {
-    process.env.MILADY_API_TOKEN = "api-secret";
+    process.env.ELIZA_API_TOKEN = "api-secret";
     const req: Pick<http.IncomingMessage, "headers"> = { headers: {} };
     const rejection = resolveMcpTerminalAuthorizationRejection(
       req,
@@ -517,7 +517,7 @@ describe("resolveMcpTerminalAuthorizationRejection", () => {
   });
 
   it("does not require terminal authorization for remote-only MCP configs", () => {
-    process.env.MILADY_API_TOKEN = "api-secret";
+    process.env.ELIZA_API_TOKEN = "api-secret";
     const req: Pick<http.IncomingMessage, "headers"> = { headers: {} };
     const rejection = resolveMcpTerminalAuthorizationRejection(
       req,
@@ -534,8 +534,8 @@ describe("resolveMcpTerminalAuthorizationRejection", () => {
   });
 
   it("accepts stdio MCP config when terminal token is provided", () => {
-    process.env.MILADY_API_TOKEN = "api-secret";
-    process.env.MILADY_TERMINAL_RUN_TOKEN = "terminal-secret";
+    process.env.ELIZA_API_TOKEN = "api-secret";
+    process.env.ELIZA_TERMINAL_RUN_TOKEN = "terminal-secret";
     const req: Pick<http.IncomingMessage, "headers"> = { headers: {} };
     const rejection = resolveMcpTerminalAuthorizationRejection(
       req,

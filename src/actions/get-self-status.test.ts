@@ -16,7 +16,7 @@ function mockRuntime(registry: AwarenessRegistry) {
       if (name === "AWARENESS_REGISTRY") return registry;
       return null;
     }),
-  } as unknown as Parameters<typeof getSelfStatusAction.handler>[0];
+  } as Parameters<typeof getSelfStatusAction.handler>[0];
 }
 
 describe("GET_SELF_STATUS action", () => {
@@ -25,11 +25,7 @@ describe("GET_SELF_STATUS action", () => {
   });
 
   it("validates successfully", async () => {
-    const result = await getSelfStatusAction.validate(
-      {} as never,
-      {} as never,
-      {} as never,
-    );
+    const result = await getSelfStatusAction.validate({} as never);
     expect(result).toBe(true);
   });
 
@@ -46,7 +42,6 @@ describe("GET_SELF_STATUS action", () => {
     const rt = mockRuntime(registry);
     const result = await getSelfStatusAction.handler(
       rt,
-      {} as never,
       {} as never,
       {
         parameters: { module: "wallet", detailLevel: "brief" },
@@ -69,19 +64,17 @@ describe("GET_SELF_STATUS action", () => {
     const result = await getSelfStatusAction.handler(
       rt,
       {} as never,
-      {} as never,
       { parameters: {} } as HandlerOptions,
     );
     expect(result?.text).toContain("test detail");
   });
 
   it("returns error when registry not available", async () => {
-    const rt = { getService: vi.fn(() => null) } as unknown as Parameters<
+    const rt = { getService: vi.fn(() => null) } as Parameters<
       typeof getSelfStatusAction.handler
     >[0];
     const result = await getSelfStatusAction.handler(
       rt,
-      {} as never,
       {} as never,
       { parameters: {} } as HandlerOptions,
     );

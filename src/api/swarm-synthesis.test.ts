@@ -30,7 +30,7 @@ describe("handleSwarmSynthesis", () => {
     const useModel = vi
       .fn()
       .mockResolvedValue("All tasks completed successfully!");
-    const st = { runtime: { useModel } as unknown as AgentRuntime };
+    const st = { runtime: { useModel } as AgentRuntime };
     const routeMessage = vi.fn();
 
     await handleSwarmSynthesis(st, makePayload(), routeMessage);
@@ -48,7 +48,7 @@ describe("handleSwarmSynthesis", () => {
 
   it("does not route when LLM returns empty string", async () => {
     const useModel = vi.fn().mockResolvedValue("   ");
-    const st = { runtime: { useModel } as unknown as AgentRuntime };
+    const st = { runtime: { useModel } as AgentRuntime };
     const routeMessage = vi.fn();
 
     await handleSwarmSynthesis(st, makePayload(), routeMessage);
@@ -59,7 +59,7 @@ describe("handleSwarmSynthesis", () => {
 
   it("falls back to generic message when LLM throws", async () => {
     const useModel = vi.fn().mockRejectedValue(new Error("LLM unavailable"));
-    const st = { runtime: { useModel } as unknown as AgentRuntime };
+    const st = { runtime: { useModel } as AgentRuntime };
     const routeMessage = vi.fn();
 
     const payload = makePayload({

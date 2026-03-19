@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/api/http-helpers";
+export * from "@elizaos/autonomous/api/http-helpers";

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
+import type { OAuthCredentials } from "@elizaos/autonomous/auth/types";
 import {
   afterAll,
   beforeAll,
@@ -11,8 +12,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { startApiServer } from "@miladyai/autonomous/api/server";
-import type { OAuthCredentials } from "@miladyai/autonomous/auth/types";
+import { startApiServer } from "../src/api/server";
 
 const authMocks = vi.hoisted(() => ({
   getSubscriptionStatus: vi.fn(() => [{ id: "openai-codex" }]),
@@ -23,7 +23,7 @@ const authMocks = vi.hoisted(() => ({
   deleteCredentials: vi.fn(),
 }));
 
-vi.mock("../packages/autonomous/src/auth/index.ts", () => ({
+vi.mock("@elizaos/autonomous/auth/index", () => ({
   getSubscriptionStatus: authMocks.getSubscriptionStatus,
   startAnthropicLogin: authMocks.startAnthropicLogin,
   startCodexLogin: authMocks.startCodexLogin,
@@ -31,7 +31,7 @@ vi.mock("../packages/autonomous/src/auth/index.ts", () => ({
   applySubscriptionCredentials: authMocks.applySubscriptionCredentials,
   deleteCredentials: authMocks.deleteCredentials,
 }));
-vi.mock("@miladyai/autonomous/auth", () => ({
+vi.mock("@elizaos/autonomous/auth", () => ({
   getSubscriptionStatus: authMocks.getSubscriptionStatus,
   startAnthropicLogin: authMocks.startAnthropicLogin,
   startCodexLogin: authMocks.startCodexLogin,
@@ -127,16 +127,22 @@ describe("subscription auth routes (e2e contract)", () => {
   beforeAll(async () => {
     envBackup = saveEnv(
       "MILADY_STATE_DIR",
+      "ELIZA_STATE_DIR",
       "MILADY_CONFIG_PATH",
+      "ELIZA_CONFIG_PATH",
       "MILADY_API_TOKEN",
+      "ELIZA_API_TOKEN",
       "MILADY_PAIRING_DISABLED",
       "ANTHROPIC_API_KEY",
     );
 
     stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-subscription-"));
     process.env.MILADY_STATE_DIR = stateDir;
-    delete process.env.MILADY_CONFIG_PATH;
+    process.env.ELIZA_STATE_DIR = stateDir;
+    process.env.MILADY_CONFIG_PATH = path.join(stateDir, "milady.json");
+    process.env.ELIZA_CONFIG_PATH = path.join(stateDir, "milady.json");
     delete process.env.MILADY_API_TOKEN;
+    delete process.env.ELIZA_API_TOKEN;
     delete process.env.MILADY_PAIRING_DISABLED;
     delete process.env.ANTHROPIC_API_KEY;
 

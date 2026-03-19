@@ -1,12 +1,12 @@
 /**
- * Plugin Installer for Milady.
+ * Plugin Installer for Eliza.
  *
  * Cross-platform plugin installation and lifecycle management.
  *
  * Install targets:
- *   ~/.milady/plugins/installed/<sanitised-name>/
+ *   ~/.eliza/plugins/installed/<sanitised-name>/
  *
- * Works identically whether milady is:
+ * Works identically whether eliza is:
  *   - Running from source (dev)
  *   - Running as a CLI install (npm global)
  *   - Running inside a packaged desktop app bundle
@@ -15,23 +15,30 @@
  * Strategy:
  *   1. npm/bun install to an isolated prefix directory
  *   2. Fallback: git clone from the plugin's GitHub repo
- *   3. Track the installation in milady.json config
+ *   3. Track the installation in eliza.json config
  *   4. Trigger agent restart to load the new plugin
  *
  * @module services/plugin-installer
  */
 
 import { execFile } from "node:child_process";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
-import { loadMiladyConfig, saveMiladyConfig } from "../config/config";
+import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { requestRestart } from "../runtime/restart";
 import { getPluginInfo, type RegistryPluginInfo } from "./registry-client";
 
 const execFileAsync = promisify(execFile);
+const require = createRequire(import.meta.url);
+const RELEASE_CHANNEL_ENV_KEYS = [
+  "MILADY_PLUGIN_RELEASE_CHANNEL",
+  "ELIZA_PLUGIN_RELEASE_CHANNEL",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Input validation — prevent shell injection
@@ -126,8 +133,8 @@ export interface UninstallResult {
 // ---------------------------------------------------------------------------
 
 function pluginsBaseDir(): string {
-  const stateDir = process.env.MILADY_STATE_DIR?.trim();
-  const base = stateDir || path.join(os.homedir(), ".milady");
+  const stateDir = process.env.ELIZA_STATE_DIR?.trim();
+  const base = stateDir || path.join(os.homedir(), ".eliza");
   return path.join(base, "plugins", "installed");
 }
 
@@ -144,6 +151,62 @@ export function sanitisePackageName(name: string): string {
 
 function pluginDir(pluginName: string): string {
   return path.join(pluginsBaseDir(), sanitisePackageName(pluginName));
+}
+
+function normaliseReleaseChannel(
+  value: string | undefined,
+): "alpha" | "next" | null {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "alpha" || normalized === "next") {
+    return normalized;
+  }
+  return null;
+}
+
+function resolveCurrentElizaReleaseChannel(): "alpha" | "next" | null {
+  for (const envKey of RELEASE_CHANNEL_ENV_KEYS) {
+    const configuredChannel = normaliseReleaseChannel(process.env[envKey]);
+    if (configuredChannel) {
+      return configuredChannel;
+    }
+  }
+
+  try {
+    const pkgPath = require.resolve("@elizaos/autonomous/package.json");
+    const pkg = JSON.parse(fsSync.readFileSync(pkgPath, "utf8")) as {
+      version?: unknown;
+    };
+    const version =
+      typeof pkg.version === "string" ? pkg.version.toLowerCase() : "";
+
+    if (version.includes("alpha")) {
+      return "alpha";
+    }
+    if (version.includes("next")) {
+      return "next";
+    }
+  } catch {
+    // Fall back to registry metadata below.
+  }
+
+  return null;
+}
+
+function resolveInstallVersion(
+  canonicalName: string,
+  info: RegistryPluginInfo,
+  requestedVersion?: string,
+): string {
+  if (requestedVersion) {
+    return requestedVersion;
+  }
+
+  const currentReleaseChannel = resolveCurrentElizaReleaseChannel();
+  if (canonicalName.startsWith("@elizaos/") && currentReleaseChannel) {
+    return currentReleaseChannel;
+  }
+
+  return info.npm.v2Version || info.npm.v1Version || "next";
 }
 
 // ---------------------------------------------------------------------------
@@ -170,9 +233,9 @@ export async function detectPackageManager(): Promise<"bun" | "npm"> {
  * Install a plugin from the registry.
  *
  * 1. Resolves the plugin name in the registry.
- * 2. Installs via npm/bun to ~/.milady/plugins/installed/<name>/.
+ * 2. Installs via npm/bun to ~/.eliza/plugins/installed/<name>/.
  * 3. Falls back to git clone if npm is not available for this package.
- * 4. Writes an install record to milady.json.
+ * 4. Writes an install record to eliza.json.
  * 5. Returns metadata about the installation for the caller to
  *    decide whether to trigger a restart.
  *
@@ -214,9 +277,11 @@ async function _installPlugin(
 
   // Determine the canonical package name and version to install
   const canonicalName = info.name;
-  // Use requested version if provided, otherwise use registry version
-  const npmVersion =
-    requestedVersion || info.npm.v2Version || info.npm.v1Version || "next";
+  const npmVersion = resolveInstallVersion(
+    canonicalName,
+    info,
+    requestedVersion,
+  );
   const localPath = info.localPath;
   const targetDir = pluginDir(canonicalName);
 
@@ -326,7 +391,7 @@ async function _installPlugin(
 
   emit("configuring", "Recording installation in config...");
 
-  // Write install record to milady.json
+  // Write install record to eliza.json
   recordInstallation(canonicalName, {
     source: installSource,
     spec: `${canonicalName}@${installedVersion}`,
@@ -387,7 +452,7 @@ export function uninstallPlugin(pluginName: string): Promise<UninstallResult> {
 }
 
 async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
-  const config = loadMiladyConfig();
+  const config = loadElizaConfig();
   const installs = config.plugins?.installs;
 
   if (!installs || !installs[pluginName]) {
@@ -436,7 +501,7 @@ async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
 
   // Remove from config
   delete installs[pluginName];
-  saveMiladyConfig(config);
+  saveElizaConfig(config);
 
   return {
     success: true,
@@ -740,7 +805,7 @@ function recordInstallation(
     installedAt: string;
   },
 ): void {
-  const config = loadMiladyConfig();
+  const config = loadElizaConfig();
 
   // Ensure the plugins.installs path exists in the config object
   if (!config.plugins) {
@@ -751,7 +816,7 @@ function recordInstallation(
   }
 
   config.plugins.installs[pluginName] = record;
-  saveMiladyConfig(config);
+  saveElizaConfig(config);
 }
 
 // ---------------------------------------------------------------------------
@@ -765,7 +830,7 @@ export function listInstalledPlugins(): Array<{
   installPath: string;
   installedAt: string;
 }> {
-  const config = loadMiladyConfig();
+  const config = loadElizaConfig();
   const installs = config.plugins?.installs ?? {};
 
   return Object.entries(installs).map(([name, record]) => ({

@@ -6,23 +6,23 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import {
   canUseLocalTradeExecution,
   resolveTradePermissionMode,
 } from "./server";
 
-function makeConfig(tradePermissionMode: unknown): MiladyConfig {
+function makeConfig(tradePermissionMode: unknown): ElizaConfig {
   return {
     features: { tradePermissionMode },
-  } as unknown as MiladyConfig;
+  } as Partial<ElizaConfig> as ElizaConfig;
 }
 
 // ── resolveTradePermissionMode ─────────────────────────────────────────────
 
 describe("resolveTradePermissionMode", () => {
   it("returns user-sign-only when no features config is set", () => {
-    expect(resolveTradePermissionMode({} as MiladyConfig)).toBe(
+    expect(resolveTradePermissionMode({} as ElizaConfig)).toBe(
       "user-sign-only",
     );
   });

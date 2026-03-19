@@ -12,12 +12,12 @@ metadata:
 
 You are a self-modifying agent. You can edit your own code through **plugins**, rebuild, and restart yourself. All agent capabilities live in plugins - this is where you make changes.
 
-**Important**: Do NOT modify eliza core (`~/.milady/eliza`). The core runtime is stable infrastructure. All customization happens through plugins.
+**Important**: Do NOT modify eliza core (`~/.eliza/eliza`). The core runtime is stable infrastructure. All customization happens through plugins.
 
 ## Directory Structure
 
 ```text
-~/.milady/
+~/.eliza/
 ├── eliza/                     # elizaOS core (DO NOT MODIFY)
 ├── plugins/                   # Plugins - EDIT HERE
 │   ├── plugin-discord/
@@ -56,14 +56,14 @@ plugin-name/
 
 ### Edit Local Plugins
 
-Plugins at `~/.milady/plugins/` are editable:
+Plugins at `~/.eliza/plugins/` are editable:
 
 ```bash
 # List available plugins
-ls ~/.milady/plugins/
+ls ~/.eliza/plugins/
 
 # Read a plugin's entry point
-cat ~/.milady/plugins/plugin-discord/typescript/src/index.ts
+cat ~/.eliza/plugins/plugin-discord/typescript/src/index.ts
 ```
 
 ### Eject a Registry Plugin
@@ -72,12 +72,12 @@ For plugins from the registry, eject them first:
 
 Tell yourself: "Eject plugin-twitter so I can modify it"
 
-This clones the plugin to `~/.milady/plugins/` for local editing.
+This clones the plugin to `~/.eliza/plugins/` for local editing.
 
 ### Create a New Plugin
 
 ```bash
-mkdir -p ~/.milady/plugins/plugin-my-feature/typescript/src/actions
+mkdir -p ~/.eliza/plugins/plugin-my-feature/typescript/src/actions
 ```
 
 ## Making Changes
@@ -90,7 +90,7 @@ mkdir -p ~/.milady/plugins/plugin-my-feature/typescript/src/actions
 Example - adding a new action:
 
 ```typescript
-// ~/.milady/plugins/plugin-my-feature/typescript/src/actions/my-action.ts
+// ~/.eliza/plugins/plugin-my-feature/typescript/src/actions/my-action.ts
 import type { Action } from "@elizaos/core";
 
 export const myAction: Action = {
@@ -147,7 +147,7 @@ You have the `plugin-plugin-manager` plugin:
 ## Upgrading Plugins
 
 ```bash
-cd ~/.milady/plugins
+cd ~/.eliza/plugins
 git fetch origin next
 git merge --no-edit origin/next
 bun install
@@ -172,19 +172,19 @@ node scripts/setup-local-eliza.mjs --skip-eliza
 
 | What | Path |
 |------|------|
-| Plugins | `~/.milady/plugins/` |
-| Skills | `~/.milady/skills/` |
-| Eliza Core (read-only) | `~/.milady/eliza/` |
+| Plugins | `~/.eliza/plugins/` |
+| Skills | `~/.eliza/skills/` |
+| Eliza Core (read-only) | `~/.eliza/eliza/` |
 
 ## Shell Commands
 
 ```bash
 # List plugins
-ls ~/.milady/plugins/
+ls ~/.eliza/plugins/
 
 # Update plugins
-cd ~/.milady/plugins && git pull origin next && bun install
+cd ~/.eliza/plugins && git pull origin next && bun install
 
 # Check upstream changes
-cd ~/.milady/plugins && git fetch origin next && git rev-list --count HEAD..origin/next
+cd ~/.eliza/plugins && git fetch origin next && git rev-list --count HEAD..origin/next
 ```

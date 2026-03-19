@@ -33,36 +33,29 @@
 <div class="grid" id="grid"></div>
 
 <script type="module">
+import { MILADY_CHARACTER_ASSETS } from "../src/character-catalog.ts";
+
 /**
- * Dynamically import Three.js and three-vrm from vite's optimized deps.
- * We scan /@fs/ and /node_modules/.vite/deps/ patterns to find the right URLs.
+ * Import Three.js and three-vrm. Vite resolves these when screenshotter is an entry point.
  */
 async function loadModules() {
-  // In Vite dev mode, public/ HTML files aren't transformed, so we import
-  // directly from the Vite dependency pre-bundle cache.  Try versioned first
-  // (for active dev sessions), then un-versioned, then CDN fallback.
-  async function tryImport(...urls) {
-    for (const url of urls) {
-      try { return await import(url); } catch { /* next */ }
-    }
-    throw new Error(`All import attempts failed for: ${urls[0]}`);
+  const [threeModule, threeVrm, gltfExamples] = await Promise.all([
+    import('three'),
+    import('@pixiv/three-vrm'),
+    import('three/examples/jsm/loaders/GLTFLoader.js'),
+  ]);
+  const THREE = threeModule.default ?? threeModule;
+  if (!THREE?.WebGLRenderer) {
+    throw new Error('Three.js failed to load: WebGLRenderer not found');
   }
-  const THREE = await tryImport(
-    '/node_modules/.vite/deps/three.js',
-    'https://esm.sh/three@0.170.0',
-  );
-  const threeVrm = await tryImport(
-    '/node_modules/.vite/deps/@pixiv_three-vrm.js',
-    'https://esm.sh/@pixiv/three-vrm@3.3.3',
-  );
-  const gltfModule = await tryImport(
-    '/node_modules/.vite/deps/three_examples_jsm_loaders_GLTFLoader__js.js',
-    'https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js',
-  );
-  return { THREE, threeVrm, GLTFLoader: gltfModule.GLTFLoader };
+  return {
+    THREE,
+    threeVrm,
+    GLTFLoader: gltfExamples.GLTFLoader,
+  };
 }
 
-const VRM_COUNT = 8;
+const vrmAssets = MILADY_CHARACTER_ASSETS;
 const CANVAS_W = 400;
 const CANVAS_H = 400;
 const grid = document.getElementById('grid');
@@ -72,16 +65,16 @@ const downloadAllBtn = document.getElementById('download-all');
 
 // Build cards
 const cards = [];
-for (let i = 1; i <= VRM_COUNT; i++) {
+for (const asset of vrmAssets) {
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML = `
-    <canvas id="c${i}" width="${CANVAS_W}" height="${CANVAS_H}"></canvas>
-    <div class="label" id="l${i}">milady ${i}</div>
-    <a class="dl" id="d${i}" style="display:none" download="milady-${i}.png">Download</a>
+    <canvas id="c${asset.id}" width="${CANVAS_W}" height="${CANVAS_H}"></canvas>
+    <div class="label" id="l${asset.id}">${asset.title}</div>
+    <a class="dl" id="d${asset.id}" style="display:none" download="${asset.slug}.png">Download</a>
   `;
   grid.appendChild(card);
-  cards.push({ card, index: i });
+  cards.push({ card, assetId: asset.id });
 }
 
 // Mixamo -> VRM bone name mapping
@@ -179,15 +172,16 @@ async function loadVRMModule() {
   return { VRMLoaderPlugin: threeVrm.VRMLoaderPlugin, VRMUtils: threeVrm.VRMUtils, GLTFLoader, THREE };
 }
 
-async function renderVRM(index, modules) {
+async function renderVRM(asset, modules) {
   const { VRMLoaderPlugin, VRMUtils, GLTFLoader, THREE } = modules;
+  const { id: index, slug, title } = asset;
   const canvas = document.getElementById(`c${index}`);
   const label = document.getElementById(`l${index}`);
   const dlBtn = document.getElementById(`d${index}`);
   const card = canvas.closest('.card');
 
   card.className = 'card loading';
-  label.textContent = `Loading milady ${index}...`;
+  label.textContent = `Loading ${title}...`;
 
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
   renderer.setSize(CANVAS_W, CANVAS_H, false);
@@ -221,7 +215,7 @@ async function renderVRM(index, modules) {
       origWarn(...args);
     };
 
-    const gltf = await loader.loadAsync(`/vrms/${index}.vrm`);
+    const gltf = await loader.loadAsync(asset.rawVrmPath);
     console.warn = origWarn;
 
     const vrm = gltf.userData.vrm;
@@ -239,10 +233,8 @@ async function renderVRM(index, modules) {
     const box2 = new THREE.Box3().setFromObject(vrm.scene);
     const size = box2.getSize(new THREE.Vector3());
     const height = Math.max(0.001, size.y);
-    const _width = Math.max(0.001, size.x);
-    const _depth = Math.max(0.001, size.z);
 
-    // Normalize all models to standard height so they appear the same size
+    // Normalize all models to standard height so they appear the same size in previews
     const STANDARD_HEIGHT = 1.0;
     const scaleFactor = STANDARD_HEIGHT / height;
     vrm.scene.scale.multiplyScalar(scaleFactor);
@@ -251,6 +243,7 @@ async function renderVRM(index, modules) {
     const center3 = box3.getCenter(new THREE.Vector3());
     vrm.scene.position.sub(center3);
 
+    // Use normalized height for consistent framing across characters
     const sHeight = STANDARD_HEIGHT;
     const sWidth = size.x * scaleFactor;
     const sDepth = size.z * scaleFactor;
@@ -263,10 +256,6 @@ async function renderVRM(index, modules) {
     camera.near = Math.max(0.01, fitDist / 100);
     camera.far = Math.max(100, fitDist * 100);
     camera.updateProjectionMatrix();
-
-    // Flip to face camera (most VRMs face away by default)
-    vrm.scene.rotateY(Math.PI);
-    vrm.scene.updateMatrixWorld(true);
 
     scene.add(vrm.scene);
 
@@ -282,19 +271,26 @@ async function renderVRM(index, modules) {
       action.play();
       // Simulate the render loop with small time steps to let the
       // animation system properly interpolate bone transforms.
+      // We skip vrm.update() during simulation to avoid spring bone
+      // (hair) physics — otherwise hair is mid-bounce on the first frames.
       const targetTime = 4.0;
       const step = 1 / 30; // 30fps simulation
       for (let t = 0; t < targetTime; t += step) {
         mixer.update(step);
-        vrm.update(step);
       }
+      // Reset spring bones to rest pose so hair hangs naturally
+      // without any physics bounce, then do a single VRM update.
+      if (vrm.springBoneManager) {
+        vrm.springBoneManager.reset();
+      }
+      vrm.update(0);
     } else {
-      console.warn(`milady ${index}: no idle clip, rendering T-pose`);
+      console.warn(`${slug}: no idle clip, rendering T-pose`);
     }
 
     // Frame a tight portrait: head + upper body (chest-up)
+    // Use normalized height (STANDARD_HEIGHT) for consistent framing across all character sizes
     {
-      // Find the head bone to anchor the framing
       const headNode = vrm.humanoid?.getNormalizedBoneNode("head");
       const chestNode = vrm.humanoid?.getNormalizedBoneNode("chest")
         ?? vrm.humanoid?.getNormalizedBoneNode("spine");
@@ -304,20 +300,16 @@ async function renderVRM(index, modules) {
 
       let lookY2, frameDist;
       if (headNode && chestNode) {
-        // Look midway between chest and top of head
         const headPos = new THREE.Vector3();
         const chestPos = new THREE.Vector3();
         headNode.getWorldPosition(headPos);
         chestNode.getWorldPosition(chestPos);
-        lookY2 = (headPos.y + chestPos.y) / 2 - poseBox.min.y + poseBox.min.y;
-        // Adjust: look at the vertical midpoint of chest-to-head
         lookY2 = (headPos.y + chestPos.y) / 2;
-        // Frame just the upper portion — distance based on ~35% of total height
+        // Portrait span as fraction of normalized height for consistent framing
         const portraitSpan = totalHeight * 0.38;
         const fovRad2 = (camera.fov * Math.PI) / 180;
         frameDist = (portraitSpan * 0.55) / Math.tan(fovRad2 * 0.5);
       } else {
-        // Fallback: upper third of body
         lookY2 = poseBox.min.y + totalHeight * 0.75;
         const fovRad2 = (camera.fov * Math.PI) / 180;
         frameDist = (totalHeight * 0.35 * 0.55) / Math.tan(fovRad2 * 0.5);
@@ -338,7 +330,7 @@ async function renderVRM(index, modules) {
     dlBtn.href = dataUrl;
     dlBtn.style.display = 'inline-block';
     card.className = 'card done';
-    label.textContent = `milady ${index} ✓`;
+    label.textContent = `${title} ✓`;
 
     // Cleanup
     scene.remove(vrm.scene);
@@ -348,7 +340,7 @@ async function renderVRM(index, modules) {
     return dataUrl;
   } catch (err) {
     card.className = 'card error';
-    label.textContent = `milady ${index} — ${err.message}`;
+    label.textContent = `${title} — ${err.message}`;
     renderer.dispose();
     return null;
   }
@@ -372,13 +364,13 @@ runAllBtn.addEventListener('click', async () => {
   statusEl.textContent = 'Rendering VRMs...';
   results = [];
 
-  for (let i = 1; i <= VRM_COUNT; i++) {
-    statusEl.textContent = `Rendering milady ${i}/${VRM_COUNT}...`;
-    const dataUrl = await renderVRM(i, modules);
-    results.push({ index: i, dataUrl });
+  for (const [position, asset] of vrmAssets.entries()) {
+    statusEl.textContent = `Rendering ${asset.title} (${position + 1}/${vrmAssets.length})...`;
+    const dataUrl = await renderVRM(asset, modules);
+    results.push({ asset, dataUrl });
   }
 
-  statusEl.textContent = `Done! ${results.filter(r => r.dataUrl).length}/${VRM_COUNT} previews generated.`;
+  statusEl.textContent = `Done! ${results.filter(r => r.dataUrl).length}/${vrmAssets.length} previews generated.`;
   downloadAllBtn.style.display = 'inline-block';
   runAllBtn.disabled = false;
 });
@@ -388,7 +380,7 @@ downloadAllBtn.addEventListener('click', () => {
     if (!r.dataUrl) continue;
     const a = document.createElement('a');
     a.href = r.dataUrl;
-    a.download = `milady-${r.index}.png`;
+    a.download = `${r.asset.slug}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

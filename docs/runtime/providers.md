@@ -73,11 +73,10 @@ Reads the agent's workspace directory and injects a summary of relevant files in
 ```typescript
 createWorkspaceProvider({
   workspaceDir: "~/.milady/workspace",
-  maxCharsPerFile: config.agents?.defaults?.bootstrapMaxChars,
 })
 ```
 
-`maxCharsPerFile` (alias `bootstrapMaxChars`) limits how many characters from each file are injected, preventing oversized contexts. Default is 20,000 characters.
+The `workspaceProvider` uses the agent's workspace directory to inject a summary of relevant files.
 
 Files that still contain the default placeholder content (the boilerplate generated on first run) are automatically skipped. Only workspace files you have customized are injected into the prompt.
 

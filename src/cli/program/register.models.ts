@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { getLogPrefix } from "../../utils/log-prefix";
 
 export function registerModelsCli(program: Command) {
   program
@@ -15,7 +16,7 @@ export function registerModelsCli(program: Command) {
         ["OPENROUTER_API_KEY", "OpenRouter"],
         ["OLLAMA_BASE_URL", "Ollama (local)"],
       ] as const;
-      console.log("[milady] Model providers:");
+      console.log(`${getLogPrefix()} Model providers:`);
       for (const [key, name] of envKeys) {
         const status = process.env[key] ? "configured" : "not set";
         console.log(`  ${name}: ${status}`);

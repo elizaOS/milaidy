@@ -174,6 +174,5 @@ Cron job status is visible in:
 
 ## Related
 
-- [Bootstrap Plugin](/plugin-registry/bootstrap) — Core message processing
 - [Twitter Plugin](/plugin-registry/platform/twitter) — Autonomous Twitter posting
 - [Discord Plugin](/plugin-registry/platform/discord) — Scheduled Discord posts

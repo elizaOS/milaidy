@@ -22,8 +22,8 @@ type DesktopEventData =
   | NotificationEvent
   | undefined;
 
-const webUnavailable = (feature: string) =>
-  console.warn(`${feature} is not available in browser environment`);
+// No-op for features unavailable on web; callers should check return values.
+const webUnavailable = (_feature: string) => {};
 
 export class DesktopWeb extends WebPlugin {
   private pluginListeners: Array<{

@@ -26,7 +26,7 @@ function buildMemory(overrides: Partial<Memory> = {}): Memory {
     content: { text: "" },
     createdAt: 1,
     ...overrides,
-  } as Memory;
+  } as unknown as Memory;
 }
 
 describe("knowledge routes", () => {
@@ -61,7 +61,7 @@ describe("knowledge routes", () => {
       getService: (name: string) =>
         name === "knowledge" ? knowledgeService : null,
       getServiceLoadPromise: async () => undefined,
-    } as unknown as AgentRuntime;
+    } as unknown as unknown as AgentRuntime;
   });
 
   afterEach(() => {

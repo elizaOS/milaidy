@@ -12,18 +12,19 @@
  * - SIGNAL_ACCOUNT_NUMBER: Signal account phone number (E.164 format, e.g., +1234567890)
  * - SIGNAL_HTTP_URL: Signal CLI REST API URL (e.g., http://localhost:8080)
  * - SIGNAL_CLI_PATH: Path to signal-cli binary (alternative to HTTP API)
- * - MILADY_LIVE_TEST=1: Enable live tests (MILAIDY_LIVE_TEST also supported)
+ * - MILADY_LIVE_TEST=1: Enable live tests (MILADY_LIVE_TEST also supported)
  *
  * @see https://github.com/milady-ai/milady/issues/148
  */
 
 import { describe, expect, it } from "vitest";
 
-const LIVE_TEST =
-  process.env.MILADY_LIVE_TEST === "1" || process.env.MILAIDY_LIVE_TEST === "1";
+const LIVE_TEST = process.env.MILADY_LIVE_TEST === "1";
 const SIGNAL_ACCOUNT_NUMBER = process.env.SIGNAL_ACCOUNT_NUMBER;
 const SIGNAL_HTTP_URL = process.env.SIGNAL_HTTP_URL;
 const SIGNAL_CLI_PATH = process.env.SIGNAL_CLI_PATH;
+const SIGNAL_HARNESS_REASON =
+  "requires a paired Signal integration harness (counterparty account, group, and media fixtures)";
 
 const hasSignalConfig = !!(
   SIGNAL_ACCOUNT_NUMBER &&
@@ -34,6 +35,45 @@ const signalPluginModule = await import("@elizaos/plugin-signal").catch(
 );
 const signalPlugin = signalPluginModule?.default;
 const hasSignalPlugin = Boolean(signalPlugin);
+
+const signalConnectionChecks = [
+  "connects to Signal service",
+  "retrieves contacts list",
+  "retrieves groups list",
+] as const;
+
+const signalMessageChecks = [
+  "sends text message",
+  "receives text message",
+  "sends reaction to message",
+] as const;
+
+const signalGroupChecks = [
+  "sends message to group",
+  "receives group message",
+  "respects SIGNAL_SHOULD_IGNORE_GROUP_MESSAGES setting",
+] as const;
+
+const signalMediaChecks = [
+  "receives image attachment",
+  "receives voice message",
+  "sends image attachment",
+] as const;
+
+const signalErrorChecks = [
+  "handles network errors gracefully",
+  "handles invalid phone number",
+  "handles rate limiting",
+] as const;
+
+function defineSkippedSignalHarnessChecks(
+  titles: readonly string[],
+  reason = SIGNAL_HARNESS_REASON,
+): void {
+  for (const title of titles) {
+    it.skip(`${title} (${reason})`, async () => {});
+  }
+}
 
 describe("Signal Connector (@elizaos/plugin-signal)", () => {
   describe.skipIf(!hasSignalPlugin)("Plugin Structure", () => {
@@ -140,90 +180,23 @@ describe("Signal Connector (@elizaos/plugin-signal)", () => {
   describe.skipIf(!LIVE_TEST || !hasSignalConfig)(
     "Live Signal Connection",
     () => {
-      // These tests require actual Signal account and signal-cli setup
-
-      it("connects to Signal service", async () => {
-        // TODO: Test actual connection
-        expect(true).toBe(true);
-      });
-
-      it("retrieves contacts list", async () => {
-        // TODO: Test SIGNAL_LIST_CONTACTS action
-        expect(true).toBe(true);
-      });
-
-      it("retrieves groups list", async () => {
-        // TODO: Test SIGNAL_LIST_GROUPS action
-        expect(true).toBe(true);
-      });
+      defineSkippedSignalHarnessChecks(signalConnectionChecks);
     },
   );
 
   describe.skipIf(!LIVE_TEST || !hasSignalConfig)("Message Handling", () => {
-    it("sends text message", async () => {
-      // TODO: Test SIGNAL_SEND_MESSAGE action
-      expect(true).toBe(true);
-    });
-
-    it("receives text message", async () => {
-      // TODO: Test message reception
-      expect(true).toBe(true);
-    });
-
-    it("sends reaction to message", async () => {
-      // TODO: Test SIGNAL_SEND_REACTION action
-      expect(true).toBe(true);
-    });
+    defineSkippedSignalHarnessChecks(signalMessageChecks);
   });
 
   describe.skipIf(!LIVE_TEST || !hasSignalConfig)("Group Messages", () => {
-    it("sends message to group", async () => {
-      // TODO: Test group messaging
-      expect(true).toBe(true);
-    });
-
-    it("receives group message", async () => {
-      // TODO: Test group message reception
-      expect(true).toBe(true);
-    });
-
-    it("respects SIGNAL_SHOULD_IGNORE_GROUP_MESSAGES setting", async () => {
-      // TODO: Test group ignore setting
-      expect(true).toBe(true);
-    });
+    defineSkippedSignalHarnessChecks(signalGroupChecks);
   });
 
   describe.skipIf(!LIVE_TEST || !hasSignalConfig)("Media & Attachments", () => {
-    it("receives image attachment", async () => {
-      // TODO: Test image reception
-      expect(true).toBe(true);
-    });
-
-    it("receives voice message", async () => {
-      // TODO: Test voice message reception
-      expect(true).toBe(true);
-    });
-
-    it("sends image attachment", async () => {
-      // TODO: Test image sending
-      expect(true).toBe(true);
-    });
+    defineSkippedSignalHarnessChecks(signalMediaChecks);
   });
 
   describe.skipIf(!LIVE_TEST || !hasSignalConfig)("Error Handling", () => {
-    it("handles network errors gracefully", async () => {
-      // TODO: Test network error handling
-      expect(true).toBe(true);
-    });
-
-    it("handles invalid phone number", async () => {
-      // TODO: Test invalid recipient handling
-      expect(true).toBe(true);
-    });
-
-    it("handles rate limiting", async () => {
-      // TODO: Test rate limit handling
-      expect(true).toBe(true);
-    });
+    defineSkippedSignalHarnessChecks(signalErrorChecks);
   });
 });

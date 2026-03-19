@@ -1,6 +1,6 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { MiladyConfig } from "../config/types";
+import type { ElizaConfig } from "../config/types";
 import { FallbackTrainingService } from "../services/fallback-training-service";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import { handleTrainingRoutes } from "./training-routes";
@@ -10,9 +10,11 @@ describe("training routes", () => {
   let trainingService: FallbackTrainingService;
 
   beforeEach(() => {
-    runtime = { character: { name: "Milady" } } as AgentRuntime;
+    runtime = {
+      character: { name: "Eliza" },
+    } as unknown as unknown as AgentRuntime;
 
-    const config = {} as MiladyConfig;
+    const config = {} as ElizaConfig;
     trainingService = new FallbackTrainingService({
       getRuntime: () => runtime,
       getConfig: () => config,
@@ -106,13 +108,13 @@ describe("training routes", () => {
       adapterPath: "/tmp/out/adapter",
       sourceModel: "qwen",
       backend: "cpu",
-      ollamaModel: "milady-ft-model",
+      ollamaModel: "eliza-ft-model",
       active: false,
       benchmark: { status: "not_run", lastRunAt: null, output: null },
     });
     vi.spyOn(trainingService, "activateModel").mockResolvedValue({
       modelId: "model-1",
-      providerModel: "ollama/milady-ft-model",
+      providerModel: "ollama/eliza-ft-model",
       needsRestart: true,
     });
     vi.spyOn(trainingService, "benchmarkModel").mockResolvedValue({
@@ -255,12 +257,12 @@ describe("training routes", () => {
     const result = await invoke({
       method: "POST",
       pathname: "/api/training/models/model-1/activate",
-      body: { providerModel: "ollama/milady-ft-model" },
+      body: { providerModel: "ollama/eliza-ft-model" },
     });
     expect(result.status).toBe(200);
     expect(trainingService.activateModel).toHaveBeenCalledWith(
       "model-1",
-      "ollama/milady-ft-model",
+      "ollama/eliza-ft-model",
     );
   });
 
@@ -269,7 +271,7 @@ describe("training routes", () => {
       method: "POST",
       pathname: "/api/training/models/model-1/import-ollama",
       body: {
-        modelName: "milady-ft-model",
+        modelName: "eliza-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://localhost:11434",
       },
@@ -278,7 +280,7 @@ describe("training routes", () => {
     expect(trainingService.importModelToOllama).toHaveBeenCalledWith(
       "model-1",
       {
-        modelName: "milady-ft-model",
+        modelName: "eliza-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://localhost:11434",
       },
@@ -290,7 +292,7 @@ describe("training routes", () => {
       method: "POST",
       pathname: "/api/training/models/model-1/import-ollama",
       body: {
-        modelName: "milady-ft-model",
+        modelName: "eliza-ft-model",
         baseModel: "qwen2.5:7b-instruct",
         ollamaUrl: "http://169.254.169.254:11434",
       },

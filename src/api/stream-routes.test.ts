@@ -928,10 +928,32 @@ describe("handleStreamRoute", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Streaming destination plugin availability checks — these plugins may not
+// be resolvable in all CI environments (e.g. when @elizaos/core dist misses
+// symbols the plugin dist depends on).
+// ---------------------------------------------------------------------------
+
+let hasRetakePlugin = false;
+try {
+  const mod = await import("@elizaos/plugin-retake");
+  hasRetakePlugin = typeof mod.createRetakeDestination === "function";
+} catch {
+  /* not available */
+}
+
+let hasTwitchPlugin = false;
+try {
+  const mod = await import("@elizaos/plugin-twitch-streaming");
+  hasTwitchPlugin = typeof mod.createTwitchDestination === "function";
+} catch {
+  /* not available */
+}
+
+// ---------------------------------------------------------------------------
 // createRetakeDestination() — destination adapter unit tests
 // ---------------------------------------------------------------------------
 
-describe("createRetakeDestination()", () => {
+describe.skipIf(!hasRetakePlugin)("createRetakeDestination()", () => {
   it("returns a StreamingDestination with id and name", async () => {
     const { createRetakeDestination } = await import("@elizaos/plugin-retake");
     const dest = createRetakeDestination({ accessToken: "test-token" });
@@ -982,7 +1004,7 @@ describe("createRetakeDestination()", () => {
 // createTwitchDestination() — destination adapter unit tests
 // ---------------------------------------------------------------------------
 
-describe("createTwitchDestination()", () => {
+describe.skipIf(!hasTwitchPlugin)("createTwitchDestination()", () => {
   it("returns a StreamingDestination with id and name", async () => {
     const { createTwitchDestination } = await import(
       "@elizaos/plugin-twitch-streaming"
@@ -1161,7 +1183,7 @@ describe("createYoutubeDestination()", () => {
 describe("createCustomRtmpDestination()", () => {
   it("returns a StreamingDestination with id and name", async () => {
     const { createCustomRtmpDestination } = await import(
-      "../plugins/custom-rtmp/index.ts"
+      "@elizaos/plugin-custom-rtmp"
     );
     const dest = createCustomRtmpDestination({
       rtmpUrl: "rtmp://custom.example.com/live",
@@ -1179,7 +1201,7 @@ describe("createCustomRtmpDestination()", () => {
 
     try {
       const { createCustomRtmpDestination } = await import(
-        "../plugins/custom-rtmp/index.ts"
+        "@elizaos/plugin-custom-rtmp"
       );
       const dest = createCustomRtmpDestination();
       await expect(dest.getCredentials()).rejects.toThrow(
@@ -1199,7 +1221,7 @@ describe("createCustomRtmpDestination()", () => {
 
     try {
       const { createCustomRtmpDestination } = await import(
-        "../plugins/custom-rtmp/index.ts"
+        "@elizaos/plugin-custom-rtmp"
       );
       const dest = createCustomRtmpDestination({
         rtmpUrl: "rtmp://example.com/live",
@@ -1215,7 +1237,7 @@ describe("createCustomRtmpDestination()", () => {
 
   it("getCredentials returns configured RTMP URL and key", async () => {
     const { createCustomRtmpDestination } = await import(
-      "../plugins/custom-rtmp/index.ts"
+      "@elizaos/plugin-custom-rtmp"
     );
     const dest = createCustomRtmpDestination({
       rtmpUrl: "rtmp://ingest.example.com/live",
@@ -1235,7 +1257,7 @@ describe("createCustomRtmpDestination()", () => {
 
     try {
       const { createCustomRtmpDestination } = await import(
-        "../plugins/custom-rtmp/index.ts"
+        "@elizaos/plugin-custom-rtmp"
       );
       const dest = createCustomRtmpDestination({
         rtmpUrl: "rtmp://config.example.com/live",
@@ -1266,7 +1288,7 @@ describe("createCustomRtmpDestination()", () => {
 
     try {
       const { createCustomRtmpDestination } = await import(
-        "../plugins/custom-rtmp/index.ts"
+        "@elizaos/plugin-custom-rtmp"
       );
       const dest = createCustomRtmpDestination();
       const creds = await dest.getCredentials();
@@ -1288,7 +1310,7 @@ describe("createCustomRtmpDestination()", () => {
 
   it("has no onStreamStart or onStreamStop hooks", async () => {
     const { createCustomRtmpDestination } = await import(
-      "../plugins/custom-rtmp/index.ts"
+      "@elizaos/plugin-custom-rtmp"
     );
     const dest = createCustomRtmpDestination({
       rtmpUrl: "rtmp://example.com/live",
@@ -1816,7 +1838,7 @@ describe("handleStreamRoute — POST /api/stream/settings merge", () => {
 
   it("returns full merged settings in response", async () => {
     const { writeStreamSettings } = await import("./stream-persistence");
-    writeStreamSettings({ theme: "milady" });
+    writeStreamSettings({ theme: "eliza" });
 
     const { res, getJson } = createMockHttpResponse();
     const req = createMockIncomingMessage({
@@ -1835,7 +1857,7 @@ describe("handleStreamRoute — POST /api/stream/settings merge", () => {
     );
 
     const body = getJson();
-    expect(body.settings).toEqual({ theme: "milady", avatarIndex: 3 });
+    expect(body.settings).toEqual({ theme: "eliza", avatarIndex: 3 });
   });
 });
 

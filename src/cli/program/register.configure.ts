@@ -9,15 +9,15 @@ export function registerConfigureCommand(program: Command) {
     .addHelpText(
       "after",
       () =>
-        `\n${theme.muted("Docs:")} ${formatDocsLink("/configuration", "docs.milady.ai/configuration")}\n`,
+        `\n${theme.muted("Docs:")} ${formatDocsLink("/configuration", "docs.eliza.ai/configuration")}\n`,
     )
     .action(() => {
-      console.log(`\n${theme.heading("Milady Configuration")}\n`);
+      console.log(`\n${theme.heading("Eliza Configuration")}\n`);
       console.log("Set values with:");
       console.log(
-        `  ${theme.command("milady config get <key>")}     Read a config value`,
+        `  ${theme.command("eliza config get <key>")}     Read a config value`,
       );
-      console.log(`  Edit ~/.milady/milady.json directly for full control.\n`);
+      console.log(`  Edit ~/.eliza/eliza.json directly for full control.\n`);
       console.log("Common environment variables:");
       console.log(
         `  ${theme.command("ANTHROPIC_API_KEY")}    Anthropic (Claude)`,

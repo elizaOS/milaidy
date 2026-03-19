@@ -115,19 +115,21 @@ fi
 
 echo ""
 
-# ── 2. Homebrew Formula ──────────────────────────────────────────────────────
-bold "2. Homebrew Formula"
+# ── 2. Homebrew Formula & Cask ─────────────────────────────────────────────────
+bold "2. Homebrew Formula & Cask"
 check_file "milady.rb" "$SCRIPT_DIR/homebrew/milady.rb"
+check_file "milady.cask.rb" "$SCRIPT_DIR/homebrew/milady.cask.rb"
 
 # Validate Ruby syntax
 if command -v ruby &>/dev/null; then
-  check "Ruby syntax valid" ruby -c "$SCRIPT_DIR/homebrew/milady.rb"
+  check "Formula Ruby syntax valid" ruby -c "$SCRIPT_DIR/homebrew/milady.rb"
+  check "Cask Ruby syntax valid" ruby -c "$SCRIPT_DIR/homebrew/milady.cask.rb"
 else
   skip "Ruby syntax check" "ruby not available"
 fi
 
 # Check formula has real SHA256 (not placeholder)
-check "SHA256 is not placeholder" bash -c "! grep -q PLACEHOLDER '$SCRIPT_DIR/homebrew/milady.rb'"
+check "Formula SHA256 is not placeholder" bash -c "! grep -q PLACEHOLDER '$SCRIPT_DIR/homebrew/milady.rb'"
 check "Has url field" grep -q 'url "https://' "$SCRIPT_DIR/homebrew/milady.rb"
 check "Has sha256 field" grep -q 'sha256 "' "$SCRIPT_DIR/homebrew/milady.rb"
 check "Depends on node" grep -q 'depends_on "node' "$SCRIPT_DIR/homebrew/milady.rb"

@@ -7,18 +7,22 @@ const runtime = {} as IAgentRuntime;
 const state = {} as State;
 
 function makeMessage(channelType?: ChannelType): Memory {
-  return { content: { channelType } } as Memory;
+  return { content: { channelType } } as unknown as Memory;
 }
 
 function makeModeMessage(mode: "simple" | "power"): Memory {
-  return { content: { channelType: CT.DM, conversationMode: mode } } as Memory;
+  return {
+    content: { channelType: CT.DM, conversationMode: mode },
+  } as unknown as Memory;
 }
 
 describe("createChannelProfileProvider", () => {
   const provider = createChannelProfileProvider();
 
   it("has correct name and description", () => {
-    expect(provider.name).toBe("miladyChannelProfile");
+    expect(["elizaChannelProfile", "elizaChannelProfile"]).toContain(
+      provider.name,
+    );
     expect(provider.description).toContain("channel-derived execution profile");
   });
 

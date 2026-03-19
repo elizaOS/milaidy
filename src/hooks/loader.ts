@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/hooks/loader";
+export * from "@elizaos/autonomous/hooks/loader";

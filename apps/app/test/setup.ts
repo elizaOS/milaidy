@@ -5,11 +5,13 @@
  * are created here with vi.fn() stubs so tests can vi.spyOn() them freely.
  */
 import { vi } from "vitest";
+import React from "react";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 }
 
+globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const originalConsoleError = console.error.bind(console);
@@ -31,6 +33,127 @@ console.error = (...args: unknown[]) => {
   }
   originalConsoleError(...args);
 };
+
+// ---------------------------------------------------------------------------
+// Mock @elizaos/app-core bridge modules — the real electrobun RPC module
+// relies on native Electrobun bindings that are unavailable in the test
+// environment.
+// ---------------------------------------------------------------------------
+
+type RpcMessageHandler = (
+  message: string,
+  listener: (payload: unknown) => void,
+) => void;
+type RpcRequestMap = Record<string, (params?: unknown) => unknown>;
+
+function isInjectedElectrobunRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as Record<string, unknown>;
+  return (
+    typeof w.__electrobunWindowId === "number" ||
+    typeof w.__electrobunWebviewId === "number"
+  );
+}
+
+vi.mock("@elizaos/app-core/bridge/electrobun-rpc", () => {
+  function getElectrobunRendererRpc() {
+    if (typeof window === "undefined") return null;
+    const w = window as unknown as Record<string, unknown>;
+    return (
+      (w.__ELIZA_ELECTROBUN_RPC__ as unknown) ??
+      (w.__MILADY_ELECTROBUN_RPC__ as unknown) ??
+      null
+    );
+  }
+
+  return {
+    getElectrobunRendererRpc,
+    isElectrobunRuntime: isInjectedElectrobunRuntime,
+    getBackendStartupTimeoutMs: () =>
+      isInjectedElectrobunRuntime() ? 180_000 : 30_000,
+    invokeDesktopBridgeRequest: async (options: {
+      rpcMethod: string;
+      params?: unknown;
+    }) => {
+      const rpc = getElectrobunRendererRpc() as Record<string, unknown> | null;
+      const request = (rpc?.request as RpcRequestMap)?.[options.rpcMethod];
+      if (request) return await request(options.params);
+      return null;
+    },
+    subscribeDesktopBridgeEvent: (options: {
+      rpcMessage: string;
+      listener: (payload: unknown) => void;
+    }) => {
+      const rpc = getElectrobunRendererRpc() as Record<string, unknown> | null;
+      if (rpc) {
+        (rpc.onMessage as RpcMessageHandler)(
+          options.rpcMessage,
+          options.listener,
+        );
+        return () => {
+          (rpc.offMessage as RpcMessageHandler)(
+            options.rpcMessage,
+            options.listener,
+          );
+        };
+      }
+      return () => {};
+    },
+    initializeCapacitorBridge: () => {},
+    initializeStorageBridge: async () => {},
+    ElectrobunRendererRpc: {},
+  };
+});
+
+vi.mock("@elizaos/app-core/bridge", () => {
+  function getElectrobunRendererRpc() {
+    if (typeof window === "undefined") return null;
+    const w = window as unknown as Record<string, unknown>;
+    return (
+      (w.__ELIZA_ELECTROBUN_RPC__ as unknown) ??
+      (w.__MILADY_ELECTROBUN_RPC__ as unknown) ??
+      null
+    );
+  }
+
+  return {
+    getElectrobunRendererRpc,
+    isElectrobunRuntime: isInjectedElectrobunRuntime,
+    getBackendStartupTimeoutMs: () =>
+      isInjectedElectrobunRuntime() ? 180_000 : 30_000,
+    invokeDesktopBridgeRequest: async (options: {
+      rpcMethod: string;
+      params?: unknown;
+    }) => {
+      const rpc = getElectrobunRendererRpc() as Record<string, unknown> | null;
+      const request = (rpc?.request as RpcRequestMap)?.[options.rpcMethod];
+      if (request) return await request(options.params);
+      return null;
+    },
+    subscribeDesktopBridgeEvent: (options: {
+      rpcMessage: string;
+      listener: (payload: unknown) => void;
+    }) => {
+      const rpc = getElectrobunRendererRpc() as Record<string, unknown> | null;
+      if (rpc) {
+        (rpc.onMessage as RpcMessageHandler)(
+          options.rpcMessage,
+          options.listener,
+        );
+        return () => {
+          (rpc.offMessage as RpcMessageHandler)(
+            options.rpcMessage,
+            options.listener,
+          );
+        };
+      }
+      return () => {};
+    },
+    initializeCapacitorBridge: () => {},
+    initializeStorageBridge: async () => {},
+    ElectrobunRendererRpc: {},
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Mock @capacitor/core
@@ -93,7 +216,7 @@ function ensureObj(
 
 const nav: Record<string, unknown> =
   typeof globalThis.navigator !== "undefined"
-    ? (globalThis.navigator as unknown as Record<string, unknown>)
+    ? (globalThis.navigator as Record<string, unknown>)
     : {};
 
 if (typeof globalThis.navigator === "undefined") {
@@ -303,7 +426,7 @@ if (typeof globalThis.HTMLCanvasElement !== "undefined") {
       globalAlpha: 1,
       fillStyle: "#000",
       strokeStyle: "#000",
-    }) as unknown as CanvasRenderingContext2D;
+    }) as CanvasRenderingContext2D;
 
   Object.defineProperty(globalThis.HTMLCanvasElement.prototype, "getContext", {
     value: vi.fn((contextType: string) =>

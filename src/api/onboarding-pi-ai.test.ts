@@ -29,14 +29,14 @@ function applyPiAiOnboarding(
   const runMode = body.runMode ?? "local";
 
   const clearPiAiFlag = () => {
-    delete vars.MILADY_USE_PI_AI;
-    delete envCfg.MILADY_USE_PI_AI;
-    delete process.env.MILADY_USE_PI_AI;
+    delete vars.ELIZA_USE_PI_AI;
+    delete envCfg.ELIZA_USE_PI_AI;
+    delete process.env.ELIZA_USE_PI_AI;
   };
 
   if (runMode === "local" && providerId === "pi-ai") {
-    vars.MILADY_USE_PI_AI = "1";
-    process.env.MILADY_USE_PI_AI = "1";
+    vars.ELIZA_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
 
     if (!config.agents) config.agents = {};
     if (!config.agents.defaults) config.agents.defaults = {};
@@ -61,19 +61,19 @@ describe("pi-ai onboarding configuration", () => {
   let savedPiAiEnv: string | undefined;
 
   beforeEach(() => {
-    savedPiAiEnv = process.env.MILADY_USE_PI_AI;
-    delete process.env.MILADY_USE_PI_AI;
+    savedPiAiEnv = process.env.ELIZA_USE_PI_AI;
+    delete process.env.ELIZA_USE_PI_AI;
   });
 
   afterEach(() => {
     if (savedPiAiEnv === undefined) {
-      delete process.env.MILADY_USE_PI_AI;
+      delete process.env.ELIZA_USE_PI_AI;
     } else {
-      process.env.MILADY_USE_PI_AI = savedPiAiEnv;
+      process.env.ELIZA_USE_PI_AI = savedPiAiEnv;
     }
   });
 
-  it("enables MILADY_USE_PI_AI and stores primary model for local pi-ai", () => {
+  it("enables ELIZA_USE_PI_AI and stores primary model for local pi-ai", () => {
     const config: OnboardingLikeConfig = {};
 
     applyPiAiOnboarding(
@@ -85,8 +85,8 @@ describe("pi-ai onboarding configuration", () => {
       config,
     );
 
-    expect(process.env.MILADY_USE_PI_AI).toBe("1");
-    expect(config.env?.vars?.MILADY_USE_PI_AI).toBe("1");
+    expect(process.env.ELIZA_USE_PI_AI).toBe("1");
+    expect(config.env?.vars?.ELIZA_USE_PI_AI).toBe("1");
     expect(
       (config.agents?.defaults?.model as { primary?: string }).primary,
     ).toBe("anthropic/claude-sonnet-4-20250514");
@@ -115,13 +115,13 @@ describe("pi-ai onboarding configuration", () => {
     ).toBe(undefined);
   });
 
-  it("clears MILADY_USE_PI_AI when provider is not pi-ai", () => {
+  it("clears ELIZA_USE_PI_AI when provider is not pi-ai", () => {
     const config: OnboardingLikeConfig = {
       env: {
-        vars: { MILADY_USE_PI_AI: "1" },
+        vars: { ELIZA_USE_PI_AI: "1" },
       },
     };
-    process.env.MILADY_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
 
     applyPiAiOnboarding(
       {
@@ -131,17 +131,17 @@ describe("pi-ai onboarding configuration", () => {
       config,
     );
 
-    expect(process.env.MILADY_USE_PI_AI).toBeUndefined();
-    expect(config.env?.vars?.MILADY_USE_PI_AI).toBeUndefined();
+    expect(process.env.ELIZA_USE_PI_AI).toBeUndefined();
+    expect(config.env?.vars?.ELIZA_USE_PI_AI).toBeUndefined();
   });
 
-  it("clears MILADY_USE_PI_AI for cloud mode", () => {
+  it("clears ELIZA_USE_PI_AI for cloud mode", () => {
     const config: OnboardingLikeConfig = {
       env: {
-        vars: { MILADY_USE_PI_AI: "1" },
+        vars: { ELIZA_USE_PI_AI: "1" },
       },
     };
-    process.env.MILADY_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
 
     applyPiAiOnboarding(
       {
@@ -151,7 +151,7 @@ describe("pi-ai onboarding configuration", () => {
       config,
     );
 
-    expect(process.env.MILADY_USE_PI_AI).toBeUndefined();
-    expect(config.env?.vars?.MILADY_USE_PI_AI).toBeUndefined();
+    expect(process.env.ELIZA_USE_PI_AI).toBeUndefined();
+    expect(config.env?.vars?.ELIZA_USE_PI_AI).toBeUndefined();
   });
 });

@@ -23,7 +23,7 @@ export async function installPluginViaApiRequest(
   const pluginName = response.plugin?.name ?? name;
   const version = response.plugin?.version;
   const restartHint = response.requiresRestart
-    ? " Restart milady to load it."
+    ? " Restart eliza to load it."
     : "";
 
   return {

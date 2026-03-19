@@ -85,6 +85,33 @@ export class BootProgressReporter extends EventEmitter {
     } satisfies BootProgressEvent);
   }
 
+  /**
+   * Report sub-progress within a phase (e.g. download percentage).
+   *
+   * @param id - The phase to report progress within
+   * @param fraction - 0–1 fraction of completion within this phase
+   * @param detail - Optional detail string
+   */
+  subProgress(id: BootPhaseId, fraction: number, detail?: string): void {
+    const phaseIdx = BOOT_PHASES.findIndex((p) => p.id === id);
+    if (phaseIdx < 0) return;
+
+    const completedWeight = BOOT_PHASES.slice(0, phaseIdx).reduce(
+      (sum, p) => sum + p.weight,
+      0,
+    );
+
+    const phase = BOOT_PHASES[phaseIdx];
+    const clampedFraction = Math.min(1, Math.max(0, fraction));
+
+    this.emit("progress", {
+      phase: id,
+      label: phase.label,
+      progress: completedWeight + phase.weight * clampedFraction,
+      detail,
+    } satisfies BootProgressEvent);
+  }
+
   /** Signal that boot is complete (progress = 1). */
   complete(): void {
     this.emit("progress", {

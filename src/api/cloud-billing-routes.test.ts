@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import type http from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import type { CloudBillingRouteState } from "./cloud-billing-routes";
 import { handleCloudBillingRoute } from "./cloud-billing-routes";
 
@@ -9,24 +9,24 @@ vi.mock("@elizaos/core", () => ({
   logger: { warn: vi.fn() },
 }));
 
-vi.mock("@miladyai/autonomous/cloud/validate-url", () => ({
+vi.mock("@elizaos/autonomous/cloud/validate-url", () => ({
   validateCloudBaseUrl: vi.fn(() => Promise.resolve(null)),
 }));
 
-vi.mock("@miladyai/autonomous/api/http-helpers", () => ({
+vi.mock("@elizaos/autonomous/api/http-helpers", () => ({
   sendJson: vi.fn(),
   sendJsonError: vi.fn(),
 }));
 
 const { sendJson, sendJsonError } = await import(
-  "@miladyai/autonomous/api/http-helpers"
+  "@elizaos/autonomous/api/http-helpers"
 );
 const { validateCloudBaseUrl } = await import(
-  "@miladyai/autonomous/cloud/validate-url"
+  "@elizaos/autonomous/cloud/validate-url"
 );
 
 function makeState(
-  overrides?: Partial<MiladyConfig["cloud"]>,
+  overrides?: Partial<ElizaConfig["cloud"]>,
 ): CloudBillingRouteState {
   return {
     config: {
@@ -35,12 +35,12 @@ function makeState(
         baseUrl: "https://cloud.example.com",
         ...overrides,
       },
-    } as MiladyConfig,
+    } as ElizaConfig,
   };
 }
 
 function makeReq(opts: { url?: string; body?: string }): http.IncomingMessage {
-  const emitter = new EventEmitter() as unknown as http.IncomingMessage;
+  const emitter = new EventEmitter() as http.IncomingMessage;
   emitter.url = opts.url ?? "/api/cloud/billing/summary";
 
   if (opts.body) {
@@ -307,7 +307,7 @@ describe("cloud-billing-routes", () => {
       makeRes(),
       "/api/cloud/billing/checkout",
       "POST",
-      makeState({ serviceKey: "svc-key" } as Partial<MiladyConfig["cloud"]>),
+      makeState({ serviceKey: "svc-key" } as Partial<ElizaConfig["cloud"]>),
     );
 
     expect(result).toBe(true);
@@ -318,9 +318,9 @@ describe("cloud-billing-routes", () => {
         body: JSON.stringify({
           credits: 25,
           success_url:
-            "https://cloud.example.com/dashboard/billing/success?from=milady",
+            "https://cloud.example.com/dashboard/billing/success?from=eliza",
           cancel_url:
-            "https://cloud.example.com/dashboard/settings?from=milady&tab=billing&canceled=1",
+            "https://cloud.example.com/dashboard/settings?from=eliza&tab=billing&canceled=1",
         }),
         headers: expect.objectContaining({
           Authorization: "Bearer test-api-key",

@@ -3,8 +3,17 @@ import { useAgents } from "../../lib/AgentProvider";
 import { isAuthenticated } from "../../lib/auth";
 import { ConnectionModal } from "./ConnectionModal";
 
+export type SourceFilter = "all" | "local" | "cloud" | "remote";
+
 export function SourceBar() {
-  const { agents, loading, refresh, addRemoteUrl } = useAgents();
+  const {
+    agents,
+    loading,
+    refresh,
+    addRemoteUrl,
+    sourceFilter,
+    setSourceFilter,
+  } = useAgents();
   const [showAddRemote, setShowAddRemote] = useState(false);
 
   const cloudCount = agents.filter((a) => a.source === "cloud").length;
@@ -13,51 +22,58 @@ export function SourceBar() {
   const authed = isAuthenticated();
 
   return (
-    <div className="px-8 py-3 border-b border-white/10 flex items-center gap-6 text-xs font-mono">
-      {/* Cloud source */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`w-1.5 h-1.5 rounded-full ${authed && cloudCount > 0 ? "bg-green-500" : authed ? "bg-yellow-500" : "bg-white/20"}`}
-        />
-        <span className="text-text-muted">
-          {!authed
-            ? "cloud (not connected)"
-            : cloudCount > 0
-              ? `cloud (${cloudCount})`
-              : "cloud (0 agents)"}
-        </span>
-      </div>
-
-      {/* Local source */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`w-1.5 h-1.5 rounded-full ${localCount > 0 ? "bg-green-500" : "bg-white/20"}`}
-        />
-        <span className="text-text-muted">
-          {localCount > 0 ? `local (${localCount})` : "local (offline)"}
-        </span>
-      </div>
-
-      {/* Remote source */}
-      {remoteCount > 0 && (
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-          <span className="text-text-muted">remote ({remoteCount})</span>
+    <div className="px-4 sm:px-5 md:px-8 py-3 border-b border-border flex flex-wrap items-center gap-3 text-xs">
+      <div className="order-2 md:order-1 w-full md:w-auto overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-max">
+          <SourceTab
+            label="All"
+            count={agents.length}
+            active={sourceFilter === "all"}
+            onClick={() => setSourceFilter("all")}
+          />
+          <SourceTab
+            label="Local"
+            count={localCount}
+            active={sourceFilter === "local"}
+            onClick={() => setSourceFilter("local")}
+            dotColor={localCount > 0 ? "bg-emerald-400" : "bg-text-muted/30"}
+          />
+          {authed && (
+            <SourceTab
+              label="Cloud"
+              count={cloudCount}
+              active={sourceFilter === "cloud"}
+              onClick={() => setSourceFilter("cloud")}
+              dotColor={cloudCount > 0 ? "bg-emerald-400" : "bg-amber-400"}
+            />
+          )}
+          {remoteCount > 0 && (
+            <SourceTab
+              label="Remote"
+              count={remoteCount}
+              active={sourceFilter === "remote"}
+              onClick={() => setSourceFilter("remote")}
+              dotColor="bg-emerald-400"
+            />
+          )}
         </div>
-      )}
+      </div>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="order-1 md:order-2 ml-auto flex items-center gap-2">
         <button
           type="button"
           onClick={() => setShowAddRemote(true)}
-          className="text-text-muted hover:text-brand transition-colors uppercase tracking-widest"
+          className="text-text-muted hover:text-text-light px-3 py-2 rounded-lg
+            hover:bg-surface transition-all duration-150 text-xs"
         >
-          + Remote
+          + Connect
         </button>
         <button
           type="button"
           onClick={() => refresh()}
-          className={`text-text-muted hover:text-brand transition-colors uppercase tracking-widest ${loading ? "animate-pulse" : ""}`}
+          className={`text-text-muted hover:text-text-light px-3 py-2 rounded-lg
+            hover:bg-surface transition-all duration-150 text-xs
+            ${loading ? "animate-pulse" : ""}`}
         >
           Refresh
         </button>
@@ -66,12 +82,42 @@ export function SourceBar() {
       {showAddRemote && (
         <ConnectionModal
           onSubmit={(data) => {
-            addRemoteUrl(data.name, data.url);
+            addRemoteUrl(data.name, data.url, data.token);
             setShowAddRemote(false);
           }}
           onClose={() => setShowAddRemote(false)}
         />
       )}
     </div>
+  );
+}
+
+function SourceTab({
+  label,
+  count,
+  active,
+  onClick,
+  dotColor,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  dotColor?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all duration-150 ${
+        active
+          ? "bg-surface text-text-light"
+          : "text-text-muted hover:text-text-light hover:bg-surface/50"
+      }`}
+    >
+      {dotColor && <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />}
+      <span>{label}</span>
+      {count > 0 && <span className="text-text-muted/60">({count})</span>}
+    </button>
   );
 }

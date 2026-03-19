@@ -7,8 +7,8 @@ import {
 describe("parseActionBlock", () => {
   it("returns null for empty/falsy input", () => {
     expect(parseActionBlock("")).toBeNull();
-    expect(parseActionBlock(null as unknown as string)).toBeNull();
-    expect(parseActionBlock(undefined as unknown as string)).toBeNull();
+    expect(parseActionBlock(null as string)).toBeNull();
+    expect(parseActionBlock(undefined as string)).toBeNull();
   });
 
   it("parses fenced ```json block with respond action + text response", () => {

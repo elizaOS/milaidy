@@ -11,7 +11,43 @@
  * - Key format validation edge cases
  * - maskSecret utility
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock static plugin imports in eliza.ts to avoid ESM resolution failures
+// when buildCharacterFromConfig is dynamically imported.
+vi.mock("@elizaos/plugin-agent-orchestrator", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-agent-skills", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-anthropic", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-browser", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-cli", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-coding-agent", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-computeruse", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-cron", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-discord", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-edge-tts", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-elevenlabs", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-elizacloud", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-experience", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-form", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-google-genai", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-groq", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-knowledge", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-local-embedding", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-ollama", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-openai", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-openrouter", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-pdf", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-personality", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-plugin-manager", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-rolodex", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-secrets-manager", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-shell", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-sql", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-telegram", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-trajectory-logger", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-trust", () => ({ default: {} }));
+vi.mock("@elizaos/plugin-twitch", () => ({ default: {} }));
+
 import {
   DEFAULT_EVM_CHAINS,
   deriveEvmAddress,

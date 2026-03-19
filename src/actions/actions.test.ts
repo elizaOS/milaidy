@@ -3,7 +3,7 @@
  *
  * Tests the custom action lifecycle (not SSRF — that's in custom-actions.test.ts).
  * Covers: registerCustomActionLive, loadCustomActions, defToAction, buildTestHandler,
- * and the built-in action registration on the Milady plugin.
+ * and the built-in action registration on the Eliza plugin.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,25 +12,29 @@ vi.mock("@elizaos/core", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@miladyai/autonomous/config/config", () => ({
-  loadMiladyConfig: vi.fn(() => ({ customActions: [] })),
-  saveMiladyConfig: vi.fn(),
-}));
+vi.mock("@elizaos/autonomous/config/config", () => {
+  const loadFn = vi.fn(() => ({ customActions: [] }));
+  const saveFn = vi.fn();
+  return {
+    loadElizaConfig: loadFn,
+    saveElizaConfig: saveFn,
+  };
+});
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34", family: 4 }]),
 }));
 
-import type { IAgentRuntime } from "@elizaos/core";
-import { loadMiladyConfig } from "@miladyai/autonomous/config/config";
+import { loadElizaConfig } from "@elizaos/autonomous/config/config";
 import {
   __setPinnedFetchImplForTests,
   buildTestHandler,
   loadCustomActions,
   registerCustomActionLive,
   setCustomActionsRuntime,
-} from "@miladyai/autonomous/runtime/custom-actions";
-import type { CustomActionDef, MiladyConfig } from "../config/types.milady";
+} from "@elizaos/autonomous/runtime/custom-actions";
+import type { IAgentRuntime } from "@elizaos/core";
+import type { CustomActionDef, ElizaConfig } from "../config/types.eliza";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -79,7 +83,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   // Reset the runtime reference — setCustomActionsRuntime only accepts
   // IAgentRuntime, so cast through unknown to clear it for test isolation.
-  setCustomActionsRuntime(undefined as unknown as IAgentRuntime);
+  setCustomActionsRuntime(undefined as IAgentRuntime);
 });
 
 // ============================================================================
@@ -94,7 +98,7 @@ describe("registerCustomActionLive", () => {
 
   it("returns an Action and registers it when runtime is set", () => {
     const rt = mockRuntime();
-    setCustomActionsRuntime(rt as unknown as IAgentRuntime);
+    setCustomActionsRuntime(rt as IAgentRuntime);
 
     const action = registerCustomActionLive(makeDef());
 
@@ -107,7 +111,7 @@ describe("registerCustomActionLive", () => {
 
   it("preserves similes from the definition", () => {
     const rt = mockRuntime();
-    setCustomActionsRuntime(rt as unknown as IAgentRuntime);
+    setCustomActionsRuntime(rt as IAgentRuntime);
 
     const action = registerCustomActionLive(
       makeDef({ similes: ["ALIAS_A", "ALIAS_B"] }),
@@ -124,18 +128,18 @@ describe("registerCustomActionLive", () => {
 
 describe("loadCustomActions", () => {
   it("returns empty array when config has no custom actions", () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({} as MiladyConfig);
+    vi.mocked(loadElizaConfig).mockReturnValue({} as ElizaConfig);
     const actions = loadCustomActions();
     expect(actions).toEqual([]);
   });
 
   it("loads enabled actions from config", () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    vi.mocked(loadElizaConfig).mockReturnValue({
       customActions: [
         makeDef({ id: "a1", name: "ACTION_ONE", enabled: true }),
         makeDef({ id: "a2", name: "ACTION_TWO", enabled: true }),
       ],
-    } as MiladyConfig);
+    } as ElizaConfig);
 
     const actions = loadCustomActions();
     expect(actions).toHaveLength(2);
@@ -144,12 +148,12 @@ describe("loadCustomActions", () => {
   });
 
   it("filters out disabled actions", () => {
-    vi.mocked(loadMiladyConfig).mockReturnValue({
+    vi.mocked(loadElizaConfig).mockReturnValue({
       customActions: [
         makeDef({ id: "a1", name: "ENABLED_ACTION", enabled: true }),
         makeDef({ id: "a2", name: "DISABLED_ACTION", enabled: false }),
       ],
-    } as MiladyConfig);
+    } as ElizaConfig);
 
     const actions = loadCustomActions();
     expect(actions).toHaveLength(1);
@@ -157,7 +161,7 @@ describe("loadCustomActions", () => {
   });
 
   it("returns empty array when config loading throws", () => {
-    vi.mocked(loadMiladyConfig).mockImplementation(() => {
+    vi.mocked(loadElizaConfig).mockImplementation(() => {
       throw new Error("config corrupted");
     });
     const actions = loadCustomActions();

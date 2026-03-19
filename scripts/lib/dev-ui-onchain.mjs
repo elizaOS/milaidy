@@ -26,7 +26,7 @@ export function coerceBoolean(value) {
  * enabled for this dev session.
  *
  * Priority order:
- *  1. `MILADY_DEV_ONCHAIN` env var — explicit opt-in/out, no prompts (CI-safe).
+ *  1. `ELIZA_DEV_ONCHAIN` env var — explicit opt-in/out, no prompts (CI-safe).
  *  2. Interactive TTY prompts — ask the user, then optionally install Foundry.
  *  3. Non-TTY / no promptFn — defaults to disabled.
  *
@@ -50,26 +50,20 @@ export async function resolveOnchainPreference({
   installFn,
 }) {
   // ── Explicit env var takes precedence (CI / scripts / power users) ──────
-  const explicitOnchain = coerceBoolean(env.MILADY_DEV_ONCHAIN);
+  const explicitOnchain = coerceBoolean(env.ELIZA_DEV_ONCHAIN);
   if (explicitOnchain !== null) {
     return {
       onchainEnabled: explicitOnchain === true,
-      anchorRequested: coerceBoolean(env.MILADY_DEV_ANCHOR) === true,
+      anchorRequested: coerceBoolean(env.ELIZA_DEV_ANCHOR) === true,
     };
   }
 
-  // ── Non-interactive: default off ─────────────────────────────────────────
+  // ── Non-interactive: default on ─────────────────────────────────────────
   if (!isTTY || !promptFn) {
-    return { onchainEnabled: false, anchorRequested: false };
+    return { onchainEnabled: true, anchorRequested: true };
   }
 
   // ── Interactive flow ─────────────────────────────────────────────────────
-  const wantsOnchain = await promptFn(
-    "Enable on-chain dev features? (y/N) ",
-    false,
-  );
-  if (!wantsOnchain) return { onchainEnabled: false, anchorRequested: false };
-
   let anvilAvailable = whichFn("anvil") !== null;
 
   if (!anvilAvailable) {
@@ -86,9 +80,5 @@ export async function resolveOnchainPreference({
     return { onchainEnabled: false, anchorRequested: false };
   }
 
-  const anchorRequested = await promptFn(
-    "Also start Solana localnet (Anchor)? (y/N) ",
-    false,
-  );
-  return { onchainEnabled: true, anchorRequested };
+  return { onchainEnabled: true, anchorRequested: true };
 }

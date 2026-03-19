@@ -26,14 +26,14 @@ function callHandleServiceFound(
   d: GatewayDiscovery,
   service: BonjourServiceLike,
 ): void {
-  (d as unknown as PrivateGatewayMethods).handleServiceFound(service);
+  (d as PrivateGatewayMethods).handleServiceFound(service);
 }
 
 function callHandleServiceLost(
   d: GatewayDiscovery,
   service: BonjourServiceLike,
 ): void {
-  (d as unknown as PrivateGatewayMethods).handleServiceLost(service);
+  (d as PrivateGatewayMethods).handleServiceLost(service);
 }
 
 describe("GatewayDiscovery", () => {

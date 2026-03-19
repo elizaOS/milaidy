@@ -40,7 +40,7 @@ const stubContext = {
   font: "",
   textAlign: "left",
   textBaseline: "alphabetic",
-} as unknown as CanvasRenderingContext2D;
+} as Partial<CanvasRenderingContext2D> as CanvasRenderingContext2D;
 
 const originalGetContext = HTMLCanvasElement.prototype.getContext;
 

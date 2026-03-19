@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/runtime/release-plugin-policy";
+export * from "@elizaos/autonomous/runtime/release-plugin-policy";

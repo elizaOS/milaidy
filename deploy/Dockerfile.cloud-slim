@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Milady Cloud Agent — Slim Image
+# Eliza Cloud Agent — Slim Image
 #
 # Multi-stage build:
 #   1. builder  — full monorepo install + tsdown build
@@ -7,7 +7,7 @@
 #   3. runtime  — slim base with only what's needed
 #
 # The real Milady agent runtime runs via milady.mjs → dist/entry.js which
-# imports from @miladyai/autonomous (workspace package). The workspace packages
+# imports from @elizaos/autonomous (workspace package). The workspace packages
 # reference src/ via relative imports, so we keep src/ + packages/ alongside
 # dist/ and use tsx for TS resolution at runtime.
 #
@@ -143,7 +143,7 @@ COPY --from=pruner --chown=agent:agent /build/package.json ./package.json
 # from ../../../../src/runtime/milady-plugin.ts)
 COPY --from=pruner --chown=agent:agent /build/src ./src
 
-# Copy workspace packages (especially @miladyai/autonomous which IS the runtime)
+# Copy workspace packages (especially @elizaos/autonomous which IS the runtime)
 COPY --from=pruner --chown=agent:agent /build/packages ./packages
 
 # Copy apps dir structure (some workspace links reference it)

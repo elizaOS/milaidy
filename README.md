@@ -363,7 +363,7 @@ MILADY_GATEWAY_PORT=19000 MILADY_PORT=3000 milady start
 
 ## Config
 
-Lives at `~/.milady/milady.json`
+Lives at `~/.eliza/eliza.json` (override with `ELIZA_CONFIG_PATH` or `ELIZA_STATE_DIR`)
 
 ```json5
 {
@@ -377,7 +377,7 @@ Lives at `~/.milady/milady.json`
 }
 ```
 
-Or use `~/.milady/.env` for secrets.
+Or use `~/.eliza/.env` for secrets.
 
 ---
 
@@ -435,27 +435,44 @@ This routes through the OpenAI plugin instead of the broken Ollama plugin. Works
 
 ## Prerequisites
 
-| | Version | Notes |
-|---|---------|-------|
-| **Node.js** | >= 22 | `node --version` to check |
-| **bun** | latest | for building and running. `curl -fsSL https://bun.sh/install \| bash` |
+| | Version | Check | Install |
+|---|---------|-------|---------|
+| **Node.js** | >= 22 | `node --version` | [nodejs.org](https://nodejs.org) |
+| **Bun** | latest | `bun --version` | `curl -fsSL https://bun.sh/install \| bash` |
+| **Git** | any | `git --version` | system package manager |
+
+**Optional** (for vision/TTS plugins with native deps):
+- macOS: `xcode-select --install`
+- Linux: `sudo apt install build-essential python3 libcairo2-dev libjpeg-dev libpango1.0-dev`
 
 ## Build from Source
 
 ```bash
 git clone https://github.com/milady-ai/milady.git
 cd milady
-bun install
+bun install          # runs postinstall hooks (patches deps, seeds skills, etc.)
 bun run build
 bun run milady start
 ```
 
 > `scripts/rt.sh` prefers bun but falls back to npm automatically. If you want to be explicit: `bun run build:node` uses only Node.
 
-Dev mode with hot reload:
+### Dev mode (recommended for development)
+
 ```bash
-bun run dev
+bun run dev          # starts API (:31337) + Vite UI (:2138) with hot reload
 ```
+
+This auto-kills zombie processes on the dev ports, waits for the API to be healthy, then starts the Vite dev server with proxy.
+
+```bash
+bun run check        # typecheck + lint (run before committing)
+bun run test         # parallel test suite
+bun run doctor       # diagnose environment issues
+bun run repair       # re-run postinstall hooks
+```
+
+See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for the full development guide including troubleshooting, architecture overview, and config reference.
 
 ### Documentation (with WHYs)
 

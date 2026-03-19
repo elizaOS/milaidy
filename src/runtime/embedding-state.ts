@@ -6,12 +6,12 @@
  * hot-swap the embedding model at runtime without patching the
  * AgentRuntime object.
  */
-import type { MiladyEmbeddingManager } from "./embedding-manager.js";
+import type { ElizaEmbeddingManager } from "./embedding-manager.js";
 import type { EmbeddingPreset } from "./embedding-presets.js";
 
 export interface EmbeddingState {
   /** The live embedding manager used by the TEXT_EMBEDDING model handler. */
-  manager: MiladyEmbeddingManager;
+  manager: ElizaEmbeddingManager;
   /** Active preset (may be undefined for fully custom configs). */
   preset?: EmbeddingPreset;
   /** Current embedding dimensions (needed for zero-vector fallback). */

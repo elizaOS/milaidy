@@ -4,8 +4,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import signalPlugin, {
   signalPlugin as namedSignalPlugin,
-} from "../plugins/signal";
-import { SignalNativeService } from "../plugins/signal/service";
+} from "@elizaos/plugin-signal";
+import { SignalNativeService } from "@elizaos/plugin-signal/service";
 
 function createRuntime(overrides: Record<string, unknown> = {}) {
   return {
@@ -116,12 +116,9 @@ describe("SignalNativeService", () => {
       sendMessage: vi.fn().mockResolvedValue(undefined),
     };
 
-    (service as unknown as { native: typeof native }).native = native;
-    (service as unknown as { connected: boolean }).connected = true;
-    (service as unknown as { authDir: string }).authDir = path.join(
-      tmpDir,
-      "signal-auth",
-    );
+    (service as { native: typeof native }).native = native;
+    (service as { connected: boolean }).connected = true;
+    (service as { authDir: string }).authDir = path.join(tmpDir, "signal-auth");
 
     await service.handleSendMessage(
       runtime as never,
@@ -149,14 +146,11 @@ describe("SignalNativeService", () => {
       sendMessage: vi.fn().mockResolvedValue(undefined),
     };
 
-    (service as unknown as { native: typeof native }).native = native;
-    (service as unknown as { authDir: string }).authDir = path.join(
-      tmpDir,
-      "signal-auth",
-    );
+    (service as { native: typeof native }).native = native;
+    (service as { authDir: string }).authDir = path.join(tmpDir, "signal-auth");
 
     await (
-      service as unknown as {
+      service as {
         handleIncomingMessage: (msg: {
           senderUuid: string;
           text: string;
@@ -212,7 +206,7 @@ describe("SignalNativeService", () => {
     const service = new SignalNativeService(runtime as never);
 
     await (
-      service as unknown as {
+      service as {
         handleIncomingMessage: (msg: {
           senderUuid: string;
           text: string;
@@ -247,9 +241,9 @@ describe("SignalNativeService", () => {
       stopReceiving: vi.fn().mockResolvedValue(undefined),
     };
 
-    (service as unknown as { native: typeof native }).native = native;
-    (service as unknown as { authDir: string }).authDir = authDir;
-    (service as unknown as { connected: boolean }).connected = true;
+    (service as { native: typeof native }).native = native;
+    (service as { authDir: string }).authDir = authDir;
+    (service as { connected: boolean }).connected = true;
 
     await service.stop();
 

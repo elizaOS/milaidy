@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/security/audit-log";
+export * from "@elizaos/autonomous/security/audit-log";

@@ -1,5 +1,5 @@
 /**
- * Animated loading screen displayed during Milady TUI boot.
+ * Animated loading screen displayed during Eliza TUI boot.
  *
  * Renders in the terminal's alternate screen buffer before the main
  * TUI takes over. Shows the agent name with sparkle animation, a
@@ -9,7 +9,7 @@
  */
 import chalk from "chalk";
 
-// ── Milady brand palette (matches src/tui/theme.ts) ─────────────────
+// ── Eliza brand palette (matches src/tui/theme.ts) ─────────────────
 const ACCENT = "#E879F9"; // fuchsia-400
 const ACCENT_DIM = "#A855F7"; // violet-500
 const MUTED = "#808080"; // gray
@@ -43,7 +43,7 @@ function center(s: string, cols: number): string {
 }
 
 /**
- * Standalone loading screen for the Milady TUI boot sequence.
+ * Standalone loading screen for the Eliza TUI boot sequence.
  *
  * Usage:
  * ```ts
@@ -63,7 +63,7 @@ export class LoadingScreen {
   private detail?: string;
 
   constructor(agentName?: string) {
-    this.agentName = agentName ?? "Milady";
+    this.agentName = agentName ?? "Eliza";
   }
 
   /** Enter alternate screen and begin animation loop. */

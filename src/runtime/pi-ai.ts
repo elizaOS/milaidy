@@ -11,7 +11,7 @@ import { createPiCredentialProvider } from "./pi-credentials.js";
 export function isPiAiEnabledFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  const raw = env.MILADY_USE_PI_AI;
+  const raw = env.ELIZA_USE_PI_AI;
   if (!raw) return false;
   const v = String(raw).trim().toLowerCase();
   return v === "1" || v === "true" || v === "yes";

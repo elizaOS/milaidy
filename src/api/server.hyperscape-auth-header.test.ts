@@ -27,7 +27,7 @@ describe("resolveHyperscapeAuthorizationHeader", () => {
     delete process.env.HYPERSCAPE_AUTH_TOKEN;
 
     const auth = resolveHyperscapeAuthorizationHeader(
-      req({ authorization: "Bearer milady-control-token" }),
+      req({ authorization: "Bearer eliza-control-token" }),
     );
 
     expect(auth).toBeNull();
@@ -37,7 +37,7 @@ describe("resolveHyperscapeAuthorizationHeader", () => {
     process.env.HYPERSCAPE_AUTH_TOKEN = "hyperscape-secret";
 
     const auth = resolveHyperscapeAuthorizationHeader(
-      req({ authorization: "Bearer milady-control-token" }),
+      req({ authorization: "Bearer eliza-control-token" }),
     );
 
     expect(auth).toBe("Bearer hyperscape-secret");

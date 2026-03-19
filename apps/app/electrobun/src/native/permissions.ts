@@ -26,9 +26,9 @@ async function getPlatformModule(): Promise<PlatformModule | null> {
     case "darwin":
       return await import("./permissions-darwin");
     case "win32":
-      return (await import("./permissions-win32")) as unknown as PlatformModule;
+      return (await import("./permissions-win32")) as PlatformModule;
     case "linux":
-      return (await import("./permissions-linux")) as unknown as PlatformModule;
+      return (await import("./permissions-linux")) as PlatformModule;
     default:
       return null;
   }

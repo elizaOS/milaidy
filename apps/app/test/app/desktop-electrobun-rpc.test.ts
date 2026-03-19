@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ElectrobunRendererRpc } from "@miladyai/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@elizaos/app-core/bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DesktopElectrobun } from "../../plugins/desktop/electrobun/src/index.ts";
 

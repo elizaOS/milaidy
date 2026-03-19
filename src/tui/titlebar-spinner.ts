@@ -8,7 +8,7 @@ export interface TitlebarSpinnerOptions {
 }
 
 /**
- * Lightweight titlebar spinner used by the Milady TUI while a request is in
+ * Lightweight titlebar spinner used by the Eliza TUI while a request is in
  * flight.
  */
 export class TitlebarSpinner {
@@ -62,5 +62,5 @@ export class TitlebarSpinner {
 
 export function getDefaultTitle(): string {
   const cwd = path.basename(process.cwd());
-  return `milady - ${cwd}`;
+  return `eliza - ${cwd}`;
 }

@@ -3,7 +3,7 @@ import {
   applySignalQrOverride as applyAutonomousSignalQrOverride,
   handleSignalRoute as handleAutonomousSignalRoute,
   MAX_PAIRING_SESSIONS,
-} from "@miladyai/autonomous/api/signal-routes";
+} from "@elizaos/autonomous/api/signal-routes";
 import {
   SignalPairingSession,
   sanitizeAccountId,
@@ -11,7 +11,7 @@ import {
   signalLogout,
 } from "../services/signal-pairing";
 
-export type { SignalRouteState } from "@miladyai/autonomous/api/signal-routes";
+export type { SignalRouteState } from "@elizaos/autonomous/api/signal-routes";
 export { MAX_PAIRING_SESSIONS };
 
 export async function handleSignalRoute(
@@ -19,7 +19,7 @@ export async function handleSignalRoute(
   res: ServerResponse,
   pathname: string,
   method: string,
-  state: import("@miladyai/autonomous/api/signal-routes").SignalRouteState,
+  state: import("@elizaos/autonomous/api/signal-routes").SignalRouteState,
 ): Promise<boolean> {
   return handleAutonomousSignalRoute(req, res, pathname, method, state, {
     sanitizeAccountId,

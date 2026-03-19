@@ -146,7 +146,7 @@ describe("@miladyai/capacitor-talkmode", () => {
       const stream = { getTracks: () => [{ stop: vi.fn() }] };
       const spy = vi
         .spyOn(navigator.mediaDevices, "getUserMedia")
-        .mockResolvedValueOnce(stream as unknown as MediaStream);
+        .mockResolvedValueOnce(stream as MediaStream);
       vi.spyOn(navigator.permissions, "query").mockResolvedValue({
         state: "granted",
       } as PermissionStatus);

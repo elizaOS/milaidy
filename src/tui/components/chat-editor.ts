@@ -1,7 +1,7 @@
 import { Editor, matchesKey } from "@mariozechner/pi-tui";
 
 /**
- * Small wrapper around @mariozechner/pi-tui's Editor to support Milady-wide keybindings.
+ * Small wrapper around @mariozechner/pi-tui's Editor to support Eliza-wide keybindings.
  */
 export class ChatEditor extends Editor {
   onCtrlC?: () => void;

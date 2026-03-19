@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { mergeStreamingText, resolveStreamingUpdate } from "./streaming-text";
+import {
+  computeStreamingDelta,
+  mergeStreamingText,
+  resolveStreamingUpdate,
+} from "./streaming-text";
 
 describe("mergeStreamingText", () => {
   it("appends plain deltas", () => {
@@ -58,5 +62,23 @@ describe("resolveStreamingUpdate", () => {
       nextText: "Hello world",
       emittedText: "",
     });
+  });
+});
+
+describe("computeStreamingDelta", () => {
+  it("emits only appended text for cumulative snapshots", () => {
+    expect(computeStreamingDelta("Hello", "Hello world")).toBe(" world");
+  });
+
+  it("suppresses repeated suffix fragments", () => {
+    expect(computeStreamingDelta("Hello world", "world")).toBe("");
+  });
+
+  it("returns the new suffix for overlap-heavy chunks", () => {
+    expect(computeStreamingDelta("prefix-xxxxworld", "world!yyy")).toBe("!yyy");
+  });
+
+  it("returns the full incoming text for non-overlapping replacements", () => {
+    expect(computeStreamingDelta("world", "Hello world")).toBe("Hello world");
   });
 });

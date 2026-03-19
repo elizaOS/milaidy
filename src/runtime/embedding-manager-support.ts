@@ -2,6 +2,27 @@ import fs from "node:fs";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
+import { getLogPrefix } from "../utils/log-prefix.js";
+
+/**
+ * Callback for reporting download/init progress.
+ * @param phase - Current phase: "checking", "downloading", "loading", "ready"
+ * @param detail - Human-readable detail (e.g. "45% of 95 MB")
+ */
+export type EmbeddingProgressCallback = (
+  phase: "checking" | "downloading" | "loading" | "ready",
+  detail?: string,
+) => void;
+
+/**
+ * Callback for raw download byte progress.
+ * @param downloaded - Bytes received so far
+ * @param total - Total bytes expected (null if Content-Length unavailable)
+ */
+export type DownloadProgressCallback = (
+  downloaded: number,
+  total: number | null,
+) => void;
 
 export interface EmbeddingManagerConfig {
   /** GGUF model filename (default: detected hardware preset) */
@@ -18,6 +39,8 @@ export interface EmbeddingManagerConfig {
   idleTimeoutMs?: number;
   /** Models directory (default: ~/.eliza/models) */
   modelsDir?: string;
+  /** Optional callback for reporting initialization progress phases. */
+  onProgress?: EmbeddingProgressCallback;
 }
 
 export interface EmbeddingManagerStats {
@@ -32,12 +55,12 @@ export const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 export const DEFAULT_MODELS_DIR = path.join(os.homedir(), ".eliza", "models");
 
 const EMBEDDING_META_DIR =
-  process.env.MILADY_EMBEDDING_META_DIR ??
-  process.env.MILAIDY_EMBEDDING_META_DIR ??
-  path.join(os.homedir(), ".milady", "state");
+  process.env.ELIZA_EMBEDDING_META_DIR ??
+  process.env.ELIZA_EMBEDDING_META_DIR ??
+  path.join(os.homedir(), ".eliza", "state");
 export const EMBEDDING_META_PATH =
-  process.env.MILADY_EMBEDDING_META_PATH ??
-  process.env.MILAIDY_EMBEDDING_META_PATH ??
+  process.env.ELIZA_EMBEDDING_META_PATH ??
+  process.env.ELIZA_EMBEDDING_META_PATH ??
   path.join(EMBEDDING_META_DIR, "embedding-meta.json");
 
 let _logger:
@@ -87,7 +110,9 @@ function writeEmbeddingMeta(meta: EmbeddingMeta): void {
     fs.mkdirSync(EMBEDDING_META_DIR, { recursive: true });
     fs.writeFileSync(EMBEDDING_META_PATH, JSON.stringify(meta, null, 2));
   } catch (err) {
-    getLogger().warn(`[milady] Failed to write embedding metadata: ${err}`);
+    getLogger().warn(
+      `${getLogPrefix()} Failed to write embedding metadata: ${err}`,
+    );
   }
 }
 
@@ -100,7 +125,7 @@ export function checkDimensionMigration(
 
   if (stored && stored.dimensions !== dimensions) {
     log.warn(
-      `[milady] Embedding dimensions changed (${stored.dimensions} → ${dimensions}). ` +
+      `${getLogPrefix()} Embedding dimensions changed (${stored.dimensions} → ${dimensions}). ` +
         "Existing memory embeddings will be re-indexed on next access.",
     );
   }
@@ -205,10 +230,19 @@ function resolveModelPath(modelsDir: string, filename: string): string {
   return resolvedPath;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 function downloadFile(
   url: string,
   dest: string,
   maxRedirects = 5,
+  onProgress?: DownloadProgressCallback,
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -228,6 +262,7 @@ function downloadFile(
       const file = fs.createWriteStream(dest);
       let bytesReceived = 0;
       let expectedBytes: number | null = null;
+      let lastProgressPercent = -1;
 
       const settleError = (err: Error) => {
         if (settled) return;
@@ -242,7 +277,7 @@ function downloadFile(
         if (expectedBytes != null && bytesReceived !== expectedBytes) {
           settleError(
             new Error(
-              `[milady] Download failed: bytes received (${bytesReceived}) ` +
+              `${getLogPrefix()} Download failed: bytes received (${bytesReceived}) ` +
                 `does not match Content-Length (${expectedBytes})`,
             ),
           );
@@ -256,7 +291,7 @@ function downloadFile(
       https
         .get(
           validatedUrl.toString(),
-          { headers: { "User-Agent": "milady" } },
+          { headers: { "User-Agent": "eliza" } },
           (res) => {
             expectedBytes = parseContentLength(res.headers["content-length"]);
             if (
@@ -304,6 +339,16 @@ function downloadFile(
             }
             res.on("data", (chunk: Buffer) => {
               bytesReceived += chunk.length;
+              if (onProgress) {
+                // Throttle callbacks to every 2% to avoid excessive updates
+                const pct = expectedBytes
+                  ? Math.floor((bytesReceived / expectedBytes) * 50)
+                  : -1;
+                if (pct !== lastProgressPercent) {
+                  lastProgressPercent = pct;
+                  onProgress(bytesReceived, expectedBytes);
+                }
+              }
             });
             res.pipe(file);
             file.on("finish", settleSuccess);
@@ -320,23 +365,40 @@ export async function ensureModel(
   modelsDir: string,
   repo: string,
   filename: string,
-  force = false,
+  force?: boolean,
+  onProgress?: EmbeddingProgressCallback,
 ): Promise<string> {
   const safeRepo = sanitizeModelRepo(repo);
   const safeFilename = sanitizeModelFilename(filename);
   const modelPath = resolveModelPath(modelsDir, safeFilename);
   if (force) safeUnlink(modelPath);
-  if (fs.existsSync(modelPath)) return modelPath;
+
+  onProgress?.("checking", safeFilename);
+
+  if (fs.existsSync(modelPath)) {
+    onProgress?.("ready", "model already downloaded");
+    return modelPath;
+  }
 
   const log = getLogger();
   fs.mkdirSync(path.resolve(modelsDir), { recursive: true });
 
   const url = `https://huggingface.co/${safeRepo}/resolve/main/${safeFilename}`;
   log.info(
-    `[milady] Downloading embedding model: ${safeFilename} from ${safeRepo}...`,
+    `${getLogPrefix()} Downloading embedding model: ${safeFilename} from ${safeRepo}...`,
   );
 
-  await downloadFile(url, modelPath);
-  log.info(`[milady] Embedding model downloaded: ${modelPath}`);
+  onProgress?.("downloading", `${safeFilename} from ${safeRepo}`);
+
+  const downloadOnProgress: DownloadProgressCallback | undefined = onProgress
+    ? (downloaded, total) => {
+        const totalStr = total ? formatBytes(total) : "unknown size";
+        const pct = total ? Math.round((downloaded / total) * 100) : 0;
+        onProgress("downloading", `${safeFilename} ${pct}% of ${totalStr}`);
+      }
+    : undefined;
+
+  await downloadFile(url, modelPath, 5, downloadOnProgress);
+  log.info(`${getLogPrefix()} Embedding model downloaded: ${modelPath}`);
   return modelPath;
 }

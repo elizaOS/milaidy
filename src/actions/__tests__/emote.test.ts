@@ -4,7 +4,7 @@ import { emoteAction } from "../../actions/emote";
 function mockResponse(response: { ok: boolean }): Response {
   return {
     ok: response.ok,
-  } as unknown as Response;
+  } as Partial<Response> as Response;
 }
 
 describe("emoteAction", () => {
@@ -21,7 +21,6 @@ describe("emoteAction", () => {
     const result = await emoteAction.handler(
       undefined,
       { roomId: "room", content: { text: "" } },
-      undefined,
       undefined,
     );
 
@@ -44,7 +43,6 @@ describe("emoteAction", () => {
     const result = await emoteAction.handler(
       undefined,
       { roomId: "room", content: { text: "please wave now" } },
-      undefined,
       undefined,
     );
 
@@ -83,7 +81,6 @@ describe("emoteAction", () => {
     const result = await emoteAction.handler(
       undefined,
       { roomId: "room", content: { text: "walk over there" } },
-      undefined,
       undefined,
     );
 

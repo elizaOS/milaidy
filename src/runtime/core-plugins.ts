@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/runtime/core-plugins";
+export * from "@elizaos/autonomous/runtime/core-plugins";

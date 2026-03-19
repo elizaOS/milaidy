@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { terminalAction } from "../../actions/terminal";
-import { createMiladyPlugin } from "../../runtime/milady-plugin";
+import { createElizaPlugin } from "../../runtime/eliza-plugin";
 
 function mockResponse(response: { ok: boolean }): Response {
   return {
     ok: response.ok,
-  } as unknown as Response;
+  } as Partial<Response> as Response;
 }
 
 describe("terminalAction", () => {
@@ -33,8 +33,8 @@ describe("terminalAction", () => {
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 
-  it("is registered on the Milady plugin", () => {
-    const plugin = createMiladyPlugin();
+  it("is registered on the Eliza plugin", () => {
+    const plugin = createElizaPlugin();
     const actionNames = (plugin.actions ?? []).map((action) => action.name);
     expect(actionNames).toContain("RUN_IN_TERMINAL");
   });

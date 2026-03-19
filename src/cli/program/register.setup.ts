@@ -133,13 +133,13 @@ async function readStdinValue(): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export function resolveConfigPath(env = process.env): string {
-  if (env.MILADY_CONFIG_PATH?.trim()) {
-    return env.MILADY_CONFIG_PATH;
+  if (env.ELIZA_CONFIG_PATH?.trim()) {
+    return env.ELIZA_CONFIG_PATH;
   }
 
   const stateDir =
-    env.MILADY_STATE_DIR?.trim() || path.join(os.homedir(), ".milady");
-  return path.join(stateDir, "milady.json");
+    env.ELIZA_STATE_DIR?.trim() || path.join(os.homedir(), ".eliza");
+  return path.join(stateDir, "eliza.json");
 }
 
 export function loadConfig(configPath: string): Record<string, unknown> {
@@ -163,11 +163,11 @@ export function saveConfig(
 }
 
 function resolveLaunchCommand(cwd = process.cwd()): string {
-  const localEntry = path.join(cwd, "milady.mjs");
+  const localEntry = path.join(cwd, "eliza.mjs");
   const localPackage = path.join(cwd, "package.json");
   return fs.existsSync(localEntry) && fs.existsSync(localPackage)
-    ? "node milady.mjs start"
-    : "milady start";
+    ? "node eliza.mjs start"
+    : "eliza start";
 }
 
 function getEnvSection(
@@ -254,7 +254,7 @@ export async function runProviderWizard(
   const provider = PROVIDERS[index];
   if (provider.key === null) {
     log(
-      `${theme.muted("→")} Skipped. Set a key later with ${theme.command("milady setup")}.`,
+      `${theme.muted("→")} Skipped. Set a key later with ${theme.command("eliza setup")}.`,
     );
     return;
   }
@@ -297,11 +297,11 @@ export async function runProviderWizard(
 export function registerSetupCommand(program: Command) {
   program
     .command("setup")
-    .description("Initialize ~/.milady/milady.json and the agent workspace")
+    .description("Initialize ~/.eliza/eliza.json and the agent workspace")
     .addHelpText(
       "after",
       () =>
-        `\n${theme.muted("Docs:")} ${formatDocsLink("/getting-started/setup", "docs.milady.ai/getting-started/setup")}\n`,
+        `\n${theme.muted("Docs:")} ${formatDocsLink("/getting-started/setup", "docs.eliza.ai/getting-started/setup")}\n`,
     )
     .option("--workspace <dir>", "Agent workspace directory")
     .option("--provider <name>", "Model provider (non-interactive)")
@@ -320,7 +320,7 @@ export function registerSetupCommand(program: Command) {
         wizard: boolean;
       }) => {
         await runCommandWithRuntime(defaultRuntime, async () => {
-          const { loadMiladyConfig } = await import("../../config/config");
+          const { loadElizaConfig } = await import("../../config/config");
           const { ensureAgentWorkspace, resolveDefaultAgentWorkspaceDir } =
             await import("../../providers/workspace");
 
@@ -369,7 +369,7 @@ export function registerSetupCommand(program: Command) {
           // ── Workspace bootstrap ──────────────────────────────────────────
           let config: Record<string, unknown> = {};
           try {
-            config = loadMiladyConfig() as Record<string, unknown>;
+            config = loadElizaConfig() as Record<string, unknown>;
             console.log(`${theme.success("✓")} Config loaded`);
           } catch (err) {
             if ((err as NodeJS.ErrnoException).code === "ENOENT") {
@@ -391,7 +391,6 @@ export function registerSetupCommand(program: Command) {
 
           await ensureAgentWorkspace({
             dir: workspaceDir,
-            ensureBootstrapFiles: true,
           });
 
           console.log(

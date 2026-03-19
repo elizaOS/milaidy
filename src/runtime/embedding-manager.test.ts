@@ -53,9 +53,9 @@ vi.mock("node:https", () => ({
 // Isolate embedding metadata path for this test worker to avoid cross-file
 // races when the full suite runs in parallel.
 const TEST_EMBEDDING_META_ROOT = fs.mkdtempSync(
-  path.join(os.tmpdir(), "milady-embedding-meta-"),
+  path.join(os.tmpdir(), "eliza-embedding-meta-"),
 );
-process.env.MILADY_EMBEDDING_META_PATH = path.join(
+process.env.ELIZA_EMBEDDING_META_PATH = path.join(
   TEST_EMBEDDING_META_ROOT,
   "embedding-meta.json",
 );
@@ -65,10 +65,10 @@ process.env.MILADY_EMBEDDING_META_PATH = path.join(
 // ---------------------------------------------------------------------------
 
 import {
+  ElizaEmbeddingManager,
   EMBEDDING_META_PATH,
   type EmbeddingManagerConfig,
   ensureModel,
-  MiladyEmbeddingManager,
   readEmbeddingMeta,
 } from "./embedding-manager.js";
 import { detectEmbeddingPreset } from "./embedding-presets.js";
@@ -79,7 +79,7 @@ import { detectEmbeddingPreset } from "./embedding-presets.js";
 
 /** Create a temp models dir with a fake model file to skip downloads. */
 function makeTempModelsDir(modelName = detectEmbeddingPreset().model): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-emb-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "eliza-emb-test-"));
   fs.writeFileSync(path.join(dir, modelName), "fake-gguf-data");
   return dir;
 }
@@ -112,7 +112,7 @@ function mockHardware(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("MiladyEmbeddingManager", () => {
+describe("ElizaEmbeddingManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: false });
@@ -126,7 +126,7 @@ describe("MiladyEmbeddingManager", () => {
   });
 
   afterAll(() => {
-    delete process.env.MILADY_EMBEDDING_META_PATH;
+    delete process.env.ELIZA_EMBEDDING_META_PATH;
     try {
       fs.rmSync(TEST_EMBEDDING_META_ROOT, { recursive: true, force: true });
     } catch {
@@ -135,7 +135,7 @@ describe("MiladyEmbeddingManager", () => {
   });
 
   it("rejects path traversal and invalid model identifiers in ensureModel", async () => {
-    const modelsDir = fs.mkdtempSync(path.join(os.tmpdir(), "milady-emb-sec-"));
+    const modelsDir = fs.mkdtempSync(path.join(os.tmpdir(), "eliza-emb-sec-"));
 
     await expect(
       ensureModel(modelsDir, "alice/models", "../escape.gguf"),
@@ -149,7 +149,7 @@ describe("MiladyEmbeddingManager", () => {
   // 1. Config defaults
   it("should use detected preset defaults when config is not provided", () => {
     const detected = detectEmbeddingPreset();
-    const mgr = new MiladyEmbeddingManager(defaultConfig());
+    const mgr = new ElizaEmbeddingManager(defaultConfig());
     const stats = mgr.getStats();
 
     expect(stats.model).toBe(detected.model);
@@ -164,7 +164,7 @@ describe("MiladyEmbeddingManager", () => {
     mockHardware("darwin", "arm64", 128);
 
     const detected = detectEmbeddingPreset();
-    const mgr = new MiladyEmbeddingManager({
+    const mgr = new ElizaEmbeddingManager({
       modelsDir: makeTempModelsDir(detected.model),
     });
 
@@ -179,7 +179,7 @@ describe("MiladyEmbeddingManager", () => {
   it("should default gpuLayers to 'auto' on Apple Silicon macOS", () => {
     mockHardware("darwin", "arm64", 16);
 
-    const mgr = new MiladyEmbeddingManager({
+    const mgr = new ElizaEmbeddingManager({
       modelsDir: makeTempModelsDir(),
     });
 
@@ -190,7 +190,7 @@ describe("MiladyEmbeddingManager", () => {
   it("should default gpuLayers to 0 on non-darwin platforms", () => {
     mockHardware("linux", "arm64", 128);
 
-    const mgr = new MiladyEmbeddingManager({
+    const mgr = new ElizaEmbeddingManager({
       modelsDir: makeTempModelsDir(),
     });
 
@@ -199,7 +199,7 @@ describe("MiladyEmbeddingManager", () => {
 
   // 4. Idle timeout fires dispose after inactivity
   it("should call dispose after idle timeout", async () => {
-    const mgr = new MiladyEmbeddingManager(
+    const mgr = new ElizaEmbeddingManager(
       defaultConfig({ idleTimeoutMs: 5 * 60 * 1000 }), // 5 min
     );
 
@@ -218,7 +218,7 @@ describe("MiladyEmbeddingManager", () => {
   });
 
   it("initializes node-llama-cpp with error-only logging", async () => {
-    const mgr = new MiladyEmbeddingManager(defaultConfig());
+    const mgr = new ElizaEmbeddingManager(defaultConfig());
     await mgr.generateEmbedding("hello");
 
     expect(mockGetLlama).toHaveBeenCalledTimes(1);
@@ -231,7 +231,7 @@ describe("MiladyEmbeddingManager", () => {
 
   // 5. lastUsedAt updates on generateEmbedding, preventing premature unload
   it("should update lastUsedAt on each generateEmbedding call", async () => {
-    const mgr = new MiladyEmbeddingManager(
+    const mgr = new ElizaEmbeddingManager(
       defaultConfig({ idleTimeoutMs: 10 * 60 * 1000 }), // 10 min
     );
 
@@ -259,7 +259,7 @@ describe("MiladyEmbeddingManager", () => {
 
   // 6. Re-initialization after idle unload
   it("should re-initialize transparently after idle unload", async () => {
-    const mgr = new MiladyEmbeddingManager(
+    const mgr = new ElizaEmbeddingManager(
       defaultConfig({ idleTimeoutMs: 1 * 60 * 1000 }), // 1 min
     );
 
@@ -280,7 +280,7 @@ describe("MiladyEmbeddingManager", () => {
 
   // 7. Explicit dispose clears timer and releases model
   it("should clean up on explicit dispose", async () => {
-    const mgr = new MiladyEmbeddingManager(
+    const mgr = new ElizaEmbeddingManager(
       defaultConfig({ idleTimeoutMs: 30 * 60 * 1000 }),
     );
 
@@ -314,7 +314,7 @@ describe("MiladyEmbeddingManager", () => {
       "fake-data",
     );
 
-    const mgr = new MiladyEmbeddingManager(cfg);
+    const mgr = new ElizaEmbeddingManager(cfg);
     const before = mgr.getStats();
     expect(before).toEqual({
       lastUsedAt: null,
@@ -339,7 +339,7 @@ describe("MiladyEmbeddingManager", () => {
   describe("context window truncation", () => {
     it("should truncate text exceeding the context window limit", async () => {
       const contextSize = 100; // small context for easy testing
-      const mgr = new MiladyEmbeddingManager(defaultConfig({ contextSize }));
+      const mgr = new ElizaEmbeddingManager(defaultConfig({ contextSize }));
 
       // SAFE_CHARS_PER_TOKEN = 2, so maxChars = 100 * 2 = 200
       const longText = "a".repeat(500);
@@ -355,7 +355,7 @@ describe("MiladyEmbeddingManager", () => {
 
     it("should pass text through unchanged when within context limit", async () => {
       const contextSize = 8192;
-      const mgr = new MiladyEmbeddingManager(defaultConfig({ contextSize }));
+      const mgr = new ElizaEmbeddingManager(defaultConfig({ contextSize }));
 
       const shortText = "hello world";
       await mgr.generateEmbedding(shortText);
@@ -369,7 +369,7 @@ describe("MiladyEmbeddingManager", () => {
 
     it("should pass text at exactly the limit without truncating", async () => {
       const contextSize = 100;
-      const mgr = new MiladyEmbeddingManager(defaultConfig({ contextSize }));
+      const mgr = new ElizaEmbeddingManager(defaultConfig({ contextSize }));
 
       // Exactly at limit: 100 * 2 = 200 chars
       const exactText = "b".repeat(200);
@@ -417,9 +417,7 @@ describe("MiladyEmbeddingManager", () => {
       );
 
       // Create manager with new dimensions (768)
-      const mgr = new MiladyEmbeddingManager(
-        defaultConfig({ dimensions: 768 }),
-      );
+      const mgr = new ElizaEmbeddingManager(defaultConfig({ dimensions: 768 }));
       await mgr.generateEmbedding("trigger init");
 
       // Metadata should be updated
@@ -445,9 +443,7 @@ describe("MiladyEmbeddingManager", () => {
         }),
       );
 
-      const mgr = new MiladyEmbeddingManager(
-        defaultConfig({ dimensions: 768 }),
-      );
+      const mgr = new ElizaEmbeddingManager(defaultConfig({ dimensions: 768 }));
       await mgr.generateEmbedding("trigger init");
 
       await mgr.dispose();

@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/actions/switch-stream-source";
+export * from "@elizaos/autonomous/actions/switch-stream-source";

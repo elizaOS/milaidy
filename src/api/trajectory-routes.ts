@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/api/trajectory-routes";
+export * from "@elizaos/autonomous/api/trajectory-routes";

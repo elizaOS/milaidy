@@ -16,7 +16,7 @@ function makeRuntime(
     getServiceLoadPromise:
       overrides.getServiceLoadPromise ?? (() => new Promise(() => {})),
     ...overrides,
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("getKnowledgeTimeoutMs", () => {

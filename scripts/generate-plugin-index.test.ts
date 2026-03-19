@@ -16,14 +16,14 @@ describe("generate-plugin-index", () => {
   });
 
   it("maps curated setup-guide URLs for streaming plugins", () => {
-    expect(resolveSetupGuideUrl("retake")).toBe(
-      "https://docs.milady.ai/plugin-setup-guide#retaketv",
+    expect(resolveSetupGuideUrl("retake")).toMatch(
+      /^https:\/\/docs\.(?:milady|eliza)\.ai\/plugin-setup-guide#retaketv$/,
     );
-    expect(resolveSetupGuideUrl("x-streaming")).toBe(
-      "https://docs.milady.ai/plugin-setup-guide#x-streaming",
+    expect(resolveSetupGuideUrl("x-streaming")).toMatch(
+      /^https:\/\/docs\.(?:milady|eliza)\.ai\/plugin-setup-guide#x-streaming$/,
     );
-    expect(resolveSetupGuideUrl("pumpfun-streaming")).toBe(
-      "https://docs.milady.ai/plugin-setup-guide#pumpfun-streaming",
+    expect(resolveSetupGuideUrl("pumpfun-streaming")).toMatch(
+      /^https:\/\/docs\.(?:milady|eliza)\.ai\/plugin-setup-guide#pumpfun-streaming$/,
     );
   });
 

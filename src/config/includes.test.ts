@@ -9,17 +9,17 @@ import {
 
 const ROOT_DIR = path.parse(process.cwd()).root;
 const CONFIG_DIR = path.join(ROOT_DIR, "config");
-const ETC_MILADY_DIR = path.join(ROOT_DIR, "etc", "milady");
+const ETC_ELIZA_DIR = path.join(ROOT_DIR, "etc", "eliza");
 const SHARED_DIR = path.join(ROOT_DIR, "shared");
 
-const DEFAULT_BASE_PATH = path.join(CONFIG_DIR, "milady.json");
+const DEFAULT_BASE_PATH = path.join(CONFIG_DIR, "eliza.json");
 
 function configPath(...parts: string[]) {
   return path.join(CONFIG_DIR, ...parts);
 }
 
-function etcMiladyPath(...parts: string[]) {
-  return path.join(ETC_MILADY_DIR, ...parts);
+function etcElizaPath(...parts: string[]) {
+  return path.join(ETC_ELIZA_DIR, ...parts);
 }
 
 function sharedPath(...parts: string[]) {
@@ -100,7 +100,7 @@ describe("resolveConfigIncludes", () => {
   });
 
   it("resolves absolute path $include", () => {
-    const absolute = etcMiladyPath("agents.json");
+    const absolute = etcElizaPath("agents.json");
     const files = { [absolute]: { list: [{ id: "main" }] } };
     const obj = { agents: { $include: absolute } };
     expect(resolve(obj, files)).toEqual({
@@ -319,7 +319,7 @@ describe("resolveConfigIncludes", () => {
   it("resolves parent directory references", () => {
     const files = { [sharedPath("common.json")]: { shared: true } };
     const obj = { $include: "../../shared/common.json" };
-    expect(resolve(obj, files, configPath("sub", "milady.json"))).toEqual({
+    expect(resolve(obj, files, configPath("sub", "eliza.json"))).toEqual({
       shared: true,
     });
   });

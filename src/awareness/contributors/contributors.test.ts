@@ -13,7 +13,7 @@ function fakeRuntime(overrides: Record<string, unknown> = {}): IAgentRuntime {
       (overrides.settings as Record<string, string>)?.[key] ?? null,
     clients: overrides.clients ?? [],
     ...overrides,
-  } as unknown as IAgentRuntime;
+  } as Partial<IAgentRuntime> as IAgentRuntime;
 }
 
 describe("built-in contributors", () => {

@@ -9,12 +9,12 @@
     "vision"
   ],
   "main": "./dist/plugin.cjs.js",
-  "module": "./dist/plugin.js",
+  "module": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/esm/index.d.ts",
-      "import": "./dist/plugin.js",
+      "import": "./dist/esm/index.js",
       "require": "./dist/plugin.cjs.js"
     },
     "./package.json": "./package.json"
@@ -57,7 +57,8 @@
   },
   "capacitor": {
     "ios": {
-      "src": "ios"
+      "src": "ios",
+      "podName": "MiladyCapacitorCamera"
     },
     "android": {
       "src": "android"

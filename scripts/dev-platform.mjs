@@ -27,9 +27,9 @@ const electrobunDir = path.join(appDir, "electrobun");
 const skipApi = process.argv.includes("--no-api");
 
 // Step 1: blocking vite build so electrobun has renderer assets to bundle
-console.log("\n[milady] Building renderer...");
+console.log("\n[eliza] Building renderer...");
 execSync("bun run vite build", { cwd: appDir, stdio: "inherit" });
-console.log("[milady] Renderer ready.\n");
+console.log("[eliza] Renderer ready.\n");
 
 // Step 2: start API + electrobun in parallel
 const services = [
@@ -41,8 +41,8 @@ const services = [
           args: ["--watch", "src/runtime/dev-server.ts"],
           cwd: repoRoot,
           env: {
-            MILADY_PORT: "31337",
-            MILADY_HEADLESS: "1",
+            ELIZA_PORT: String(process.env.MILADY_API_PORT || 31337),
+            ELIZA_HEADLESS: "1",
           },
         },
       ]
@@ -93,7 +93,7 @@ for (const service of services) {
 }
 
 function cleanup() {
-  console.log("\n[milady] Shutting down desktop dev environment...");
+  console.log("\n[eliza] Shutting down desktop dev environment...");
   for (const child of children) {
     try {
       child.kill("SIGTERM");

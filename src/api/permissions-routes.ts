@@ -1,9 +1,9 @@
-import type { AgentRuntime } from "@elizaos/core";
 import {
   type PermissionRouteState as AutonomousPermissionRouteState,
   handlePermissionRoutes as handleAutonomousPermissionRoutes,
-} from "@miladyai/autonomous/api/permissions-routes";
-import type { MiladyConfig } from "../config/config";
+} from "@elizaos/autonomous/api/permissions-routes";
+import type { AgentRuntime } from "@elizaos/core";
+import type { ElizaConfig } from "../config/config";
 import type { RouteRequestContext } from "./route-helpers";
 
 export interface PermissionState {
@@ -15,14 +15,14 @@ export interface PermissionState {
 
 export interface PermissionRouteState {
   runtime: AgentRuntime | null;
-  config: MiladyConfig;
+  config: ElizaConfig;
   permissionStates?: Record<string, PermissionState>;
   shellEnabled?: boolean;
 }
 
 export interface PermissionRouteContext extends RouteRequestContext {
   state: PermissionRouteState;
-  saveConfig: (config: MiladyConfig) => void;
+  saveConfig: (config: ElizaConfig) => void;
   scheduleRuntimeRestart: (reason: string) => void;
 }
 
@@ -38,6 +38,6 @@ export async function handlePermissionRoutes(
   return handleAutonomousPermissionRoutes({
     ...ctx,
     state: toAutonomousState(ctx.state),
-    saveConfig: (config) => ctx.saveConfig(config as MiladyConfig),
+    saveConfig: (config) => ctx.saveConfig(config as ElizaConfig),
   });
 }

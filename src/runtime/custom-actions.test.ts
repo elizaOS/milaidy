@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CustomActionDef } from "../config/types.milady";
+import type { CustomActionDef } from "../config/types.eliza";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
@@ -314,9 +314,9 @@ describe("custom action SSRF guard", () => {
     );
   });
 
-  it("attaches API auth token for shell handlers when MILADY_API_TOKEN is set", async () => {
-    const originalToken = process.env.MILADY_API_TOKEN;
-    process.env.MILADY_API_TOKEN = "test-api-token";
+  it("attaches API auth token for shell handlers when ELIZA_API_TOKEN is set", async () => {
+    const originalToken = process.env.ELIZA_API_TOKEN;
+    process.env.ELIZA_API_TOKEN = "test-api-token";
 
     try {
       const fetchSpy = vi
@@ -338,9 +338,9 @@ describe("custom action SSRF guard", () => {
       );
     } finally {
       if (originalToken === undefined) {
-        delete process.env.MILADY_API_TOKEN;
+        delete process.env.ELIZA_API_TOKEN;
       } else {
-        process.env.MILADY_API_TOKEN = originalToken;
+        process.env.ELIZA_API_TOKEN = originalToken;
       }
     }
   });

@@ -123,7 +123,7 @@ export const transferTokenAction: Action = {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Milady-Agent-Action": "1",
+            "X-Eliza-Agent-Action": "1",
             ...buildAuthHeaders(),
           },
           body: JSON.stringify(body),

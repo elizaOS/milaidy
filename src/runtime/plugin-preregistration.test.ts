@@ -4,7 +4,7 @@ import { CORE_PLUGINS } from "./core-plugins";
 /**
  * Tests for the sequential core plugin pre-registration logic in eliza.ts.
  *
- * The actual registration logic is inlined in startMilady() / onRestart(), so
+ * The actual registration logic is inlined in startEliza() / onRestart(), so
  * these tests replicate the pattern and verify its behavior with mocked
  * runtime.registerPlugin().
  */

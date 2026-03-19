@@ -18,7 +18,7 @@ function buildMemory(overrides: Partial<Memory> = {}): Memory {
     content: { text: "" },
     createdAt: 1,
     ...overrides,
-  } as Memory;
+  } as unknown as Memory;
 }
 
 describe("memory routes", () => {
@@ -36,7 +36,7 @@ describe("memory routes", () => {
 
     runtime = {
       agentId: AGENT_ID,
-      character: { name: "Milady" },
+      character: { name: "Eliza" },
       ensureConnection: vi.fn(async () => undefined),
       createMemory: createMemoryMock,
       getMemories: getMemoriesMock,
@@ -48,7 +48,7 @@ describe("memory routes", () => {
             }
           : null,
       getServiceLoadPromise: async () => undefined,
-    } as unknown as AgentRuntime;
+    } as unknown as unknown as AgentRuntime;
   });
 
   const invoke = createRouteInvoker<
@@ -64,7 +64,7 @@ describe("memory routes", () => {
         pathname: ctx.pathname,
         url: new URL(ctx.req.url ?? ctx.pathname, "http://localhost:2138"),
         runtime: ctx.runtime,
-        agentName: "Milady",
+        agentName: "Eliza",
         readJsonBody: async () => ctx.readJsonBody(),
         json: (res, data, status) => ctx.json(res, data, status),
         error: (res, message, status) => ctx.error(res, message, status),

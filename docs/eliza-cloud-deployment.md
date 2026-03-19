@@ -9,8 +9,7 @@ This integration has two codebases:
 1. `milady`
    The local app, onboarding flow, homepage, and remote-backend attach flow.
 
-2. `../eliza-cloud-v2`
-   The existing Eliza Cloud control plane.
+2. The existing Eliza Cloud control plane repository
    This remains the only managed server/control-plane deploy in the Milady hosted flow.
 
 ## Code state

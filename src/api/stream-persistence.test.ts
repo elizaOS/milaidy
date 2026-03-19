@@ -121,13 +121,13 @@ describe("parseDestinationQuery()", () => {
 describe("validateStreamSettings()", () => {
   it("accepts valid settings with all fields", () => {
     const result = validateStreamSettings({
-      theme: "milady",
+      theme: "eliza",
       avatarIndex: 3,
       voice: { enabled: true, autoSpeak: true, provider: "elevenlabs" },
     });
     expect(result.error).toBeUndefined();
     expect(result.settings).toEqual({
-      theme: "milady",
+      theme: "eliza",
       avatarIndex: 3,
       voice: { enabled: true, autoSpeak: true, provider: "elevenlabs" },
     });
@@ -247,7 +247,7 @@ describe("readStreamSettings() / writeStreamSettings()", () => {
   });
 
   it("round-trips settings through write and read", () => {
-    const data = { theme: "milady", avatarIndex: 5 };
+    const data = { theme: "eliza", avatarIndex: 5 };
     writeStreamSettings(data);
     const read = readStreamSettings();
     expect(read).toEqual(data);

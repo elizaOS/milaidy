@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/runtime/restart";
+export * from "@elizaos/autonomous/runtime/restart";

@@ -4,7 +4,7 @@ import { injectApiBaseIntoHtml } from "./server";
 describe("injectApiBaseIntoHtml", () => {
   it("injects the external API base before </head>", () => {
     const html = Buffer.from(
-      "<html><head><title>Milady</title></head><body /></html>",
+      "<html><head><title>Eliza</title></head><body /></html>",
     );
 
     const injected = injectApiBaseIntoHtml(
@@ -13,9 +13,9 @@ describe("injectApiBaseIntoHtml", () => {
     ).toString("utf8");
 
     expect(injected).toContain(
-      'window.__MILADY_API_BASE__="https://proxy.example.com/proxy/2138"',
+      'window.__ELIZA_API_BASE__="https://proxy.example.com/proxy/2138"',
     );
-    expect(injected.indexOf("window.__MILADY_API_BASE__")).toBeLessThan(
+    expect(injected.indexOf("window.__ELIZA_API_BASE__")).toBeLessThan(
       injected.indexOf("</head>"),
     );
   });

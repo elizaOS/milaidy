@@ -69,10 +69,10 @@ Add an ApplicationMenu (and optionally a Tray) to the current Electrobun project
      console.log("Menu clicked:", action ?? role);
 
      switch (action) {
-       case "file-new":  /* TODO */; break;
-       case "file-open": /* TODO */; break;
-       case "file-save": /* TODO */; break;
-       case "help-about": /* TODO */; break;
+       case "file-new":  /* add app-specific handler */; break;
+       case "file-open": /* add app-specific handler */; break;
+       case "file-save": /* add app-specific handler */; break;
+       case "help-about": /* add app-specific handler */; break;
      }
 
      // Forward to renderer via RPC (if requested by user)

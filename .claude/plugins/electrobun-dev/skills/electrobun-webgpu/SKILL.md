@@ -121,7 +121,7 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-  // TODO: replace with your shader logic
+  // Replace this with your shader logic.
   return vec4f(in.uv, 0.5, 1.0);
 }
 ```

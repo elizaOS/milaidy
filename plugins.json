@@ -38,9 +38,7 @@
         "ACP_AGENT_ID"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "cli"
-      ],
+      "pluginDeps": ["cli"],
       "pluginParameters": {
         "ACP_GATEWAY_URL": {
           "type": "string",
@@ -147,16 +145,10 @@
       "name": "Agent Orchestrator",
       "npmName": "@elizaos/plugin-agent-orchestrator",
       "description": "Coding agent orchestration plugin - spawn and manage CLI coding agents via PTY",
-      "tags": [
-        "agent-orchestrator",
-        "agent",
-        "orchestrator"
-      ],
+      "tags": ["agent-orchestrator", "agent", "orchestrator"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "ORCHESTRATOR_ACTIVE_PROVIDER"
-      ],
+      "configKeys": ["ORCHESTRATOR_ACTIVE_PROVIDER"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ORCHESTRATOR_ACTIVE_PROVIDER": {
@@ -231,12 +223,7 @@
       "name": "Anthropic",
       "npmName": "@elizaos/plugin-anthropic",
       "description": "Anthropic model provider for Claude chat and reasoning models.",
-      "tags": [
-        "ai-provider",
-        "llm",
-        "anthropic",
-        "chat"
-      ],
+      "tags": ["ai-provider", "llm", "anthropic", "chat"],
       "category": "ai-provider",
       "envKey": "ANTHROPIC_API_KEY",
       "configKeys": [
@@ -324,9 +311,7 @@
         "ZEROEX_API_KEY"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "solana"
-      ],
+      "pluginDeps": ["solana"],
       "pluginParameters": {
         "BIRDEYE_API_KEY": {
           "type": "string",
@@ -650,11 +635,7 @@
           "advanced": true
         }
       },
-      "tags": [
-        "app",
-        "interactive",
-        "babylon"
-      ]
+      "tags": ["app", "interactive", "babylon"]
     },
     {
       "id": "blooio",
@@ -662,13 +643,7 @@
       "name": "Blooio",
       "npmName": "@elizaos/plugin-blooio",
       "description": "Integrates Blooio iMessage/SMS messaging into ElizaOS with signed webhooks and outbound message sending.",
-      "tags": [
-        "connector",
-        "social",
-        "social-chat",
-        "messaging",
-        "blooio"
-      ],
+      "tags": ["connector", "social", "social-chat", "messaging", "blooio"],
       "category": "connector",
       "envKey": "BLOOIO_API_KEY",
       "configKeys": [
@@ -826,12 +801,7 @@
       "name": "Bluesky",
       "npmName": "@elizaos/plugin-bluesky",
       "description": "Bluesky connector for ElizaOS",
-      "tags": [
-        "connector",
-        "social",
-        "social-feed",
-        "bluesky"
-      ],
+      "tags": ["connector", "social", "social-feed", "bluesky"],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -965,10 +935,7 @@
       "name": "Browser",
       "npmName": "@elizaos/plugin-browser",
       "description": "Web scraping and content extraction with Playwright",
-      "tags": [
-        "browser",
-        "web-scraping"
-      ],
+      "tags": ["browser", "web-scraping"],
       "category": "feature",
       "envKey": "BROWSERBASE_API_KEY",
       "configKeys": [
@@ -980,9 +947,7 @@
         "CAPSOLVER_API_KEY"
       ],
       "version": "2.0.0-alpha.6",
-      "pluginDeps": [
-        "cli"
-      ],
+      "pluginDeps": ["cli"],
       "pluginParameters": {
         "BROWSERBASE_API_KEY": {
           "type": "string",
@@ -1076,11 +1041,7 @@
           "required": false
         }
       },
-      "tags": [
-        "app",
-        "interactive",
-        "clawbal"
-      ]
+      "tags": ["app", "interactive", "clawbal"]
     },
     {
       "id": "cli",
@@ -1088,17 +1049,10 @@
       "name": "Cli",
       "npmName": "@elizaos/plugin-cli",
       "description": "CLI framework plugin for ElizaOS agents - provides command registration, execution, and utilities",
-      "tags": [
-        "cli",
-        "developer-tools",
-        "terminal"
-      ],
+      "tags": ["cli", "developer-tools", "terminal"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "CLI_NAME",
-        "CLI_VERSION"
-      ],
+      "configKeys": ["CLI_NAME", "CLI_VERSION"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "CLI_NAME": {
@@ -1121,13 +1075,7 @@
       "name": "Code",
       "npmName": "@elizaos/plugin-code",
       "description": "A coder tools plugin for elizaOS that provides filesystem, shell, and git capabilities in a restricted/sandboxed environment.",
-      "tags": [
-        "coding",
-        "filesystem",
-        "shell",
-        "git",
-        "code"
-      ],
+      "tags": ["coding", "filesystem", "shell", "git", "code"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1137,9 +1085,7 @@
         "CODER_FORBIDDEN_COMMANDS"
       ],
       "version": "2.0.0-alpha.5",
-      "pluginDeps": [
-        "shell"
-      ],
+      "pluginDeps": ["shell"],
       "pluginParameters": {
         "CODER_ENABLED": {
           "type": "boolean",
@@ -1178,11 +1124,7 @@
       "configKeys": [],
       "version": "1.0.0",
       "logoUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg",
-      "tags": [
-        "coding-agent",
-        "coding",
-        "agent"
-      ]
+      "tags": ["coding-agent", "coding", "agent"]
     },
     {
       "id": "commands",
@@ -1190,9 +1132,7 @@
       "name": "Commands",
       "npmName": "@elizaos/plugin-commands",
       "description": "Chat command system for Eliza agents (/help, /status, /reset, etc.)",
-      "tags": [
-        "commands"
-      ],
+      "tags": ["commands"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1247,13 +1187,7 @@
       "name": "Computeruse",
       "npmName": "@elizaos/plugin-computeruse",
       "description": "Computer automation plugin for ElizaOS - enables AI agents to control the local machine (when supported) or a remote ComputerUse MCP server",
-      "tags": [
-        "computeruse",
-        "automation",
-        "desktop",
-        "gui",
-        "mcp"
-      ],
+      "tags": ["computeruse", "automation", "desktop", "gui", "mcp"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1286,11 +1220,7 @@
       "name": "Copilot Proxy",
       "npmName": "@elizaos/plugin-copilot-proxy",
       "description": "ElizaOS Copilot Proxy Model Provider - TypeScript implementation",
-      "tags": [
-        "copilot-proxy",
-        "copilot",
-        "proxy"
-      ],
+      "tags": ["copilot-proxy", "copilot", "proxy"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1361,16 +1291,12 @@
       "name": "Cron",
       "npmName": "@elizaos/plugin-cron",
       "description": "Cron scheduling plugin for ElizaOS agents - schedule recurring or one-time jobs that execute actions, run prompts, or trigger events",
-      "tags": [
-        "cron"
-      ],
+      "tags": ["cron"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "cli"
-      ]
+      "pluginDeps": ["cli"]
     },
     {
       "id": "custom-rtmp",
@@ -1380,10 +1306,7 @@
       "description": "Stream to any RTMP destination with a custom URL and key",
       "category": "streaming",
       "envKey": "CUSTOM_RTMP_URL",
-      "configKeys": [
-        "CUSTOM_RTMP_URL",
-        "CUSTOM_RTMP_KEY"
-      ],
+      "configKeys": ["CUSTOM_RTMP_URL", "CUSTOM_RTMP_KEY"],
       "pluginParameters": {
         "CUSTOM_RTMP_URL": {
           "type": "string",
@@ -1411,13 +1334,7 @@
         }
       },
       "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#custom-rtmp",
-      "tags": [
-        "streaming",
-        "broadcast",
-        "custom-rtmp",
-        "custom",
-        "rtmp"
-      ]
+      "tags": ["streaming", "broadcast", "custom-rtmp", "custom", "rtmp"]
     },
     {
       "id": "directives",
@@ -1425,9 +1342,7 @@
       "name": "Directives",
       "npmName": "@elizaos/plugin-directives",
       "description": "Inline directive parsing for Eliza agents (@think, @model, @verbose, etc.)",
-      "tags": [
-        "directives"
-      ],
+      "tags": ["directives"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1474,13 +1389,7 @@
       "name": "Discord",
       "npmName": "@elizaos/plugin-discord",
       "description": "A Discord plugin for ElizaOS, enabling integration with Discord servers for interaction, voice, and message management.",
-      "tags": [
-        "connector",
-        "social",
-        "social-chat",
-        "messaging",
-        "discord"
-      ],
+      "tags": ["connector", "social", "social-chat", "messaging", "discord"],
       "category": "connector",
       "envKey": "DISCORD_API_TOKEN",
       "configKeys": [
@@ -1559,11 +1468,7 @@
       "name": "Edge Tts",
       "npmName": "@elizaos/plugin-edge-tts",
       "description": "Free text-to-speech using Microsoft Edge TTS - no API key required",
-      "tags": [
-        "edge-tts",
-        "edge",
-        "text-to-speech"
-      ],
+      "tags": ["edge-tts", "edge", "text-to-speech"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -1638,12 +1543,7 @@
       "name": "Elevenlabs",
       "npmName": "@elizaos/plugin-elevenlabs",
       "description": "ElevenLabs voice plugin for text-to-speech generation and conversational audio output.",
-      "tags": [
-        "voice",
-        "text-to-speech",
-        "audio",
-        "elevenlabs"
-      ],
+      "tags": ["voice", "text-to-speech", "audio", "elevenlabs"],
       "category": "feature",
       "envKey": "ELEVENLABS_API_KEY",
       "configKeys": [
@@ -1782,13 +1682,7 @@
       "name": "Eliza Classic",
       "npmName": "@elizaos/plugin-eliza-classic",
       "description": "Compatibility plugin for loading classic ElizaOS behavior and legacy agent workflows.",
-      "tags": [
-        "compatibility",
-        "legacy",
-        "agents",
-        "eliza-classic",
-        "classic"
-      ],
+      "tags": ["compatibility", "legacy", "agents", "eliza-classic", "classic"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -1800,9 +1694,7 @@
       "name": "Elizacloud",
       "npmName": "@elizaos/plugin-elizacloud",
       "description": "ElizaOS plugin to connect with ElizaOS Cloud services",
-      "tags": [
-        "elizacloud"
-      ],
+      "tags": ["elizacloud"],
       "category": "feature",
       "envKey": "ELIZAOS_CLOUD_API_KEY",
       "configKeys": [
@@ -1969,10 +1861,7 @@
       "name": "Evm",
       "npmName": "@elizaos/plugin-evm",
       "description": "This plugin enables interaction with EVM-compatible chains, supporting token transfers, cross-chain bridging, and swaps via LiFi integration.",
-      "tags": [
-        "crypto",
-        "evm"
-      ],
+      "tags": ["crypto", "evm"],
       "category": "feature",
       "envKey": "ALCHEMY_API_KEY",
       "configKeys": [
@@ -2081,16 +1970,10 @@
       "name": "Experience",
       "npmName": "@elizaos/plugin-experience",
       "description": "Experience learning plugin for ElizaOS - records and recalls transferable agent learnings",
-      "tags": [
-        "experience",
-        "learning",
-        "memory"
-      ],
+      "tags": ["experience", "learning", "memory"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "AUTO_RECORD_THRESHOLD"
-      ],
+      "configKeys": ["AUTO_RECORD_THRESHOLD"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "AUTO_RECORD_THRESHOLD": {
@@ -2107,13 +1990,7 @@
       "name": "Farcaster",
       "npmName": "@elizaos/plugin-farcaster",
       "description": "Farcaster connector for publishing casts and responding to social conversations.",
-      "tags": [
-        "connector",
-        "social",
-        "farcaster",
-        "messaging",
-        "social-feed"
-      ],
+      "tags": ["connector", "social", "farcaster", "messaging", "social-feed"],
       "category": "connector",
       "envKey": "FARCASTER_NEYNAR_API_KEY",
       "configKeys": [
@@ -2304,9 +2181,7 @@
       "name": "Form",
       "npmName": "@elizaos/plugin-form",
       "description": "Integrates Form chain capabilities for curves-based token economics with ERC20 conversion and management.",
-      "tags": [
-        "form"
-      ],
+      "tags": ["form"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -2318,11 +2193,7 @@
       "name": "Github",
       "npmName": "@elizaos/plugin-github",
       "description": "Comprehensive GitHub integration plugin for ElizaOS with repository management, issue tracking, and PR workflows",
-      "tags": [
-        "connector",
-        "integration",
-        "github"
-      ],
+      "tags": ["connector", "integration", "github"],
       "category": "connector",
       "envKey": "GITHUB_API_TOKEN",
       "configKeys": [
@@ -2395,13 +2266,7 @@
       "name": "Gmail Watch",
       "npmName": "@elizaos/plugin-gmail-watch",
       "description": "Gmail Pub/Sub watcher – spawns gog gmail watch serve and auto-renews",
-      "tags": [
-        "connector",
-        "integration",
-        "gmail-watch",
-        "gmail",
-        "watch"
-      ],
+      "tags": ["connector", "integration", "gmail-watch", "gmail", "watch"],
       "category": "connector",
       "envKey": null,
       "configKeys": [],
@@ -2414,11 +2279,7 @@
       "name": "Goals",
       "npmName": "@elizaos/plugin-goals",
       "description": "Goals for your agent",
-      "tags": [
-        "goals",
-        "objectives",
-        "task-management"
-      ],
+      "tags": ["goals", "objectives", "task-management"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -2570,13 +2431,7 @@
       "name": "Google Genai",
       "npmName": "@elizaos/plugin-google-genai",
       "description": "LLM ElizaOS plugin for google genai",
-      "tags": [
-        "ai-provider",
-        "llm",
-        "google-genai",
-        "google",
-        "genai"
-      ],
+      "tags": ["ai-provider", "llm", "google-genai", "google", "genai"],
       "category": "ai-provider",
       "envKey": "GOOGLE_GENERATIVE_AI_API_KEY",
       "configKeys": [
@@ -2655,12 +2510,7 @@
       "name": "Groq",
       "npmName": "@elizaos/plugin-groq",
       "description": "Groq model provider for low-latency chat and inference workloads.",
-      "tags": [
-        "ai-provider",
-        "llm",
-        "groq",
-        "chat"
-      ],
+      "tags": ["ai-provider", "llm", "groq", "chat"],
       "category": "ai-provider",
       "envKey": "GROQ_API_KEY",
       "configKeys": [
@@ -2718,11 +2568,7 @@
       "name": "Hedera",
       "npmName": "@elizaos/plugin-hedera",
       "description": "ElizaOS plugin for Hedera blockchain",
-      "tags": [
-        "hedera",
-        "hedera-agent-kit",
-        "llm"
-      ],
+      "tags": ["hedera", "hedera-agent-kit", "llm"],
       "category": "feature",
       "envKey": null,
       "configKeys": []
@@ -2805,11 +2651,7 @@
       "name": "Inmemorydb",
       "npmName": "@elizaos/plugin-inmemorydb",
       "description": "Pure in-memory, ephemeral database storage for elizaOS - no persistence, completely forgets on reset",
-      "tags": [
-        "database",
-        "storage",
-        "inmemorydb"
-      ],
+      "tags": ["database", "storage", "inmemorydb"],
       "category": "database",
       "envKey": null,
       "configKeys": [],
@@ -2821,12 +2663,7 @@
       "name": "Instagram",
       "npmName": "@elizaos/plugin-instagram",
       "description": "Enables Instagram integration with support for media posting, comment handling, and interaction management.",
-      "tags": [
-        "connector",
-        "social",
-        "social-feed",
-        "instagram"
-      ],
+      "tags": ["connector", "social", "social-feed", "instagram"],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -2976,11 +2813,7 @@
         }
       },
       "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#iq-solana-on-chain",
-      "tags": [
-        "connector",
-        "integration",
-        "iq"
-      ]
+      "tags": ["connector", "integration", "iq"]
     },
     {
       "id": "knowledge",
@@ -2988,9 +2821,7 @@
       "name": "Knowledge",
       "npmName": "@elizaos/plugin-knowledge",
       "description": "Eliza RAG Knowledge Plugin",
-      "tags": [
-        "knowledge"
-      ],
+      "tags": ["knowledge"],
       "category": "feature",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
@@ -3178,13 +3009,7 @@
       "name": "Line",
       "npmName": "@elizaos/plugin-line",
       "description": "LINE connector for bot messaging and customer conversations.",
-      "tags": [
-        "connector",
-        "messaging",
-        "line",
-        "social",
-        "social-chat"
-      ],
+      "tags": ["connector", "messaging", "line", "social", "social-chat"],
       "category": "connector",
       "envKey": "LINE_CHANNEL_ACCESS_TOKEN",
       "configKeys": [
@@ -3249,10 +3074,7 @@
       "name": "Linear",
       "npmName": "@elizaos/plugin-linear",
       "description": "Linear integration plugin for ElizaOS",
-      "tags": [
-        "linear",
-        "project-management"
-      ],
+      "tags": ["linear", "project-management"],
       "category": "feature",
       "envKey": "LINEAR_API_KEY",
       "configKeys": [
@@ -3364,11 +3186,7 @@
       "name": "Local Embedding",
       "npmName": "@elizaos/plugin-local-embedding",
       "description": "Local embedding generation",
-      "tags": [
-        "local-embedding",
-        "local",
-        "embedding"
-      ],
+      "tags": ["local-embedding", "local", "embedding"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -3436,11 +3254,7 @@
       "name": "Localdb",
       "npmName": "@elizaos/plugin-localdb",
       "description": "Simple JSON-based local database storage for elizaOS - no SQL, no migrations",
-      "tags": [
-        "database",
-        "storage",
-        "localdb"
-      ],
+      "tags": ["database", "storage", "localdb"],
       "category": "database",
       "envKey": null,
       "configKeys": [],
@@ -3452,11 +3266,7 @@
       "name": "Lp Manager",
       "npmName": "@elizaos/plugin-lp-manager",
       "description": "A unified plugin for managing liquidity positions on Solana DEXs (Raydium, Orca, Meteora) and EVM DEXs (Uniswap, PancakeSwap, Aerodrome).",
-      "tags": [
-        "lp-manager",
-        "lp",
-        "manager"
-      ],
+      "tags": ["lp-manager", "lp", "manager"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -3477,12 +3287,7 @@
         "LP_EVM_DEXES"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "anthropic",
-        "discord",
-        "telegram",
-        "evm"
-      ],
+      "pluginDeps": ["anthropic", "discord", "telegram", "evm"],
       "pluginParameters": {
         "SOLANA_RPC_URL": {
           "type": "string",
@@ -3661,13 +3466,7 @@
       "name": "Mattermost",
       "npmName": "@elizaos/plugin-mattermost",
       "description": "Mattermost integration plugin for elizaOS agents - TypeScript implementation",
-      "tags": [
-        "connector",
-        "social",
-        "social-chat",
-        "messaging",
-        "mattermost"
-      ],
+      "tags": ["connector", "social", "social-chat", "messaging", "mattermost"],
       "category": "connector",
       "envKey": "MATTERMOST_BOT_TOKEN",
       "configKeys": [
@@ -3753,17 +3552,10 @@
       "name": "Mcp",
       "npmName": "@elizaos/plugin-mcp",
       "description": "ElizaOS plugin allowing agents to connect to MCP servers",
-      "tags": [
-        "connector",
-        "integration",
-        "mcp"
-      ],
+      "tags": ["connector", "integration", "mcp"],
       "category": "connector",
       "envKey": null,
-      "configKeys": [
-        "PATH",
-        "mcp"
-      ],
+      "configKeys": ["PATH", "mcp"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "PATH": {
@@ -3787,10 +3579,7 @@
       "name": "Memory",
       "npmName": "@elizaos/plugin-memory",
       "description": "Agent memory",
-      "tags": [
-        "memory",
-        "summarization"
-      ],
+      "tags": ["memory", "summarization"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -3866,13 +3655,7 @@
       "name": "Moltbook",
       "npmName": "@elizaos/plugin-moltbook",
       "description": "Moltbook social plugin for Eliza agents - Reddit-style platform for AI agents",
-      "tags": [
-        "moltbook",
-        "social",
-        "reddit",
-        "agents",
-        "autonomous"
-      ],
+      "tags": ["moltbook", "social", "reddit", "agents", "autonomous"],
       "category": "feature",
       "envKey": "MOLTBOOK_TOKEN",
       "configKeys": [
@@ -3936,13 +3719,7 @@
       "name": "Msteams",
       "npmName": "@elizaos/plugin-msteams",
       "description": "Microsoft Teams integration for ElizaOS",
-      "tags": [
-        "connector",
-        "social",
-        "social-chat",
-        "messaging",
-        "msteams"
-      ],
+      "tags": ["connector", "social", "social-chat", "messaging", "msteams"],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -4021,13 +3798,7 @@
       "name": "Mysticism",
       "npmName": "@elizaos/plugin-mysticism",
       "description": "Mystical divination engines for ElizaOS — Tarot, I Ching, and Astrology readings",
-      "tags": [
-        "mysticism",
-        "tarot",
-        "iching",
-        "astrology",
-        "divination"
-      ],
+      "tags": ["mysticism", "tarot", "iching", "astrology", "divination"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -4036,9 +3807,7 @@
         "MYSTICISM_PRICE_ASTROLOGY"
       ],
       "version": "2.0.0-alpha.1",
-      "pluginDeps": [
-        "form"
-      ],
+      "pluginDeps": ["form"],
       "pluginParameters": {
         "MYSTICISM_PRICE_TAROT": {
           "type": "number",
@@ -4066,13 +3835,7 @@
       "name": "N8n",
       "npmName": "@elizaos/plugin-n8n",
       "description": "N8n workflow integration plugin with AI-powered plugin creation for ElizaOS",
-      "tags": [
-        "n8n",
-        "llm",
-        "plugin-creation",
-        "anthropic",
-        "claude"
-      ],
+      "tags": ["n8n", "llm", "plugin-creation", "anthropic", "claude"],
       "category": "feature",
       "envKey": "ANTHROPIC_API_KEY",
       "configKeys": [
@@ -4201,13 +3964,7 @@
       "name": "Nostr",
       "npmName": "@elizaos/plugin-nostr",
       "description": "Nostr connector for relay-based social posting and conversation handling.",
-      "tags": [
-        "connector",
-        "social",
-        "nostr",
-        "relays",
-        "social-feed"
-      ],
+      "tags": ["connector", "social", "nostr", "relays", "social-feed"],
       "category": "connector",
       "envKey": null,
       "configKeys": [
@@ -4258,12 +4015,7 @@
       "name": "Ollama",
       "npmName": "@elizaos/plugin-ollama",
       "description": "Ollama provider for running local LLMs on your own machine.",
-      "tags": [
-        "ai-provider",
-        "llm",
-        "ollama",
-        "local-models"
-      ],
+      "tags": ["ai-provider", "llm", "ollama", "local-models"],
       "category": "ai-provider",
       "envKey": null,
       "configKeys": [
@@ -4334,11 +4086,7 @@
       "name": "Openai",
       "npmName": "@elizaos/plugin-openai",
       "description": "Integrates OpenAI's GPT models for automated text generation with customizable prompts.",
-      "tags": [
-        "ai-provider",
-        "llm",
-        "openai"
-      ],
+      "tags": ["ai-provider", "llm", "openai"],
       "category": "ai-provider",
       "envKey": "OPENAI_API_KEY",
       "configKeys": [
@@ -4490,12 +4238,7 @@
       "name": "Openrouter",
       "npmName": "@elizaos/plugin-openrouter",
       "description": "OpenRouter provider for routing requests across many hosted models through one API.",
-      "tags": [
-        "ai-provider",
-        "llm",
-        "openrouter",
-        "routing"
-      ],
+      "tags": ["ai-provider", "llm", "openrouter", "routing"],
       "category": "ai-provider",
       "envKey": "OPENROUTER_API_KEY",
       "configKeys": [
@@ -4644,9 +4387,7 @@
       "name": "Pdf",
       "npmName": "@elizaos/plugin-pdf",
       "description": "Core Node.js plugin for Eliza OS that provides essential services and actions for file operations.",
-      "tags": [
-        "pdf"
-      ],
+      "tags": ["pdf"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -4658,16 +4399,10 @@
       "name": "Personality",
       "npmName": "@elizaos/plugin-personality",
       "description": "ElizaOS plugin for agent self-modification and character evolution",
-      "tags": [
-        "personality",
-        "character-evolution",
-        "self-modification"
-      ],
+      "tags": ["personality", "character-evolution", "self-modification"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "ADMIN_USERS"
-      ],
+      "configKeys": ["ADMIN_USERS"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ADMIN_USERS": {
@@ -4684,10 +4419,7 @@
       "name": "Plugin Manager",
       "npmName": "@elizaos/plugin-plugin-manager",
       "description": "Dynamic plugin management for agents. Load and unload plugins at runtime",
-      "tags": [
-        "plugin-manager",
-        "manager"
-      ],
+      "tags": ["plugin-manager", "manager"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -4699,12 +4431,7 @@
       "name": "Polymarket",
       "npmName": "@elizaos/plugin-polymarket",
       "description": "Multi-language Polymarket prediction markets plugin for elizaOS",
-      "tags": [
-        "polymarket",
-        "prediction-markets",
-        "web3",
-        "polygon"
-      ],
+      "tags": ["polymarket", "prediction-markets", "web3", "polygon"],
       "category": "feature",
       "envKey": "CLOB_API_KEY",
       "configKeys": [
@@ -4716,9 +4443,7 @@
         "CLOB_API_PASSPHRASE"
       ],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "evm"
-      ],
+      "pluginDeps": ["evm"],
       "pluginParameters": {
         "POLYMARKET_PRIVATE_KEY": {
           "type": "string",
@@ -4766,14 +4491,7 @@
       "name": "Prose",
       "npmName": "@elizaos/plugin-prose",
       "description": "OpenProse VM integration for ElizaOS - a programming language for AI sessions",
-      "tags": [
-        "openprose",
-        "prose",
-        "llm",
-        "vm",
-        "workflow",
-        "orchestration"
-      ],
+      "tags": ["openprose", "prose", "llm", "vm", "workflow", "orchestration"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -4850,13 +4568,7 @@
           "width": "half"
         }
       },
-      "tags": [
-        "retake",
-        "streaming",
-        "rtmp",
-        "chat",
-        "broadcast"
-      ]
+      "tags": ["retake", "streaming", "rtmp", "chat", "broadcast"]
     },
     {
       "id": "rlm",
@@ -4882,12 +4594,7 @@
       "name": "Roblox",
       "npmName": "@elizaos/plugin-roblox",
       "description": "Roblox app integration for agent-driven gameplay and interactive experiences.",
-      "tags": [
-        "app",
-        "games",
-        "roblox",
-        "interactive"
-      ],
+      "tags": ["app", "games", "roblox", "interactive"],
       "category": "app",
       "envKey": "ROBLOX_API_KEY",
       "configKeys": [
@@ -4974,9 +4681,7 @@
       "name": "Rolodex",
       "npmName": "@elizaos/plugin-rolodex",
       "description": "Entities, relationships, contact management for agents",
-      "tags": [
-        "rolodex"
-      ],
+      "tags": ["rolodex"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -4988,13 +4693,7 @@
       "name": "Rss",
       "npmName": "@elizaos/plugin-rss",
       "description": "news and feed support",
-      "tags": [
-        "rss",
-        "atom",
-        "feed",
-        "news",
-        "syndication"
-      ],
+      "tags": ["rss", "atom", "feed", "news", "syndication"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -5040,12 +4739,7 @@
       "name": "S3 Storage",
       "npmName": "@elizaos/plugin-s3-storage",
       "description": "S3-compatible object storage plugin for saving files, media, and generated artifacts.",
-      "tags": [
-        "storage",
-        "files",
-        "s3",
-        "s3-storage"
-      ],
+      "tags": ["storage", "files", "s3", "s3-storage"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -5116,14 +4810,10 @@
       "name": "Scheduling",
       "npmName": "@elizaos/plugin-scheduling",
       "description": "Scheduling and calendar coordination plugin for ElizaOS agents",
-      "tags": [
-        "scheduling"
-      ],
+      "tags": ["scheduling"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "DEFAULT_TIMEZONE"
-      ],
+      "configKeys": ["DEFAULT_TIMEZONE"],
       "version": "2.0.0-alpha.6",
       "pluginParameters": {
         "DEFAULT_TIMEZONE": {
@@ -5140,18 +4830,10 @@
       "name": "Scratchpad",
       "npmName": "@elizaos/plugin-scratchpad",
       "description": "File-based memory storage plugin for ElizaOS - persistent notes and memories",
-      "tags": [
-        "scratchpad",
-        "memory",
-        "notes",
-        "storage"
-      ],
+      "tags": ["scratchpad", "memory", "notes", "storage"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "SCRATCHPAD_BASE_PATH",
-        "SCRATCHPAD_MAX_FILE_SIZE"
-      ],
+      "configKeys": ["SCRATCHPAD_BASE_PATH", "SCRATCHPAD_MAX_FILE_SIZE"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "SCRATCHPAD_BASE_PATH": {
@@ -5218,12 +4900,7 @@
       "name": "Shell",
       "npmName": "@elizaos/plugin-shell",
       "description": "A shell plugin for ElizaOS. USE AT YOUR OWN RISK. THIS GIVES AI FULL ACCESS TO THE HOST MACHINE",
-      "tags": [
-        "shell",
-        "terminal",
-        "command",
-        "history"
-      ],
+      "tags": ["shell", "terminal", "command", "history"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -5499,10 +5176,7 @@
       "name": "Solana",
       "npmName": "@elizaos/plugin-solana",
       "description": "Core Solana blockchain plugin for Eliza OS, enabling token operations, trading, and DeFi integrations.",
-      "tags": [
-        "crypto",
-        "solana"
-      ],
+      "tags": ["crypto", "solana"],
       "category": "feature",
       "envKey": "HELIUS_API_KEY",
       "configKeys": [
@@ -5599,31 +5273,21 @@
       "envKey": null,
       "configKeys": [],
       "version": "2.0.0-alpha.6",
-      "tags": [
-        "database",
-        "storage",
-        "sql",
-        "persistence"
-      ]
+      "tags": ["database", "storage", "sql", "persistence"]
     },
     {
       "id": "streaming-base",
       "dirName": "plugin-streaming-base",
       "name": "Streaming",
-      "npmName": "@miladyai/plugin-streaming-base",
+      "npmName": "@elizaos/plugin-streaming-base",
       "description": "Enable live streaming controls — adds the Stream tab for managing RTMP destinations",
       "category": "streaming",
       "envKey": null,
       "configKeys": [],
       "pluginParameters": {},
-      "repository": "https://github.com/milady-ai/milady/tree/main/packages/plugin-streaming-base",
+      "repository": "https://github.com/elizaos-plugins/plugin-streaming-base",
       "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#enable-streaming-streaming-base",
-      "tags": [
-        "streaming",
-        "broadcast",
-        "streaming-base",
-        "base"
-      ]
+      "tags": ["streaming", "broadcast", "streaming-base", "base"]
     },
     {
       "id": "tee",
@@ -5631,17 +5295,10 @@
       "name": "Tee",
       "npmName": "@elizaos/plugin-tee",
       "description": "A plugin for secure key derivation and remote attestation within Trusted Execution Environments (TEE).",
-      "tags": [
-        "crypto",
-        "tee"
-      ],
+      "tags": ["crypto", "tee"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "TEE_MODE",
-        "TEE_VENDOR",
-        "WALLET_SECRET_SALT"
-      ],
+      "configKeys": ["TEE_MODE", "TEE_VENDOR", "WALLET_SECRET_SALT"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "TEE_MODE": {
@@ -5796,17 +5453,10 @@
       "name": "Todo",
       "npmName": "@elizaos/plugin-todo",
       "description": "A todo list. For humans and agents.",
-      "tags": [
-        "todo",
-        "task-management",
-        "multi-language"
-      ],
+      "tags": ["todo", "task-management", "multi-language"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "ENABLE_REMINDERS",
-        "REMINDER_INTERVAL_MS"
-      ],
+      "configKeys": ["ENABLE_REMINDERS", "REMINDER_INTERVAL_MS"],
       "version": "2.0.0-alpha.4",
       "pluginParameters": {
         "ENABLE_REMINDERS": {
@@ -5850,22 +5500,12 @@
       "name": "Trust",
       "npmName": "@elizaos/plugin-trust",
       "description": "Primitives for agents to trust humans and each other",
-      "tags": [
-        "trust",
-        "permissions",
-        "security",
-        "rbac"
-      ],
+      "tags": ["trust", "permissions", "security", "rbac"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "OWNER_ENTITY_ID",
-        "WORLD_ID"
-      ],
+      "configKeys": ["OWNER_ENTITY_ID", "WORLD_ID"],
       "version": "2.0.0-alpha.4",
-      "pluginDeps": [
-        "anthropic"
-      ],
+      "pluginDeps": ["anthropic"],
       "pluginParameters": {
         "OWNER_ENTITY_ID": {
           "type": "string",
@@ -5887,10 +5527,7 @@
       "name": "Tts",
       "npmName": "@elizaos/plugin-tts",
       "description": "A plugin for generating text-to-speech using FAL.ai API within the ElizaOS ecosystem, featuring automatic language detection and voice selection.",
-      "tags": [
-        "llm",
-        "text-to-speech"
-      ],
+      "tags": ["llm", "text-to-speech"],
       "category": "feature",
       "envKey": null,
       "configKeys": [
@@ -6177,9 +5814,7 @@
       "description": "Twitch RTMP streaming destination for live broadcasts",
       "category": "streaming",
       "envKey": "TWITCH_STREAM_KEY",
-      "configKeys": [
-        "TWITCH_STREAM_KEY"
-      ],
+      "configKeys": ["TWITCH_STREAM_KEY"],
       "pluginParameters": {
         "TWITCH_STREAM_KEY": {
           "type": "string",
@@ -6197,13 +5832,7 @@
       },
       "repository": "https://github.com/milady-ai/milady",
       "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#twitch-streaming",
-      "tags": [
-        "twitch",
-        "streaming",
-        "rtmp",
-        "broadcast",
-        "twitch-streaming"
-      ]
+      "tags": ["twitch", "streaming", "rtmp", "broadcast", "twitch-streaming"]
     },
     {
       "id": "twitter",
@@ -6394,12 +6023,7 @@
         }
       },
       "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#twitter--x",
-      "tags": [
-        "connector",
-        "social",
-        "social-feed",
-        "twitter"
-      ]
+      "tags": ["connector", "social", "social-feed", "twitter"]
     },
     {
       "id": "vercel-ai-gateway",
@@ -6507,17 +6131,10 @@
       "name": "Vision",
       "npmName": "@elizaos/plugin-vision",
       "description": "Vision plugin for ElizaOS - provides camera integration and visual awareness",
-      "tags": [
-        "vision",
-        "camera",
-        "ai-vision"
-      ],
+      "tags": ["vision", "camera", "ai-vision"],
       "category": "feature",
       "envKey": null,
-      "configKeys": [
-        "CAMERA_NAME",
-        "PIXEL_CHANGE_THRESHOLD"
-      ],
+      "configKeys": ["CAMERA_NAME", "PIXEL_CHANGE_THRESHOLD"],
       "version": "2.0.0-alpha.5",
       "pluginParameters": {
         "CAMERA_NAME": {
@@ -6536,9 +6153,7 @@
       "name": "Webhooks",
       "npmName": "@elizaos/plugin-webhooks",
       "description": "HTTP webhook ingress for external triggers (wake, agent, mapped hooks)",
-      "tags": [
-        "webhooks"
-      ],
+      "tags": ["webhooks"],
       "category": "feature",
       "envKey": null,
       "configKeys": [],
@@ -6550,13 +6165,7 @@
       "name": "Whatsapp",
       "npmName": "@elizaos/plugin-whatsapp",
       "description": "A plugin for integrating WhatsApp Cloud API with applications, enabling messaging capabilities and webhook handling.",
-      "tags": [
-        "connector",
-        "social",
-        "social-chat",
-        "messaging",
-        "whatsapp"
-      ],
+      "tags": ["connector", "social", "social-chat", "messaging", "whatsapp"],
       "category": "connector",
       "envKey": "WHATSAPP_ACCESS_TOKEN",
       "configKeys": [
@@ -6749,9 +6358,7 @@
           "advanced": true
         }
       },
-      "tags": [
-        "x402"
-      ]
+      "tags": ["x402"]
     },
     {
       "id": "xai",
@@ -6759,11 +6366,7 @@
       "name": "Xai",
       "npmName": "@elizaos/plugin-xai",
       "description": "TypeScript package for elizaOS xAI integration.",
-      "tags": [
-        "ai-provider",
-        "llm",
-        "xai"
-      ],
+      "tags": ["ai-provider", "llm", "xai"],
       "category": "ai-provider",
       "envKey": "XAI_API_KEY",
       "configKeys": [
@@ -6917,10 +6520,7 @@
       "description": "YouTube RTMP streaming destination for live broadcasts",
       "category": "streaming",
       "envKey": "YOUTUBE_STREAM_KEY",
-      "configKeys": [
-        "YOUTUBE_STREAM_KEY",
-        "YOUTUBE_RTMP_URL"
-      ],
+      "configKeys": ["YOUTUBE_STREAM_KEY", "YOUTUBE_RTMP_URL"],
       "pluginParameters": {
         "YOUTUBE_STREAM_KEY": {
           "type": "string",
@@ -6949,13 +6549,7 @@
       },
       "repository": "https://github.com/milady-ai/milady",
       "setupGuideUrl": "https://docs.milady.ai/plugin-setup-guide#youtube-streaming",
-      "tags": [
-        "youtube",
-        "streaming",
-        "rtmp",
-        "broadcast",
-        "youtube-streaming"
-      ]
+      "tags": ["youtube", "streaming", "rtmp", "broadcast", "youtube-streaming"]
     },
     {
       "id": "zalo",

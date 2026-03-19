@@ -346,7 +346,7 @@ describe("diagnostics routes", () => {
   test("returns extension relay status and path", async () => {
     const checkRelayReachable = vi.fn(async () => true);
     const resolveExtensionPath = vi.fn(
-      () => "/tmp/milady/apps/chrome-extension",
+      () => "/tmp/eliza/apps/chrome-extension",
     );
 
     const result = await invoke({
@@ -364,7 +364,7 @@ describe("diagnostics routes", () => {
     expect(result.payload).toEqual({
       relayReachable: true,
       relayPort: 19999,
-      extensionPath: "/tmp/milady/apps/chrome-extension",
+      extensionPath: "/tmp/eliza/apps/chrome-extension",
     });
   });
 });

@@ -16,6 +16,8 @@ apps/app/electrobun/build/
 **/*.bun-build
 *.tsbuildinfo
 apps/app/electron/tsc-out/
+# Android build output (capacitor plugins, main app)
+**/android/build/
 
 # TypeScript declaration build outputs inside source dirs
 packages/*/src/**/*.d.ts
@@ -39,7 +41,6 @@ apps/ui/test-results/
 
 # Vendored repos (clone separately if needed)
 vendor/
-plugins/plugin-blooio/
 
 # Local untracked files
 .local/
@@ -82,13 +83,15 @@ report/
 # Agent learning docs & knowledge base
 knowledge/
 scripts/knowledge-loop.mjs
-test/contracts/
+# Foundry build artifacts (keep source .sol, foundry.toml, lib/)
+test/contracts/out/
+test/contracts/cache/
+**/__pycache__/
 apps/app/test-results/
 # WhatsApp session files (Baileys auth state)
 /auth/
 :memory:/
 benchmarks/
-/plugins/
 !docs/plugins/
 
 # Electrobun compiled native binaries (built locally, not committed)
@@ -138,3 +141,4 @@ apps/app/public/vrms/previews/*.png
 apps/app/public/vrms/backgrounds/*.jpg
 apps/app/public/vrms/previews/*.jpg
 apps/app/public/vrms/*.jpg
+apps/app/ios/App/build*/

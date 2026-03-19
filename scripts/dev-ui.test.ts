@@ -62,7 +62,7 @@ describe("coerceBoolean", () => {
 describe("REGRESSION: onchain default was incorrectly true before fix", () => {
   it("coerceBoolean(undefined) !== false was true — the old bug", () => {
     // This is the condition that existed before the fix. It evaluates to true
-    // when MILADY_DEV_ONCHAIN is not set, causing anvil to be required.
+    // when ELIZA_DEV_ONCHAIN is not set, causing anvil to be required.
     const oldCondition = coerceBoolean(undefined) !== false;
     expect(oldCondition).toBe(true); // documents the bug was real
   });
@@ -76,7 +76,7 @@ describe("REGRESSION: onchain default was incorrectly true before fix", () => {
   it("coerceBoolean(undefined) === true is false for all absent-env scenarios", () => {
     for (const absent of [undefined, null, ""]) {
       // Empty string won't appear as an env var in practice, but belt-and-
-      // suspenders: an empty MILADY_DEV_ONCHAIN should not enable on-chain.
+      // suspenders: an empty ELIZA_DEV_ONCHAIN should not enable on-chain.
       const enabled = coerceBoolean(absent as string) === true;
       expect(enabled).toBe(false);
     }
@@ -107,10 +107,10 @@ const installFailure = vi.fn(async () => false);
 // ---------------------------------------------------------------------------
 
 describe("resolveOnchainPreference — explicit env var", () => {
-  it("MILADY_DEV_ONCHAIN=1 enables on-chain, no prompts", async () => {
+  it("ELIZA_DEV_ONCHAIN=1 enables on-chain, no prompts", async () => {
     const promptFn = vi.fn();
     const result = await resolveOnchainPreference({
-      env: { MILADY_DEV_ONCHAIN: "1" },
+      env: { ELIZA_DEV_ONCHAIN: "1" },
       isTTY: false,
       whichFn: whichMissingAnvil,
       promptFn,
@@ -120,10 +120,10 @@ describe("resolveOnchainPreference — explicit env var", () => {
     expect(promptFn).not.toHaveBeenCalled();
   });
 
-  it("MILADY_DEV_ONCHAIN=0 disables on-chain, no prompts", async () => {
+  it("ELIZA_DEV_ONCHAIN=0 disables on-chain, no prompts", async () => {
     const promptFn = vi.fn();
     const result = await resolveOnchainPreference({
-      env: { MILADY_DEV_ONCHAIN: "0" },
+      env: { ELIZA_DEV_ONCHAIN: "0" },
       isTTY: true,
       whichFn: whichFoundAnvil,
       promptFn,
@@ -133,9 +133,9 @@ describe("resolveOnchainPreference — explicit env var", () => {
     expect(promptFn).not.toHaveBeenCalled();
   });
 
-  it("MILADY_DEV_ONCHAIN=1 + MILADY_DEV_ANCHOR=1 enables both", async () => {
+  it("ELIZA_DEV_ONCHAIN=1 + ELIZA_DEV_ANCHOR=1 enables both", async () => {
     const result = await resolveOnchainPreference({
-      env: { MILADY_DEV_ONCHAIN: "1", MILADY_DEV_ANCHOR: "1" },
+      env: { ELIZA_DEV_ONCHAIN: "1", ELIZA_DEV_ANCHOR: "1" },
       isTTY: false,
       whichFn: whichMissingAnvil,
       promptFn: vi.fn(),
@@ -147,7 +147,7 @@ describe("resolveOnchainPreference — explicit env var", () => {
   it("accepts all recognised truthy spellings", async () => {
     for (const val of ["1", "true", "yes", "on", "TRUE", "Yes"]) {
       const result = await resolveOnchainPreference({
-        env: { MILADY_DEV_ONCHAIN: val },
+        env: { ELIZA_DEV_ONCHAIN: val },
         isTTY: false,
         whichFn: whichMissingAnvil,
         promptFn: vi.fn(),
@@ -159,7 +159,7 @@ describe("resolveOnchainPreference — explicit env var", () => {
   it("accepts all recognised falsy spellings", async () => {
     for (const val of ["0", "false", "no", "off", "FALSE"]) {
       const result = await resolveOnchainPreference({
-        env: { MILADY_DEV_ONCHAIN: val },
+        env: { ELIZA_DEV_ONCHAIN: val },
         isTTY: true,
         whichFn: whichFoundAnvil,
         promptFn: vi.fn(),
@@ -174,26 +174,26 @@ describe("resolveOnchainPreference — explicit env var", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveOnchainPreference — non-TTY defaults", () => {
-  it("defaults to disabled when no env var and not a TTY", async () => {
+  it("defaults to enabled when no env var and not a TTY", async () => {
     const result = await resolveOnchainPreference({
       env: {},
       isTTY: false,
       whichFn: whichFoundAnvil,
       promptFn: vi.fn(),
     });
-    expect(result.onchainEnabled).toBe(false);
-    expect(result.anchorRequested).toBe(false);
+    expect(result.onchainEnabled).toBe(true);
+    expect(result.anchorRequested).toBe(true);
   });
 
-  it("defaults to disabled when no env var and no promptFn", async () => {
+  it("defaults to enabled when no env var and no promptFn", async () => {
     const result = await resolveOnchainPreference({
       env: {},
       isTTY: true,
       whichFn: whichFoundAnvil,
       promptFn: undefined,
     });
-    expect(result.onchainEnabled).toBe(false);
-    expect(result.anchorRequested).toBe(false);
+    expect(result.onchainEnabled).toBe(true);
+    expect(result.anchorRequested).toBe(true);
   });
 });
 
@@ -202,38 +202,8 @@ describe("resolveOnchainPreference — non-TTY defaults", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveOnchainPreference — interactive (TTY)", () => {
-  it("user says no → disabled, no further prompts", async () => {
-    // answer[0] = "Enable on-chain?" → false
-    const promptFn = makePrompt([false]);
-    const result = await resolveOnchainPreference({
-      env: {},
-      isTTY: true,
-      whichFn: whichFoundAnvil,
-      promptFn,
-    });
-    expect(result.onchainEnabled).toBe(false);
-    expect(promptFn).toHaveBeenCalledTimes(1);
-  });
-
-  it("user says yes + anvil present → enabled, asks about anchor", async () => {
-    // answer[0] = "Enable on-chain?" → true
-    // answer[1] = "Also start Anchor?" → false
-    const promptFn = makePrompt([true, false]);
-    const result = await resolveOnchainPreference({
-      env: {},
-      isTTY: true,
-      whichFn: whichFoundAnvil,
-      promptFn,
-    });
-    expect(result.onchainEnabled).toBe(true);
-    expect(result.anchorRequested).toBe(false);
-    expect(promptFn).toHaveBeenCalledTimes(2);
-  });
-
-  it("user says yes + anvil present + wants anchor → both enabled", async () => {
-    // answer[0] = "Enable on-chain?" → true
-    // answer[1] = "Also start Anchor?" → true
-    const promptFn = makePrompt([true, true]);
+  it("anvil present → both enabled, no prompts", async () => {
+    const promptFn = makePrompt([]);
     const result = await resolveOnchainPreference({
       env: {},
       isTTY: true,
@@ -242,13 +212,12 @@ describe("resolveOnchainPreference — interactive (TTY)", () => {
     });
     expect(result.onchainEnabled).toBe(true);
     expect(result.anchorRequested).toBe(true);
-    expect(promptFn).toHaveBeenCalledTimes(2);
+    expect(promptFn).toHaveBeenCalledTimes(0);
   });
 
-  it("user says yes + anvil missing + declines install → disabled", async () => {
-    // answer[0] = "Enable on-chain?" → true
-    // answer[1] = "Install Foundry?" → false
-    const promptFn = makePrompt([true, false]);
+  it("anvil missing + declines install → disabled", async () => {
+    // answer[0] = "Install Foundry?" → false
+    const promptFn = makePrompt([false]);
     const result = await resolveOnchainPreference({
       env: {},
       isTTY: true,
@@ -258,14 +227,12 @@ describe("resolveOnchainPreference — interactive (TTY)", () => {
     });
     expect(result.onchainEnabled).toBe(false);
     expect(installSuccess).not.toHaveBeenCalled();
-    expect(promptFn).toHaveBeenCalledTimes(2);
+    expect(promptFn).toHaveBeenCalledTimes(1);
   });
 
-  it("user says yes + anvil missing + accepts install + install succeeds → enabled", async () => {
-    // answer[0] = "Enable on-chain?" → true
-    // answer[1] = "Install Foundry?" → true
-    // answer[2] = "Also start Anchor?" → false
-    const promptFn = makePrompt([true, true, false]);
+  it("anvil missing + accepts install + install succeeds → enabled", async () => {
+    // answer[0] = "Install Foundry?" → true
+    const promptFn = makePrompt([true]);
 
     // installFn succeeds and then anvil is found
     let installed = false;
@@ -283,15 +250,14 @@ describe("resolveOnchainPreference — interactive (TTY)", () => {
       installFn,
     });
     expect(result.onchainEnabled).toBe(true);
-    expect(result.anchorRequested).toBe(false);
+    expect(result.anchorRequested).toBe(true);
     expect(installFn).toHaveBeenCalledTimes(1);
-    expect(promptFn).toHaveBeenCalledTimes(3);
+    expect(promptFn).toHaveBeenCalledTimes(1);
   });
 
-  it("user says yes + anvil missing + accepts install + install fails → disabled", async () => {
-    // answer[0] = "Enable on-chain?" → true
-    // answer[1] = "Install Foundry?" → true
-    const promptFn = makePrompt([true, true]);
+  it("anvil missing + accepts install + install fails → disabled", async () => {
+    // answer[0] = "Install Foundry?" → true
+    const promptFn = makePrompt([true]);
     const result = await resolveOnchainPreference({
       env: {},
       isTTY: true,
@@ -302,14 +268,12 @@ describe("resolveOnchainPreference — interactive (TTY)", () => {
     expect(result.onchainEnabled).toBe(false);
     expect(result.anchorRequested).toBe(false);
     expect(installFailure).toHaveBeenCalledTimes(1);
-    // No anchor prompt because we never became enabled
-    expect(promptFn).toHaveBeenCalledTimes(2);
+    expect(promptFn).toHaveBeenCalledTimes(1);
   });
 
-  it("user says yes + anvil missing + no installFn provided → disabled", async () => {
-    // answer[0] = "Enable on-chain?" → true
-    // answer[1] = "Install Foundry?" → true  (user says yes, but no installFn)
-    const promptFn = makePrompt([true, true]);
+  it("anvil missing + no installFn provided → disabled", async () => {
+    // answer[0] = "Install Foundry?" → true  (user says yes, but no installFn)
+    const promptFn = makePrompt([true]);
     const result = await resolveOnchainPreference({
       env: {},
       isTTY: true,
@@ -318,6 +282,7 @@ describe("resolveOnchainPreference — interactive (TTY)", () => {
       installFn: undefined,
     });
     expect(result.onchainEnabled).toBe(false);
+    expect(promptFn).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -329,7 +294,7 @@ describe("resolveOnchainPreference — env var takes precedence over TTY", () =>
   it("env var=1 + TTY: prompts are never called", async () => {
     const promptFn = vi.fn();
     await resolveOnchainPreference({
-      env: { MILADY_DEV_ONCHAIN: "1" },
+      env: { ELIZA_DEV_ONCHAIN: "1" },
       isTTY: true,
       whichFn: whichMissingAnvil,
       promptFn,
@@ -340,7 +305,7 @@ describe("resolveOnchainPreference — env var takes precedence over TTY", () =>
   it("env var=0 + TTY: prompts are never called", async () => {
     const promptFn = vi.fn();
     await resolveOnchainPreference({
-      env: { MILADY_DEV_ONCHAIN: "0" },
+      env: { ELIZA_DEV_ONCHAIN: "0" },
       isTTY: true,
       whichFn: whichFoundAnvil,
       promptFn,

@@ -1,9 +1,60 @@
+import Module from "node:module";
 import { afterAll, afterEach, vi } from "vitest";
+
+// ── React deduplication ──────────────────────────────────────────────
+// bun hoists react-test-renderer's peer react into a separate .bun/ path,
+// creating two React instances that break hooks.  Intercept Node's CJS
+// resolution so every `require("react")` returns the root copy.
+// Wrapped in try/catch so CI environments without react don't crash.
+try {
+  const _require = Module.createRequire(import.meta.url);
+  const rootReactDir = require("node:path").dirname(
+    _require.resolve("react/package.json"),
+  );
+
+  const origResolve = (Module as { _resolveFilename: Function })
+    ._resolveFilename;
+  (Module as { _resolveFilename: Function })._resolveFilename =
+    function patchedResolve(
+      request: string,
+      parent: unknown,
+      isMain: boolean,
+      options: unknown,
+    ) {
+      const resolved: string = origResolve.call(
+        this,
+        request,
+        parent,
+        isMain,
+        options,
+      );
+      // Redirect any .bun/-hoisted react files to the root copy so
+      // react-test-renderer and component code share one React instance.
+      if (
+        resolved.includes("node_modules/.bun/") &&
+        resolved.includes("/react/") &&
+        !resolved.includes("react-dom") &&
+        !resolved.includes("react-test-renderer")
+      ) {
+        // Extract the relative path within the react package
+        const reactPkgIdx = resolved.lastIndexOf("/react/");
+        if (reactPkgIdx !== -1) {
+          const relPath = resolved.slice(reactPkgIdx + "/react/".length);
+          return require("node:path").join(rootReactDir, relPath);
+        }
+      }
+      return resolved;
+    };
+} catch {
+  // React not available — skip deduplication patch (e.g. CI without react)
+}
 
 // Ensure Vitest environment is properly set
 process.env.VITEST = "true";
 // Keep test output focused on failures; individual tests can override.
 process.env.LOG_LEVEL ??= "error";
+// Allow tests to run without a real database (uses InMemoryDatabaseAdapter).
+process.env.ALLOW_NO_DATABASE ??= "true";
 
 declare global {
   // React 18 testing flag to suppress act() environment warnings.
@@ -128,7 +179,7 @@ if (typeof globalThis.HTMLCanvasElement !== "undefined") {
       globalAlpha: 1,
       fillStyle: "#000",
       strokeStyle: "#000",
-    }) as unknown as CanvasRenderingContext2D;
+    }) as CanvasRenderingContext2D;
 
   Object.defineProperty(globalThis.HTMLCanvasElement.prototype, "getContext", {
     value: vi.fn((contextType: string) =>
@@ -153,6 +204,28 @@ if (typeof globalThis.window !== "undefined") {
 
 import { withIsolatedTestHome } from "./test-env";
 
+// ── Environment isolation ────────────────────────────────────────────
+// Snapshot process.env at file level so that env mutations made by any test
+// or beforeAll/afterAll hooks don't leak to the next test file when running
+// in the same forked worker.
+const fileEnvSnapshot = { ...process.env };
+
+afterAll(() => {
+  // Restore env to its state when this file started.
+  for (const key of Object.keys(process.env)) {
+    if (!(key in fileEnvSnapshot)) {
+      delete process.env[key];
+    } else if (process.env[key] !== fileEnvSnapshot[key]) {
+      process.env[key] = fileEnvSnapshot[key];
+    }
+  }
+  for (const key of Object.keys(fileEnvSnapshot)) {
+    if (!(key in process.env)) {
+      process.env[key] = fileEnvSnapshot[key];
+    }
+  }
+});
+
 const testEnv = withIsolatedTestHome();
 afterAll(() => testEnv.cleanup());
 
@@ -160,7 +233,7 @@ afterAll(() => {
   // Some integration-style tests can leave chokidar/fs watchers open in workers,
   // which keeps Vitest from exiting cleanly on local runs.
   const getActiveHandles = (
-    process as unknown as {
+    process as {
       _getActiveHandles?: () => unknown[];
     }
   )._getActiveHandles;
@@ -183,4 +256,6 @@ afterAll(() => {
 afterEach(() => {
   // Guard against leaked fake timers across test files/workers.
   vi.useRealTimers();
+  // Reset module mocks to prevent vi.mock() pollution across test files.
+  vi.restoreAllMocks();
 });

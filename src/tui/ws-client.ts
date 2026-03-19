@@ -131,7 +131,7 @@ export class ApiModeWsClient {
         this.handleError(
           new Error(
             `Failed to connect websocket with Authorization header. ` +
-              `When MILADY_API_TOKEN is set, TUI websocket auth requires header-capable websocket support. ` +
+              `When ELIZA_API_TOKEN is set, TUI websocket auth requires header-capable websocket support. ` +
               `Root cause: ${rootCause.message}`,
           ),
         );
@@ -249,7 +249,7 @@ export class ApiModeWsClient {
       return normalized || null;
     }
 
-    const envToken = process.env.MILADY_API_TOKEN?.trim();
+    const envToken = process.env.ELIZA_API_TOKEN?.trim();
     return envToken || null;
   }
 

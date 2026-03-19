@@ -21,24 +21,24 @@ describe("register.setup helpers", () => {
   });
 
   const createTempDir = () => {
-    const dir = mkdtempSync(path.join(os.tmpdir(), "milady-setup-"));
+    const dir = mkdtempSync(path.join(os.tmpdir(), "eliza-setup-"));
     tempDirs.push(dir);
     return dir;
   };
 
-  it("prefers MILADY_CONFIG_PATH when resolving the config file", () => {
+  it("prefers ELIZA_CONFIG_PATH when resolving the config file", () => {
     expect(
       resolveConfigPath({
-        MILADY_CONFIG_PATH: "/tmp/custom/milady.json",
-        MILADY_STATE_DIR: "/tmp/ignored-state",
+        ELIZA_CONFIG_PATH: "/tmp/custom/eliza.json",
+        ELIZA_STATE_DIR: "/tmp/ignored-state",
       }),
-    ).toBe("/tmp/custom/milady.json");
+    ).toBe("/tmp/custom/eliza.json");
   });
 
-  it("uses MILADY_STATE_DIR without adding a second .milady segment", () => {
+  it("uses ELIZA_STATE_DIR without adding a second .eliza segment", () => {
     expect(
-      toPosix(resolveConfigPath({ MILADY_STATE_DIR: "/tmp/profile/.milady" })),
-    ).toBe("/tmp/profile/.milady/milady.json");
+      toPosix(resolveConfigPath({ ELIZA_STATE_DIR: "/tmp/profile/.eliza" })),
+    ).toBe("/tmp/profile/.eliza/eliza.json");
   });
 
   it("returns an empty object when the config is missing or invalid", () => {
@@ -53,7 +53,7 @@ describe("register.setup helpers", () => {
 
   it("creates parent directories and writes JSON with a trailing newline", () => {
     const dir = createTempDir();
-    const configPath = path.join(dir, "nested", "milady.json");
+    const configPath = path.join(dir, "nested", "eliza.json");
 
     saveConfig(configPath, { env: { OPENAI_API_KEY: "sk-test" } });
 
@@ -75,7 +75,7 @@ describe("register.setup helpers", () => {
 
   it("writes the selected secret provider key into the config env block", async () => {
     const dir = createTempDir();
-    const configPath = path.join(dir, "milady.json");
+    const configPath = path.join(dir, "eliza.json");
     const ask = vi.fn<(_: string) => Promise<string>>().mockResolvedValue("1");
     const askSecret = vi
       .fn<(_: string) => Promise<string>>()
@@ -93,7 +93,7 @@ describe("register.setup helpers", () => {
 
   it("keeps the existing config when the user declines reconfiguration", async () => {
     const dir = createTempDir();
-    const configPath = path.join(dir, "milady.json");
+    const configPath = path.join(dir, "eliza.json");
     saveConfig(configPath, { env: { OPENAI_API_KEY: "sk-existing" } });
     const ask = vi.fn<(_: string) => Promise<string>>().mockResolvedValue("n");
     const askSecret = vi.fn<(_: string) => Promise<string>>();
@@ -114,7 +114,7 @@ describe("register.setup helpers", () => {
 
   it("defaults Ollama to localhost when the URL prompt is left blank", async () => {
     const dir = createTempDir();
-    const configPath = path.join(dir, "milady.json");
+    const configPath = path.join(dir, "eliza.json");
     const ask = vi
       .fn<(_: string) => Promise<string>>()
       .mockResolvedValueOnce("8")

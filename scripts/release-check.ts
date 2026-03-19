@@ -13,6 +13,7 @@ const requiredPaths = [
   "dist/entry.js",
   "dist/build-info.json",
   "scripts/run-repo-setup.mjs",
+  "scripts/setup-eliza-workspace.mjs",
   "scripts/patch-deps.mjs",
   "scripts/ensure-vision-deps.mjs",
   "scripts/lib/patch-bun-exports.mjs",
@@ -21,7 +22,7 @@ const forbiddenPrefixes = ["dist/Milady.app/"];
 const orchestratorPackageName = "@elizaos/plugin-agent-orchestrator";
 const orchestratorBrokenLifecycleTarget = "./scripts/ensure-node-pty.mjs";
 const requiredWorkflowSnippets = [
-  'BUN_VERSION: "1.3.10"',
+  'BUN_VERSION: "1.3.9"',
   "name: Validate Release Inputs",
   "bun-version: $" + "{{ env.BUN_VERSION }}",
   "name: Release readiness checks",

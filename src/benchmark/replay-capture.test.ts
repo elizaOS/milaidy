@@ -10,7 +10,7 @@ describe("normalizeParallaxCapture", () => {
       run_id: "run-1",
       mode: "swarm",
       prompt: "build a todo app",
-      repo: "elizaOS/milady",
+      repo: "elizaOS/eliza",
       workdir: "/tmp/work",
       captured_at: "2026-03-11T10:00:00.000Z",
       orchestrator_session_id: "sess-1",

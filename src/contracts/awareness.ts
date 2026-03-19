@@ -4,4 +4,4 @@
  * @architecture Layered lazy-load + declarative AwarenessContributor
  * @see docs/plans/2026-03-01-self-awareness-design.md
  */
-export * from "@miladyai/autonomous/contracts/awareness";
+export * from "@elizaos/autonomous/contracts/awareness";

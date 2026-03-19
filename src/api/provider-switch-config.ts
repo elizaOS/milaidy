@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/api/provider-switch-config";
+export * from "@elizaos/autonomous/api/provider-switch-config";

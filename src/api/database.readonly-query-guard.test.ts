@@ -19,7 +19,7 @@ function makeRuntime(executeResult: DbExecuteResult) {
         execute,
       },
     },
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
   return { runtime, execute };
 }
 

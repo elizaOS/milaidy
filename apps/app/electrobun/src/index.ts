@@ -421,15 +421,27 @@ async function startRendererServer(): Promise<string> {
       ) {
         filePath = path.join(rendererDir, "index.html");
       }
+
+      let isGzipped = false;
+      let requestedExt = path.extname(filePath);
+
+      // Check for pre-compressed .gz file if the uncompressed file doesn't exist
+      if (!fs.existsSync(filePath) && fs.existsSync(`${filePath}.gz`)) {
+        filePath = `${filePath}.gz`;
+        isGzipped = true;
+      }
+
       // SPA fallback — serve index.html for unknown paths
       if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
         filePath = path.join(rendererDir, "index.html");
+        requestedExt = ".html";
+        isGzipped = false;
       }
+
       try {
         const content = fs.readFileSync(filePath);
-        const ext = path.extname(filePath);
         // Inject API base into HTML responses
-        if (ext === ".html" || filePath.endsWith("index.html")) {
+        if (requestedExt === ".html" || filePath.endsWith("index.html")) {
           const html = injectApiBaseIntoHtml(content.toString("utf8"));
           return new Response(html, {
             headers: {
@@ -438,12 +450,17 @@ async function startRendererServer(): Promise<string> {
             },
           });
         }
-        return new Response(content, {
-          headers: {
-            "Content-Type": mimeTypes[ext] ?? "application/octet-stream",
-            "Access-Control-Allow-Origin": "*",
-          },
-        });
+
+        const headers: Record<string, string> = {
+          "Content-Type": mimeTypes[requestedExt] ?? "application/octet-stream",
+          "Access-Control-Allow-Origin": "*",
+        };
+
+        if (isGzipped) {
+          headers["Content-Encoding"] = "gzip";
+        }
+
+        return new Response(content, { headers });
       } catch {
         return new Response("Not found", { status: 404 });
       }
@@ -771,7 +788,7 @@ function wireRpcAndModules(
   win: BrowserWindow,
 ): (message: string, payload?: unknown) => void {
   // Access the rpc instance from the webview (set during window creation)
-  const rpc = win.webview.rpc as unknown as ElectrobunRpcInstance | undefined;
+  const rpc = win.webview.rpc as ElectrobunRpcInstance | undefined;
 
   // Create the sendToWebview callback that native modules use to push events.
   // Uses typed RPC push messages instead of JS evaluation.
@@ -881,7 +898,7 @@ async function syncPermissionsToRestApi(
   }
 }
 
-async function startAgent(win: BrowserWindow): Promise<void> {
+async function _startAgent(win: BrowserWindow): Promise<void> {
   const runtimeResolution = resolveDesktopRuntimeMode(
     process.env as Record<string, string | undefined>,
   );
@@ -1209,9 +1226,26 @@ async function main(): Promise<void> {
     console.warn("[Main] Tray creation failed:", err);
   }
 
-  // Start agent in background
+  // Agent startup is now deferred until after onboarding completes.
+  // The renderer triggers agent start via the `agentStart` RPC handler
+  // when the user selects local mode and finishes onboarding.
+  // For sandbox/remote modes, no embedded agent is needed — the renderer
+  // connects directly to the cloud or remote API base.
+  //
+  // However, if an external API base is configured via env vars (e.g.
+  // MILADY_DESKTOP_API_BASE), inject it immediately so the renderer can
+  // connect without onboarding a local agent.
   if (currentWindow) {
-    void startAgent(currentWindow);
+    const rt = resolveDesktopRuntimeMode(
+      process.env as Record<string, string | undefined>,
+    );
+    if (rt.mode === "external" && rt.externalApi.base) {
+      pushApiBaseToRenderer(
+        currentWindow,
+        rt.externalApi.base,
+        process.env.MILADY_API_TOKEN,
+      );
+    }
   }
 
   // Check for updates

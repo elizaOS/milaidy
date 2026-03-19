@@ -197,8 +197,8 @@ interface Service {
 // src/runtime/milady-plugin.ts
 export type MiladyPluginConfig = {
   workspaceDir?: string;
-  bootstrapMaxChars?: number;
-  sessionStorePath?: string;
+  repoRoot?: string;
+  userTimezone?: string;
   agentId?: string;
 };
 ```

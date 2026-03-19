@@ -15,9 +15,15 @@ import path from "node:path";
 const runs = [
   {
     name: "unit",
-    args: ["vitest", "run", "--config", "vitest.unit.config.ts"],
+    args: ["vitest", "run", "--config", "vitest.config.ts"],
     vitest: true,
     reportFile: path.join(os.tmpdir(), "milady-vitest-unit-report.json"),
+  },
+  {
+    name: "app-unit",
+    args: ["vitest", "run"],
+    vitest: true,
+    cwd: "apps/app",
   },
   {
     name: "e2e",
@@ -89,12 +95,7 @@ const runOnce = (entry, extraArgs = []) =>
     const vitestExtras = entry.vitest
       ? [
           ...(entry.reportFile
-            ? [
-                "--reporter",
-                "json",
-                "--outputFile",
-                entry.reportFile,
-              ]
+            ? ["--reporter", "json", "--outputFile", entry.reportFile]
             : []),
           ...(entryWorkers ? ["--maxWorkers", String(entryWorkers)] : []),
           ...ciWorkerArgs,

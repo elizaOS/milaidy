@@ -122,7 +122,7 @@ describe("buildApplicationMenu", () => {
       {
         id: "cloud_1",
         surface: "cloud" as const,
-        title: "Milady Cloud",
+        title: "Eliza Cloud",
         singleton: false,
       },
       {
@@ -152,7 +152,7 @@ describe("buildApplicationMenu", () => {
     expect(pluginsLabels).toContain("Open New Plugins Window");
     expect(pluginsLabels).toContain("Milady Plugins");
     expect(cloudLabels).toContain("Open Cloud Window");
-    expect(cloudLabels).toContain("Milady Cloud");
+    expect(cloudLabels).toContain("Eliza Cloud");
     expect(connectorsLabels).toContain("Open New Connectors Window");
     expect(connectorsLabels).toContain("Milady Connectors");
     expect(heartbeatsLabels).toContain("Milady Heartbeats");
@@ -160,7 +160,7 @@ describe("buildApplicationMenu", () => {
     expect(windowLabels).toContain("New Plugins Window");
     expect(windowLabels).toContain("New Cloud Window");
     expect(windowLabels).toContain("Milady Chat");
-    expect(windowLabels).toContain("Milady Cloud");
+    expect(windowLabels).toContain("Eliza Cloud");
     expect(windowLabels).toContain("Milady Settings");
   });
 

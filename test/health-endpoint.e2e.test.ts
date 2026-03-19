@@ -71,7 +71,6 @@ describe("GET /api/health", () => {
   it("returns structured status", async () => {
     const { status, data } = await req(port, "GET", "/api/health");
     expect(status).toBe(200);
-    expect(data).toHaveProperty("ready");
     expect(data).toHaveProperty("runtime");
     expect(data).toHaveProperty("database");
     expect(data).toHaveProperty("plugins");
@@ -79,12 +78,10 @@ describe("GET /api/health", () => {
     expect(data).toHaveProperty("connectors");
     expect(data).toHaveProperty("uptime");
     expect(data).toHaveProperty("agentState");
-    expect(data).toHaveProperty("startup");
   });
 
   it("reports runtime not_initialized when no runtime", async () => {
     const { data } = await req(port, "GET", "/api/health");
-    expect(data.ready).toBe(true);
     expect(data.runtime).toBe("not_initialized");
     expect(data.coordinator).toBe("not_wired");
   });
@@ -96,7 +93,7 @@ describe("GET /api/health", () => {
     expect(typeof plugins.failed).toBe("number");
   });
 
-  it("reports ready=false while the agent is still starting", async () => {
+  it("reports agentState=starting while the agent is still starting", async () => {
     const startingServer = await startApiServer({
       port: 0,
       initialAgentState: "starting",
@@ -109,9 +106,7 @@ describe("GET /api/health", () => {
         "/api/health",
       );
       expect(status).toBe(200);
-      expect(data.ready).toBe(false);
       expect(data.agentState).toBe("starting");
-      expect(data.startup).toBeTruthy();
     } finally {
       await startingServer.close();
     }

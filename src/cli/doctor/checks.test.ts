@@ -1,5 +1,5 @@
 /**
- * Unit tests for milady doctor health checks.
+ * Unit tests for eliza doctor health checks.
  * All checks are pure / injectable — no real filesystem or network I/O.
  */
 
@@ -103,9 +103,9 @@ describe("checkBuildArtifacts", () => {
 describe("checkConfigFile", () => {
   it("warns when config file does not exist", () => {
     mockExistsSync.mockReturnValue(false);
-    const result = checkConfigFile("/home/user/.milady/milady.json");
+    const result = checkConfigFile("/home/user/.eliza/eliza.json");
     expect(result.status).toBe("warn");
-    expect(result.fix).toBe("milady setup");
+    expect(result.fix).toBe("eliza setup");
     expect(result.autoFixable).toBe(true);
     expect(result.category).toBe("config");
   });
@@ -113,27 +113,27 @@ describe("checkConfigFile", () => {
   it("passes when config file exists and is valid JSON", () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('{"logging":{"level":"info"}}' as never);
-    const result = checkConfigFile("/fake/milady.json");
+    const result = checkConfigFile("/fake/eliza.json");
     expect(result.status).toBe("pass");
-    expect(result.detail).toBe("/fake/milady.json");
+    expect(result.detail).toBe("/fake/eliza.json");
   });
 
   it("fails when config file exists but contains invalid JSON", () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue("{ not valid json }}}" as never);
-    const result = checkConfigFile("/fake/milady.json");
+    const result = checkConfigFile("/fake/eliza.json");
     expect(result.status).toBe("fail");
-    expect(result.fix).toContain("/fake/milady.json");
+    expect(result.fix).toContain("/fake/eliza.json");
   });
 
-  it("resolves config path from MILADY_STATE_DIR when configPath is omitted", () => {
+  it("resolves config path from ELIZA_STATE_DIR when configPath is omitted", () => {
     mockExistsSync.mockReturnValue(false);
     const result = checkConfigFile(undefined, {
-      MILADY_STATE_DIR: "/tmp/milady-profile",
+      ELIZA_STATE_DIR: "/tmp/eliza-profile",
     });
     expect(result.status).toBe("warn");
     expect(toPosix(result.detail ?? "")).toContain(
-      "/tmp/milady-profile/milady.json",
+      "/tmp/eliza-profile/eliza.json",
     );
   });
 });
@@ -163,7 +163,7 @@ describe("checkModelKey", () => {
   it("fails when no model key is set", () => {
     const result = checkModelKey({});
     expect(result.status).toBe("fail");
-    expect(result.fix).toBe("milady setup");
+    expect(result.fix).toBe("eliza setup");
     expect(result.autoFixable).toBe(true);
   });
 
@@ -183,16 +183,16 @@ describe("checkModelKey", () => {
 describe("checkStateDir", () => {
   it("warns when state dir does not exist", () => {
     mockExistsSync.mockReturnValue(false);
-    const result = checkStateDir({ MILADY_STATE_DIR: "/tmp/fake-milady" });
+    const result = checkStateDir({ ELIZA_STATE_DIR: "/tmp/fake-eliza" });
     expect(result.status).toBe("warn");
-    expect(result.detail).toContain("/tmp/fake-milady");
+    expect(result.detail).toContain("/tmp/fake-eliza");
     expect(result.category).toBe("storage");
   });
 
   it("passes when state dir exists and is writable", () => {
     mockExistsSync.mockReturnValue(true);
     mockAccessSync.mockImplementation(() => undefined);
-    const result = checkStateDir({ MILADY_STATE_DIR: "/tmp/milady" });
+    const result = checkStateDir({ ELIZA_STATE_DIR: "/tmp/eliza" });
     expect(result.status).toBe("pass");
   });
 
@@ -201,7 +201,7 @@ describe("checkStateDir", () => {
     mockAccessSync.mockImplementation(() => {
       throw new Error("EACCES");
     });
-    const result = checkStateDir({ MILADY_STATE_DIR: "/readonly/milady" });
+    const result = checkStateDir({ ELIZA_STATE_DIR: "/readonly/eliza" });
     expect(result.status).toBe("fail");
     expect(result.fix).toContain("chmod");
   });
@@ -214,7 +214,7 @@ describe("checkStateDir", () => {
 describe("checkDatabase", () => {
   it("warns when database dir does not exist", () => {
     mockExistsSync.mockReturnValue(false);
-    const result = checkDatabase({ MILADY_STATE_DIR: "/tmp/milady" });
+    const result = checkDatabase({ ELIZA_STATE_DIR: "/tmp/eliza" });
     expect(result.status).toBe("warn");
     expect(result.detail).toContain("first start");
     expect(result.category).toBe("storage");
@@ -222,7 +222,7 @@ describe("checkDatabase", () => {
 
   it("passes when database dir exists", () => {
     mockExistsSync.mockReturnValue(true);
-    const result = checkDatabase({ MILADY_STATE_DIR: "/tmp/milady" });
+    const result = checkDatabase({ ELIZA_STATE_DIR: "/tmp/eliza" });
     expect(result.status).toBe("pass");
     expect(result.detail).toContain(".elizadb");
   });
@@ -353,7 +353,7 @@ describe("runAllChecks", () => {
 
     const results = await runAllChecks({
       env: { ANTHROPIC_API_KEY: "sk-test" },
-      configPath: "/fake/milady.json",
+      configPath: "/fake/eliza.json",
       projectRoot: "/fake/project",
     });
 

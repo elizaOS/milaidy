@@ -30,7 +30,7 @@ describe("desktop-build.mjs", () => {
 
     expect(script).toContain("PROFILE_EXCLUDED_OPTIONAL_PACKS");
     expect(script).toContain("function getProfileExcludedOptionalPacks(");
-    expect(script).toContain("MILADY_DESKTOP_COMMAND_PREFIX");
+    expect(script).toMatch(/(?:MILADY|ELIZA)_DESKTOP_COMMAND_PREFIX/);
     expect(script).toContain("function buildInvocation(");
     expect(script).toContain("function getRepeatedArgValues(");
     expect(script).toContain('const direct = which("electrobun")');
@@ -65,8 +65,8 @@ describe("desktop-build.mjs", () => {
     expect(script).toContain(
       "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
     );
-    expect(script).toContain('MILADY_ELECTROBUN_NOTARIZE: "0"');
-    expect(script).toContain("MILADY_STAGE_MACOS_SKIP_DMG");
+    expect(script).toMatch(/(?:MILADY|ELIZA)_ELECTROBUN_NOTARIZE: "0"/);
+    expect(script).toMatch(/(?:MILADY|ELIZA)_STAGE_MACOS_SKIP_DMG/);
     expect(script).toContain(
       "--stage-macos-release-app        Stage a direct macOS .app + DMG from the Electrobun build output",
     );

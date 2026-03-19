@@ -2,12 +2,12 @@
 /**
  * Post-install script to set up local elizaOS and plugins for development.
  *
- * Clones the repositories to ~/.milady/ (if not present) and sets up the
+ * Clones the repositories to ~/.eliza/ (if not present) and sets up the
  * environment to use local source code instead of npm packages.
  *
  * Repositories:
- *   - ~/.milady/eliza    - elizaOS monorepo (next branch)
- *   - ~/.milady/plugins  - Plugins collection (next branch, fallback to main)
+ *   - ~/.eliza/eliza    - elizaOS monorepo (next branch)
+ *   - ~/.eliza/plugins  - Plugins collection (next branch, fallback to main)
  *
  * Features:
  *   - Auto-merge: Pulls latest changes and attempts to merge automatically
@@ -62,20 +62,20 @@ const REPOS = {
   },
 };
 
-const MILADY_DIR = join(homedir(), ".milady");
+const ELIZA_DIR = join(homedir(), ".eliza");
 
 // Parse CLI args
 const args = process.argv.slice(2);
 const forceClone = args.includes("--force");
 const skipAll =
-  args.includes("--skip") || process.env.MILADY_SKIP_LOCAL_ELIZA === "1";
+  args.includes("--skip") || process.env.ELIZA_SKIP_LOCAL_ELIZA === "1";
 const skipEliza = args.includes("--skip-eliza");
 const skipPlugins = args.includes("--skip-plugins");
 const noMerge = args.includes("--no-merge");
 
 if (skipAll) {
   console.log(
-    "[setup] Skipping local setup (--skip or MILADY_SKIP_LOCAL_ELIZA=1)",
+    "[setup] Skipping local setup (--skip or ELIZA_SKIP_LOCAL_ELIZA=1)",
   );
   process.exit(0);
 }
@@ -284,7 +284,7 @@ function cloneRepo(config, targetDir) {
  * Set up a single repository.
  */
 async function setupRepo(_key, config) {
-  const targetDir = join(MILADY_DIR, config.localDir);
+  const targetDir = join(ELIZA_DIR, config.localDir);
   const repoExists = isGitRepo(targetDir);
 
   console.log(`\n[setup] === ${config.name} ===`);
@@ -372,7 +372,7 @@ function updateTsConfig() {
     }
 
     // Calculate paths
-    const elizaCorePath = join(MILADY_DIR, "eliza", "packages", "typescript");
+    const elizaCorePath = join(ELIZA_DIR, "eliza", "packages", "typescript");
 
     // Add path mappings for @elizaos/core
     config.compilerOptions.paths["@elizaos/core"] = [
@@ -400,9 +400,9 @@ function updateTsConfig() {
  * Write setup marker file.
  */
 function writeSetupMarker(elizaBranch, pluginsBranch) {
-  const markerPath = join(MILADY_DIR, ".local-eliza-setup");
-  const elizaDir = join(MILADY_DIR, "eliza");
-  const pluginsDir = join(MILADY_DIR, "plugins");
+  const markerPath = join(ELIZA_DIR, ".local-eliza-setup");
+  const elizaDir = join(ELIZA_DIR, "eliza");
+  const pluginsDir = join(ELIZA_DIR, "plugins");
 
   writeFileSync(
     markerPath,
@@ -444,10 +444,10 @@ async function main() {
 
   checkPrereqs();
 
-  // Ensure ~/.milady exists
-  if (!existsSync(MILADY_DIR)) {
-    console.log(`[setup] Creating ${MILADY_DIR}...`);
-    mkdirSync(MILADY_DIR, { recursive: true });
+  // Ensure ~/.eliza exists
+  if (!existsSync(ELIZA_DIR)) {
+    console.log(`[setup] Creating ${ELIZA_DIR}...`);
+    mkdirSync(ELIZA_DIR, { recursive: true });
   }
 
   let elizaBranch = "next";
@@ -483,19 +483,19 @@ async function main() {
   console.log("[setup] Setup complete!");
   console.log("[setup] ========================================");
   console.log(
-    `[setup] elizaOS:      ${join(MILADY_DIR, "eliza")} (${elizaBranch})`,
+    `[setup] elizaOS:      ${join(ELIZA_DIR, "eliza")} (${elizaBranch})`,
   );
   console.log(
-    `[setup] Plugins:      ${join(MILADY_DIR, "plugins")} (${pluginsBranch})`,
+    `[setup] Plugins:      ${join(ELIZA_DIR, "plugins")} (${pluginsBranch})`,
   );
   console.log(
-    `[setup] @elizaos/core: ${join(MILADY_DIR, "eliza", "packages", "typescript")}`,
+    `[setup] @elizaos/core: ${join(ELIZA_DIR, "eliza", "packages", "typescript")}`,
   );
   console.log("");
   console.log("[setup] Commands:");
   console.log("  Update:      node scripts/setup-local-eliza.mjs");
   console.log("  Force clone: node scripts/setup-local-eliza.mjs --force");
-  console.log("  Skip setup:  MILADY_SKIP_LOCAL_ELIZA=1 bun install");
+  console.log("  Skip setup:  ELIZA_SKIP_LOCAL_ELIZA=1 bun install");
 }
 
 main().catch((err) => {

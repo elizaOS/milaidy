@@ -9,7 +9,7 @@ import {
 } from "./server-utils";
 
 const CUA_UNAVAILABLE_ERROR =
-  "CUA service is unavailable. Set MILADY_ENABLE_CUA=1 and configure CUA_HOST (or CUA_API_KEY + CUA_SANDBOX_NAME).";
+  "CUA service is unavailable. Set ELIZA_ENABLE_CUA=1 and configure CUA_HOST (or CUA_API_KEY + CUA_SANDBOX_NAME).";
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => {

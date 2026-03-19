@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/services/sandbox-engine";
+export * from "@elizaos/autonomous/services/sandbox-engine";

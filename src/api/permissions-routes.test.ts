@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
   handlePermissionRoutes,
@@ -14,7 +14,7 @@ describe("permission routes", () => {
   beforeEach(() => {
     state = {
       runtime: null,
-      config: {} as MiladyConfig,
+      config: {} as ElizaConfig,
     };
     saveConfig = vi.fn();
     scheduleRuntimeRestart = vi.fn();

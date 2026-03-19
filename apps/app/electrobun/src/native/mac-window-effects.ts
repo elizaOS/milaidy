@@ -34,7 +34,7 @@ type MacEffectsSymbols = {
 
 type MacEffectsLib = { symbols: MacEffectsSymbols; close(): void } | null;
 
-let _lib: MacEffectsLib = undefined as unknown as MacEffectsLib;
+let _lib: MacEffectsLib = undefined as MacEffectsLib;
 
 function loadLib(): MacEffectsLib {
   const dylibPath = join(import.meta.dir, "../libMacWindowEffects.dylib");
@@ -65,7 +65,7 @@ function loadLib(): MacEffectsLib {
       },
       isAppActive: { args: [], returns: FFIType.bool },
       isWindowKey: { args: [FFIType.ptr], returns: FFIType.bool },
-    }) as unknown as MacEffectsLib;
+    }) as MacEffectsLib;
   } catch (err) {
     console.warn("[MacEffects] Failed to load dylib:", err);
     return null;
@@ -74,7 +74,7 @@ function loadLib(): MacEffectsLib {
 
 function getLib(): NonNullable<MacEffectsLib> | null {
   if (process.platform !== "darwin") return null;
-  if (_lib === (undefined as unknown as MacEffectsLib)) {
+  if (_lib === (undefined as MacEffectsLib)) {
     _lib = loadLib();
   }
   return _lib;

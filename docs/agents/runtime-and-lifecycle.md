@@ -68,7 +68,6 @@ Immediately after config is loaded and before onboarding, several environment va
 |---|---|
 | LOG_LEVEL propagation | `process.env.LOG_LEVEL = config.logging?.level ?? "error"` |
 | Destructive migrations | `ELIZA_ALLOW_DESTRUCTIVE_MIGRATIONS=true` |
-| Bootstrap ignore | `IGNORE_BOOTSTRAP=true` |
 | Subscription credentials | `applySubscriptionCredentials()` applies any stored subscription keys |
 | OG tracking | OG tracking initialization for analytics/telemetry |
 
@@ -93,10 +92,8 @@ Several helper functions push config values into `process.env` so that elizaOS p
 The agent workspace directory is created if needed:
 
 ```typescript
-await ensureAgentWorkspace({ dir: workspaceDir, ensureBootstrapFiles: true });
+await ensureAgentWorkspace({ dir: workspaceDir });
 ```
-
-Bootstrap files (e.g., `BOOTSTRAP.md`) are created on first run.
 
 ### Step 7: Create Milady Plugin
 
@@ -105,8 +102,8 @@ Bootstrap files (e.g., `BOOTSTRAP.md`) are created on first run.
 ```typescript
 const miladyPlugin = createMiladyPlugin({
   workspaceDir,
-  bootstrapMaxChars: config.agents?.defaults?.bootstrapMaxChars,
-  agentId,
+  repoRoot: config.agents?.defaults?.repoRoot,
+  userTimezone: config.agents?.defaults?.userTimezone,
 });
 ```
 
@@ -230,7 +227,6 @@ The sandbox system has two layers of configuration:
 | `"light"` | Audit log only; no container isolation |
 | `"standard"` | Docker container isolation for tool execution |
 | `"max"` | Maximum isolation including network restrictions |
-
 <Note>
 The runtime in `eliza.ts` reads `agents.defaults.sandbox.mode` as a raw string and maps it to the `SandboxMode` type. It only recognizes `"light"`, `"standard"`, and `"max"` -- all other values (including the TypeScript-typed `"non-main"` and `"all"`) fall back to `"off"`. To enable sandboxing, use `"light"`, `"standard"`, or `"max"` in `milady.json`. The per-agent `sandbox.mode` field in `types.agents.ts` (`"off" | "non-main" | "all"`) controls which sessions are sandboxed, while the defaults-level mode controls the sandbox intensity.
 </Note>

@@ -4,7 +4,7 @@
  * resolveHost(), resolvePort(), parseBooleanValue(), compactCuaStep/Result(),
  * handleCuaRoute(), and CUA permission mapping.
  *
- * @see https://github.com/milady-ai/milady/issues/590
+ * @see https://github.com/elizaos/eliza/issues/590
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -117,7 +117,7 @@ describe("hasCuaConfig", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveHost", () => {
-  const sandbox = createEnvSandbox(["MILADY_BENCH_HOST"]);
+  const sandbox = createEnvSandbox(["ELIZA_BENCH_HOST"]);
 
   beforeEach(() => sandbox.clear());
   afterEach(() => sandbox.restore());
@@ -127,32 +127,32 @@ describe("resolveHost", () => {
   });
 
   it("accepts 127.0.0.1", () => {
-    process.env.MILADY_BENCH_HOST = "127.0.0.1";
+    process.env.ELIZA_BENCH_HOST = "127.0.0.1";
     expect(resolveHost()).toBe("127.0.0.1");
   });
 
   it("accepts ::1", () => {
-    process.env.MILADY_BENCH_HOST = "::1";
+    process.env.ELIZA_BENCH_HOST = "::1";
     expect(resolveHost()).toBe("::1");
   });
 
   it("accepts localhost", () => {
-    process.env.MILADY_BENCH_HOST = "localhost";
+    process.env.ELIZA_BENCH_HOST = "localhost";
     expect(resolveHost()).toBe("localhost");
   });
 
   it("rejects 0.0.0.0 and falls back to default", () => {
-    process.env.MILADY_BENCH_HOST = "0.0.0.0";
+    process.env.ELIZA_BENCH_HOST = "0.0.0.0";
     expect(resolveHost()).toBe(DEFAULT_HOST);
   });
 
   it("rejects LAN IP and falls back to default", () => {
-    process.env.MILADY_BENCH_HOST = "192.168.1.100";
+    process.env.ELIZA_BENCH_HOST = "192.168.1.100";
     expect(resolveHost()).toBe(DEFAULT_HOST);
   });
 
   it("rejects external hostname and falls back to default", () => {
-    process.env.MILADY_BENCH_HOST = "evil.example.com";
+    process.env.ELIZA_BENCH_HOST = "evil.example.com";
     expect(resolveHost()).toBe(DEFAULT_HOST);
   });
 });
@@ -162,7 +162,7 @@ describe("resolveHost", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolvePort", () => {
-  const sandbox = createEnvSandbox(["MILADY_BENCH_PORT"]);
+  const sandbox = createEnvSandbox(["ELIZA_BENCH_PORT"]);
 
   beforeEach(() => sandbox.clear());
   afterEach(() => sandbox.restore());
@@ -172,22 +172,22 @@ describe("resolvePort", () => {
   });
 
   it("parses a valid port number", () => {
-    process.env.MILADY_BENCH_PORT = "8080";
+    process.env.ELIZA_BENCH_PORT = "8080";
     expect(resolvePort()).toBe(8080);
   });
 
   it("falls back to default for non-numeric input", () => {
-    process.env.MILADY_BENCH_PORT = "not-a-port";
+    process.env.ELIZA_BENCH_PORT = "not-a-port";
     expect(resolvePort()).toBe(DEFAULT_PORT);
   });
 
   it("falls back to default for port 0", () => {
-    process.env.MILADY_BENCH_PORT = "0";
+    process.env.ELIZA_BENCH_PORT = "0";
     expect(resolvePort()).toBe(DEFAULT_PORT);
   });
 
   it("falls back to default for port > 65535", () => {
-    process.env.MILADY_BENCH_PORT = "70000";
+    process.env.ELIZA_BENCH_PORT = "70000";
     expect(resolvePort()).toBe(DEFAULT_PORT);
   });
 });

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
   handleSubscriptionRoutes,
@@ -39,7 +39,7 @@ describe("subscription routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     state = {
-      config: {} as MiladyConfig,
+      config: {} as ElizaConfig,
     };
     saveConfig = vi.fn();
     delete process.env.ANTHROPIC_API_KEY;
@@ -169,7 +169,7 @@ describe("subscription routes", () => {
       authUrl: "https://auth.example/anthropic",
       submitCode,
       credentials: Promise.resolve({ expires: Date.now() + 60000 }),
-    } as unknown as import("../auth/index").AnthropicFlow;
+    } as import("../auth/index").AnthropicFlow;
 
     const result = await invoke({
       method: "POST",
@@ -189,7 +189,7 @@ describe("subscription routes", () => {
       submitCode,
       close: vi.fn(),
       credentials: Promise.resolve({ expires: Date.now() + 60000 }),
-    } as unknown as import("../auth/index").CodexFlow;
+    } as import("../auth/index").CodexFlow;
 
     const result = await invoke({
       method: "POST",

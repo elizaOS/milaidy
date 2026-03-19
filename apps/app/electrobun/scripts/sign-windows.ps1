@@ -20,6 +20,12 @@ $ErrorActionPreference = "Stop"
 $certBase64 = $env:WINDOWS_SIGN_CERT_BASE64
 $certPassword = $env:WINDOWS_SIGN_CERT_PASSWORD
 $timestampUrl = if ($env:WINDOWS_SIGN_TIMESTAMP_URL) { $env:WINDOWS_SIGN_TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
+$azureClientId = $env:AZURE_CLIENT_ID
+
+if ($azureClientId) {
+  Write-Host "AZURE_CLIENT_ID detected. Skipping PFX-based signing as Azure Trusted Signing will handle it."
+  exit 0
+}
 
 if (-not $certBase64) {
   Write-Host "::warning::WINDOWS_SIGN_CERT_BASE64 not set - building unsigned (no code signing)"

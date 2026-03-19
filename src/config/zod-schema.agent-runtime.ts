@@ -672,9 +672,6 @@ export const AgentDefaultsSchema = z
       )
       .optional(),
     repoRoot: z.string().optional(),
-    skipBootstrap: z.boolean().optional(),
-    bootstrapMaxChars: z.number().int().positive().optional(),
-    enableBootstrapProviders: z.boolean().optional(),
     userTimezone: z.string().optional(),
     timeFormat: z
       .union([z.literal("auto"), z.literal("12"), z.literal("24")])

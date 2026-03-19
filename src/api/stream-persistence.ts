@@ -10,8 +10,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import type { StreamingDestination } from "@elizaos/autonomous/api/stream-routes";
 import { logger } from "@elizaos/core";
-import type { StreamingDestination } from "@miladyai/autonomous/api/stream-routes";
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -34,7 +34,7 @@ export interface StreamVisualSettings {
 // ---------------------------------------------------------------------------
 
 const OVERLAY_DIR = path.join(
-  process.env.MILADY_DATA_DIR || path.join(process.cwd(), "data"),
+  process.env.ELIZA_DATA_DIR || path.join(process.cwd(), "data"),
   "stream",
 );
 

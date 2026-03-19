@@ -98,13 +98,12 @@ At every conversation turn, providers registered with the runtime inject additio
 
 ### Workspace Provider
 
-`createWorkspaceProvider()` reads the agent's workspace directory and injects a summary of relevant files. Bounded by `bootstrapMaxChars` to stay within token limits.
+`createWorkspaceProvider()` reads the agent's workspace directory and injects a summary of relevant files.
 
 ```typescript
-createWorkspaceProvider({
-  workspaceDir,
-  maxCharsPerFile: config?.bootstrapMaxChars,
-})
+const provider = createWorkspaceProvider({
+  dir: agentWorkspaceDir,
+});
 ```
 
 Here `config` is the `MiladyPluginConfig` object passed to `createMiladyPlugin()`, not the top-level `MiladyConfig`.

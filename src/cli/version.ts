@@ -1,3 +1,3 @@
-import { resolveMiladyVersion } from "../version-resolver";
+import { resolveElizaVersion } from "../version-resolver";
 
-export const CLI_VERSION = resolveMiladyVersion(import.meta.url);
+export const CLI_VERSION = resolveElizaVersion(import.meta.url);

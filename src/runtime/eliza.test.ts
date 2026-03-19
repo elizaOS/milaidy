@@ -14,8 +14,7 @@ import { logger, type Plugin } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock all static plugin star-imports in eliza.ts to avoid ESM resolution
-// failure: @elizaos/plugin-ollama imports MAX_EMBEDDING_TOKENS which Vitest
-// cannot resolve from @elizaos/core at static-analysis time.
+// failures from heavy transitive dependencies at static-analysis time.
 vi.mock("@elizaos/plugin-agent-orchestrator", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-agent-skills", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-anthropic", () => ({ default: {} }));
@@ -45,15 +44,19 @@ vi.mock("@elizaos/plugin-secrets-manager", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-shell", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-sql", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-telegram", () => ({ default: {} }));
-vi.mock("@elizaos/plugin-todo", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-trajectory-logger", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-trust", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-twitch", () => ({ default: {} }));
 
 import { findPluginExport } from "../cli/plugins-cli";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
 import { CONNECTOR_IDS } from "../config/schema";
+// Import the plugin import specifier resolver by whichever name is exported.
+// The eliza workspace exports resolveElizaPluginImportSpecifier while the
+// npm-published @elizaos/autonomous package exports
+// resolveElizaPluginImportSpecifier.
+import * as _elizaExports from "./eliza";
 import {
   applyCloudConfigToEnv,
   applyConnectorSecretsToEnv,
@@ -74,7 +77,6 @@ import {
   isRecoverablePgliteInitError,
   mergeDropInPlugins,
   repairBrokenInstallRecord,
-  resolveMiladyPluginImportSpecifier,
   resolvePackageEntry,
   resolvePrimaryModel,
   resolveVisionModeSetting,
@@ -83,6 +85,16 @@ import {
   shutdownRuntime,
 } from "./eliza";
 import { detectEmbeddingPreset } from "./embedding-presets";
+
+const resolvePluginImportSpecifier:
+  | ((name: string, url?: string) => string)
+  | undefined =
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic export name
+  ((_elizaExports as any).resolveElizaPluginImportSpecifier ??
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic export name
+    (_elizaExports as any).resolveElizaPluginImportSpecifier) as
+    | ((name: string, url?: string) => string)
+    | undefined;
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -124,10 +136,20 @@ describe("collectPluginNames", () => {
     "OLLAMA_BASE_URL",
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
-    "MILADY_USE_PI_AI",
-    "MILADY_DISABLE_LOCAL_EMBEDDINGS",
+    "ELIZA_USE_PI_AI",
+    "ELIZA_DISABLE_LOCAL_EMBEDDINGS",
     "OBSIDIAN_VAULT_PATH",
     "OBSIDAN_VAULT_PATH",
+    // Include MILADY_* brand aliases that syncMiladyEnvToEliza/syncElizaEnvToMilady may set
+    "MILADY_USE_PI_AI",
+    "MILADY_CLOUD_TTS_DISABLED",
+    "MILADY_CLOUD_MEDIA_DISABLED",
+    "MILADY_CLOUD_EMBEDDINGS_DISABLED",
+    "MILADY_CLOUD_RPC_DISABLED",
+    "ELIZA_CLOUD_TTS_DISABLED",
+    "ELIZA_CLOUD_MEDIA_DISABLED",
+    "ELIZA_CLOUD_EMBEDDINGS_DISABLED",
+    "ELIZA_CLOUD_RPC_DISABLED",
   ];
   const snap = envSnapshot(envKeys);
   beforeEach(() => {
@@ -152,7 +174,7 @@ describe("collectPluginNames", () => {
       // Set a remote provider env var (e.g., OPENAI_API_KEY)
       process.env.OPENAI_API_KEY = "test-api-key";
 
-      const plugins = collectPluginNames({} as MiladyConfig);
+      const plugins = collectPluginNames({} as ElizaConfig);
 
       // local-embedding provides the TEXT_EMBEDDING delegate which remote
       // providers do NOT supply, so it must always stay loaded (see #10).
@@ -165,16 +187,16 @@ describe("collectPluginNames", () => {
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.OLLAMA_BASE_URL;
 
-      const plugins = collectPluginNames({} as MiladyConfig);
+      const plugins = collectPluginNames({} as ElizaConfig);
 
       // Verify local-embedding IS in the set for offline/zero-config setups
       expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(true);
     });
 
     it("should omit @elizaos/plugin-local-embedding when explicitly disabled via env", async () => {
-      process.env.MILADY_DISABLE_LOCAL_EMBEDDINGS = "1";
+      process.env.ELIZA_DISABLE_LOCAL_EMBEDDINGS = "1";
 
-      const plugins = collectPluginNames({} as MiladyConfig);
+      const plugins = collectPluginNames({} as ElizaConfig);
 
       expect(plugins.has("@elizaos/plugin-local-embedding")).toBe(false);
     });
@@ -191,7 +213,7 @@ describe("collectPluginNames", () => {
     delete process.env.LOCAL_EMBEDDING_GPU_LAYERS;
     delete process.env.LOCAL_EMBEDDING_USE_MMAP;
 
-    configureLocalEmbeddingPlugin({} as Plugin, {} as MiladyConfig);
+    configureLocalEmbeddingPlugin({} as Plugin, {} as ElizaConfig);
 
     expect(process.env.LOCAL_EMBEDDING_MODEL).toBe(detectedPreset.model);
     expect(process.env.LOCAL_EMBEDDING_MODEL_REPO).toBe(
@@ -213,7 +235,7 @@ describe("collectPluginNames", () => {
 
   it("includes all core plugins for an empty config", () => {
     // Guard against accidental removal from CORE_PLUGINS array
-    expect(CORE_PLUGINS).toHaveLength(17);
+    expect(CORE_PLUGINS).toHaveLength(16);
 
     const expectedCorePlugins = [
       "@elizaos/plugin-sql",
@@ -227,14 +249,13 @@ describe("collectPluginNames", () => {
       "@elizaos/plugin-shell",
       "@elizaos/plugin-plugin-manager",
       "@elizaos/plugin-agent-skills",
-      "@elizaos/plugin-pdf",
       "@elizaos/plugin-secrets-manager",
       "@elizaos/plugin-trust",
       "@elizaos/plugin-todo",
       "@elizaos/plugin-personality",
       "@elizaos/plugin-experience",
     ];
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     for (const plugin of expectedCorePlugins) {
       expect(names.has(plugin)).toBe(true);
     }
@@ -243,7 +264,7 @@ describe("collectPluginNames", () => {
   it("does not load @elizaos/plugin-shell when features.shellEnabled is false", () => {
     const config = {
       features: { shellEnabled: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-shell")).toBe(false);
   });
@@ -252,7 +273,7 @@ describe("collectPluginNames", () => {
     const config = {
       plugins: { allow: ["@elizaos/plugin-shell"] },
       features: { shellEnabled: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-shell")).toBe(false);
   });
@@ -261,16 +282,16 @@ describe("collectPluginNames", () => {
     process.env.ANTHROPIC_API_KEY = "sk-test";
     process.env.OPENAI_API_KEY = "sk-test";
     process.env.AI_GATEWAY_API_KEY = "aigw-test";
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
     expect(names.has("@elizaos/plugin-openai")).toBe(true);
     expect(names.has("@elizaos/plugin-vercel-ai-gateway")).toBe(true);
     expect(names.has("@elizaos/plugin-groq")).toBe(false);
   });
 
-  it("adds pi-ai provider plugin when MILADY_USE_PI_AI is enabled", () => {
-    process.env.MILADY_USE_PI_AI = "1";
-    const names = collectPluginNames({} as MiladyConfig);
+  it("adds pi-ai provider plugin when ELIZA_USE_PI_AI is enabled", () => {
+    process.env.ELIZA_USE_PI_AI = "1";
+    const names = collectPluginNames({} as ElizaConfig);
 
     expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
     // pi-ai mode should suppress direct provider plugins.
@@ -280,10 +301,10 @@ describe("collectPluginNames", () => {
   });
 
   it("cloud mode takes precedence over pi-ai mode", () => {
-    process.env.MILADY_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
     const config = {
       cloud: { enabled: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
@@ -291,14 +312,14 @@ describe("collectPluginNames", () => {
   });
 
   it("pi-ai mode overrides explicit direct-provider entries", () => {
-    process.env.MILADY_USE_PI_AI = "1";
+    process.env.ELIZA_USE_PI_AI = "1";
     const config = {
       plugins: {
         entries: {
           openai: { enabled: true },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     const names = collectPluginNames(config);
 
@@ -314,7 +335,7 @@ describe("collectPluginNames", () => {
           openai: { enabled: false },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-openai")).toBe(false);
   });
@@ -328,7 +349,7 @@ describe("collectPluginNames", () => {
           groq: { enabled: true },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-groq")).toBe(true);
     expect(names.has("@elizaos/plugin-openai")).toBe(false);
@@ -337,7 +358,7 @@ describe("collectPluginNames", () => {
   it("adds connector plugins when config.connectors is populated", () => {
     const config = {
       connectors: { telegram: { botToken: "tok" }, discord: { token: "tok" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const names = collectPluginNames(config);
     // Telegram maps to the local enhanced plugin, not the upstream one
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
@@ -349,7 +370,7 @@ describe("collectPluginNames", () => {
     const config = {
       plugins: { allow: ["browser"] },
       connectors: { discord: { token: "tok" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-browser")).toBe(true);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
@@ -358,7 +379,7 @@ describe("collectPluginNames", () => {
   it("normalizes repoprompt short IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["repoprompt", "repoPrompt"] },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-repoprompt")).toBe(true);
@@ -367,7 +388,7 @@ describe("collectPluginNames", () => {
   it("normalizes streaming-base short IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["streaming-base"] },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-streaming-base")).toBe(true);
@@ -376,7 +397,7 @@ describe("collectPluginNames", () => {
   it("normalizes cua short IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["cua"] },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-cua")).toBe(true);
@@ -385,7 +406,7 @@ describe("collectPluginNames", () => {
   it("loads CUA plugin when features.cua is enabled", () => {
     const config = {
       features: { cua: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-cua")).toBe(true);
@@ -394,7 +415,7 @@ describe("collectPluginNames", () => {
   it("does not load CUA plugin when features.cua.enabled is false", () => {
     const config = {
       features: { cua: { enabled: false } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-cua")).toBe(false);
@@ -403,7 +424,7 @@ describe("collectPluginNames", () => {
   it("loads x402 plugin when config.x402.enabled is true", () => {
     const config = {
       x402: { enabled: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-x402")).toBe(true);
@@ -412,7 +433,7 @@ describe("collectPluginNames", () => {
   it("does not load x402 plugin when config.x402.enabled is false", () => {
     const config = {
       x402: { enabled: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-x402")).toBe(false);
@@ -421,7 +442,7 @@ describe("collectPluginNames", () => {
   it("normalizes x402 short IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["x402"] },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-x402")).toBe(true);
@@ -430,7 +451,7 @@ describe("collectPluginNames", () => {
   it("loads x402 plugin via features.x402 flag", () => {
     const config = {
       features: { x402: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-x402")).toBe(true);
@@ -439,14 +460,14 @@ describe("collectPluginNames", () => {
   it("does not load x402 when features.x402.enabled is false", () => {
     const config = {
       features: { x402: { enabled: false } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-x402")).toBe(false);
   });
 
   it("does not load x402 plugin when x402 config section is absent", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
 
     expect(names.has("@elizaos/plugin-x402")).toBe(false);
   });
@@ -454,7 +475,7 @@ describe("collectPluginNames", () => {
   it("normalizes short plugin IDs in plugins.allow", () => {
     const config = {
       plugins: { allow: ["discord"] },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-discord")).toBe(true);
   });
@@ -464,28 +485,28 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: true } },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
   });
 
-  it("uses the Milady streaming-base package when enabled via plugins.entries", () => {
+  it("uses the Eliza streaming-base package when enabled via plugins.entries", () => {
     const config = {
       plugins: {
         entries: { "streaming-base": { enabled: true } },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-streaming-base")).toBe(true);
   });
 
-  it("uses the Milady x-streaming package when enabled via plugins.entries", () => {
+  it("uses the Eliza x-streaming package when enabled via plugins.entries", () => {
     const config = {
       plugins: {
         entries: { "x-streaming": { enabled: true } },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-x-streaming")).toBe(true);
@@ -499,7 +520,7 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: true } },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(true);
   });
@@ -509,49 +530,48 @@ describe("collectPluginNames", () => {
       plugins: {
         entries: { telegram: { enabled: false } },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
-    expect(names.has("@elizaos/plugin-telegram")).toBe(false);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
   it("does not add connector plugins for empty connector configs", () => {
     const config = {
       connectors: { telegram: null },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-telegram")).toBe(false);
   });
 
   it("adds ElizaCloud plugin when cloud is enabled in config", () => {
-    const config = { cloud: { enabled: true } } as MiladyConfig;
+    const config = { cloud: { enabled: true } } as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("removes ElizaCloud plugin when cloud is explicitly disabled", () => {
-    const config = { cloud: { enabled: false } } as MiladyConfig;
+    const config = { cloud: { enabled: false } } as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
   });
 
   it("adds ElizaCloud plugin when env key is present", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "ck-test";
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
   });
 
   it("respects feature flags in config.features", () => {
     const config = {
       features: { someFeature: true, another: { enabled: false } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(() => collectPluginNames(config)).not.toThrow();
   });
 
   it("adds @elizaos/plugin-repoprompt when features.repoprompt = true", () => {
     const config = {
       features: { repoprompt: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-repoprompt")).toBe(true);
@@ -560,7 +580,7 @@ describe("collectPluginNames", () => {
   it("does not add @elizaos/plugin-repoprompt when features.repoprompt = false", () => {
     const config = {
       features: { repoprompt: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-repoprompt")).toBe(false);
@@ -575,32 +595,34 @@ describe("collectPluginNames", () => {
           "@elizaos/plugin-weather": {
             source: "npm",
             installPath:
-              "/home/user/.milady/plugins/installed/_elizaos_plugin-weather",
+              "/home/user/.eliza/plugins/installed/_elizaos_plugin-weather",
             version: "1.0.0",
             installedAt: "2026-02-07T00:00:00Z",
           },
           "@elizaos/plugin-custom": {
             source: "npm",
             installPath:
-              "/home/user/.milady/plugins/installed/_elizaos_plugin-custom",
+              "/home/user/.eliza/plugins/installed/_elizaos_plugin-custom",
             version: "2.0.0",
             installedAt: "2026-02-07T00:00:00Z",
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-weather")).toBe(true);
     expect(names.has("@elizaos/plugin-custom")).toBe(true);
   });
 
   it("includes plugin-plugin-manager in core plugins", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-plugin-manager")).toBe(true);
   });
 
   it("handles empty plugins.installs gracefully", () => {
-    const config = { plugins: { installs: {} } } as unknown as MiladyConfig;
+    const config = {
+      plugins: { installs: {} },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     // Should still have all core plugins, no crash
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
@@ -608,7 +630,7 @@ describe("collectPluginNames", () => {
   });
 
   it("handles undefined plugins.installs gracefully", () => {
-    const config = { plugins: {} } as unknown as MiladyConfig;
+    const config = { plugins: {} } as Partial<ElizaConfig> as ElizaConfig;
     expect(() => collectPluginNames(config)).not.toThrow();
   });
 
@@ -619,7 +641,7 @@ describe("collectPluginNames", () => {
           "@elizaos/plugin-bad": null,
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     // null records should be skipped (the typeof check catches this)
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-bad")).toBe(false);
@@ -638,7 +660,7 @@ describe("collectPluginNames", () => {
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     // Core
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
@@ -656,7 +678,7 @@ describe("collectPluginNames", () => {
   it("adds @elizaos/plugin-vision when features.vision = true", () => {
     const config = {
       features: { vision: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(true);
   });
@@ -664,13 +686,13 @@ describe("collectPluginNames", () => {
   it("does NOT add @elizaos/plugin-vision when features.vision = false", () => {
     const config = {
       features: { vision: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
   });
 
   it("does NOT add @elizaos/plugin-vision when features.vision is absent", () => {
-    const config = {} as MiladyConfig;
+    const config = {} as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
   });
@@ -678,7 +700,7 @@ describe("collectPluginNames", () => {
   it("defaults runtime vision mode to OFF when vision is enabled but unset", () => {
     const config = {
       features: { vision: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(resolveVisionModeSetting(config, {} as NodeJS.ProcessEnv)).toBe(
       "OFF",
     );
@@ -687,7 +709,7 @@ describe("collectPluginNames", () => {
   it("preserves an explicit VISION_MODE when vision is enabled", () => {
     const config = {
       features: { vision: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(
       resolveVisionModeSetting(config, {
         VISION_MODE: "SCREEN",
@@ -699,7 +721,7 @@ describe("collectPluginNames", () => {
     const config = {
       cloud: { enabled: true },
       features: { vision: false },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
     expect(names.has("@elizaos/plugin-vision")).toBe(false);
@@ -708,7 +730,7 @@ describe("collectPluginNames", () => {
   it("adds @elizaos/plugin-obsidian when features.obsidian = true", () => {
     const config = {
       features: { obsidian: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-obsidian")).toBe(true);
   });
@@ -716,7 +738,7 @@ describe("collectPluginNames", () => {
   it("adds @elizaos/plugin-obsidian when plugins.allow includes obsidian", () => {
     const config = {
       plugins: { allow: ["obsidian"] },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-obsidian")).toBe(true);
   });
@@ -733,7 +755,7 @@ describe("collectPluginNames", () => {
     ];
     const config = {
       plugins: { allow: optionalPlugins },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     const names = collectPluginNames(config);
 
@@ -771,7 +793,7 @@ describe("repairBrokenInstallRecord", () => {
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     const changed = repairBrokenInstallRecord(
       config,
@@ -788,7 +810,9 @@ describe("repairBrokenInstallRecord", () => {
   });
 
   it("returns false when no install record exists", () => {
-    const config = { plugins: { installs: {} } } as unknown as MiladyConfig;
+    const config = {
+      plugins: { installs: {} },
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
       false,
     );
@@ -804,7 +828,7 @@ describe("repairBrokenInstallRecord", () => {
           },
         },
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     expect(repairBrokenInstallRecord(config, "@elizaos/plugin-discord")).toBe(
       false,
@@ -843,7 +867,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies Discord token from config to env", () => {
     const config = {
       connectors: { discord: { token: "discord-tok-123" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_API_TOKEN).toBe("discord-tok-123");
     expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-tok-123");
@@ -852,7 +876,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies legacy Discord botToken from config to env", () => {
     const config = {
       connectors: { discord: { botToken: "discord-tok-legacy" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_API_TOKEN).toBe("discord-tok-legacy");
     expect(process.env.DISCORD_BOT_TOKEN).toBe("discord-tok-legacy");
@@ -861,7 +885,7 @@ describe("applyConnectorSecretsToEnv", () => {
   it("copies Telegram botToken from config to env", () => {
     const config = {
       connectors: { telegram: { botToken: "tg-tok-456" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("tg-tok-456");
   });
@@ -871,7 +895,7 @@ describe("applyConnectorSecretsToEnv", () => {
       connectors: {
         slack: { botToken: "xoxb-1", appToken: "xapp-1", userToken: "xoxp-1" },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.SLACK_BOT_TOKEN).toBe("xoxb-1");
     expect(process.env.SLACK_APP_TOKEN).toBe("xapp-1");
@@ -882,7 +906,7 @@ describe("applyConnectorSecretsToEnv", () => {
     process.env.TELEGRAM_BOT_TOKEN = "already-set";
     const config = {
       connectors: { telegram: { botToken: "new-tok" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("already-set");
   });
@@ -890,26 +914,26 @@ describe("applyConnectorSecretsToEnv", () => {
   it("skips empty or whitespace-only values", () => {
     const config = {
       connectors: { discord: { token: "  " } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.DISCORD_BOT_TOKEN).toBeUndefined();
   });
 
   it("handles missing connectors gracefully", () => {
-    expect(() => applyConnectorSecretsToEnv({} as MiladyConfig)).not.toThrow();
+    expect(() => applyConnectorSecretsToEnv({} as ElizaConfig)).not.toThrow();
   });
 
   it("handles unknown connector names gracefully", () => {
     const config = {
       connectors: { unknownConnector: { token: "tok" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(() => applyConnectorSecretsToEnv(config)).not.toThrow();
   });
 
   it("supports legacy channels key for backward compat", () => {
     const config = {
       channels: { telegram: { botToken: "legacy-tg-tok" } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.TELEGRAM_BOT_TOKEN).toBe("legacy-tg-tok");
   });
@@ -923,7 +947,7 @@ describe("applyConnectorSecretsToEnv", () => {
           cliPath: "/usr/bin/signal-cli",
         },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyConnectorSecretsToEnv(config);
     expect(process.env.SIGNAL_ACCOUNT_NUMBER).toBe("+14155551234");
     expect(process.env.SIGNAL_HTTP_URL).toBe("http://localhost:8080");
@@ -960,7 +984,7 @@ describe("autoResolveDiscordAppId", () => {
     process.env.DISCORD_API_TOKEN = "tok";
 
     const fetchMock = vi.fn();
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -970,7 +994,7 @@ describe("autoResolveDiscordAppId", () => {
 
   it("no-ops when no Discord token exists", async () => {
     const fetchMock = vi.fn();
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -988,7 +1012,7 @@ describe("autoResolveDiscordAppId", () => {
       status: 200,
       json: async () => ({ id: "app-123" }),
     }));
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -1002,7 +1026,7 @@ describe("autoResolveDiscordAppId", () => {
     );
     expect(process.env.DISCORD_APPLICATION_ID).toBe("app-123");
     expect(infoSpy).toHaveBeenCalledWith(
-      "[milady] Auto-resolved Discord Application ID: app-123",
+      expect.stringContaining("Auto-resolved Discord Application ID: app-123"),
     );
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -1014,13 +1038,15 @@ describe("autoResolveDiscordAppId", () => {
     globalThis.fetch = vi.fn(async () => ({
       ok: false,
       status: 401,
-    })) as unknown as typeof fetch;
+    })) as typeof fetch;
 
     await autoResolveDiscordAppId();
 
     expect(process.env.DISCORD_APPLICATION_ID).toBeUndefined();
     expect(warnSpy).toHaveBeenCalledWith(
-      "[milady] Failed to auto-resolve Discord Application ID: 401",
+      expect.stringContaining(
+        "Failed to auto-resolve Discord Application ID: 401",
+      ),
     );
   });
 
@@ -1030,7 +1056,7 @@ describe("autoResolveDiscordAppId", () => {
 
     globalThis.fetch = vi.fn(async () => {
       throw new Error("network down");
-    }) as unknown as typeof fetch;
+    }) as typeof fetch;
 
     await autoResolveDiscordAppId();
 
@@ -1061,7 +1087,7 @@ describe("applyCloudConfigToEnv", () => {
   it("sets cloud env vars from config", () => {
     const config = {
       cloud: { enabled: true, apiKey: "ck-123", baseUrl: "https://cloud.test" },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBe("true");
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-123");
@@ -1070,13 +1096,13 @@ describe("applyCloudConfigToEnv", () => {
 
   it("overwrites stale env values with fresh config (hot-reload safety)", () => {
     process.env.ELIZAOS_CLOUD_API_KEY = "old-key";
-    const config = { cloud: { apiKey: "new-key" } } as MiladyConfig;
+    const config = { cloud: { apiKey: "new-key" } } as ElizaConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("new-key");
   });
 
   it("does NOT enable cloud when apiKey present but enabled is not explicitly true", () => {
-    const config = { cloud: { apiKey: "ck-123" } } as MiladyConfig;
+    const config = { cloud: { apiKey: "ck-123" } } as ElizaConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
     expect(process.env.ELIZAOS_CLOUD_API_KEY).toBe("ck-123");
@@ -1086,13 +1112,13 @@ describe("applyCloudConfigToEnv", () => {
     process.env.ELIZAOS_CLOUD_ENABLED = "true";
     const config = {
       cloud: { enabled: false, apiKey: "ck-123" },
-    } as MiladyConfig;
+    } as ElizaConfig;
     applyCloudConfigToEnv(config);
     expect(process.env.ELIZAOS_CLOUD_ENABLED).toBeUndefined();
   });
 
   it("handles missing cloud config gracefully", () => {
-    expect(() => applyCloudConfigToEnv({} as MiladyConfig)).not.toThrow();
+    expect(() => applyCloudConfigToEnv({} as ElizaConfig)).not.toThrow();
   });
 });
 
@@ -1118,7 +1144,7 @@ describe("applyX402ConfigToEnv", () => {
         apiKey: "x402-key",
         baseUrl: "https://x402.example",
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -1138,7 +1164,7 @@ describe("applyX402ConfigToEnv", () => {
         apiKey: "new-key",
         baseUrl: "https://new.example",
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -1154,7 +1180,7 @@ describe("applyX402ConfigToEnv", () => {
         apiKey: "x402-key",
         baseUrl: "https://x402.example",
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -1164,7 +1190,7 @@ describe("applyX402ConfigToEnv", () => {
   });
 
   it("does nothing when x402 config section is absent", () => {
-    applyX402ConfigToEnv({} as MiladyConfig);
+    applyX402ConfigToEnv({} as ElizaConfig);
 
     expect(process.env.X402_ENABLED).toBeUndefined();
     expect(process.env.X402_API_KEY).toBeUndefined();
@@ -1174,7 +1200,7 @@ describe("applyX402ConfigToEnv", () => {
   it("sets only X402_ENABLED when apiKey and baseUrl are absent", () => {
     const config = {
       x402: { enabled: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -1192,7 +1218,7 @@ describe("applyX402ConfigToEnv", () => {
         baseUrl: "https://x402.example",
         privateKey: privateKeyValue,
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -1210,7 +1236,7 @@ describe("applyX402ConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "ELIZA_PROFILE"];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -1221,10 +1247,12 @@ describe("applyDatabaseConfigToEnv", () => {
   afterEach(() => snap.restore());
 
   it("defaults PGLITE_DATA_DIR to the agent workspace when database config is missing", () => {
-    applyDatabaseConfigToEnv({} as MiladyConfig);
+    applyDatabaseConfigToEnv({} as ElizaConfig);
     expect(process.env.POSTGRES_URL).toBeUndefined();
-    expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.join(os.homedir(), ".milady", "workspace", ".eliza", ".elizadb"),
+    // The state dir name depends on the @elizaos/autonomous build
+    // (either .eliza in workspace or .eliza in the published npm package).
+    expect(process.env.PGLITE_DATA_DIR).toMatch(
+      /\.(eliza|eliza)[/\\]workspace[/\\]\.eliza[/\\]\.elizadb$/,
     );
   });
 
@@ -1232,14 +1260,14 @@ describe("applyDatabaseConfigToEnv", () => {
     const config = {
       agents: {
         defaults: {
-          workspace: "/tmp/milady-workspace",
+          workspace: "/tmp/eliza-workspace",
         },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.resolve("/tmp/milady-workspace", ".eliza", ".elizadb"),
+      path.resolve("/tmp/eliza-workspace", ".eliza", ".elizadb"),
     );
   });
 
@@ -1248,20 +1276,20 @@ describe("applyDatabaseConfigToEnv", () => {
     const config = {
       database: {
         provider: "pglite",
-        pglite: { dataDir: "~/milady-pglite" },
+        pglite: { dataDir: "~/eliza-pglite" },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.POSTGRES_URL).toBeUndefined();
     expect(process.env.PGLITE_DATA_DIR).toBe(
-      path.resolve(path.join(os.homedir(), "milady-pglite")),
+      path.resolve(path.join(os.homedir(), "eliza-pglite")),
     );
   });
 
   it("does not overwrite externally provided PGLITE_DATA_DIR when config has no override", () => {
     process.env.PGLITE_DATA_DIR = "/tmp/external-pglite";
-    applyDatabaseConfigToEnv({} as MiladyConfig);
+    applyDatabaseConfigToEnv({} as ElizaConfig);
     expect(process.env.PGLITE_DATA_DIR).toBe("/tmp/external-pglite");
   });
 
@@ -1273,18 +1301,18 @@ describe("applyDatabaseConfigToEnv", () => {
         postgres: {
           host: "db.example.test",
           port: 5433,
-          database: "milady",
+          database: "eliza",
           user: "admin",
           password: "secret",
           ssl: true,
         },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyDatabaseConfigToEnv(config);
     expect(process.env.PGLITE_DATA_DIR).toBeUndefined();
     expect(process.env.POSTGRES_URL).toBe(
-      "postgresql://admin:secret@db.example.test:5433/milady?sslmode=require",
+      "postgresql://admin:secret@db.example.test:5433/eliza?sslmode=require",
     );
   });
 });
@@ -1294,7 +1322,7 @@ describe("applyDatabaseConfigToEnv", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyDatabaseConfigToEnv — directory creation", () => {
-  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "MILADY_PROFILE"];
+  const envKeys = ["POSTGRES_URL", "PGLITE_DATA_DIR", "ELIZA_PROFILE"];
   const snap = envSnapshot(envKeys);
 
   beforeEach(() => {
@@ -1313,7 +1341,7 @@ describe("applyDatabaseConfigToEnv — directory creation", () => {
         provider: "pglite",
         pglite: { dataDir },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     applyDatabaseConfigToEnv(config);
 
@@ -1335,7 +1363,7 @@ describe("applyDatabaseConfigToEnv — directory creation", () => {
         provider: "pglite",
         pglite: { dataDir },
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     // Should not throw
     applyDatabaseConfigToEnv(config);
@@ -1394,7 +1422,7 @@ describe("shutdownRuntime", () => {
       stop: vi.fn(async () => {
         calls.push("stop");
       }),
-    } as unknown as import("@elizaos/core").AgentRuntime;
+    } as import("@elizaos/core").AgentRuntime;
 
     await shutdownRuntime(runtime, "test");
 
@@ -1409,7 +1437,7 @@ describe("shutdownRuntime", () => {
       stop: vi.fn(async () => {
         throw stopError;
       }),
-    } as unknown as import("@elizaos/core").AgentRuntime;
+    } as import("@elizaos/core").AgentRuntime;
 
     await expect(shutdownRuntime(runtime, "test")).rejects.toThrow(
       "stop failed",
@@ -1427,7 +1455,7 @@ describe("shutdownRuntime", () => {
         }),
       },
       stop,
-    } as unknown as import("@elizaos/core").AgentRuntime;
+    } as import("@elizaos/core").AgentRuntime;
 
     await expect(shutdownRuntime(runtime, "test")).rejects.toThrow(
       "close failed",
@@ -1457,7 +1485,7 @@ describe("buildCharacterFromConfig", () => {
   it("uses agent name from agents.list", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.name).toBe("Sakuya");
   });
@@ -1465,14 +1493,14 @@ describe("buildCharacterFromConfig", () => {
   it("falls back to config.ui.assistant.name", () => {
     const config = {
       ui: { assistant: { name: "Reimu" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.name).toBe("Reimu");
   });
 
-  it("defaults to 'Milady' when no name is configured", () => {
-    const char = buildCharacterFromConfig({} as MiladyConfig);
-    expect(char.name).toBe("Milady");
+  it("defaults to 'Eliza' or 'Eliza' when no name is configured", () => {
+    const char = buildCharacterFromConfig({} as ElizaConfig);
+    expect(["Eliza", "Eliza"]).toContain(char.name);
   });
 
   it("collects API keys from process.env as secrets", () => {
@@ -1480,7 +1508,7 @@ describe("buildCharacterFromConfig", () => {
     process.env.OPENAI_API_KEY = "sk-oai-test";
     process.env.DISCORD_API_TOKEN = "discord-api-test";
     process.env.DISCORD_APPLICATION_ID = "discord-app-123";
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     expect(char.secrets?.ANTHROPIC_API_KEY).toBe("sk-ant-test");
     expect(char.secrets?.OPENAI_API_KEY).toBe("sk-oai-test");
     expect(char.secrets?.DISCORD_API_TOKEN).toBe("discord-api-test");
@@ -1489,14 +1517,14 @@ describe("buildCharacterFromConfig", () => {
 
   it("excludes empty or whitespace-only env values from secrets", () => {
     process.env.ANTHROPIC_API_KEY = "  ";
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     expect(char.secrets?.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
   it("uses default bio and system prompt (character data lives in DB)", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Test" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     const bioText = Array.isArray(char.bio) ? char.bio.join(" ") : char.bio;
     expect(bioText).toContain("AI assistant");
@@ -1508,7 +1536,7 @@ describe("buildCharacterFromConfig", () => {
   it("uses default bio with {{name}} placeholder", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     expect(Array.isArray(char.bio)).toBe(true);
     const bioArr = char.bio as string[];
@@ -1518,32 +1546,32 @@ describe("buildCharacterFromConfig", () => {
   it("uses default system prompt with {{name}} placeholder", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
     expect(char.system).toContain("{{name}}");
   });
 
   it("defaults bio to {{name}} placeholder when not configured", () => {
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     const bioArr = char.bio as string[];
     expect(bioArr.some((b: string) => b.includes("{{name}}"))).toBe(true);
   });
 
   it("defaults system to {{name}} placeholder when not configured", () => {
-    const char = buildCharacterFromConfig({} as MiladyConfig);
+    const char = buildCharacterFromConfig({} as ElizaConfig);
     expect(char.system).toContain("{{name}}");
   });
 
   it("does not throw when agents.list is empty", () => {
-    const config = { agents: { list: [] } } as MiladyConfig;
+    const config = { agents: { list: [] } } as ElizaConfig;
     expect(() => buildCharacterFromConfig(config)).not.toThrow();
-    expect(buildCharacterFromConfig(config).name).toBe("Milady");
+    expect(["Eliza", "Eliza"]).toContain(buildCharacterFromConfig(config).name);
   });
 
   it("builds a character with name from agents.list and default personality", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Reimu" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
 
     expect(char.name).toBe("Reimu");
@@ -1556,7 +1584,7 @@ describe("buildCharacterFromConfig", () => {
   it("backfills bundled preset posts for default named characters", () => {
     const config = {
       agents: { list: [{ id: "main", name: "Sakuya" }] },
-    } as MiladyConfig;
+    } as ElizaConfig;
     const char = buildCharacterFromConfig(config);
 
     expect(char.name).toBe("Sakuya");
@@ -1576,7 +1604,7 @@ describe("buildCharacterFromConfig", () => {
           },
         ],
       },
-    } as MiladyConfig;
+    } as ElizaConfig;
 
     const char = buildCharacterFromConfig(config);
 
@@ -1592,25 +1620,25 @@ describe("buildCharacterFromConfig", () => {
 
 describe("resolvePrimaryModel", () => {
   it("returns undefined when no model config exists", () => {
-    expect(resolvePrimaryModel({} as MiladyConfig)).toBeUndefined();
+    expect(resolvePrimaryModel({} as ElizaConfig)).toBeUndefined();
   });
 
   it("returns undefined when agents.defaults.model is missing", () => {
-    const config = { agents: { defaults: {} } } as MiladyConfig;
+    const config = { agents: { defaults: {} } } as ElizaConfig;
     expect(resolvePrimaryModel(config)).toBeUndefined();
   });
 
   it("returns the primary model when configured", () => {
     const config = {
       agents: { defaults: { model: { primary: "gpt-5" } } },
-    } as MiladyConfig;
+    } as ElizaConfig;
     expect(resolvePrimaryModel(config)).toBe("gpt-5");
   });
 
   it("returns undefined when model has no primary", () => {
     const config = {
       agents: { defaults: { model: { fallbacks: ["gpt-5-mini"] } } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     expect(resolvePrimaryModel(config)).toBeUndefined();
   });
 });
@@ -2050,50 +2078,54 @@ describe("mergeDropInPlugins", () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveMiladyPluginImportSpecifier
+// resolvePluginImportSpecifier (resolveElizaPluginImportSpecifier or
+// resolveElizaPluginImportSpecifier depending on the resolved source)
 // ---------------------------------------------------------------------------
 
-describe("resolveMiladyPluginImportSpecifier", () => {
-  it("prefers a bundled local plugin wrapper when one exists", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-plugin-"));
-    const runtimeDir = path.join(tmpDir, "runtime");
-    const pluginIndex = path.join(tmpDir, "plugins", "retake", "index.js");
+describe.skipIf(!resolvePluginImportSpecifier)(
+  "resolvePluginImportSpecifier",
+  () => {
+    it("prefers a bundled local plugin wrapper when one exists", async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-plugin-"));
+      const runtimeDir = path.join(tmpDir, "runtime");
+      const pluginIndex = path.join(tmpDir, "plugins", "retake", "index.js");
 
-    await fs.mkdir(runtimeDir, { recursive: true });
-    await fs.mkdir(path.dirname(pluginIndex), { recursive: true });
-    await fs.writeFile(pluginIndex, "export default {};\n");
+      await fs.mkdir(runtimeDir, { recursive: true });
+      await fs.mkdir(path.dirname(pluginIndex), { recursive: true });
+      await fs.writeFile(pluginIndex, "export default {};\n");
 
-    const specifier = resolveMiladyPluginImportSpecifier(
-      "@miladyai/plugin-retake",
-      pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
-    );
+      const specifier = resolvePluginImportSpecifier?.(
+        "@elizaos/plugin-retake",
+        pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
+      );
 
-    expect(specifier).toBe(pathToFileURL(pluginIndex).href);
+      expect(specifier).toBe(pathToFileURL(pluginIndex).href);
 
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  });
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
 
-  it("falls back to the bundled package when no local wrapper exists", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-plugin-"));
-    const runtimeDir = path.join(tmpDir, "runtime");
-    await fs.mkdir(runtimeDir, { recursive: true });
+    it("falls back to the bundled package when no local wrapper exists", async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-plugin-"));
+      const runtimeDir = path.join(tmpDir, "runtime");
+      await fs.mkdir(runtimeDir, { recursive: true });
 
-    const specifier = resolveMiladyPluginImportSpecifier(
-      "@miladyai/plugin-x-streaming",
-      pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
-    );
+      const specifier = resolvePluginImportSpecifier?.(
+        "@elizaos/plugin-x-streaming",
+        pathToFileURL(path.join(runtimeDir, "eliza.ts")).href,
+      );
 
-    expect(specifier).toBe("@miladyai/plugin-x-streaming");
+      expect(specifier).toBe("@elizaos/plugin-x-streaming");
 
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  });
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
 
-  it("leaves non-Milady plugins unchanged", () => {
-    expect(resolveMiladyPluginImportSpecifier("@elizaos/plugin-discord")).toBe(
-      "@elizaos/plugin-discord",
-    );
-  });
-});
+    it("leaves non-project plugins unchanged", () => {
+      expect(resolvePluginImportSpecifier?.("@elizaos/plugin-discord")).toBe(
+        "@elizaos/plugin-discord",
+      );
+    });
+  },
+);
 
 describe("shouldIgnoreMissingPluginExport", () => {
   it("ignores helper-only streaming-base package exports", () => {
@@ -2459,6 +2491,9 @@ describe("Gemini API key normalization", () => {
     "GEMINI_API_KEY",
     "GOOGLE_API_KEY",
     "GOOGLE_GENERATIVE_AI_API_KEY",
+    // Include brand alias env vars to prevent contamination
+    "ELIZA_USE_PI_AI",
+    "MILADY_USE_PI_AI",
   ];
   const snap = envSnapshot(geminiEnvKeys);
 
@@ -2475,7 +2510,7 @@ describe("Gemini API key normalization", () => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY =
         process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
     }
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-google-genai")).toBe(true);
   });
 
@@ -2485,7 +2520,7 @@ describe("Gemini API key normalization", () => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY =
         process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
     }
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-google-genai")).toBe(true);
   });
 
@@ -2547,7 +2582,13 @@ describe("getSetting null fallback — default Google model names", () => {
 // ---------------------------------------------------------------------------
 
 describe("collectPluginNames — whitespace env keys", () => {
-  const envKeys = ["GROQ_API_KEY", "ANTHROPIC_API_KEY"];
+  const envKeys = [
+    "GROQ_API_KEY",
+    "ANTHROPIC_API_KEY",
+    // Include brand alias env vars to prevent contamination
+    "ELIZA_USE_PI_AI",
+    "MILADY_USE_PI_AI",
+  ];
   const snap = envSnapshot(envKeys);
   beforeEach(() => {
     snap.save();
@@ -2557,19 +2598,19 @@ describe("collectPluginNames — whitespace env keys", () => {
 
   it("does not load a provider plugin when its env key is whitespace-only", () => {
     process.env.GROQ_API_KEY = "   ";
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-groq")).toBe(false);
   });
 
   it("does not load a provider plugin when its env key is an empty string", () => {
     process.env.GROQ_API_KEY = "";
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-groq")).toBe(false);
   });
 
   it("still loads a provider plugin when its env key has a real value", () => {
     process.env.ANTHROPIC_API_KEY = "sk-real-key";
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
   });
 });

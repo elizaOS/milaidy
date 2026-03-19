@@ -13,7 +13,7 @@ import {
 } from "@elizaos/core";
 import dotenv from "dotenv";
 import { CORE_PLUGINS } from "../runtime/core-plugins";
-import { createMiladyPlugin } from "../runtime/milady-plugin";
+import { createElizaPlugin } from "../runtime/eliza-plugin";
 import {
   type BenchmarkContext,
   type CapturedAction,
@@ -61,7 +61,7 @@ function resolveAllowedOrigin(req: http.IncomingMessage): string {
 }
 
 function resolveBenchToken(): string | null {
-  const token = process.env.MILADY_BENCH_TOKEN?.trim();
+  const token = process.env.ELIZA_BENCH_TOKEN?.trim();
   return token || null;
 }
 
@@ -89,7 +89,7 @@ function checkBenchAuth(
     res.end(
       JSON.stringify({
         error:
-          "Benchmark server requires MILADY_BENCH_TOKEN to be set. " +
+          "Benchmark server requires ELIZA_BENCH_TOKEN to be set. " +
           "Generate one with: openssl rand -hex 32",
       }),
     );
@@ -112,9 +112,9 @@ function checkBenchAuth(
 }
 
 const DEFAULT_PORT = 3939;
-const BENCHMARK_WORLD_ID = stringToUuid("milady-benchmark-world");
+const BENCHMARK_WORLD_ID = stringToUuid("eliza-benchmark-world");
 const BENCHMARK_MESSAGE_SERVER_ID = stringToUuid(
-  "milady-benchmark-message-server",
+  "eliza-benchmark-message-server",
 );
 
 interface BenchmarkSession {
@@ -186,12 +186,12 @@ function toPlugin(candidate: unknown, source: string): Plugin {
 }
 
 function resolvePort(): number {
-  const raw = process.env.MILADY_BENCH_PORT;
+  const raw = process.env.ELIZA_BENCH_PORT;
   if (!raw) return DEFAULT_PORT;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 1 || parsed > 65535) {
     elizaLogger.warn(
-      `[bench] Invalid MILADY_BENCH_PORT="${raw}"; using ${DEFAULT_PORT}`,
+      `[bench] Invalid ELIZA_BENCH_PORT="${raw}"; using ${DEFAULT_PORT}`,
     );
     return DEFAULT_PORT;
   }
@@ -403,11 +403,11 @@ async function collectSessionDiagnostics(
 
   const providerNames = runtime.providers.map((provider) => provider.name);
   const evaluatorNames =
-    (runtime as unknown as { evaluators?: Array<{ name?: string }> }).evaluators
+    (runtime as { evaluators?: Array<{ name?: string }> }).evaluators
       ?.map((evaluator) => evaluator?.name ?? "")
       .filter((name) => name.length > 0) ?? [];
   const actionNames =
-    (runtime as unknown as { actions?: Array<{ name?: string }> }).actions
+    (runtime as { actions?: Array<{ name?: string }> }).actions
       ?.map((action) => action?.name?.toUpperCase() ?? "")
       .filter((name) => name.length > 0) ?? [];
 
@@ -456,7 +456,7 @@ async function ensureBenchmarkSessionContext(
 ): Promise<void> {
   await runtime.ensureWorldExists({
     id: BENCHMARK_WORLD_ID,
-    name: "Milady Benchmark World",
+    name: "Eliza Benchmark World",
     agentId: runtime.agentId,
     messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
     metadata: {
@@ -535,13 +535,13 @@ function createSession(taskId: string, benchmark: string): BenchmarkSession {
 export async function startBenchmarkServer() {
   const port = resolvePort();
   elizaLogger.info(
-    `[bench] Initializing milady benchmark runtime on port ${port}...`,
+    `[bench] Initializing eliza benchmark runtime on port ${port}...`,
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PLUGIN LOADING — Use full CORE_PLUGINS to test with realistic context
   // ═══════════════════════════════════════════════════════════════════════════
-  // We intentionally load the full Milady plugin set to ensure benchmarks test
+  // We intentionally load the full Eliza plugin set to ensure benchmarks test
   // the agent's ability to perform tasks despite context "pollution" from all
   // the default actions, providers, evaluators, etc. If the agent can still
   // succeed with a crowded context, it demonstrates sufficient context handling.
@@ -557,7 +557,7 @@ export async function startBenchmarkServer() {
     "@elizaos/plugin-elizacloud", // Requires elizaOS cloud auth, conflicts with local LLM
   ]);
 
-  // Load all CORE_PLUGINS — these are what the production Milady runtime uses
+  // Load all CORE_PLUGINS — these are what the production Eliza runtime uses
   for (const pluginName of CORE_PLUGINS) {
     if (skipPlugins.has(pluginName)) {
       elizaLogger.debug(
@@ -591,21 +591,21 @@ export async function startBenchmarkServer() {
     );
   }
 
-  // Load Milady plugin — provides workspace context, session keys, autonomous state,
+  // Load Eliza plugin — provides workspace context, session keys, autonomous state,
   // custom actions, and lifecycle actions (restart, trigger tasks)
   try {
-    const workspaceDir = process.env.MILADY_WORKSPACE_DIR ?? process.cwd();
-    const miladyPlugin = createMiladyPlugin({
+    const workspaceDir = process.env.ELIZA_WORKSPACE_DIR ?? process.cwd();
+    const elizaPlugin = createElizaPlugin({
       workspaceDir,
       agentId: "benchmark",
     });
-    plugins.push(toPlugin(miladyPlugin, "milady-plugin"));
+    plugins.push(toPlugin(elizaPlugin, "eliza-plugin"));
     elizaLogger.info(
-      `[bench] Loaded milady plugin with workspace: ${workspaceDir}`,
+      `[bench] Loaded eliza plugin with workspace: ${workspaceDir}`,
     );
   } catch (error: unknown) {
     elizaLogger.error(
-      `[bench] Failed to load milady plugin: ${formatUnknownError(error)}`,
+      `[bench] Failed to load eliza plugin: ${formatUnknownError(error)}`,
     );
   }
 
@@ -664,7 +664,7 @@ export async function startBenchmarkServer() {
   }
 
   // Load computer use plugin if enabled
-  if (process.env.MILADY_ENABLE_COMPUTERUSE) {
+  if (process.env.ELIZA_ENABLE_COMPUTERUSE) {
     try {
       process.env.COMPUTERUSE_ENABLED ??= "true";
       process.env.COMPUTERUSE_MODE ??= "local";
@@ -693,8 +693,8 @@ export async function startBenchmarkServer() {
 
   // Load mock plugin for testing (file is gitignored for local-only use)
   if (
-    process.env.MILADY_BENCH_MOCK === "true" ||
-    process.env.MILAIDY_BENCH_MOCK === "true"
+    process.env.ELIZA_BENCH_MOCK === "true" ||
+    process.env.ELIZA_BENCH_MOCK === "true"
   ) {
     try {
       const mockLocation = "./mock-plugin.ts";
@@ -760,9 +760,7 @@ export async function startBenchmarkServer() {
 
   await runtime.initialize();
   disableManualCompactionAction(runtime);
-  const modelHandlers = (
-    runtime as unknown as { models?: Map<string, unknown[]> }
-  ).models;
+  const modelHandlers = (runtime as { models?: Map<string, unknown[]> }).models;
   const modelHandlerSummary = Object.fromEntries(
     [...(modelHandlers?.entries() ?? [])].map(([modelType, handlers]) => [
       modelType,
@@ -821,7 +819,7 @@ export async function startBenchmarkServer() {
     },
   };
 
-  const runtimeWithServiceOverride = runtime as unknown as {
+  const runtimeWithServiceOverride = runtime as {
     getService: (serviceType: string) => unknown;
   };
   const originalGetService =
@@ -887,7 +885,7 @@ export async function startBenchmarkServer() {
       res.end(
         JSON.stringify({
           status: "ready",
-          agent_name: runtime.character.name ?? "Milady",
+          agent_name: runtime.character.name ?? "Eliza",
           plugins: plugins.length,
           active_session: activeSession
             ? {
@@ -1243,9 +1241,9 @@ export async function startBenchmarkServer() {
 
   server.listen(port, () => {
     elizaLogger.info(
-      `[bench] Milady benchmark server listening on port ${port}`,
+      `[bench] Eliza benchmark server listening on port ${port}`,
     );
-    console.log(`MILADY_BENCH_READY port=${port}`);
+    console.log(`ELIZA_BENCH_READY port=${port}`);
   });
 }
 

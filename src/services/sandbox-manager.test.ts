@@ -450,11 +450,11 @@ describe("SandboxManager", () => {
         | undefined;
       expect(browserCall).toBeDefined();
       expect(browserCall?.env).toMatchObject({
-        MILADY_BROWSER_CDP_PORT: "9333",
-        MILADY_BROWSER_VNC_PORT: "5901",
-        MILADY_BROWSER_NOVNC_PORT: "6090",
-        MILADY_BROWSER_ENABLE_NOVNC: "1",
-        MILADY_BROWSER_HEADLESS: "0",
+        ELIZA_BROWSER_CDP_PORT: "9333",
+        ELIZA_BROWSER_VNC_PORT: "5901",
+        ELIZA_BROWSER_NOVNC_PORT: "6090",
+        ELIZA_BROWSER_ENABLE_NOVNC: "1",
+        ELIZA_BROWSER_HEADLESS: "0",
       });
       expect(browserCall?.ports).toEqual(
         expect.arrayContaining([

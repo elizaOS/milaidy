@@ -7,5 +7,3 @@ const loadWeb = () => import("./web").then((m) => new m.CameraWeb());
 export const Camera = registerPlugin<CameraPlugin>("MiladyCamera", {
   web: loadWeb,
 });
-
-export * from "./definitions";

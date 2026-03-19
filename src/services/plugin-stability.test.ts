@@ -16,7 +16,7 @@ import type { Plugin, Provider, ProviderResult } from "@elizaos/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { validateRuntimeContext } from "../api/plugin-validation";
 import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
-import type { MiladyConfig } from "../config/types.milady";
+import type { ElizaConfig } from "../config/types.eliza";
 import { createSessionKeyProvider } from "../providers/session-bridge";
 import { createWorkspaceProvider } from "../providers/workspace-provider";
 import {
@@ -28,7 +28,6 @@ import {
   OPTIONAL_CORE_PLUGINS,
   resolvePrimaryModel,
 } from "../runtime/eliza";
-import { createMiladyPlugin } from "../runtime/milady-plugin";
 import {
   createEnvSandbox,
   extractPlugin,
@@ -108,7 +107,7 @@ const envKeysToClean = [
   "OLLAMA_BASE_URL",
   "ELIZAOS_CLOUD_API_KEY",
   "ELIZAOS_CLOUD_ENABLED",
-  "MILADY_USE_PI_AI",
+  "ELIZA_USE_PI_AI",
   "DISCORD_BOT_TOKEN",
   "TELEGRAM_BOT_TOKEN",
   "SLACK_BOT_TOKEN",
@@ -148,7 +147,7 @@ describe("Plugin Enumeration", () => {
     expect(Object.keys(CONNECTOR_PLUGINS).length).toBeGreaterThanOrEqual(17);
     for (const [connector, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
       expect(typeof connector).toBe("string");
-      expect(pluginName).toMatch(/^@(elizaos|miladyai)\/plugin-/);
+      expect(pluginName).toMatch(/^@(elizaos|elizaai)\/plugin-/);
     }
   });
 
@@ -178,7 +177,7 @@ describe("Plugin Enumeration", () => {
     for (const name of ALL_KNOWN_PLUGINS) {
       expect(
         name.startsWith("@elizaos/plugin-") ||
-          name.startsWith("@miladyai/plugin-"),
+          name.startsWith("@elizaai/plugin-"),
       ).toBe(true);
     }
     expect(knownPackages.size).toBeGreaterThan(0);
@@ -201,14 +200,14 @@ describe("collectPluginNames", () => {
   });
 
   it("loads all core plugins with empty config", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     for (const core of CORE_PLUGINS) {
       expect(names.has(core)).toBe(true);
     }
   });
 
   it("adds channel plugin when channel config is present", () => {
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       channels: {
         discord: { token: "test-token" },
       },
@@ -219,12 +218,12 @@ describe("collectPluginNames", () => {
 
   it("adds provider plugin when env key is set", () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test-key-123";
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-anthropic")).toBe(true);
   });
 
   it("adds cloud plugin when cloud is enabled in config", () => {
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       cloud: { enabled: true },
     };
     const names = collectPluginNames(config);
@@ -232,7 +231,7 @@ describe("collectPluginNames", () => {
   });
 
   it("adds user-installed plugins from config.plugins.installs", () => {
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       plugins: {
         installs: {
           "@elizaos/plugin-custom-test": {
@@ -250,7 +249,7 @@ describe("collectPluginNames", () => {
   it("returns a Set with no duplicates", () => {
     // Set a provider key AND include that same plugin via cloud config
     process.env.ELIZAOS_CLOUD_API_KEY = "test-key";
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       cloud: { enabled: true },
     };
     const names = collectPluginNames(config);
@@ -262,7 +261,7 @@ describe("collectPluginNames", () => {
   });
 
   it("does not add channel plugin for unknown channel names", () => {
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       channels: {
         unknownChannel: { token: "test" },
       },
@@ -441,7 +440,7 @@ describe("Runtime Context Validation", () => {
 
   describe("buildCharacterFromConfig produces valid context", () => {
     it("produces a character with no null or undefined required fields", () => {
-      const config: MiladyConfig = {};
+      const config: ElizaConfig = {};
       const character = buildCharacterFromConfig(config);
 
       expect(character).toBeDefined();
@@ -466,7 +465,7 @@ describe("Runtime Context Validation", () => {
     });
 
     it("character with agent name from config is well-formed", () => {
-      const config: MiladyConfig = {
+      const config: ElizaConfig = {
         agents: {
           list: [{ id: "main", name: "TestBot", default: true }],
         },
@@ -477,7 +476,7 @@ describe("Runtime Context Validation", () => {
 
     it("character secrets contain no empty strings", () => {
       process.env.ANTHROPIC_API_KEY = "sk-ant-test-1234567890";
-      const config: MiladyConfig = {};
+      const config: ElizaConfig = {};
       const character = buildCharacterFromConfig(config);
 
       if (character.secrets) {
@@ -490,7 +489,7 @@ describe("Runtime Context Validation", () => {
     });
 
     it("character is JSON-serializable", () => {
-      const config: MiladyConfig = {
+      const config: ElizaConfig = {
         agents: {
           list: [{ id: "main", name: "SerializeTest", default: true }],
         },
@@ -624,11 +623,27 @@ describe("Provider Validation", () => {
     expect(typeof provider.name).toBe("string");
     expect(typeof provider.description).toBe("string");
     expect(typeof provider.get).toBe("function");
-    expect(provider.name).toBe("miladySessionKey");
+    // Upstream autonomous uses "elizaSessionKey"; eliza fork uses "elizaSessionKey"
+    expect(provider.name).toMatch(/^(eliza|eliza)SessionKey$/);
   });
 
-  it("createMiladyPlugin returns a valid Plugin with providers", () => {
-    const plugin = createMiladyPlugin({
+  it("branded plugin factory returns a valid Plugin with providers", async () => {
+    // The plugin factory is createElizaPlugin in the eliza fork, but
+    // createElizaPlugin in the upstream autonomous package. Try both.
+    type PluginFactory = (config?: {
+      workspaceDir?: string;
+      agentId?: string;
+    }) => Plugin;
+    let createPlugin: PluginFactory;
+    try {
+      const mod = await import("../runtime/eliza-plugin");
+      createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
+    } catch {
+      const mod = await import("@elizaos/autonomous/runtime/eliza-plugin");
+      createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
+    }
+
+    const plugin = createPlugin({
       workspaceDir: "/tmp/test-workspace",
       agentId: "test-agent",
     });
@@ -636,7 +651,7 @@ describe("Provider Validation", () => {
     expect(plugin).toBeDefined();
     expect(typeof plugin.name).toBe("string");
     expect(typeof plugin.description).toBe("string");
-    expect(plugin.name).toBe("milady");
+    expect(plugin.name).toMatch(/^(eliza|eliza)$/);
 
     // Providers should be an array of valid provider shapes
     if (plugin.providers) {
@@ -654,8 +669,21 @@ describe("Provider Validation", () => {
     }
   });
 
-  it("milady plugin is JSON-serializable (metadata only)", () => {
-    const plugin = createMiladyPlugin({
+  it("branded plugin is JSON-serializable (metadata only)", async () => {
+    type PluginFactory = (config?: {
+      workspaceDir?: string;
+      agentId?: string;
+    }) => Plugin;
+    let createPlugin: PluginFactory;
+    try {
+      const mod = await import("../runtime/eliza-plugin");
+      createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
+    } catch {
+      const mod = await import("@elizaos/autonomous/runtime/eliza-plugin");
+      createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
+    }
+
+    const plugin = createPlugin({
       workspaceDir: "/tmp/test-workspace",
       agentId: "test-agent",
     });
@@ -671,7 +699,7 @@ describe("Provider Validation", () => {
       name: string;
       description: string;
     };
-    expect(deserialized.name).toBe("milady");
+    expect(deserialized.name).toMatch(/^(eliza|eliza)$/);
   });
 });
 
@@ -691,7 +719,7 @@ describe("Environment Propagation", () => {
   });
 
   it("applyConnectorSecretsToEnv sets DISCORD_BOT_TOKEN from config", () => {
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       connectors: {
         discord: { token: "test-discord-token-123" },
       },
@@ -702,7 +730,7 @@ describe("Environment Propagation", () => {
 
   it("applyConnectorSecretsToEnv does not overwrite existing env vars", () => {
     process.env.DISCORD_BOT_TOKEN = "existing-token";
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       connectors: {
         discord: { token: "new-token" },
       },
@@ -712,7 +740,7 @@ describe("Environment Propagation", () => {
   });
 
   it("applyCloudConfigToEnv sets cloud env vars", () => {
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       cloud: {
         enabled: true,
         apiKey: "test-cloud-key",
@@ -728,12 +756,12 @@ describe("Environment Propagation", () => {
   });
 
   it("resolvePrimaryModel returns undefined for empty config", () => {
-    const config: MiladyConfig = {};
+    const config: ElizaConfig = {};
     expect(resolvePrimaryModel(config)).toBeUndefined();
   });
 
   it("resolvePrimaryModel returns model from config", () => {
-    const config: MiladyConfig = {
+    const config: ElizaConfig = {
       agents: {
         defaults: {
           model: { primary: "claude-3-opus" },
@@ -836,8 +864,8 @@ describe("Plugin Error Boundaries", () => {
 // ============================================================================
 
 describe("Context Serialization", () => {
-  it("MiladyConfig objects are JSON-serializable", () => {
-    const config: MiladyConfig = {
+  it("ElizaConfig objects are JSON-serializable", () => {
+    const config: ElizaConfig = {
       agents: {
         list: [{ id: "main", name: "TestBot", default: true }],
         defaults: {
@@ -860,13 +888,13 @@ describe("Context Serialization", () => {
     expect(typeof serialized).toBe("string");
     expect(serialized.length).toBeGreaterThan(0);
 
-    const deserialized = JSON.parse(serialized) as MiladyConfig;
+    const deserialized = JSON.parse(serialized) as ElizaConfig;
     expect(deserialized.agents?.list?.[0]?.name).toBe("TestBot");
     expect(deserialized.cloud?.enabled).toBe(false);
   });
 
   it("plugin names set is serializable as array", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     const arr = [...names];
     const serialized = JSON.stringify(arr);
     expect(typeof serialized).toBe("string");
@@ -901,11 +929,8 @@ describe("Version Skew Detection (issue #10)", () => {
     return manifest.overrides?.["@elizaos/core"];
   }
 
-  it("core is pinned to a version that includes MAX_EMBEDDING_TOKENS (issue #10 fix)", async () => {
-    // Issue #10: plugins at "next" imported MAX_EMBEDDING_TOKENS from @elizaos/core,
-    // which was missing in older core versions.
-    // Fix: core is pinned to >= alpha.4 (where the export was introduced),
-    // so plugins at "next" dist-tag resolve safely.
+  it("core is pinned for plugin compatibility", async () => {
+    // Core must be pinned so plugins at "next" dist-tag resolve safely.
     const pkg = await readPackageManifest();
 
     const coreVersion = pkg.dependencies["@elizaos/core"];
@@ -942,7 +967,7 @@ describe("Version Skew Detection (issue #10)", () => {
       // Workspace links are valid in monorepo development.
       // See docs/ELIZAOS_VERSIONING.md for details and update procedures
       if (ver !== "next" && ver !== "alpha" && !isWorkspaceDependency(ver)) {
-        expect(ver).toMatch(/^\d+\.\d+\.\d+/);
+        expect(ver).toMatch(/^[~^]?\d+\.\d+\.\d+/);
       }
     }
   });

@@ -8,15 +8,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import {
   AUTH_PROVIDER_PLUGINS,
   applyPluginAutoEnable,
 } from "../config/plugin-auto-enable";
 
 // Mock all static plugin star-imports in eliza.ts to isolate boundary tests
-// from heavy transitive dependencies (e.g. plugin-ollama → @elizaos/core ESM
-// named-export issue with MAX_EMBEDDING_TOKENS).
+// from heavy transitive dependencies.
 vi.mock("@elizaos/plugin-agent-orchestrator", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-agent-skills", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-anthropic", () => ({ default: {} }));
@@ -46,7 +45,6 @@ vi.mock("@elizaos/plugin-secrets-manager", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-shell", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-sql", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-telegram", () => ({ default: {} }));
-vi.mock("@elizaos/plugin-todo", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-trajectory-logger", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-trust", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-twitch", () => ({ default: {} }));
@@ -75,7 +73,7 @@ function envSnapshot(keys: string[]): {
   };
 }
 
-const EMPTY_CONFIG: MiladyConfig = {} as MiladyConfig;
+const EMPTY_CONFIG: ElizaConfig = {} as ElizaConfig;
 
 const CUA_ENV_KEYS = [
   "CUA_API_KEY",
@@ -98,13 +96,17 @@ describe("CUA plugin mapping — feature flags and config entries", () => {
   afterEach(() => snap.restore());
 
   it("features.cua = true loads @elizaos/plugin-cua", () => {
-    const config = { features: { cua: true } } as unknown as MiladyConfig;
+    const config = {
+      features: { cua: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-cua")).toBe(true);
   });
 
   it("features.cua = false does NOT load @elizaos/plugin-cua", () => {
-    const config = { features: { cua: false } } as unknown as MiladyConfig;
+    const config = {
+      features: { cua: false },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-cua")).toBe(false);
   });
@@ -112,7 +114,7 @@ describe("CUA plugin mapping — feature flags and config entries", () => {
   it("features.cua = { enabled: true } loads @elizaos/plugin-cua", () => {
     const config = {
       features: { cua: { enabled: true } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-cua")).toBe(true);
   });
@@ -120,7 +122,7 @@ describe("CUA plugin mapping — feature flags and config entries", () => {
   it("features.cua = { enabled: false } does NOT load @elizaos/plugin-cua", () => {
     const config = {
       features: { cua: { enabled: false } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-cua")).toBe(false);
   });
@@ -133,7 +135,7 @@ describe("CUA plugin mapping — feature flags and config entries", () => {
   it("CUA and computeruse are separate plugins with separate mappings", () => {
     const config = {
       features: { cua: true, computeruse: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-cua")).toBe(true);
     expect(names.has("@elizaos/plugin-computeruse")).toBe(true);
@@ -164,7 +166,7 @@ describe("CUA auto-enable via environment variables", () => {
   });
 
   it("CUA_API_KEY triggers auto-enable via applyPluginAutoEnable", () => {
-    const config = { plugins: {} } as unknown as MiladyConfig;
+    const config = { plugins: {} } as Partial<ElizaConfig> as ElizaConfig;
     const result = applyPluginAutoEnable({
       config,
       env: { CUA_API_KEY: "test-cua-key" },
@@ -173,7 +175,7 @@ describe("CUA auto-enable via environment variables", () => {
   });
 
   it("CUA_HOST triggers auto-enable via applyPluginAutoEnable", () => {
-    const config = { plugins: {} } as unknown as MiladyConfig;
+    const config = { plugins: {} } as Partial<ElizaConfig> as ElizaConfig;
     const result = applyPluginAutoEnable({
       config,
       env: { CUA_HOST: "http://localhost:8000" },
@@ -182,7 +184,7 @@ describe("CUA auto-enable via environment variables", () => {
   });
 
   it("neither CUA env var set does NOT auto-enable plugin", () => {
-    const config = { plugins: {} } as unknown as MiladyConfig;
+    const config = { plugins: {} } as Partial<ElizaConfig> as ElizaConfig;
     const result = applyPluginAutoEnable({ config, env: {} });
     expect(result.changes.some((c) => c.includes("plugin-cua"))).toBe(false);
   });
@@ -194,7 +196,7 @@ describe("CUA auto-enable via environment variables", () => {
 
 describe("CUA in auto-enable mapping", () => {
   it("applyPluginAutoEnable adds @elizaos/plugin-cua when CUA_API_KEY is set", () => {
-    const config = { plugins: {} } as unknown as MiladyConfig;
+    const config = { plugins: {} } as Partial<ElizaConfig> as ElizaConfig;
     const result = applyPluginAutoEnable({
       config,
       env: { CUA_API_KEY: "test-key" },
@@ -203,7 +205,7 @@ describe("CUA in auto-enable mapping", () => {
   });
 
   it("applyPluginAutoEnable does NOT add CUA when no CUA env vars are set", () => {
-    const config = { plugins: {} } as unknown as MiladyConfig;
+    const config = { plugins: {} } as Partial<ElizaConfig> as ElizaConfig;
     const result = applyPluginAutoEnable({ config, env: {} });
     expect(result.changes.some((c) => c.includes("plugin-cua"))).toBe(false);
   });
@@ -241,7 +243,7 @@ describe("CUA security boundaries", () => {
     process.env.CUA_API_KEY = "test-key";
     const config = {
       features: { cua: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     const cuaEntries = [...names].filter((n) => n === "@elizaos/plugin-cua");
     expect(cuaEntries).toHaveLength(1);
@@ -265,21 +267,21 @@ describe("CUA character secrets boundary", () => {
   it("CUA_API_KEY is NOT propagated to character.secrets (service-level only)", async () => {
     process.env.CUA_API_KEY = "cua-secret-key";
     const { buildCharacterFromConfig } = await import("./eliza");
-    const character = buildCharacterFromConfig({} as MiladyConfig);
+    const character = buildCharacterFromConfig({} as ElizaConfig);
     expect(character.secrets).not.toHaveProperty("CUA_API_KEY");
   });
 
   it("CUA_HOST is NOT propagated to character.secrets (service-level only)", async () => {
     process.env.CUA_HOST = "http://localhost:8000";
     const { buildCharacterFromConfig } = await import("./eliza");
-    const character = buildCharacterFromConfig({} as MiladyConfig);
+    const character = buildCharacterFromConfig({} as ElizaConfig);
     expect(character.secrets).not.toHaveProperty("CUA_HOST");
   });
 
   it("CUA_PRIVATE_KEY is NOT propagated to character.secrets", async () => {
     process.env.CUA_PRIVATE_KEY = "should-never-leak";
     const { buildCharacterFromConfig } = await import("./eliza");
-    const character = buildCharacterFromConfig({} as MiladyConfig);
+    const character = buildCharacterFromConfig({} as ElizaConfig);
     expect(character.secrets).not.toHaveProperty("CUA_PRIVATE_KEY");
   });
 });

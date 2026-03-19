@@ -1,22 +1,45 @@
-const TOKEN_KEY = "milady-cloud-token";
+import {
+  CLOUD_BASE,
+  getCloudTokenStorageKey,
+  isHostedRuntime,
+  LEGACY_CLOUD_TOKEN_STORAGE_KEY,
+} from "./runtime-config";
+
+export const CLOUD_AUTH_CHANGED_EVENT = "milady-cloud-auth-changed";
+
+function emitAuthChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(CLOUD_AUTH_CHANGED_EVENT));
+}
+
+function getActiveTokenStorageKey(): string {
+  return getCloudTokenStorageKey();
+}
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  const scopedToken = localStorage.getItem(getActiveTokenStorageKey());
+  if (scopedToken != null) return scopedToken;
+  if (!isHostedRuntime()) {
+    return localStorage.getItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY);
+  }
+  return null;
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(getActiveTokenStorageKey(), token);
+  localStorage.removeItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY);
+  emitAuthChanged();
 }
 
 export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(getActiveTokenStorageKey());
+  localStorage.removeItem(LEGACY_CLOUD_TOKEN_STORAGE_KEY);
+  emitAuthChanged();
 }
 
 export function isAuthenticated(): boolean {
   return getToken() !== null;
 }
-
-const CLOUD_BASE = "https://www.elizacloud.ai";
 
 export async function cloudLogin(): Promise<{
   sessionId: string;
@@ -53,6 +76,8 @@ export async function cloudLoginPoll(
 export interface CloudAgent {
   id: string;
   name: string;
+  /** Backend returns agentName; normalized to name by fetchCloudAgents(). */
+  agentName?: string;
   status: string;
   model?: string;
   createdAt?: string;
@@ -68,7 +93,11 @@ export async function fetchCloudAgents(): Promise<CloudAgent[]> {
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : (data.agents ?? data.data ?? []);
+    const raw: CloudAgent[] = Array.isArray(data)
+      ? data
+      : (data.agents ?? data.data ?? []);
+    // Backend returns agentName; normalize to name
+    return raw.map((a) => ({ ...a, name: a.name || a.agentName || a.id }));
   } catch {
     return [];
   }

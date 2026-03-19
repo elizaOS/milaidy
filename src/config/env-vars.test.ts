@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { collectConfigEnvVars } from "./env-vars";
-import type { MiladyConfig } from "./types";
+import type { ElizaConfig } from "./types";
 
 /** Helper to build a partial config with only the env property. */
-function cfg(env: MiladyConfig["env"]): MiladyConfig {
-  return { env } as MiladyConfig;
+function cfg(env: ElizaConfig["env"]): ElizaConfig {
+  return { env } as ElizaConfig;
 }
 
 describe("collectConfigEnvVars", () => {
@@ -173,7 +173,7 @@ describe("collectConfigEnvVars", () => {
   it("blocks auth tokens from being loaded", () => {
     const result = collectConfigEnvVars(
       cfg({
-        MILADY_API_TOKEN: "stolen",
+        ELIZA_API_TOKEN: "stolen",
         EVM_PRIVATE_KEY: "0xdead",
         SAFE: "kept",
       }),

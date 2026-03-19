@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/api/training-backend-check";
+export * from "@elizaos/autonomous/api/training-backend-check";

@@ -86,7 +86,9 @@ function isManagedSurface(value: string): value is ManagedSurface {
 }
 
 function ordinalTitle(surface: ManagedSurface, ordinal: number): string {
-  const base = `Milady ${SURFACE_LABELS[surface]}`;
+  // Cloud windows reference "Eliza Cloud" (the service), not "Milady Cloud".
+  const base =
+    surface === "cloud" ? "Eliza Cloud" : `Milady ${SURFACE_LABELS[surface]}`;
   return ordinal <= 1 ? base : `${base} ${ordinal}`;
 }
 

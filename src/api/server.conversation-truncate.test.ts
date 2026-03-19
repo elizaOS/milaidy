@@ -83,14 +83,14 @@ describe("conversation message truncation route", () => {
   ]);
   const runtime = {
     agentId: "00000000-0000-0000-0000-000000000999" as UUID,
-    character: { name: "Milady" },
+    character: { name: "Eliza" },
     ensureConnection: vi.fn(async () => undefined),
     getService: vi.fn(() => null),
     getRoom: vi.fn(async () => null),
     getMemories,
     deleteMemory,
     adapter: {},
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 
   beforeAll(async () => {
     const server = await startApiServer({ port: 0 });

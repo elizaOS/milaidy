@@ -1,9 +1,17 @@
 import http from "node:http";
 import type { AgentRuntime, Memory, MessagePayload } from "@elizaos/core";
 import { createUniqueUuid } from "@elizaos/core";
-import trajectoryLoggerPlugin from "@elizaos/plugin-trajectory-logger";
 import { describe, expect, it } from "vitest";
 import { startApiServer } from "../src/api/server";
+
+let trajectoryLoggerPlugin: { name: string; actions?: unknown[] } | null = null;
+try {
+  trajectoryLoggerPlugin = (
+    await import("@elizaos/plugin-trajectory-logger")
+  ).default;
+} catch {
+  // plugin not installed — tests will be skipped
+}
 
 type TrajectoryStatus = "active" | "completed" | "error" | "timeout";
 
@@ -651,7 +659,9 @@ function req(
   });
 }
 
-describe("trajectory collection bridge e2e", () => {
+describe.skipIf(!trajectoryLoggerPlugin)(
+  "trajectory collection bridge e2e",
+  () => {
   it("collects trajectories and exposes them in both trajectories and fine-tuning APIs", async () => {
     const store = new InMemoryTrajectoryStore();
     const trajectoryLogger = new FakeTrajectoryLoggerService(store);
@@ -709,7 +719,7 @@ describe("trajectory collection bridge e2e", () => {
       metadata: {
         type: "message",
       },
-    } as unknown as Memory;
+    } as Partial<Memory> as Memory;
 
     await onMessageReceived?.({
       runtime,
@@ -747,7 +757,7 @@ describe("trajectory collection bridge e2e", () => {
       metadata: {
         type: "message",
       },
-    } as unknown as Memory;
+    } as Partial<Memory> as Memory;
 
     await onMessageSent?.({
       runtime,
@@ -797,4 +807,5 @@ describe("trajectory collection bridge e2e", () => {
       await server.close();
     }
   });
-});
+  },
+);

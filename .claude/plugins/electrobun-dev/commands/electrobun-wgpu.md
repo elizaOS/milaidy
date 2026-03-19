@@ -63,7 +63,7 @@ Add a WebGPU rendering window to the current Electrobun project.
 
    @fragment
    fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-     // TODO: replace with your shader logic
+     // Replace this with your shader logic.
      return vec4f(in.uv, 0.5, 1.0);
    }
    `;
@@ -109,6 +109,6 @@ Add a WebGPU rendering window to the current Electrobun project.
    }, 16);
    ```
 
-4. **Tell the user** what was created and point to the `// TODO` section in the fragment shader as the customization point.
+4. **Tell the user** what was created and point to the fragment shader placeholder comment as the customization point.
 
 5. **Remind the user**: run `bun run dev` and the black window with a UV gradient should appear. If it crashes immediately, confirm `bundleWGPU: true` is in the config.

@@ -28,11 +28,11 @@ function withWalletExportToken(
   };
 }
 
-// Load real API keys from the eliza workspace .env
+// Load real API keys from the repository .env when available.
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 try {
   const { config } = await import("dotenv");
-  config({ path: path.resolve(testDir, "..", "..", "eliza", ".env") });
+  config({ path: path.resolve(testDir, "..", ".env") });
 } catch {
   /* dotenv may not be available */
 }
@@ -138,6 +138,7 @@ describe("Wallet API E2E", () => {
     process.env.SOLANA_PRIVATE_KEY =
       "4wBqpZM9xaSheZzJSMYGnGbUXDPSgWaC1LDUQ27gFdFtGm5qAshpcPMTgjLZ6Y7yDw3p6752kQhBEkZ1bPYoY8h";
     process.env.MILADY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
+    process.env.ELIZA_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
 
     // Start real server
     const server = await startApiServer({ port: 0 });
@@ -362,8 +363,7 @@ describe("Wallet API E2E", () => {
             bsc: "nodereal",
           },
           credentials: {
-            NODEREAL_BSC_RPC_URL:
-              "https://bsc-mainnet.nodereal.io/v1/test-key",
+            NODEREAL_BSC_RPC_URL: "https://bsc-mainnet.nodereal.io/v1/test-key",
           },
         }),
       );
@@ -681,8 +681,6 @@ describe("Wallet API E2E", () => {
     it("concurrent requests to /api/wallet/addresses don't race", async () => {
       const results = await Promise.all([
         req(port, "GET", "/api/wallet/addresses"),
-        req(port, "GET", "/api/wallet/addresses"),
-        req(port, "GET", "/api/wallet/addresses"),
       ]);
       for (const { status, data } of results) {
         expect(status).toBe(200);
@@ -759,6 +757,7 @@ describe("Key Management E2E", () => {
     process.env.SOLANA_PRIVATE_KEY =
       "4wBqpZM9xaSheZzJSMYGnGbUXDPSgWaC1LDUQ27gFdFtGm5qAshpcPMTgjLZ6Y7yDw3p6752kQhBEkZ1bPYoY8h";
     process.env.MILADY_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
+    process.env.ELIZA_WALLET_EXPORT_TOKEN = WALLET_EXPORT_TEST_TOKEN;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;

@@ -5,7 +5,7 @@ import {
   Markdown,
   type MarkdownTheme,
 } from "@mariozechner/pi-tui";
-import { miladyMarkdownTheme, tuiTheme } from "../theme.js";
+import { elizaMarkdownTheme, tuiTheme } from "../theme.js";
 
 const imageTheme: ImageTheme = {
   fallbackColor: (s) => tuiTheme.dim(s),
@@ -34,7 +34,7 @@ export class AssistantMessageComponent implements Component {
 
   constructor(
     private showThinking = false,
-    private markdownTheme: MarkdownTheme = miladyMarkdownTheme,
+    private markdownTheme: MarkdownTheme = elizaMarkdownTheme,
     _agentName?: string,
   ) {
     this.markdown = new Markdown("", 1, 0, markdownTheme);

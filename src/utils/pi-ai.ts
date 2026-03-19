@@ -23,13 +23,10 @@ export function formatModelSpec(parts: ModelSpecParts): string {
 
 /**
  * pi-ai's getModel() is typed with provider literals.
- * Milady frequently takes provider/model ids from config / user input,
+ * Eliza frequently takes provider/model ids from config / user input,
  * so we expose a safely-typed wrapper for dynamic strings.
  */
 export function getPiModel(provider: string, modelId: string): Model<Api> {
-  const getModelUnsafe = getModel as unknown as (
-    p: string,
-    m: string,
-  ) => Model<Api>;
+  const getModelUnsafe = getModel as (p: string, m: string) => Model<Api>;
   return getModelUnsafe(provider, modelId);
 }

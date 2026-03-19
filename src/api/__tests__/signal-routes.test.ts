@@ -91,10 +91,7 @@ describe("handleSignalRoute", () => {
   it("enforces the pairing session limit", async () => {
     const sessions = new Map<string, SignalPairingSession>();
     for (let i = 0; i < MAX_PAIRING_SESSIONS; i += 1) {
-      sessions.set(
-        `account-${i}`,
-        mockSession as unknown as SignalPairingSession,
-      );
+      sessions.set(`account-${i}`, mockSession as SignalPairingSession);
     }
 
     const res = createMockRes();

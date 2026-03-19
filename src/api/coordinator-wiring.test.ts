@@ -68,7 +68,6 @@ describe("wireCoordinatorBridgesWhenReady", () => {
     const getService = vi
       .fn<(name: string) => unknown>()
       .mockReturnValueOnce(null)
-      .mockReturnValueOnce(null)
       .mockReturnValue({ serviceType: "SWARM_COORDINATOR" });
     const state = makeMockState({ getService });
 

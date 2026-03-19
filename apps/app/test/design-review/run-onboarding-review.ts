@@ -224,7 +224,13 @@ async function startAppServer(apiBaseUrl: string): Promise<{
   const port = await getFreePort();
   const server = await createViteServer({
     configFile: path.join(appRoot, "vite.config.ts"),
-    server: { host: "127.0.0.1", port, strictPort: true },
+    server: {
+      host: "127.0.0.1",
+      port,
+      strictPort: true,
+      hmr: false,
+      watch: null,
+    },
   });
   await server.listen();
   return { server, baseUrl: `http://127.0.0.1:${port}` };
@@ -290,6 +296,27 @@ async function createPage(
     return route.continue();
   });
 
+  // Always report onboarding as not complete so each viewport run starts fresh.
+  await page.route("**/api/onboarding/status", (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ complete: false }),
+    });
+  });
+
+  // Swallow the onboarding submit POST so the mock doesn't flip its state.
+  await page.route("**/api/onboarding", (route) => {
+    if (route.request().method() === "POST") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    }
+    return route.continue();
+  });
+
   return { context, page, consoleLines };
 }
 
@@ -305,22 +332,22 @@ async function waitForPageLoaded(page: Page): Promise<void> {
 }
 
 async function waitForTransientUi(page: Page): Promise<void> {
-  const deadline = Date.now() + 15_000;
+  const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    // Check for the AvatarLoader's loading dots class
-    const loadingDotsVisible = await page
-      .locator(".loading-screen__dots")
+    // The AvatarLoader renders "LOADING" text in a fixed overlay.
+    // Check for both the LOADING text and loading-screen class.
+    const loadingTextVisible = await page
+      .locator("text=LOADING")
       .first()
       .isVisible()
       .catch(() => false);
-    // Also check for the legacy .loading-screen class
     const loadingScreenVisible = await page
       .locator(".loading-screen")
       .first()
       .isVisible()
       .catch(() => false);
-    if (!loadingDotsVisible && !loadingScreenVisible) return;
-    await page.waitForTimeout(200);
+    if (!loadingTextVisible && !loadingScreenVisible) return;
+    await page.waitForTimeout(300);
   }
 }
 
@@ -472,11 +499,14 @@ async function captureOnboardingFlow(
     await waitForPageLoaded(page);
     await waitForSettled(page);
 
-    // Wait for loading screen to disappear and welcome screen to appear
+    // Wait for loading screen to disappear and welcome screen to appear.
+    // The AvatarLoader renders as a fixed overlay while onboardingLoading=true.
+    // Wait for the "Create New Agent" button to be visible and clickable,
+    // which means the loading overlay has been removed.
     await waitForSettled(page);
     try {
       await page
-        .getByText("Welcome to Milady")
+        .getByText("Create New Agent")
         .waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
     } catch {
       // If Welcome text not found, take diagnostic screenshot
@@ -499,9 +529,20 @@ async function captureOnboardingFlow(
         consoleLines.join("\n"),
         "utf8",
       );
-      throw new Error(
-        `Welcome screen did not appear for ${viewport.id}. See diagnostics.`,
+      failures.push({
+        stepId: "initial-load",
+        viewportId: viewport.id,
+        message: `Welcome screen did not appear for ${viewport.id}. See diagnostics.`,
+        screenshotPath: path.relative(outputRoot, diagPath),
+        consolePath: path.relative(
+          outputRoot,
+          path.join(diagnosticsRoot, `initial-load--${viewport.id}.log`),
+        ),
+      });
+      console.error(
+        `  ✗ initial-load · ${viewport.id}: Welcome screen did not appear`,
       );
+      return { captures, failures };
     }
     await page.waitForTimeout(800);
 

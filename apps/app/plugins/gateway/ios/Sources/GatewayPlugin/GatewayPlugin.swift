@@ -514,8 +514,8 @@ public class GatewayPlugin: CAPPlugin, CAPBridgedPlugin {
                 if let payload = json["payload"] {
                     result["payload"] = payload as? JSValue
                 }
-                if let error: [String: Any] = json["error"] as? [String: Any] {
-                    result["error"] = error as JSValue
+                if let error = json["error"] as? JSObject {
+                    result["error"] = error
                 }
                 pending.resolve(result)
             }

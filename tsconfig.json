@@ -16,14 +16,13 @@
     "useDefineForClassFields": false,
     "baseUrl": ".",
     "paths": {
-      "@elizaos/app-hyperscape/routes": [
-        "../plugins/app-hyperscape/src/routes.ts"
-      ]
+      "@elizaos/autonomous/*": ["./node_modules/@elizaos/autonomous/packages/autonomous/src/*"]
     }
   },
   "include": ["src/**/*"],
   "exclude": [
     "node_modules",
+    "node_modules/.bun",
     "dist",
     "packages",
     "plugins",

@@ -1,4 +1,4 @@
-const DOCS_ROOT = "https://docs.milady.ai";
+const DOCS_ROOT = "https://docs.eliza.ai";
 
 export function formatTerminalLink(
   label: string,

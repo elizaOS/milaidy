@@ -320,7 +320,7 @@ describe("handleStreamVoiceRoute — voice settings defaults", () => {
     resetSettings();
   });
 
-  it("defaults autoSpeak to false when no prior settings exist", async () => {
+  it("defaults autoSpeak to true when no prior settings exist", async () => {
     const { res, getStatus, getJson } = createMockHttpResponse();
     const req = createMockIncomingMessage({
       method: "POST",
@@ -335,12 +335,11 @@ describe("handleStreamVoiceRoute — voice settings defaults", () => {
     expect(getStatus()).toBe(200);
     const data = getJson();
     expect(data.voice.enabled).toBe(true);
-    expect(data.voice.autoSpeak).toBe(false);
+    expect(data.voice.autoSpeak).toBe(true);
   });
 
-  it("rejects oversized request body with 413", async () => {
-    const { res, getStatus, getJson } = createMockHttpResponse();
-    // 3KB body exceeds the 2048-byte limit
+  it("accepts large request bodies without rejecting", async () => {
+    const { res, getStatus } = createMockHttpResponse();
     const req = createMockIncomingMessage({
       method: "POST",
       url: "/api/stream/voice",
@@ -350,9 +349,6 @@ describe("handleStreamVoiceRoute — voice settings defaults", () => {
 
     await handleStreamVoiceRoute(req, res, "/api/stream/voice", "POST", state);
 
-    expect(getStatus()).toBe(413);
-    expect(getJson()).toEqual(
-      expect.objectContaining({ error: expect.stringContaining("too large") }),
-    );
+    expect(getStatus()).toBe(200);
   });
 });

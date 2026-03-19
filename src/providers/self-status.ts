@@ -15,7 +15,6 @@ export function createSelfStatusProvider(
     description:
       "Agent self-awareness status summary (wallet, permissions, plugins, etc.)",
     dynamic: true,
-    alwaysRun: true,
     position: 12,
     async get(
       runtime: IAgentRuntime,

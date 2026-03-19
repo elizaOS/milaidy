@@ -10,9 +10,9 @@ import type { BenchmarkContext, CapturedAction } from "./plugin";
 
 export const DEFAULT_PORT = 3939;
 export const DEFAULT_HOST = "127.0.0.1";
-export const BENCHMARK_WORLD_ID = stringToUuid("milady-benchmark-world");
+export const BENCHMARK_WORLD_ID = stringToUuid("eliza-benchmark-world");
 export const BENCHMARK_MESSAGE_SERVER_ID = stringToUuid(
-  "milady-benchmark-message-server",
+  "eliza-benchmark-message-server",
 );
 
 export interface BenchmarkSession {
@@ -185,12 +185,12 @@ export function toPlugin(candidate: unknown, source: string): Plugin {
 }
 
 export function resolvePort(): number {
-  const raw = process.env.MILADY_BENCH_PORT;
+  const raw = process.env.ELIZA_BENCH_PORT;
   if (!raw) return DEFAULT_PORT;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 1 || parsed > 65535) {
     elizaLogger.warn(
-      `[bench] Invalid MILADY_BENCH_PORT="${raw}"; using ${DEFAULT_PORT}`,
+      `[bench] Invalid ELIZA_BENCH_PORT="${raw}"; using ${DEFAULT_PORT}`,
     );
     return DEFAULT_PORT;
   }
@@ -198,12 +198,12 @@ export function resolvePort(): number {
 }
 
 export function resolveHost(): string {
-  const raw = process.env.MILADY_BENCH_HOST?.trim();
+  const raw = process.env.ELIZA_BENCH_HOST?.trim();
   if (!raw) return DEFAULT_HOST;
 
   if (raw !== "127.0.0.1" && raw !== "::1" && raw !== "localhost") {
     elizaLogger.warn(
-      `[bench] Ignoring non-loopback MILADY_BENCH_HOST="${raw}"; using ${DEFAULT_HOST}`,
+      `[bench] Ignoring non-loopback ELIZA_BENCH_HOST="${raw}"; using ${DEFAULT_HOST}`,
     );
     return DEFAULT_HOST;
   }
@@ -375,7 +375,7 @@ export async function ensureBenchmarkSessionContext(
 ): Promise<void> {
   await runtime.ensureWorldExists({
     id: BENCHMARK_WORLD_ID,
-    name: "Milady Benchmark World",
+    name: "Eliza Benchmark World",
     agentId: runtime.agentId,
     messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
     metadata: {

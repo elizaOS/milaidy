@@ -87,7 +87,7 @@ describe("SurfaceWindowManager", () => {
       "Milady Plugins",
     ]);
     expect(manager.listWindows("cloud").map((entry) => entry.title)).toEqual([
-      "Milady Cloud",
+      "Eliza Cloud",
     ]);
   });
 

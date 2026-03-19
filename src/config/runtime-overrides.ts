@@ -4,7 +4,7 @@ import {
   unsetConfigValueAtPath,
 } from "./config-paths";
 import { isPlainObject } from "./object-utils";
-import type { MiladyConfig } from "./types";
+import type { ElizaConfig } from "./types";
 
 type OverrideTree = Record<string, unknown>;
 
@@ -64,9 +64,9 @@ export function unsetConfigOverride(pathRaw: string): {
   return { ok: true, removed };
 }
 
-export function applyConfigOverrides(cfg: MiladyConfig): MiladyConfig {
+export function applyConfigOverrides(cfg: ElizaConfig): ElizaConfig {
   if (!overrides || Object.keys(overrides).length === 0) {
     return cfg;
   }
-  return mergeOverrides(cfg, overrides) as MiladyConfig;
+  return mergeOverrides(cfg, overrides) as ElizaConfig;
 }

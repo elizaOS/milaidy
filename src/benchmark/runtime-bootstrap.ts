@@ -1,6 +1,6 @@
 import { AgentRuntime, elizaLogger, type Plugin } from "@elizaos/core";
 import { CORE_PLUGINS } from "../runtime/core-plugins";
-import { createMiladyPlugin } from "../runtime/milady-plugin";
+import { createElizaPlugin } from "../runtime/eliza-plugin";
 import { createBenchmarkPlugin } from "./plugin";
 import {
   envFlag,
@@ -53,18 +53,18 @@ export async function createBenchmarkRuntime(): Promise<{
   }
 
   try {
-    const workspaceDir = process.env.MILADY_WORKSPACE_DIR ?? process.cwd();
-    const miladyPlugin = createMiladyPlugin({
+    const workspaceDir = process.env.ELIZA_WORKSPACE_DIR ?? process.cwd();
+    const elizaPlugin = createElizaPlugin({
       workspaceDir,
       agentId: "benchmark",
     });
-    plugins.push(toPlugin(miladyPlugin, "milady-plugin"));
+    plugins.push(toPlugin(elizaPlugin, "eliza-plugin"));
     elizaLogger.info(
-      `[bench] Loaded milady plugin with workspace: ${workspaceDir}`,
+      `[bench] Loaded eliza plugin with workspace: ${workspaceDir}`,
     );
   } catch (error: unknown) {
     elizaLogger.error(
-      `[bench] Failed to load milady plugin: ${formatUnknownError(error)}`,
+      `[bench] Failed to load eliza plugin: ${formatUnknownError(error)}`,
     );
   }
 
@@ -118,7 +118,7 @@ export async function createBenchmarkRuntime(): Promise<{
     }
   }
 
-  if (process.env.MILADY_ENABLE_COMPUTERUSE) {
+  if (process.env.ELIZA_ENABLE_COMPUTERUSE) {
     try {
       process.env.COMPUTERUSE_ENABLED ??= "true";
       process.env.COMPUTERUSE_MODE ??= "local";
@@ -145,12 +145,9 @@ export async function createBenchmarkRuntime(): Promise<{
     }
   }
 
-  const shouldLoadCua = envFlag("MILADY_ENABLE_CUA") || hasCuaConfig();
+  const shouldLoadCua = envFlag("ELIZA_ENABLE_CUA") || hasCuaConfig();
   if (shouldLoadCua) {
-    const cuaSources = [
-      "@elizaos/plugin-cua",
-      "../../../eliza/packages/plugin-cua/src/index.ts",
-    ];
+    const cuaSources = ["@elizaos/plugin-cua"];
 
     let loaded = false;
     for (const source of cuaSources) {
@@ -179,8 +176,8 @@ export async function createBenchmarkRuntime(): Promise<{
   }
 
   if (
-    process.env.MILADY_BENCH_MOCK === "true" ||
-    process.env.MILAIDY_BENCH_MOCK === "true"
+    process.env.ELIZA_BENCH_MOCK === "true" ||
+    process.env.ELIZA_BENCH_MOCK === "true"
   ) {
     try {
       const { plugin: mockPlugin, source } = await (async () => {
@@ -255,9 +252,7 @@ export async function createBenchmarkRuntime(): Promise<{
 
   await runtime.initialize();
 
-  const modelHandlers = (
-    runtime as unknown as { models?: Map<string, unknown[]> }
-  ).models;
+  const modelHandlers = (runtime as { models?: Map<string, unknown[]> }).models;
   const modelHandlerSummary = Object.fromEntries(
     [...(modelHandlers?.entries() ?? [])].map(([modelType, handlers]) => [
       modelType,

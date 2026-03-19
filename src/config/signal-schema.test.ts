@@ -7,7 +7,7 @@
  * - SignalConfigSchema: multi-account support via `accounts` map
  *
  * @see src/config/zod-schema.providers-core.ts (lines 577-648)
- * @see https://github.com/milady-ai/milady/issues/148
+ * @see https://github.com/elizaos/eliza/issues/148
  */
 
 import { describe, expect, it } from "vitest";

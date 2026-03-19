@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMiladyPlugin } from "../runtime/milady-plugin";
+import { createElizaPlugin } from "../runtime/eliza-plugin";
 import { sendMessageAction } from "./send-message";
 
 function mockRuntime(service: unknown) {
   return {
     getService: vi.fn(() => service),
-  } as unknown as Parameters<typeof sendMessageAction.handler>[0];
+  } as Parameters<typeof sendMessageAction.handler>[0];
 }
 
 describe("SEND_MESSAGE action", () => {
-  it("is registered on the Milady plugin", () => {
-    const plugin = createMiladyPlugin();
+  it("is registered on the Eliza plugin", () => {
+    const plugin = createElizaPlugin();
     const actionNames = (plugin.actions ?? []).map((action) => action.name);
     expect(actionNames).toContain("SEND_MESSAGE");
   });

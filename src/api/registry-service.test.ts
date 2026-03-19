@@ -43,7 +43,7 @@ function createFixture() {
   };
 
   const service = new RegistryService(
-    txService as unknown as TxService,
+    txService as TxService,
     "0x2222222222222222222222222222222222222222",
   );
 
@@ -74,7 +74,7 @@ describe("registry-service", () => {
     contract.getTokenId.mockResolvedValue(42n);
 
     const result = await service.register({
-      name: "Milady",
+      name: "Eliza",
       endpoint: "https://agent.example",
       capabilitiesHash: "0xcapabilities",
       tokenURI: "ipfs://token",
@@ -82,7 +82,7 @@ describe("registry-service", () => {
 
     expect(txService.getFreshNonce).toHaveBeenCalledTimes(1);
     expect(contract.registerAgent).toHaveBeenCalledWith(
-      "Milady",
+      "Eliza",
       "https://agent.example",
       "0xcapabilities",
       "ipfs://token",
@@ -128,7 +128,7 @@ describe("registry-service", () => {
 
     await expect(
       service.register({
-        name: "Milady",
+        name: "Eliza",
         endpoint: "https://agent.example",
         capabilitiesHash: "0xcapabilities",
         tokenURI: "ipfs://token",
@@ -166,14 +166,14 @@ describe("registry-service", () => {
     txService.getFreshNonce.mockResolvedValue(55);
 
     const txHash = await service.syncProfile({
-      name: "Milady v2",
+      name: "Eliza v2",
       endpoint: "https://agent.example/v2",
       capabilitiesHash: "0xprofilecap",
       tokenURI: "ipfs://token-v2",
     });
 
     expect(contract.updateAgentProfile).toHaveBeenCalledWith(
-      "Milady v2",
+      "Eliza v2",
       "https://agent.example/v2",
       "0xprofilecap",
       "ipfs://token-v2",
@@ -189,7 +189,7 @@ describe("registry-service", () => {
     contract.totalAgents.mockResolvedValue(50n);
     contract.getTokenId.mockResolvedValue(7n);
     contract.getAgentInfo.mockResolvedValue([
-      "Milady",
+      "Eliza",
       "https://agent.example",
       "0xcaphash",
       true,
@@ -201,7 +201,7 @@ describe("registry-service", () => {
     expect(status).toEqual({
       registered: true,
       tokenId: 7,
-      agentName: "Milady",
+      agentName: "Eliza",
       agentEndpoint: "https://agent.example",
       capabilitiesHash: "0xcaphash",
       isActive: true,
@@ -220,7 +220,7 @@ describe("registry-service", () => {
     const encoded = iface.encodeEventLog("AgentRegistered", [
       42,
       "0x1111111111111111111111111111111111111111",
-      "Milady",
+      "Eliza",
       "https://agent.example",
     ]);
 
@@ -231,7 +231,7 @@ describe("registry-service", () => {
     contract.registerAgent.mockResolvedValue({ hash: "0xsubmitted", wait });
 
     const result = await service.register({
-      name: "Milady",
+      name: "Eliza",
       endpoint: "https://agent.example",
       capabilitiesHash: "0xcap",
       tokenURI: "ipfs://token",
@@ -248,14 +248,14 @@ describe("registry-service", () => {
     contract.getTokenId.mockResolvedValue(1n);
 
     await service.register({
-      name: "Milady",
+      name: "Eliza",
       endpoint: "https://agent.example",
       capabilitiesHash: "",
       tokenURI: "ipfs://token",
     });
 
     expect(contract.registerAgent).toHaveBeenCalledWith(
-      "Milady",
+      "Eliza",
       "https://agent.example",
       RegistryService.defaultCapabilitiesHash(),
       "ipfs://token",
@@ -314,7 +314,7 @@ describe("registry-service", () => {
   it("returns default capabilities hash from static method", () => {
     const hash = RegistryService.defaultCapabilitiesHash();
 
-    expect(hash).toBe(ethers.id("milady-agent"));
+    expect(hash).toBe(ethers.id("eliza-agent"));
     expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
@@ -329,7 +329,7 @@ describe("registry-service", () => {
 
     await expect(
       service.register({
-        name: "Milady",
+        name: "Eliza",
         endpoint: "https://agent.example",
         capabilitiesHash: "0xcap",
         tokenURI: "ipfs://token",
@@ -374,7 +374,7 @@ describe("registry-service", () => {
 
     await expect(
       service.syncProfile({
-        name: "Milady v2",
+        name: "Eliza v2",
         endpoint: "https://agent.example/v2",
         capabilitiesHash: "0xcap",
         tokenURI: "ipfs://token-v2",
@@ -392,7 +392,7 @@ describe("registry-service", () => {
 
     await expect(
       service.register({
-        name: "Milady",
+        name: "Eliza",
         endpoint: "https://agent.example",
         capabilitiesHash: "0xcap",
         tokenURI: "ipfs://token",

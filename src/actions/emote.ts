@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/actions/emote";
+export * from "@elizaos/autonomous/actions/emote";

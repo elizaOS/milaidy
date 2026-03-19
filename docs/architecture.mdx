@@ -45,7 +45,7 @@ Milady is a cross-platform AI agent runtime built on top of [elizaOS](https://el
 |                    Storage & Config Layer                      |
 |  ~/.milady/milady.json  (Zod-validated config)              |
 |  PGLite (default) or PostgreSQL (database)                    |
-|  ~/.milady/workspace/ (agent files, skills, bootstrap)       |
+|  ~/.milady/workspace/ (agent files, skills)               |
 |  ~/.milady/plugins/  (custom, ejected, installed)            |
 +---------------------------------------------------------------+
 ```
@@ -177,7 +177,7 @@ The `createMiladyPlugin()` function (`src/runtime/milady-plugin.ts`) creates a s
 
 **Providers** (injected into every LLM context):
 - `channelProfileProvider` -- channel-specific personality profiles
-- `workspaceProvider` -- workspace file context (limited by `bootstrapMaxChars`)
+- `workspaceProvider` -- workspace file context
 - `adminTrustProvider` -- admin trust level for privileged operations
 - `autonomousStateProvider` -- current autonomous agent state
 - `sessionKeyProvider` -- session bridge for cross-channel continuity

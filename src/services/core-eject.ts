@@ -19,11 +19,10 @@ const CORE_BRANCH = "develop";
 const CORE_PACKAGE_NAME = "@elizaos/core";
 const DEFAULT_CORE_PATHS = ["../packages/typescript/src/index.node.ts"];
 const DEFAULT_CORE_SUBPATHS = ["../packages/typescript/src/*"];
-const UPSTREAM_SCHEMA = "milady-upstream-v1";
-const LEGACY_UPSTREAM_SCHEMA = "milaidy-upstream-v1";
+const UPSTREAM_SCHEMA = "eliza-upstream-v1";
 
 function isSupportedUpstreamSchema(value: string): boolean {
-  return value === UPSTREAM_SCHEMA || value === LEGACY_UPSTREAM_SCHEMA;
+  return value === UPSTREAM_SCHEMA;
 }
 
 let ejectLock: Promise<void> = Promise.resolve();

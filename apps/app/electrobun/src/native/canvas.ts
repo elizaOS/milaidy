@@ -194,7 +194,7 @@ export class CanvasManager {
     }
 
     try {
-      const evalRpc = canvas.window.webview.rpc as unknown as WebviewEvalRpc;
+      const evalRpc = canvas.window.webview.rpc as WebviewEvalRpc;
       return await evalRpc?.requestProxy?.evaluateJavascriptWithResponse?.({
         script: options.script,
       });
@@ -295,7 +295,7 @@ $bmp.Dispose()`;
       }
     `;
     try {
-      const pushRpc = canvas.window.webview.rpc as unknown as WebviewEvalRpc;
+      const pushRpc = canvas.window.webview.rpc as WebviewEvalRpc;
       await pushRpc?.requestProxy?.evaluateJavascriptWithResponse?.({ script });
     } catch {
       // Window may have been destroyed
@@ -312,7 +312,7 @@ $bmp.Dispose()`;
       }
     `;
     try {
-      const resetRpc = canvas.window.webview.rpc as unknown as WebviewEvalRpc;
+      const resetRpc = canvas.window.webview.rpc as WebviewEvalRpc;
       await resetRpc?.requestProxy?.evaluateJavascriptWithResponse?.({
         script,
       });

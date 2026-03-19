@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 
-import type { ElectrobunRendererRpc } from "@miladyai/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@elizaos/app-core/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ScreenCaptureElectrobun } from "../../plugins/screencapture/electrobun/src/index.ts";
 import { ScreenCaptureWeb } from "../../plugins/screencapture/src/web";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 const SAMPLE_DATA_URL = "data:image/png;base64,ZmFrZQ==";
@@ -45,7 +45,7 @@ describe("ScreenCaptureElectrobun desktop bridge", () => {
   });
 
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     Object.defineProperty(globalThis, "Image", {
       configurable: true,
       writable: true,
@@ -64,7 +64,7 @@ describe("ScreenCaptureElectrobun desktop bridge", () => {
       available: true,
       data: SAMPLE_DATA_URL,
     });
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         screencaptureTakeScreenshot,
       },
@@ -113,7 +113,7 @@ describe("ScreenCaptureElectrobun desktop bridge", () => {
       .spyOn(ScreenCaptureWeb.prototype, "captureScreenshot")
       .mockResolvedValue(fallbackResult);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         screencaptureTakeScreenshot: vi.fn().mockResolvedValue({
           available: false,

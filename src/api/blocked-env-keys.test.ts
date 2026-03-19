@@ -44,10 +44,12 @@ const BLOCKED_ENV_KEYS = new Set([
   "HOME",
   "SHELL",
   // Auth / step-up tokens
-  "MILADY_API_TOKEN",
-  "MILADY_WALLET_EXPORT_TOKEN",
-  "MILADY_TERMINAL_RUN_TOKEN",
+  "ELIZA_API_TOKEN",
+  "ELIZA_WALLET_EXPORT_TOKEN",
+  "ELIZA_TERMINAL_RUN_TOKEN",
   "HYPERSCAPE_AUTH_TOKEN",
+  // Cloud API key
+  "ELIZAOS_CLOUD_API_KEY",
   // Wallet private keys
   "EVM_PRIVATE_KEY",
   "SOLANA_PRIVATE_KEY",
@@ -62,20 +64,24 @@ describe("BLOCKED_ENV_KEYS — privilege escalation prevention", () => {
   /* ── Auth / step-up tokens ────────────────────────────────────── */
 
   describe("auth tokens must be blocked (privilege escalation)", () => {
-    it("blocks MILADY_API_TOKEN", () => {
-      expect(BLOCKED_ENV_KEYS.has("MILADY_API_TOKEN")).toBe(true);
+    it("blocks ELIZA_API_TOKEN", () => {
+      expect(BLOCKED_ENV_KEYS.has("ELIZA_API_TOKEN")).toBe(true);
     });
 
-    it("blocks MILADY_WALLET_EXPORT_TOKEN", () => {
-      expect(BLOCKED_ENV_KEYS.has("MILADY_WALLET_EXPORT_TOKEN")).toBe(true);
+    it("blocks ELIZA_WALLET_EXPORT_TOKEN", () => {
+      expect(BLOCKED_ENV_KEYS.has("ELIZA_WALLET_EXPORT_TOKEN")).toBe(true);
     });
 
-    it("blocks MILADY_TERMINAL_RUN_TOKEN (shell command execution)", () => {
-      expect(BLOCKED_ENV_KEYS.has("MILADY_TERMINAL_RUN_TOKEN")).toBe(true);
+    it("blocks ELIZA_TERMINAL_RUN_TOKEN (shell command execution)", () => {
+      expect(BLOCKED_ENV_KEYS.has("ELIZA_TERMINAL_RUN_TOKEN")).toBe(true);
     });
 
     it("blocks HYPERSCAPE_AUTH_TOKEN (API relay auth)", () => {
       expect(BLOCKED_ENV_KEYS.has("HYPERSCAPE_AUTH_TOKEN")).toBe(true);
+    });
+
+    it("blocks ELIZAOS_CLOUD_API_KEY (cloud service access)", () => {
+      expect(BLOCKED_ENV_KEYS.has("ELIZAOS_CLOUD_API_KEY")).toBe(true);
     });
   });
 

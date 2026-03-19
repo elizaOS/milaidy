@@ -1,15 +1,27 @@
-const CLOUD_BASE = "https://www.elizacloud.ai";
+import { clearToken } from "./auth";
+import { CLOUD_BASE } from "./runtime-config";
 
 export interface CloudAgentDetail {
   id: string;
   name: string;
+  /** Backend returns agentName; mapped to name by listAgents(). */
+  agentName?: string;
   status: string;
   model?: string;
   bridgeUrl?: string;
+  webUiUrl?: string;
   tokens?: { used: number; limit: number };
   errors?: string[];
   createdAt?: string;
   updatedAt?: string;
+  billing?: {
+    plan?: string;
+    costPerHour?: number;
+    totalCost?: number;
+    currency?: string;
+  };
+  uptime?: number;
+  region?: string;
 }
 
 export interface CloudBackup {
@@ -30,11 +42,40 @@ export interface JobStatus {
   error?: string;
 }
 
+function isCloudAuthFailure(status: number, message: string): boolean {
+  return (
+    status === 401 ||
+    ((status === 500 || status === 403) &&
+      /Unauthorized|Authentication required|Forbidden|Invalid or expired API key|API key is inactive|API key has expired|Invalid or expired token/i.test(
+        message,
+      ))
+  );
+}
+
+async function readErrorMessage(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (typeof body?.error === "string") return body.error;
+    return JSON.stringify(body);
+  } catch {
+    try {
+      return await res.text();
+    } catch {
+      return "";
+    }
+  }
+}
+
 export class CloudClient {
   private apiKey: string;
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+  }
+
+  /** Expose the API key so authenticated launch token requests can use it. */
+  getToken(): string {
+    return this.apiKey;
   }
 
   private async request<T>(path: string, opts: RequestInit = {}): Promise<T> {
@@ -44,7 +85,17 @@ export class CloudClient {
       headers.set("Content-Type", "application/json");
     }
     const res = await fetch(`${CLOUD_BASE}${path}`, { ...opts, headers });
-    if (!res.ok) throw new Error(`Cloud API ${res.status}: ${path}`);
+    if (!res.ok) {
+      const errorMessage = await readErrorMessage(res);
+      if (isCloudAuthFailure(res.status, errorMessage)) {
+        clearToken();
+      }
+      throw new Error(
+        errorMessage
+          ? `Cloud API ${res.status}: ${path}: ${errorMessage}`
+          : `Cloud API ${res.status}: ${path}`,
+      );
+    }
     return res.json();
   }
 
@@ -56,13 +107,18 @@ export class CloudClient {
     >("/api/v1/milady/agents", {
       method: "GET",
     });
-    return Array.isArray(data)
+    const raw = Array.isArray(data)
       ? data
       : ((data as { agents?: CloudAgentDetail[]; data?: CloudAgentDetail[] })
           .agents ??
-          (data as { agents?: CloudAgentDetail[]; data?: CloudAgentDetail[] })
-            .data ??
-          []);
+        (data as { agents?: CloudAgentDetail[]; data?: CloudAgentDetail[] })
+          .data ??
+        []);
+    // Backend returns agentName; normalize to name for the rest of the app
+    return raw.map((a) => ({
+      ...a,
+      name: a.agentName || a.name || a.id,
+    }));
   }
 
   async getAgent(agentId: string): Promise<CloudAgentDetail> {
@@ -75,10 +131,26 @@ export class CloudClient {
     config?: object;
     environmentVars?: Record<string, string>;
   }): Promise<{ id: string }> {
-    return this.request("/api/v1/milady/agents", {
+    // Backend expects agentName (not name) and agentConfig (not config)
+    const payload: Record<string, unknown> = {
+      agentName: config.name,
+    };
+    if (config.characterId) payload.characterId = config.characterId;
+    if (config.config) payload.agentConfig = config.config;
+    if (config.environmentVars)
+      payload.environmentVars = config.environmentVars;
+
+    const res = await this.request<{
+      success?: boolean;
+      data?: { id: string };
+      id?: string;
+    }>("/api/v1/milady/agents", {
       method: "POST",
-      body: JSON.stringify(config),
+      body: JSON.stringify(payload),
     });
+    // Backend wraps response in { success, data: { id, ... } }
+    const id = res.data?.id ?? res.id ?? "";
+    return { id };
   }
 
   async deleteAgent(agentId: string): Promise<void> {
@@ -238,6 +310,21 @@ export class CloudClient {
     return this.request("/api/v1/billing/settings", { method: "GET" });
   }
 
+  // Pairing token (for opening Web UI with auth handoff)
+  async getPairingToken(agentId: string): Promise<{
+    token: string;
+    redirectUrl: string;
+    expiresIn: number;
+  }> {
+    const res = await this.request<
+      | { token: string; redirectUrl: string; expiresIn: number }
+      | { data: { token: string; redirectUrl: string; expiresIn: number } }
+    >(`/api/v1/milady/agents/${agentId}/pairing-token`, { method: "POST" });
+    // Backend may wrap in { data: ... } or return flat
+    if ("data" in res && res.data?.redirectUrl) return res.data;
+    return res as { token: string; redirectUrl: string; expiresIn: number };
+  }
+
   // Session info
   async getCurrentSession(): Promise<{
     credits?: number;
@@ -253,6 +340,10 @@ export type ConnectionType = "local" | "remote" | "cloud";
 export interface ConnectionInfo {
   url: string;
   type: ConnectionType;
+  /** Optional bearer token for agents that require auth (e.g. MILADY_API_TOKEN).
+   *  Sent as `Authorization: Bearer {authToken}`.
+   *  Note: X-Api-Key is NOT used here because agent CORS only allows "Authorization". */
+  authToken?: string;
 }
 
 export interface AgentStatus {
@@ -277,33 +368,150 @@ export interface LogEntry {
   agentName: string;
 }
 
+function makeUnauthenticatedHealthResponse() {
+  return {
+    status: "ok",
+    ready: true,
+    uptime: 0,
+    agentState: "running",
+  };
+}
+
+function makeUnauthenticatedAgentStatus(): AgentStatus {
+  return {
+    state: "running",
+    agentName: "",
+    model: "—",
+    uptime: 0,
+  };
+}
+
 export class CloudApiClient {
   private baseUrl: string;
   private type: ConnectionType;
+  private authToken?: string;
 
   constructor(connection: ConnectionInfo) {
     this.baseUrl = connection.url.replace(/\/$/, "");
     this.type = connection.type;
+    this.authToken = connection.authToken;
+  }
+
+  private buildHeaders(opts: RequestInit = {}): Headers {
+    // Use Authorization for local/remote agents because their browser CORS policy
+    // explicitly allows bearer auth, while custom headers like X-Api-Key may be blocked.
+    const headers = new Headers(opts.headers);
+    if (this.authToken) {
+      headers.set("Authorization", `Bearer ${this.authToken}`);
+    }
+    return headers;
+  }
+
+  private async rawFetch(
+    path: string,
+    opts: RequestInit = {},
+  ): Promise<Response> {
+    return fetch(`${this.baseUrl}${path}`, {
+      ...opts,
+      headers: this.buildHeaders(opts),
+    });
   }
 
   private async request<T>(path: string, opts: RequestInit = {}): Promise<T> {
-    // Use plain fetch — local/remote agents don't use cloud API keys.
-    // fetchWithAuth would leak the cloud API key to arbitrary URLs.
-    const res = await fetch(`${this.baseUrl}${path}`, opts);
+    const res = await this.rawFetch(path, opts);
     if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
     return res.json();
   }
 
   async health(): Promise<{
-    status: string;
+    status?: string;
+    ready?: boolean;
     uptime: number;
     memoryUsage?: object;
+    agentState?: string;
   }> {
-    return this.request("/api/health", { method: "GET" });
+    const primary = await this.rawFetch("/api/health", { method: "GET" });
+    if (primary.ok) {
+      return primary.json();
+    }
+
+    // If auth is required (401/403), try /api/auth/status as a lightweight
+    // probe — it doesn't require a token and confirms the agent is alive.
+    if (primary.status === 401 || primary.status === 403) {
+      if (!this.authToken) {
+        const authProbe = await this.rawFetch("/api/auth/status", {
+          method: "GET",
+        });
+        if (authProbe.ok) {
+          return makeUnauthenticatedHealthResponse();
+        }
+      }
+      throw new Error(`API ${primary.status}: /api/health`);
+    }
+
+    if (primary.status !== 404) {
+      throw new Error(`API ${primary.status}: /api/health`);
+    }
+
+    const fallback = await this.rawFetch("/health", { method: "GET" });
+    if (!fallback.ok) {
+      throw new Error(`API ${fallback.status}: /health`);
+    }
+    return fallback.json();
   }
 
   async getAgentStatus(): Promise<AgentStatus> {
-    return this.request("/api/agent/status", { method: "GET" });
+    // Our self-hosted agents expose /api/status (not /api/agent/status).
+    // Try /api/status first (returns agentName, state, uptime directly),
+    // then fall back to /api/agent/status for compatibility with older or
+    // partially implemented backends.
+    let primaryFailure: Error | null = null;
+    const primary = await this.rawFetch("/api/status", { method: "GET" });
+    if (primary.ok) {
+      try {
+        const data = (await primary.json()) as {
+          state?: string;
+          agentName?: string;
+          uptime?: number;
+          memories?: number;
+          model?: string;
+        };
+        if (data.state) {
+          return {
+            state: data.state as AgentStatus["state"],
+            agentName: data.agentName ?? "Agent",
+            model: data.model ?? "—",
+            uptime: data.uptime,
+            memories: data.memories,
+          };
+        }
+      } catch {
+        primaryFailure = new Error("Invalid JSON: /api/status");
+      }
+    } else if (primary.status === 401 || primary.status === 403) {
+      // If /api/status is auth-gated, keep the legacy endpoint fallback first.
+      // Only synthesize a "running" state when BOTH status endpoints reject an
+      // unauthenticated request, which is the current milady sandbox case.
+      primaryFailure = new Error(`API ${primary.status}: /api/status`);
+    } else if (primary.status !== 404) {
+      primaryFailure = new Error(`API ${primary.status}: /api/status`);
+    }
+
+    const legacy = await this.rawFetch("/api/agent/status", { method: "GET" });
+    if (legacy.ok) {
+      return legacy.json();
+    }
+    if (legacy.status === 401 || legacy.status === 403) {
+      if (!this.authToken && [401, 403].includes(primary.status)) {
+        return makeUnauthenticatedAgentStatus();
+      }
+      throw (
+        primaryFailure ?? new Error(`API ${legacy.status}: /api/agent/status`)
+      );
+    }
+    throw (
+      primaryFailure ?? new Error(`API ${legacy.status}: /api/agent/status`)
+    );
   }
 
   async startAgent(): Promise<{ ok: boolean; status: { state: string } }> {
@@ -328,9 +536,12 @@ export class CloudApiClient {
   }
 
   async exportAgent(password: string, includeLogs?: boolean): Promise<Blob> {
+    const headers = this.buildHeaders();
+    headers.set("Content-Type", "application/json");
+
     const res = await fetch(`${this.baseUrl}/api/agent/export`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ password, includeLogs }),
     });
     if (!res.ok) throw new Error(`Export failed: ${res.status}`);
@@ -349,6 +560,7 @@ export class CloudApiClient {
     const envelope = new Blob([lengthBuf, passwordBytes, fileBytes]);
     const res = await fetch(`${this.baseUrl}/api/agent/import`, {
       method: "POST",
+      headers: this.buildHeaders(),
       body: envelope,
     });
     if (!res.ok) throw new Error(`Import failed: ${res.status}`);

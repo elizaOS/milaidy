@@ -51,7 +51,7 @@ describe("trigger routes", () => {
         error: vi.fn(),
       } as AgentRuntime["logger"],
     };
-    runtime = runtimePartial as AgentRuntime;
+    runtime = runtimePartial as unknown as AgentRuntime;
   });
 
   const invoke = createRouteInvoker<

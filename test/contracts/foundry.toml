@@ -6,9 +6,8 @@ solc_version = "0.8.20"
 optimizer = true
 optimizer_runs = 200
 
-# Exclude test/certora/mocks folders from OZ that have broken imports
-exclude = ["**/certora/**", "**/test/**", "**/mocks/**"]
-
+# OpenZeppelin's Certora harnesses (lib/.../certora/) import from ../patched/ which
+# doesn't exist in the release. Use: forge build --skip Harness
 # Remappings for OpenZeppelin
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"

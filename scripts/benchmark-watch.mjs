@@ -2,12 +2,12 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
 
-const BASE_URL = process.env.MILADY_BENCH_URL ?? "http://127.0.0.1:3939";
-const BENCHMARK = process.env.MILADY_BENCH_NAME ?? "agentbench";
+const BASE_URL = process.env.ELIZA_BENCH_URL ?? "http://127.0.0.1:3939";
+const BENCHMARK = process.env.ELIZA_BENCH_NAME ?? "agentbench";
 const SHOULD_SPAWN_SERVER =
   process.argv.includes("--spawn-server") ||
-  process.env.MILADY_BENCH_SPAWN === "1";
-const USE_MOCK = process.env.MILADY_BENCH_MOCK ?? "true";
+  process.env.ELIZA_BENCH_SPAWN === "1";
+const USE_MOCK = process.env.ELIZA_BENCH_MOCK ?? "true";
 
 const taskId = `watch-${Date.now()}`;
 
@@ -113,7 +113,7 @@ async function run() {
         cwd: process.cwd(),
         env: {
           ...process.env,
-          MILADY_BENCH_MOCK: USE_MOCK,
+          ELIZA_BENCH_MOCK: USE_MOCK,
         },
         stdio: ["ignore", "pipe", "pipe"],
       },

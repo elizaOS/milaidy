@@ -4,7 +4,7 @@ console.log("Debugging TrajectoryLoggerService Prototype:");
 const proto = TrajectoryLoggerService.prototype;
 console.log(Object.getOwnPropertyNames(proto));
 
-const runtimeStub = {} as unknown as ConstructorParameters<
+const runtimeStub = {} as ConstructorParameters<
   typeof TrajectoryLoggerService
 >[0];
 const instance = new TrajectoryLoggerService(runtimeStub);

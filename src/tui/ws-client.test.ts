@@ -153,21 +153,21 @@ describe("ApiModeWsClient", () => {
 
   it("preserves api base path prefix when constructing websocket url", () => {
     const client = new ApiModeWsClient({
-      apiBaseUrl: "https://example.test/milady/runtime",
+      apiBaseUrl: "https://example.test/eliza/runtime",
       onMessage: vi.fn(),
       socketFactory,
     });
 
     client.connect();
 
-    expect(socketUrls[0]).toBe("wss://example.test/milady/runtime/ws");
+    expect(socketUrls[0]).toBe("wss://example.test/eliza/runtime/ws");
 
     client.close();
   });
 
   it("does not fall back to env token when auth callback explicitly returns null", () => {
-    const previousToken = process.env.MILADY_API_TOKEN;
-    process.env.MILADY_API_TOKEN = "env-token";
+    const previousToken = process.env.ELIZA_API_TOKEN;
+    process.env.ELIZA_API_TOKEN = "env-token";
 
     try {
       const client = new ApiModeWsClient({
@@ -184,9 +184,9 @@ describe("ApiModeWsClient", () => {
       client.close();
     } finally {
       if (previousToken === undefined) {
-        delete process.env.MILADY_API_TOKEN;
+        delete process.env.ELIZA_API_TOKEN;
       } else {
-        process.env.MILADY_API_TOKEN = previousToken;
+        process.env.ELIZA_API_TOKEN = previousToken;
       }
     }
   });

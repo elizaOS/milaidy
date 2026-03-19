@@ -4,32 +4,42 @@ import {
   createMockJsonRequest,
 } from "../test-support/test-helpers";
 
-const loadMiladyConfigMock = vi.fn();
-const saveMiladyConfigMock = vi.fn();
+const loadConfigMock = vi.fn();
+const saveConfigMock = vi.fn();
 
-vi.mock("../../packages/autonomous/src/config/config.ts", () => ({
-  loadMiladyConfig: () => loadMiladyConfigMock(),
-  saveMiladyConfig: (cfg: unknown) => saveMiladyConfigMock(cfg),
+// Mock both the "eliza" and "eliza" branded function names so the test works
+// regardless of which branding the resolved @elizaos/autonomous source uses.
+vi.mock("@elizaos/autonomous/config/config", () => ({
+  loadElizaConfig: () => loadConfigMock(),
+  saveElizaConfig: (cfg: unknown) => saveConfigMock(cfg),
 }));
 
-import { handleDatabaseRoute } from "../../packages/autonomous/src/api/database.ts";
+import { handleDatabaseRoute } from "@elizaos/autonomous/api/database";
 
 describe("database API security hardening", () => {
-  const prevBind = process.env.MILADY_API_BIND;
+  const _prevElizaBind = process.env.ELIZA_API_BIND;
+  const prevElizaBind = process.env.ELIZA_API_BIND;
 
   beforeEach(() => {
-    process.env.MILADY_API_BIND = "0.0.0.0";
-    loadMiladyConfigMock.mockReturnValue({
+    // Set both env var names so the test works regardless of which branding
+    // the resolved @elizaos/autonomous source reads.
+    process.env.ELIZA_API_BIND = "0.0.0.0";
+    loadConfigMock.mockReturnValue({
       database: { provider: "postgres", postgres: { host: "8.8.8.8" } },
     });
-    saveMiladyConfigMock.mockReset();
+    saveConfigMock.mockReset();
   });
 
   afterEach(() => {
-    if (prevBind === undefined) {
-      delete process.env.MILADY_API_BIND;
+    if (prevElizaBind === undefined) {
+      delete process.env.ELIZA_API_BIND;
     } else {
-      process.env.MILADY_API_BIND = prevBind;
+      process.env.ELIZA_API_BIND = prevElizaBind;
+    }
+    if (prevElizaBind === undefined) {
+      delete process.env.ELIZA_API_BIND;
+    } else {
+      process.env.ELIZA_API_BIND = prevElizaBind;
     }
     vi.clearAllMocks();
   });
@@ -56,7 +66,7 @@ describe("database API security hardening", () => {
       error:
         'Connection to "169.254.169.254" is blocked: link-local and metadata addresses are not allowed.',
     });
-    expect(saveMiladyConfigMock).not.toHaveBeenCalled();
+    expect(saveConfigMock).not.toHaveBeenCalled();
   });
 
   it("blocks IPv6 link-local hosts across fe80::/10", async () => {
@@ -80,7 +90,7 @@ describe("database API security hardening", () => {
     expect(String((getJson() as { error?: string }).error ?? "")).toContain(
       'Connection to "fea0::1" is blocked',
     );
-    expect(saveMiladyConfigMock).not.toHaveBeenCalled();
+    expect(saveConfigMock).not.toHaveBeenCalled();
   });
 
   it("allows unresolved hostnames when saving config for remote runtime networks", async () => {
@@ -105,7 +115,7 @@ describe("database API security hardening", () => {
 
     expect(handled).toBe(true);
     expect(getStatus()).toBe(200);
-    expect(saveMiladyConfigMock).toHaveBeenCalledTimes(1);
+    expect(saveConfigMock).toHaveBeenCalledTimes(1);
     expect(getJson()).toMatchObject({ saved: true });
   });
 
@@ -130,7 +140,7 @@ describe("database API security hardening", () => {
     expect(String((getJson() as { error?: string })?.error ?? "")).toContain(
       "failed DNS resolution during validation",
     );
-    expect(saveMiladyConfigMock).not.toHaveBeenCalled();
+    expect(saveConfigMock).not.toHaveBeenCalled();
   });
 
   it("pins connectionString host override params to the validated address", async () => {
@@ -156,9 +166,9 @@ describe("database API security hardening", () => {
     expect(handled).toBe(true);
     expect(getStatus()).toBe(200);
     expect(getJson()).toMatchObject({ saved: true });
-    expect(saveMiladyConfigMock).toHaveBeenCalledTimes(1);
+    expect(saveConfigMock).toHaveBeenCalledTimes(1);
 
-    const savedConfig = saveMiladyConfigMock.mock.calls[0]?.[0] as {
+    const savedConfig = saveConfigMock.mock.calls[0]?.[0] as {
       database?: {
         postgres?: {
           connectionString?: string;
@@ -179,8 +189,8 @@ describe("database API security hardening", () => {
     "[::1]:2138",
     "http://localhost:2138",
     "127.0.0.1:2138",
-  ])("allows private postgres hosts when MILADY_API_BIND is loopback with host+port (%s)", async (bindHost) => {
-    process.env.MILADY_API_BIND = bindHost;
+  ])("allows private postgres hosts when API_BIND is loopback with host+port (%s)", async (bindHost) => {
+    process.env.ELIZA_API_BIND = bindHost;
     const req = createMockJsonRequest(
       {
         provider: "postgres",
@@ -200,7 +210,7 @@ describe("database API security hardening", () => {
     expect(handled).toBe(true);
     expect(getStatus()).toBe(200);
     expect(getJson()).toMatchObject({ saved: true });
-    expect(saveMiladyConfigMock).toHaveBeenCalledTimes(1);
+    expect(saveConfigMock).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -210,7 +220,7 @@ describe("database API security hardening", () => {
     "http://127.0.0.1.evil.com:2138",
     "http://127.0.0.1@evil.com:2138",
   ])("does not treat hostname spoof values as loopback binds (%s)", async (bindHost) => {
-    process.env.MILADY_API_BIND = bindHost;
+    process.env.ELIZA_API_BIND = bindHost;
     const req = createMockJsonRequest(
       {
         provider: "postgres",
@@ -232,6 +242,6 @@ describe("database API security hardening", () => {
     expect(String((getJson() as { error?: string }).error ?? "")).toContain(
       'Connection to "10.20.30.40" is blocked',
     );
-    expect(saveMiladyConfigMock).not.toHaveBeenCalled();
+    expect(saveConfigMock).not.toHaveBeenCalled();
   });
 });

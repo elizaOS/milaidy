@@ -134,7 +134,7 @@ describe("handleWhatsAppRoute", () => {
       const res = createMockRes();
 
       const sessions = new Map<string, WhatsAppPairingSession>();
-      sessions.set("default", mockSession as unknown as WhatsAppPairingSession);
+      sessions.set("default", mockSession as WhatsAppPairingSession);
       const state = createState({ whatsappPairingSessions: sessions });
 
       await handleWhatsAppRoute(req, res, "/api/whatsapp/status", "GET", state);
@@ -217,10 +217,7 @@ describe("handleWhatsAppRoute", () => {
 
       const existingSession = { stop: vi.fn(), getStatus: vi.fn() };
       const sessions = new Map<string, WhatsAppPairingSession>();
-      sessions.set(
-        "default",
-        existingSession as unknown as WhatsAppPairingSession,
-      );
+      sessions.set("default", existingSession as WhatsAppPairingSession);
       const state = createState({ whatsappPairingSessions: sessions });
 
       await handleWhatsAppRoute(req, res, "/api/whatsapp/pair", "POST", state);
@@ -272,7 +269,7 @@ describe("handleWhatsAppRoute", () => {
       const res = createMockRes();
 
       const sessions = new Map<string, WhatsAppPairingSession>();
-      sessions.set("default", mockSession as unknown as WhatsAppPairingSession);
+      sessions.set("default", mockSession as WhatsAppPairingSession);
       const state = createState({ whatsappPairingSessions: sessions });
 
       const handled = await handleWhatsAppRoute(
@@ -320,7 +317,7 @@ describe("handleWhatsAppRoute", () => {
       const res = createMockRes();
 
       const sessions = new Map<string, WhatsAppPairingSession>();
-      sessions.set("default", mockSession as unknown as WhatsAppPairingSession);
+      sessions.set("default", mockSession as WhatsAppPairingSession);
       const connectors: Record<string, unknown> = {
         whatsapp: { enabled: true },
       };
@@ -388,10 +385,7 @@ describe("handleWhatsAppRoute", () => {
       // Fill the sessions map to the limit
       const sessions = new Map<string, WhatsAppPairingSession>();
       for (let i = 0; i < MAX_PAIRING_SESSIONS; i++) {
-        sessions.set(
-          `acct-${i}`,
-          mockSession as unknown as WhatsAppPairingSession,
-        );
+        sessions.set(`acct-${i}`, mockSession as WhatsAppPairingSession);
       }
       const state = createState({ whatsappPairingSessions: sessions });
 
@@ -414,7 +408,7 @@ describe("handleWhatsAppRoute", () => {
         sessions.set(`acct-${i}`, {
           stop: vi.fn(),
           getStatus: vi.fn(),
-        } as unknown as WhatsAppPairingSession);
+        } as Partial<WhatsAppPairingSession> as WhatsAppPairingSession);
       }
       const state = createState({ whatsappPairingSessions: sessions });
 

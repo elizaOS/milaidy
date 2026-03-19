@@ -111,7 +111,7 @@ describe("Config loading at startup", () => {
     vi.resetModules();
   });
 
-  it("loadMiladyConfig returns a valid config object", async () => {
+  it("loadElizaConfig returns a valid config object", async () => {
     vi.resetModules();
     vi.doMock("node:fs", async (importOriginal) => {
       const actual = await importOriginal<typeof import("node:fs")>();
@@ -124,13 +124,13 @@ describe("Config loading at startup", () => {
         },
       };
     });
-    const { loadMiladyConfig } = await import("../config/config");
-    const config = loadMiladyConfig();
+    const { loadElizaConfig } = await import("../config/config");
+    const config = loadElizaConfig();
     expect(config).toBeDefined();
     expect(typeof config).toBe("object");
   });
 
-  it("loadMiladyConfig handles missing config file gracefully", async () => {
+  it("loadElizaConfig handles missing config file gracefully", async () => {
     vi.resetModules();
     const enoent = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     vi.doMock("node:fs", async (importOriginal) => {
@@ -146,9 +146,9 @@ describe("Config loading at startup", () => {
         },
       };
     });
-    const { loadMiladyConfig } = await import("../config/config");
+    const { loadElizaConfig } = await import("../config/config");
     // Should return defaults, not throw
-    expect(() => loadMiladyConfig()).not.toThrow();
+    expect(() => loadElizaConfig()).not.toThrow();
   });
 });
 

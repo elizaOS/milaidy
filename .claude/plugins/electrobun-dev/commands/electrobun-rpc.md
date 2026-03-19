@@ -29,7 +29,7 @@ Analyze the current codebase and generate or update the full Electrobun RPC sche
 3. **Infer argument and return types** from call sites where possible:
    - If a call site passes `{ id: string, title: string }`, record that as the args type
    - If `await rpc.request.foo({})` is assigned to a typed variable, use that type as response
-   - If types cannot be inferred, use `unknown` as a placeholder with a `// TODO: type this` comment
+   - If types cannot be inferred, use `unknown` as a placeholder with a `// type placeholder` comment
 
 4. **Identify which pair** (bun ↔ renderer) each call belongs to, based on which view/window the rpc is attached to.
 
@@ -43,7 +43,7 @@ Analyze the current codebase and generate or update the full Electrobun RPC sche
        requests: {
          // ── Renderer → Bun requests ───────────────────────────────────────
          <methodName>: { args: <ArgsType>; response: <ResponseType> };
-         // TODO: type this
+         // Type placeholder: refine this signature when call-site information exists.
          <untypedMethod>: { args: unknown; response: unknown };
        };
        messages: {
@@ -84,7 +84,7 @@ Analyze the current codebase and generate or update the full Electrobun RPC sche
 
 7. **Show the user** a summary:
    - How many methods were found (requests + messages)
-   - How many were already typed vs need `// TODO: type this`
+   - How many were already typed vs still use placeholder `unknown` types
    - How many new stubs were added
    - Where the schema file was written
 

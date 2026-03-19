@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getToken, setToken } from "../lib/auth";
 import { CloudApiClient, CloudClient } from "../lib/cloud-api";
 
 const mockFetch = vi.fn();
@@ -28,6 +29,66 @@ describe("CloudApiClient", () => {
       expect.objectContaining({ method: "GET" }),
     );
     expect(result.status).toBe("ok");
+  });
+
+  it("health() falls back to /health when /api/health returns 404", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ status: "ok", uptime: 50 }),
+      });
+
+    const result = await client.health();
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:2138/api/health",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:2138/health",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(result.status).toBe("ok");
+  });
+
+  it("health() returns a running probe response when /api/health is unauthorized", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ authenticated: false }),
+      });
+
+    await expect(client.health()).resolves.toEqual({
+      status: "ok",
+      ready: true,
+      uptime: 0,
+      agentState: "running",
+    });
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:2138/api/auth/status",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("health() preserves invalid-token failures when auth is provided", async () => {
+    const remoteClient = new CloudApiClient({
+      url: "https://agent.example.com",
+      type: "remote",
+      authToken: "bad-token",
+    });
+
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(remoteClient.health()).rejects.toThrow("API 401: /api/health");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("startAgent() calls POST /api/agent/start", async () => {
@@ -79,6 +140,25 @@ describe("CloudApiClient", () => {
     expect(result).toBeInstanceOf(Blob);
   });
 
+  it("exportAgent() forwards Authorization for remote agents", async () => {
+    const remoteClient = new CloudApiClient({
+      url: "https://agent.example.com",
+      type: "remote",
+      authToken: "secret-token",
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      blob: () => Promise.resolve(new Blob(["data"])),
+    });
+
+    await remoteClient.exportAgent("mypass");
+
+    const headers = mockFetch.mock.calls[0][1].headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer secret-token");
+  });
+
   it("stopAgent() calls POST /api/agent/stop", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -117,7 +197,7 @@ describe("CloudApiClient", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("getAgentStatus() calls GET /api/agent/status", async () => {
+  it("getAgentStatus() reads /api/status first", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -129,8 +209,172 @@ describe("CloudApiClient", () => {
         }),
     });
     const result = await client.getAgentStatus();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://localhost:2138/api/status",
+      expect.objectContaining({ method: "GET" }),
+    );
     expect(result.agentName).toBe("Test");
     expect(result.state).toBe("running");
+  });
+
+  it("getAgentStatus() returns running when both status endpoints are unauthorized", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      state: "running",
+      agentName: "",
+      model: "—",
+      uptime: 0,
+    });
+  });
+
+  it("getAgentStatus() still uses legacy status when only /api/status is unauthorized", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy Public Agent",
+            model: "gpt-4",
+            state: "paused",
+          }),
+      });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy Public Agent",
+      model: "gpt-4",
+      state: "paused",
+    });
+  });
+
+  it("getAgentStatus() falls back to legacy status when /api/status is unauthorized with auth", async () => {
+    const remoteClient = new CloudApiClient({
+      url: "https://agent.example.com",
+      type: "remote",
+      authToken: "good-token",
+    });
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy Auth Agent",
+            model: "gpt-4",
+            state: "running",
+          }),
+      });
+
+    await expect(remoteClient.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy Auth Agent",
+      model: "gpt-4",
+      state: "running",
+    });
+  });
+
+  it("getAgentStatus() preserves invalid-token failures when auth is provided", async () => {
+    const remoteClient = new CloudApiClient({
+      url: "https://agent.example.com",
+      type: "remote",
+      authToken: "bad-token",
+    });
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(remoteClient.getAgentStatus()).rejects.toThrow(
+      "API 401: /api/status",
+    );
+  });
+
+  it("getAgentStatus() falls back to /api/agent/status on 404", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy",
+            model: "gpt-4",
+            state: "paused",
+          }),
+      });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy",
+      model: "gpt-4",
+      state: "paused",
+    });
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:2138/api/agent/status",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("getAgentStatus() falls back to /api/agent/status on other /api/status errors", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy Error Fallback",
+            model: "gpt-4",
+            state: "running",
+          }),
+      });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy Error Fallback",
+      model: "gpt-4",
+      state: "running",
+    });
+  });
+
+  it("getAgentStatus() preserves primary server failures when legacy status is auth-protected", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(client.getAgentStatus()).rejects.toThrow(
+      "API 500: /api/status",
+    );
+  });
+
+  it("getAgentStatus() falls back to /api/agent/status when /api/status JSON is invalid", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new Error("invalid json")),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy Parse Fallback",
+            model: "gpt-4",
+            state: "running",
+          }),
+      });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy Parse Fallback",
+      model: "gpt-4",
+      state: "running",
+    });
   });
 
   it("getMetrics() calls GET /api/metrics", async () => {
@@ -206,6 +450,26 @@ describe("CloudApiClient", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("importAgent() forwards Authorization for remote agents", async () => {
+    const remoteClient = new CloudApiClient({
+      url: "https://agent.example.com",
+      type: "remote",
+      authToken: "secret-token",
+    });
+    const mockFile = new File(["file-content"], "test.bin");
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ok: true }),
+    });
+
+    await remoteClient.importAgent(mockFile, "pass");
+
+    const headers = mockFetch.mock.calls[0][1].headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer secret-token");
+  });
+
   it("getBilling() calls GET /api/billing", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -248,7 +512,7 @@ describe("CloudClient", () => {
     });
     const agents = await cc.listAgents();
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/v1/milady/agents",
+      expect.stringContaining("/api/v1/milady/agents"),
       expect.objectContaining({ method: "GET" }),
     );
     // Verify X-Api-Key header
@@ -267,7 +531,7 @@ describe("CloudClient", () => {
     });
     await cc.suspendAgent("agent-123");
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/v1/milady/agents/agent-123/suspend",
+      expect.stringContaining("/api/v1/milady/agents/agent-123/suspend"),
       expect.objectContaining({ method: "POST" }),
     );
   });
@@ -280,7 +544,7 @@ describe("CloudClient", () => {
     });
     const result = await cc.resumeAgent("agent-123");
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/v1/milady/agents/agent-123/resume",
+      expect.stringContaining("/api/v1/milady/agents/agent-123/resume"),
       expect.objectContaining({ method: "POST" }),
     );
     expect(result.jobId).toBe("job-1");
@@ -294,7 +558,7 @@ describe("CloudClient", () => {
     });
     const balance = await cc.getCreditsBalance();
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/credits/balance",
+      expect.stringContaining("/api/credits/balance"),
       expect.objectContaining({ method: "GET" }),
     );
     expect(balance.balance).toBe(5000);
@@ -308,7 +572,7 @@ describe("CloudClient", () => {
     });
     await cc.takeSnapshot("agent-123");
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://www.elizacloud.ai/api/v1/milady/agents/agent-123/snapshot",
+      expect.stringContaining("/api/v1/milady/agents/agent-123/snapshot"),
       expect.objectContaining({ method: "POST" }),
     );
   });
@@ -331,6 +595,19 @@ describe("CloudClient", () => {
       json: () => Promise.resolve({ error: "forbidden" }),
     });
     await expect(cc.listAgents()).rejects.toThrow("Cloud API 403");
+  });
+
+  it("clears stored token when backend returns auth failure", async () => {
+    setToken("stale-key");
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: "Invalid or expired API key" }),
+      text: () => Promise.resolve("Invalid or expired API key"),
+    });
+
+    await expect(cc.listAgents()).rejects.toThrow("Invalid or expired API key");
+    expect(getToken()).toBeNull();
   });
 
   it("deleteAgent() calls DELETE", async () => {
@@ -426,12 +703,12 @@ describe("CloudClient", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ id: "new-agent" }),
+      json: () => Promise.resolve({ success: true, data: { id: "new-agent" } }),
     });
     const result = await cc.createAgent({ name: "Test Agent" });
     expect(result.id).toBe("new-agent");
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.name).toBe("Test Agent");
+    expect(body.agentName).toBe("Test Agent");
   });
 
   it("getAgent() calls GET /api/v1/milady/agents/:id", async () => {

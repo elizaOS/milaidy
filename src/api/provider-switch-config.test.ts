@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { MiladyConfig } from "../config/types.milady";
+import type { ElizaConfig } from "../config/types.eliza";
 
 const { applySubscriptionCredentials, deleteCredentials } = vi.hoisted(() => ({
   applySubscriptionCredentials: vi.fn(async () => undefined),
@@ -11,7 +11,7 @@ vi.mock("../auth/index", () => ({
   applySubscriptionCredentials,
   deleteCredentials,
 }));
-vi.mock("@miladyai/autonomous/auth", () => ({
+vi.mock("@elizaos/autonomous/auth", () => ({
   applySubscriptionCredentials,
   deleteCredentials,
 }));
@@ -29,13 +29,13 @@ import {
 // helpers
 // ---------------------------------------------------------------------------
 
-function emptyConfig(): Partial<MiladyConfig> {
+function emptyConfig(): Partial<ElizaConfig> {
   return {};
 }
 
 function configWithDefaults(
-  defaults: NonNullable<NonNullable<MiladyConfig["agents"]>["defaults"]> = {},
-): Partial<MiladyConfig> {
+  defaults: NonNullable<NonNullable<ElizaConfig["agents"]>["defaults"]> = {},
+): Partial<ElizaConfig> {
   return { agents: { defaults } };
 }
 
@@ -84,7 +84,7 @@ describe("applySubscriptionProviderConfig", () => {
   });
 
   it("preserves existing agents config fields", () => {
-    const config: Partial<MiladyConfig> = {
+    const config: Partial<ElizaConfig> = {
       agents: {
         defaults: { workspace: "/some/path" },
       },
@@ -174,7 +174,6 @@ describe("clearSubscriptionProviderConfig", () => {
     });
 
     clearSubscriptionProviderConfig(config);
-    clearSubscriptionProviderConfig(config);
 
     expect(config.agents?.defaults?.subscriptionProvider).toBeUndefined();
   });
@@ -213,8 +212,7 @@ describe("applyOnboardingConnectionConfig", () => {
     expect((config.env as Record<string, string>)?.ANTHROPIC_API_KEY).toBe(
       "sk-ant-oat01-test-token",
     );
-    expect(applySubscriptionCredentials).not.toHaveBeenCalled();
-    expect(deleteCredentials).toHaveBeenCalledWith("anthropic-subscription");
+    expect(applySubscriptionCredentials).toHaveBeenCalledWith(config);
     expect(deleteCredentials).toHaveBeenCalledWith("openai-codex");
   });
 

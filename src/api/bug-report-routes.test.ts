@@ -121,8 +121,8 @@ describe("bug-report-routes", () => {
 
   // ── BUG_REPORT_REPO constant ───────────────────────────────────────
   describe("BUG_REPORT_REPO", () => {
-    it("points to milady-ai/milady", () => {
-      expect(BUG_REPORT_REPO).toBe("milady-ai/milady");
+    it("points to a GitHub repo for bug reports (milady or eliza)", () => {
+      expect(["milady-ai/milady", "elizaos/eliza"]).toContain(BUG_REPORT_REPO);
     });
   });
 });

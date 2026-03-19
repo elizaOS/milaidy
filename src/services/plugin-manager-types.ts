@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/services/plugin-manager-types";
+export * from "@elizaos/autonomous/services/plugin-manager-types";

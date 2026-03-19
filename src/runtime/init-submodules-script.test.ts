@@ -6,7 +6,7 @@ import {
   runInitSubmodules,
 } from "../../scripts/init-submodules.mjs";
 
-const ROOT = "/tmp/milady-test-root";
+const ROOT = "/tmp/eliza-test-root";
 const GIT_DIR = resolve(ROOT, ".git");
 const GITMODULES = resolve(ROOT, ".gitmodules");
 

@@ -243,9 +243,7 @@ describe("POST /api/provider/switch", () => {
         provider: "google",
         apiKey: "AIza-test-key",
       });
-      expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe(
-        "AIza-test-key",
-      );
+      expect(process.env.GOOGLE_GENERATIVE_AI_API_KEY).toBe("AIza-test-key");
 
       // Switch to cloud
       await req(port, "POST", "/api/provider/switch", {

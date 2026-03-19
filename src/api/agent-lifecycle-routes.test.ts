@@ -13,7 +13,7 @@ function createRuntimeStub(
     enableAutonomy: true,
     plugins,
     getService: vi.fn(() => null),
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("agent lifecycle routes", () => {
@@ -23,7 +23,7 @@ describe("agent lifecycle routes", () => {
     state = {
       runtime: createRuntimeStub([{ name: "openai-main" }]),
       agentState: "stopped",
-      agentName: "Milady",
+      agentName: "Eliza",
       model: undefined,
       startedAt: undefined,
     };
@@ -71,7 +71,7 @@ describe("agent lifecycle routes", () => {
       ok: true,
       status: {
         state: "paused",
-        agentName: "Milady",
+        agentName: "Eliza",
         model: "openai-main",
       },
     });
@@ -93,7 +93,7 @@ describe("agent lifecycle routes", () => {
     expect(state.model).toBeUndefined();
     expect(result.payload).toMatchObject({
       ok: true,
-      status: { state: "stopped", agentName: "Milady" },
+      status: { state: "stopped", agentName: "Eliza" },
     });
   });
 
@@ -113,7 +113,7 @@ describe("agent lifecycle routes", () => {
       ok: true,
       status: {
         state: "paused",
-        agentName: "Milady",
+        agentName: "Eliza",
         model: "openai-main",
       },
     });
@@ -138,7 +138,7 @@ describe("agent lifecycle routes", () => {
       ok: true,
       status: {
         state: "running",
-        agentName: "Milady",
+        agentName: "Eliza",
         model: "openai-main",
       },
     });

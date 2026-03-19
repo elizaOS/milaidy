@@ -20,12 +20,9 @@ async function callAction(
   action: Action,
   params: Record<string, unknown> = {},
 ) {
-  return action.handler(
-    {} as never,
-    {} as never,
-    {} as never,
-    { parameters: params } as HandlerOptions,
-  ) as Promise<{ text: string; success: boolean }>;
+  return action.handler({} as never, {} as never, undefined, {
+    parameters: params,
+  } as HandlerOptions) as Promise<{ text: string; success: boolean }>;
 }
 
 describe("stream control actions", () => {
@@ -34,7 +31,7 @@ describe("stream control actions", () => {
 
   beforeEach(() => {
     mockFetch.mockReset();
-    globalThis.fetch = mockFetch as unknown as typeof fetch;
+    globalThis.fetch = mockFetch as typeof fetch;
   });
 
   afterEach(() => {

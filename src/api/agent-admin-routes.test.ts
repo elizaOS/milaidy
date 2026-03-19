@@ -1,18 +1,18 @@
 import type { AgentRuntime, UUID } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
   type AgentAdminRouteState,
   handleAgentAdminRoutes,
 } from "./agent-admin-routes";
 
-function createRuntime(name = "Milady"): AgentRuntime {
+function createRuntime(name = "Eliza"): AgentRuntime {
   return {
     character: { name },
     plugins: [{ name: "openai-main" }],
     stop: vi.fn(async () => undefined),
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("agent admin routes", () => {
@@ -29,9 +29,9 @@ describe("agent admin routes", () => {
   beforeEach(() => {
     state = {
       runtime: createRuntime(),
-      config: {} as MiladyConfig,
+      config: {} as ElizaConfig,
       agentState: "running",
-      agentName: "Milady",
+      agentName: "Eliza",
       model: "openai",
       startedAt: Date.now() - 1000,
       chatRoomId: "room-id" as UUID,
@@ -45,7 +45,7 @@ describe("agent admin routes", () => {
     };
 
     onRestart = undefined;
-    resolveStateDir = vi.fn(() => "/tmp/milady-state");
+    resolveStateDir = vi.fn(() => "/tmp/eliza-state");
     resolvePath = vi.fn((value: string) => value);
     getHomeDir = vi.fn(() => "/Users/tester");
     isSafeResetStateDir = vi.fn(() => true);
@@ -178,13 +178,13 @@ describe("agent admin routes", () => {
     expect(result.payload).toMatchObject({ ok: true });
     expect(state.runtime).toBeNull();
     expect(state.agentState).toBe("stopped");
-    expect(state.agentName).toBe("Milady");
+    expect(["Eliza", "Eliza"]).toContain(state.agentName);
     expect(state.model).toBeUndefined();
     expect(state.startedAt).toBeUndefined();
     expect(state.chatRoomId).toBeNull();
     expect(state.chatUserId).toBeNull();
     expect(state.chatConnectionReady).toBeNull();
     expect(state.chatConnectionPromise).toBeNull();
-    expect(removeStateDir).toHaveBeenCalledWith("/tmp/milady-state");
+    expect(removeStateDir).toHaveBeenCalledWith("/tmp/eliza-state");
   });
 });

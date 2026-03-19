@@ -2,19 +2,19 @@ import {
   type CharacterRouteContext as AutonomousCharacterRouteContext,
   type CharacterRouteState as AutonomousCharacterRouteState,
   handleCharacterRoutes as handleAutonomousCharacterRoutes,
-} from "@miladyai/autonomous/api/character-routes";
-import type { MiladyConfig } from "../config/types";
+} from "@elizaos/autonomous/api/character-routes";
+import type { ElizaConfig } from "../config/types";
 import { CharacterSchema } from "../config/zod-schema";
 import type { RouteRequestContext } from "./route-helpers";
 
 export interface CharacterRouteState extends AutonomousCharacterRouteState {
-  config?: MiladyConfig;
+  config?: ElizaConfig;
 }
 
 export interface CharacterRouteContext extends RouteRequestContext {
   state: CharacterRouteState;
   pickRandomNames: (count: number) => string[];
-  saveConfig?: (config: MiladyConfig) => void;
+  saveConfig?: (config: ElizaConfig) => void;
 }
 
 function toAutonomousContext(
@@ -23,7 +23,7 @@ function toAutonomousContext(
   return {
     ...ctx,
     saveConfig: ctx.saveConfig
-      ? (config) => ctx.saveConfig?.(config as MiladyConfig)
+      ? (config) => ctx.saveConfig?.(config as ElizaConfig)
       : undefined,
     validateCharacter: (body) => CharacterSchema.safeParse(body) as never,
   };

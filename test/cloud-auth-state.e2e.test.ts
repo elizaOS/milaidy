@@ -71,7 +71,9 @@ describe("Cloud auth status persistence", () => {
   beforeAll(async () => {
     envBackup = saveEnv(
       "MILADY_CONFIG_PATH",
+      "ELIZA_CONFIG_PATH",
       "MILADY_STATE_DIR",
+      "ELIZA_STATE_DIR",
       "ELIZAOS_CLOUD_API_KEY",
       "ELIZAOS_CLOUD_ENABLED",
     );
@@ -94,7 +96,9 @@ describe("Cloud auth status persistence", () => {
     );
 
     process.env.MILADY_CONFIG_PATH = configPath;
+    process.env.ELIZA_CONFIG_PATH = configPath;
     process.env.MILADY_STATE_DIR = tempDir;
+    process.env.ELIZA_STATE_DIR = tempDir;
 
     const server = await startApiServer({ port: 0 });
     port = server.port;

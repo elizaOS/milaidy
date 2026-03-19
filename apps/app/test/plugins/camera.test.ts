@@ -15,7 +15,7 @@ describe("@miladyai/capacitor-camera", () => {
 
   beforeEach(() => {
     cam = new CameraWeb();
-    priv = cam as unknown as Internals;
+    priv = cam as Internals;
   });
 
   // -- Settings --

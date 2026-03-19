@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/providers/admin-trust";
+export * from "@elizaos/autonomous/providers/admin-trust";

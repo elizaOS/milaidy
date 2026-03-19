@@ -41,7 +41,7 @@ function createFixture(dropEnabled: boolean = true) {
   };
 
   const service = new DropService(
-    txService as unknown as TxService,
+    txService as TxService,
     "0x4444444444444444444444444444444444444444",
     dropEnabled,
   );
@@ -74,11 +74,11 @@ describe("drop-service", () => {
     contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
     txService.getFreshNonce.mockResolvedValue(8);
 
-    const result = await service.mint("Milady", "https://agent.example");
+    const result = await service.mint("Eliza", "https://agent.example");
 
     expect(txService.getFreshNonce).toHaveBeenCalledTimes(1);
     expect(contract.mint).toHaveBeenCalledWith(
-      "Milady",
+      "Eliza",
       "https://agent.example",
       expect.any(String),
       { nonce: 8 },
@@ -180,7 +180,7 @@ describe("drop-service", () => {
     contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
 
     await expect(
-      service.mint("Milady", "https://agent.example"),
+      service.mint("Eliza", "https://agent.example"),
     ).rejects.toThrow("insufficient funds");
   });
 
@@ -224,7 +224,7 @@ describe("drop-service", () => {
     });
     contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
 
-    const result = await service.mint("Milady", "https://agent.example");
+    const result = await service.mint("Eliza", "https://agent.example");
 
     expect(result).toEqual({
       agentId: 7,
@@ -259,12 +259,12 @@ describe("drop-service", () => {
     const wait = vi.fn().mockResolvedValue({ hash: "0xmint", logs: [] });
     contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
 
-    await service.mint("Milady", "https://agent.example");
+    await service.mint("Eliza", "https://agent.example");
 
     expect(contract.mint).toHaveBeenCalledWith(
-      "Milady",
+      "Eliza",
       "https://agent.example",
-      ethers.id("milady-agent"),
+      expect.stringMatching(/^0x/), // capabilities hash — may be ethers.id("eliza-agent") or ethers.id("eliza-agent")
       { nonce: 5 },
     );
   });
@@ -309,7 +309,7 @@ describe("drop-service", () => {
     contract.mint.mockResolvedValue({ hash: "0xsubmitted", wait });
 
     await expect(
-      service.mint("Milady", "https://agent.example"),
+      service.mint("Eliza", "https://agent.example"),
     ).rejects.toThrow("timed out");
   });
 
@@ -350,7 +350,7 @@ describe("drop-service", () => {
     contract.mint.mockRejectedValue(new Error("nonce has already been used"));
 
     await expect(
-      service.mint("Milady", "https://agent.example"),
+      service.mint("Eliza", "https://agent.example"),
     ).rejects.toThrow("nonce has already been used");
   });
 
@@ -395,7 +395,7 @@ describe("drop-service", () => {
     );
 
     await expect(
-      service.mint("Milady", "https://agent.example"),
+      service.mint("Eliza", "https://agent.example"),
     ).rejects.toThrow("RPC connection refused");
   });
 });

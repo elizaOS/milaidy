@@ -17,10 +17,10 @@ const ARGS = process.argv.slice(2);
 const APP_DIR = path.join(ROOT, "apps", "app");
 const DIST_DIR = path.join(APP_DIR, "dist");
 const APP_PATH_ARG =
-  getArgValue("app-path") || process.env.MILADY_DESKTOP_APP_PATH || null;
+  getArgValue("app-path") || process.env.ELIZA_DESKTOP_APP_PATH || null;
 const RENDERER_PATH_ARG =
   getArgValue("renderer-path") ||
-  process.env.MILADY_DESKTOP_RENDERER_PATH ||
+  process.env.ELIZA_DESKTOP_RENDERER_PATH ||
   null;
 const SKIP_BUILD = getBooleanArg("skip-build") || getBooleanArg("no-build");
 const WATCH = getBooleanArg("watch");
@@ -44,7 +44,7 @@ let activeBuildProcess = null;
 const WATCH_SYNC_DEBOUNCE_MS = 250;
 
 function fail(message, code = 1) {
-  console.error(`[milady-ui-sync] ${message}`);
+  console.error(`[eliza-ui-sync] ${message}`);
   process.exit(code);
 }
 
@@ -88,7 +88,7 @@ function scheduleSync() {
       syncRendererBundle();
     } catch (error) {
       console.error(
-        `[milady-ui-sync] sync failed: ${error instanceof Error ? error.message : String(error)}`,
+        `[eliza-ui-sync] sync failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }, WATCH_SYNC_DEBOUNCE_MS);
@@ -223,7 +223,7 @@ function runBuildWatch() {
 
   proc.on("exit", (code) => {
     if (code !== 0) {
-      console.error(`[milady-ui-sync] vite watch exited with code ${code}`);
+      console.error(`[eliza-ui-sync] vite watch exited with code ${code}`);
       cleanup(code ?? 1);
     }
   });
@@ -248,7 +248,7 @@ function syncRendererBundle() {
   rmSync(TARGET_RENDERER, { recursive: true, force: true });
   mkdirSync(TARGET_RENDERER, { recursive: true });
   cpSync(DIST_DIR, TARGET_RENDERER, { recursive: true, force: true });
-  console.log(`[milady-ui-sync] Synced ${DIST_DIR} -> ${TARGET_RENDERER}`);
+  console.log(`[eliza-ui-sync] Synced ${DIST_DIR} -> ${TARGET_RENDERER}`);
 }
 
 function printUsage() {
@@ -257,10 +257,10 @@ function printUsage() {
   );
   console.log("Environment:");
   console.log(
-    "  MILADY_DESKTOP_APP_PATH      Override /Applications/Milady-canary.app",
+    "  ELIZA_DESKTOP_APP_PATH      Override /Applications/Milady-canary.app",
   );
   console.log(
-    "  MILADY_DESKTOP_RENDERER_PATH  Override renderer folder directly",
+    "  ELIZA_DESKTOP_RENDERER_PATH  Override renderer folder directly",
   );
   console.log("\nExamples:");
   console.log("  node scripts/sync-desktop-renderer.mjs");
@@ -273,7 +273,7 @@ function printUsage() {
 function main() {
   if (process.platform !== "darwin") {
     console.log(
-      "[milady-ui-sync] Warning: this script targets macOS app bundles by default.",
+      "[eliza-ui-sync] Warning: this script targets macOS app bundles by default.",
     );
   }
 
@@ -289,7 +289,7 @@ function main() {
   if (WATCH) {
     if (SKIP_BUILD) {
       console.log(
-        "[milady-ui-sync] --skip-build set: watching built dist folder only",
+        "[eliza-ui-sync] --skip-build set: watching built dist folder only",
       );
       waitForDistAndWatch();
       return;

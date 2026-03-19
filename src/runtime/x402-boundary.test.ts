@@ -3,16 +3,15 @@
  * integration. Covers env-forwarding denylist, config-to-env propagation,
  * plugin mapping, and character secrets — all without starting a runtime.
  *
- * @see https://github.com/milady-ai/milady/issues/590
+ * @see https://github.com/elizaos/eliza/issues/590
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { AUTH_PROVIDER_PLUGINS } from "../config/plugin-auto-enable";
 
 // Mock all static plugin star-imports in eliza.ts to isolate boundary tests
-// from heavy transitive dependencies (e.g. plugin-ollama → @elizaos/core ESM
-// named-export issue with MAX_EMBEDDING_TOKENS).
+// from heavy transitive dependencies.
 vi.mock("@elizaos/plugin-agent-orchestrator", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-agent-skills", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-anthropic", () => ({ default: {} }));
@@ -42,7 +41,6 @@ vi.mock("@elizaos/plugin-secrets-manager", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-shell", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-sql", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-telegram", () => ({ default: {} }));
-vi.mock("@elizaos/plugin-todo", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-trajectory-logger", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-trust", () => ({ default: {} }));
 vi.mock("@elizaos/plugin-twitch", () => ({ default: {} }));
@@ -76,7 +74,7 @@ function envSnapshot(keys: string[]): {
   };
 }
 
-const EMPTY_CONFIG: MiladyConfig = {} as MiladyConfig;
+const EMPTY_CONFIG: ElizaConfig = {} as ElizaConfig;
 
 // ---------------------------------------------------------------------------
 // Section 1: Env forwarding denylist (security)
@@ -167,7 +165,7 @@ describe("applyX402ConfigToEnv – propagation boundaries", () => {
         maxTotalUsd: 100,
         dbPath: "/tmp/x402.db",
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -197,7 +195,7 @@ describe("applyX402ConfigToEnv – propagation boundaries", () => {
         apiKey: "safe-key",
         baseUrl: "https://safe.example.com",
       },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -212,7 +210,7 @@ describe("applyX402ConfigToEnv – propagation boundaries", () => {
 
     const config = {
       x402: { enabled: false, apiKey: "should-not-appear" },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -233,7 +231,7 @@ describe("applyX402ConfigToEnv – propagation boundaries", () => {
 
     const config = {
       x402: { enabled: true, apiKey: "", baseUrl: "" },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -248,7 +246,7 @@ describe("applyX402ConfigToEnv – propagation boundaries", () => {
 
     const config = {
       x402: { enabled: true, apiKey: "new-key" },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -276,7 +274,9 @@ describe("x402 plugin mapping", () => {
   afterEach(() => snap.restore());
 
   it("collectPluginNames includes @elizaos/plugin-x402 when config.x402.enabled", () => {
-    const config = { x402: { enabled: true } } as unknown as MiladyConfig;
+    const config = {
+      x402: { enabled: true },
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-x402")).toBe(true);
   });
@@ -295,7 +295,7 @@ describe("x402 plugin mapping", () => {
     const config = {
       x402: { enabled: true },
       features: { x402: true },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     const names = collectPluginNames(config);
     const x402Entries = [...names].filter((n) => n === "@elizaos/plugin-x402");
@@ -389,7 +389,7 @@ describe("x402 disabled-by-default safety", () => {
   it("x402 config with privateKey but no enabled flag does not propagate to env", () => {
     const config = {
       x402: { privateKey: "0xDEADBEEF", apiKey: "key-123" },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -401,7 +401,7 @@ describe("x402 disabled-by-default safety", () => {
   it("x402 config with enabled: undefined is treated as disabled", () => {
     const config = {
       x402: { enabled: undefined, apiKey: "key-456" },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
 
     applyX402ConfigToEnv(config);
 
@@ -413,7 +413,7 @@ describe("x402 disabled-by-default safety", () => {
     process.env.ANTHROPIC_API_KEY = "test";
     const config = {
       x402: { privateKey: "0xDEADBEEF" },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-x402")).toBe(false);
   });

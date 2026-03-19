@@ -67,7 +67,7 @@ function createMockManager(
     getMode: vi.fn().mockReturnValue("standard"),
     getState: vi.fn().mockReturnValue("ready"),
     ...overrides,
-  } as unknown as SandboxManager;
+  } as Partial<SandboxManager> as SandboxManager;
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

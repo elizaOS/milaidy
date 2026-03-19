@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/awareness/registry";
+export * from "@elizaos/autonomous/awareness/registry";

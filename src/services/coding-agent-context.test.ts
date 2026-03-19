@@ -256,7 +256,7 @@ describe("InteractionModeSchema", () => {
 describe("validateCodingAgentContext", () => {
   it("returns ok for a valid context", () => {
     const result = validateCodingAgentContext(
-      makeContext() as unknown as Record<string, unknown>,
+      makeContext() as Record<string, unknown>,
     );
     expect(result.ok).toBe(true);
   });

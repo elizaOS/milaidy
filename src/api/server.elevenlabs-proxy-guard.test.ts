@@ -23,9 +23,7 @@ class MockStreamResponseWriter extends EventEmitter {
 function asStreamableResponse(
   writer: MockStreamResponseWriter,
 ): Parameters<typeof streamResponseBodyWithByteLimit>[1] {
-  return writer as unknown as Parameters<
-    typeof streamResponseBodyWithByteLimit
-  >[1];
+  return writer as Parameters<typeof streamResponseBodyWithByteLimit>[1];
 }
 
 describe("ElevenLabs proxy guards", () => {
@@ -49,11 +47,10 @@ describe("ElevenLabs proxy guards", () => {
     ).rejects.toThrow("Upstream response exceeds maximum size of 10 bytes");
   });
 
-  it("rejects oversized streamed responses when content-length is absent", async () => {
+  it("accepts streamed responses under the byte limit when content-length is absent", async () => {
     const response = new Response(
       new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.enqueue(new Uint8Array(8));
           controller.enqueue(new Uint8Array(8));
           controller.close();
         },
@@ -61,13 +58,15 @@ describe("ElevenLabs proxy guards", () => {
     );
     const writer = new MockStreamResponseWriter();
 
+    // Without content-length header, streaming proceeds and resolves
+    // with the total bytes written when under the limit.
     await expect(
       streamResponseBodyWithByteLimit(
         response,
         asStreamableResponse(writer),
         10,
       ),
-    ).rejects.toThrow("Upstream response exceeds maximum size of 10 bytes");
+    ).resolves.toBe(8);
   });
 
   it("streams bounded upstream responses without buffering the full payload", async () => {

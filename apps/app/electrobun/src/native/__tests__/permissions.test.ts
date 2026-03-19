@@ -53,13 +53,13 @@ import * as win32 from "../permissions-win32";
 function platformCheckMock(): ReturnType<typeof vi.fn> {
   switch (process.platform) {
     case "darwin":
-      return darwin.checkPermission as unknown as ReturnType<typeof vi.fn>;
+      return darwin.checkPermission as ReturnType<typeof vi.fn>;
     case "win32":
-      return win32.checkPermission as unknown as ReturnType<typeof vi.fn>;
+      return win32.checkPermission as ReturnType<typeof vi.fn>;
     case "linux":
-      return linux.checkPermission as unknown as ReturnType<typeof vi.fn>;
+      return linux.checkPermission as ReturnType<typeof vi.fn>;
     default:
-      return darwin.checkPermission as unknown as ReturnType<typeof vi.fn>;
+      return darwin.checkPermission as ReturnType<typeof vi.fn>;
   }
 }
 

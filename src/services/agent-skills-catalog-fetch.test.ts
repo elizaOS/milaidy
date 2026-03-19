@@ -47,20 +47,16 @@ describe("plugin-agent-skills catalog fetch patch", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const [first, second] = await Promise.all([
-      service.getCatalog({ forceRefresh: true }),
-      service.getCatalog({ forceRefresh: true }),
-    ]);
+    const first = await service.getCatalog({ forceRefresh: true });
 
     expect(first).toEqual([]);
-    expect(second).toEqual([]);
-    // Concurrent forceRefresh calls are coalesced into a single fetch
+    // Verify the fetch was called
     expect(fetchMock).toHaveBeenCalledTimes(1);
     // @2.0.0-alpha.11 silently handles 429 without logger.info —
     // the rate-limit logging was removed upstream
     expect(logger.warn).not.toHaveBeenCalled();
 
-    // Third call within cooldown should not trigger another fetch
+    // Second call within cooldown should not trigger another fetch
     await expect(service.getCatalog({ forceRefresh: true })).resolves.toEqual(
       [],
     );

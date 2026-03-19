@@ -51,7 +51,7 @@ Check the QA Report's Blast Radius Audit table:
 ### Pass 4: MINOR Cleanup
 Clean up all MINOR items in a single pass:
 - Remove `console.log` debug statements
-- Remove `TODO`/`FIXME` comments that don't correspond to tracked work
+- Remove untracked placeholder comments (`FIXME`, unfinished notes, stale markers)
 - Remove unused imports
 - Fix hardcoded values that should be constants
 

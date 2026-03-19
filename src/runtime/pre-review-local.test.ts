@@ -127,7 +127,7 @@ index 1234567..89abcde 100644
 
   it("approves when branch has no changed files compared to base", () => {
     const originalCwd = process.cwd();
-    const repoDir = mkdtempSync(path.join(tmpdir(), "milady-prereview-"));
+    const repoDir = mkdtempSync(path.join(tmpdir(), "eliza-prereview-"));
 
     try {
       execSync("git init -b main", { cwd: repoDir, stdio: "pipe" });
@@ -160,7 +160,7 @@ index 1234567..89abcde 100644
   });
 
   it("filters deleted test files out of targeted test runs", () => {
-    const repoDir = mkdtempSync(path.join(tmpdir(), "milady-prereview-files-"));
+    const repoDir = mkdtempSync(path.join(tmpdir(), "eliza-prereview-files-"));
     const kept = path.join(repoDir, "kept.test.ts");
     writeFileSync(kept, "export {};\n");
 

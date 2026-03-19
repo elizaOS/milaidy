@@ -494,7 +494,7 @@ Key compatibility details:
 | `/api/character` | PUT | Update character configuration (validated) |
 | `/api/character/schema` | GET | Get character field schema with types and descriptions |
 | `/api/character/random-name` | GET | Generate a random agent name |
-| `/api/character/generate` | POST | AI-generate character fields (bio, style, chat examples, post examples) |
+| `/api/character/generate` | POST | AI-generate character fields (bio, system, style, chat examples, post examples) |
 
 ### Character Generation
 
@@ -507,13 +507,14 @@ The `POST /api/character/generate` endpoint uses AI to generate character conten
     "name": "Reimu",
     "system": "A shrine maiden interested in technology",
     "bio": "Existing bio text",
+    "topics": ["technology", "spirituality"],
     "style": { "all": ["Be direct"] }
   },
   "mode": "append"
 }
 ```
 
-Supported fields: `bio`, `style`, `chatExamples`, `postExamples`. The `mode` parameter (`append` or `replace`) controls whether generated content is added to existing content or replaces it. The generation uses the `TEXT_SMALL` model with a temperature of 0.8.
+Supported fields: `bio`, `system`, `style`, `chatExamples`, `postExamples`. The `mode` parameter (`append` or `replace`) controls whether generated content is added to existing content or replaces it. The `context.topics` parameter accepts an array of topic strings to provide the agent's topic list as additional context for more relevant generation. The generation uses the `TEXT_SMALL` model with a temperature of 0.8.
 
 ---
 

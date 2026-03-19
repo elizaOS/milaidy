@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import type { MiladyConfig } from "../config/config";
+import type { ElizaConfig } from "../config/config";
 import { tryOptionalDynamicImport } from "../test-support/test-helpers";
 import { CORE_PLUGINS, collectPluginNames } from "./eliza";
 
@@ -62,12 +62,12 @@ describe("Shell plugin classification", () => {
   });
 
   it("@elizaos/plugin-shell is loaded with empty config", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-shell")).toBe(true);
   });
 
   it("@elizaos/plugin-shell is loaded alongside other core plugins", () => {
-    const names = collectPluginNames({} as MiladyConfig);
+    const names = collectPluginNames({} as ElizaConfig);
     expect(names.has("@elizaos/plugin-shell")).toBe(true);
     expect(names.has("@elizaos/plugin-sql")).toBe(true);
     expect(names.has("@elizaos/plugin-agent-skills")).toBe(true);
@@ -78,7 +78,7 @@ describe("Shell plugin classification", () => {
     const config = {
       features: { browser: true, computeruse: true },
       channels: { discord: { token: "test" } },
-    } as unknown as MiladyConfig;
+    } as Partial<ElizaConfig> as ElizaConfig;
     const names = collectPluginNames(config);
     expect(names.has("@elizaos/plugin-shell")).toBe(true);
   });

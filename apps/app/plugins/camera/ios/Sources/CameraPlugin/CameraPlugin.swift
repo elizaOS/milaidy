@@ -55,16 +55,21 @@ public class MiladyCameraPlugin: CAPPlugin, CAPBridgedPlugin {
 
     /// All device types to discover. Ported from classic CameraController to include
     /// dual, triple, TrueDepth, and LiDAR cameras.
-    private static let discoveryDeviceTypes: [AVCaptureDevice.DeviceType] = [
-        .builtInWideAngleCamera,
-        .builtInUltraWideCamera,
-        .builtInTelephotoCamera,
-        .builtInDualCamera,
-        .builtInDualWideCamera,
-        .builtInTripleCamera,
-        .builtInTrueDepthCamera,
-        .builtInLiDARDepthCamera,
-    ]
+    private static let discoveryDeviceTypes: [AVCaptureDevice.DeviceType] = {
+        var types: [AVCaptureDevice.DeviceType] = [
+            .builtInWideAngleCamera,
+            .builtInUltraWideCamera,
+            .builtInTelephotoCamera,
+            .builtInDualCamera,
+            .builtInDualWideCamera,
+            .builtInTripleCamera,
+            .builtInTrueDepthCamera
+        ]
+        if #available(iOS 15.4, *) {
+            types.append(.builtInLiDARDepthCamera)
+        }
+        return types
+    }()
 
     private var currentSettings: [String: Any] = [
         "flash": "off",

@@ -3,31 +3,38 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "/opt/homebrew/bin/npm",
       "runtimeArgs": ["run", "dev"],
       "port": 2138
     },
     {
       "name": "dev-ui-only",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:ui"],
-      "port": 2138
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": ["-l", "-c", "npm run dev:ui"],
+      "port": 2138,
+      "autoPort": false
+    },
+    {
+      "name": "home",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": ["-l", "-c", "cd apps/home && npx vite --port 2140"],
+      "port": 2140
     },
     {
       "name": "homepage",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "/opt/homebrew/bin/npm",
       "runtimeArgs": ["run", "dev:homepage"],
       "port": 2139
     },
     {
       "name": "storybook",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "/opt/homebrew/bin/npm",
       "runtimeArgs": ["run", "--prefix", "apps/app", "storybook"],
       "port": 6007
     },
     {
       "name": "docs",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "/opt/homebrew/bin/npm",
       "runtimeArgs": ["run", "docs:dev"],
       "port": 3000
     }

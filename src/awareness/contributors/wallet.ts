@@ -5,12 +5,12 @@
 import type { IAgentRuntime } from "@elizaos/core";
 import { getWalletAddresses } from "../../api/wallet.js";
 import { resolveWalletRpcReadiness } from "../../api/wallet-rpc.js";
-import { loadMiladyConfig } from "../../config/config.js";
+import { loadElizaConfig } from "../../config/config.js";
 import type { AwarenessContributor } from "../../contracts/awareness.js";
 
 // Stub until server.ts exports these (deferred to integration PR)
 function resolveTradePermissionMode(_config?: unknown): string {
-  return process.env.MILADY_TRADE_PERMISSION_MODE ?? "disabled";
+  return process.env.ELIZA_TRADE_PERMISSION_MODE ?? "disabled";
 }
 function canUseLocalTradeExecution(
   _mode?: string,
@@ -44,7 +44,7 @@ export const walletContributor: AwarenessContributor = {
       return "Wallet: not configured";
     }
 
-    const config = loadMiladyConfig();
+    const config = loadElizaConfig();
     const tradeMode = resolveTradePermissionMode(config);
     const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const bscRpc = resolveWalletRpcReadiness(config).managedBscRpcReady;
@@ -64,7 +64,7 @@ export const walletContributor: AwarenessContributor = {
     level: "brief" | "full",
   ): Promise<string> {
     const addrs = getWalletAddresses();
-    const config = loadMiladyConfig();
+    const config = loadElizaConfig();
     const tradeMode = resolveTradePermissionMode(config);
     const localSigner = Boolean(process.env.EVM_PRIVATE_KEY?.trim());
     const bscRpc = resolveWalletRpcReadiness(config).managedBscRpcReady;

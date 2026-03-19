@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/providers/ui-catalog";
+export * from "@elizaos/autonomous/providers/ui-catalog";

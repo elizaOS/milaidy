@@ -56,6 +56,8 @@ interface ElectrobunRendererRpc {
 }
 
 type DesktopBridgeWindow = Window & {
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  /** @deprecated Use __ELIZA_ELECTROBUN_RPC__ */
   __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
@@ -68,7 +70,8 @@ function getDesktopBridgeWindow(): DesktopBridgeWindow | null {
 }
 
 function getElectrobunRendererRpc(): ElectrobunRendererRpc | null {
-  return getDesktopBridgeWindow()?.__MILADY_ELECTROBUN_RPC__ ?? null;
+  const w = getDesktopBridgeWindow();
+  return w?.__ELIZA_ELECTROBUN_RPC__ ?? w?.__MILADY_ELECTROBUN_RPC__ ?? null;
 }
 
 async function invokeDesktopBridgeRequest<T>(options: {

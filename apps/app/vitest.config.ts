@@ -1,10 +1,75 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import {
+  getAppCoreSourceRoot,
+  resolveModuleEntry,
+} from "../../test/eliza-package-paths";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const appCorePackageRoot = getAppCoreSourceRoot(here);
+
+const bridgeStubPath = path.join(
+  here,
+  "..",
+  "..",
+  "test",
+  "stubs",
+  "app-core-bridge.ts",
+);
+
+/**
+ * Custom Vite plugin that redirects @elizaos/app-core/bridge imports to
+ * the test stub before Vite's built-in resolver tries to resolve through
+ * the package's exports map (which may reference native bindings that are
+ * unavailable in the test environment).
+ */
+function appCoreBridgeStubPlugin(): Plugin {
+  return {
+    name: "app-core-bridge-stub",
+    enforce: "pre",
+    resolveId(source) {
+      if (
+        source === "@elizaos/app-core/bridge/electrobun-rpc" ||
+        source === "@elizaos/app-core/bridge/electrobun-runtime" ||
+        source === "@elizaos/app-core/bridge"
+      ) {
+        return bridgeStubPath;
+      }
+      return null;
+    },
+  };
+}
 
 export default defineConfig({
+  plugins: [appCoreBridgeStubPlugin()],
+  resolve: {
+    alias: [
+      {
+        find: "react",
+        replacement: path.join(here, "node_modules/react"),
+      },
+      {
+        find: "react-dom",
+        replacement: path.join(here, "node_modules/react-dom"),
+      },
+      ...(appCorePackageRoot
+        ? [
+            {
+              find: /^@elizaos\/app-core\/(.*)/,
+              replacement: path.join(appCorePackageRoot, "$1"),
+            },
+            {
+              find: "@elizaos/app-core",
+              replacement: resolveModuleEntry(
+                path.join(appCorePackageRoot, "index"),
+              ),
+            },
+          ]
+        : []),
+    ],
+  },
   test: {
     // Use POSIX-style relative globs so test discovery works on Windows too.
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
@@ -12,14 +77,6 @@ export default defineConfig({
     environment: "node",
     alias: {
       "@elizaos/skills": path.join(here, "test/__mocks__/elizaos-skills.ts"),
-      "@elizaos/plugin-pdf": path.join(
-        here,
-        "..",
-        "..",
-        "test",
-        "stubs",
-        "empty-module.mjs",
-      ),
       "@miladyai/capacitor-gateway": path.join(
         here,
         "plugins/gateway/src/index.ts",
@@ -59,5 +116,10 @@ export default defineConfig({
     },
     testTimeout: 30000,
     globals: true,
+    server: {
+      deps: {
+        inline: ["@elizaos/app-core"],
+      },
+    },
   },
 });

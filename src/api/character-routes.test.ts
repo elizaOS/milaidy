@@ -1,6 +1,6 @@
 import type { AgentRuntime } from "@elizaos/core";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { MiladyConfig } from "../config/types";
+import type { ElizaConfig } from "../config/types";
 import { createRouteInvoker } from "../test-support/route-test-helpers";
 import {
   type CharacterRouteState,
@@ -9,7 +9,7 @@ import {
 
 function createRuntimeStub(): AgentRuntime {
   const character: Record<string, unknown> = {
-    name: "Milady",
+    name: "Eliza",
     bio: ["Initial bio"],
     system: "System prompt",
     adjectives: ["curious"],
@@ -19,7 +19,7 @@ function createRuntimeStub(): AgentRuntime {
       {
         examples: [
           { name: "{{user1}}", content: { text: "hello" } },
-          { name: "Milady", content: { text: "hi" } },
+          { name: "Eliza", content: { text: "hi" } },
         ],
       },
     ],
@@ -29,7 +29,7 @@ function createRuntimeStub(): AgentRuntime {
   return {
     character,
     useModel: vi.fn(async () => "generated output"),
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("character routes", () => {
@@ -42,12 +42,12 @@ describe("character routes", () => {
     saveConfig = vi.fn();
     state = {
       runtime: createRuntimeStub(),
-      agentName: "Milady",
+      agentName: "Eliza",
       config: {
         agents: {
-          list: [{ id: "main", default: true, name: "Milady" }],
+          list: [{ id: "main", default: true, name: "Eliza" }],
         },
-      } as MiladyConfig,
+      } as ElizaConfig,
     };
   });
 
@@ -89,9 +89,9 @@ describe("character routes", () => {
 
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({
-      agentName: "Milady",
+      agentName: "Eliza",
       character: {
-        name: "Milady",
+        name: "Eliza",
         bio: ["Initial bio"],
         topics: ["fashion", "ai"],
         messageExamples: expect.any(Array),
@@ -113,8 +113,7 @@ describe("character routes", () => {
     expect(result.status).toBe(200);
     expect(state.agentName).toBe("Sakuya");
     expect(
-      (state.runtime as unknown as { character: Record<string, unknown> })
-        .character.name,
+      (state.runtime as { character: Record<string, unknown> }).character.name,
     ).toBe("Sakuya");
     expect(result.payload).toMatchObject({
       ok: true,
@@ -142,8 +141,8 @@ describe("character routes", () => {
 
     expect(result.status).toBe(200);
     expect(
-      (state.runtime as unknown as { character: Record<string, unknown> })
-        .character.messageExamples,
+      (state.runtime as { character: Record<string, unknown> }).character
+        .messageExamples,
     ).toEqual(messageExamples);
   });
 
@@ -185,8 +184,7 @@ describe("character routes", () => {
     });
     expect(state.agentName).toBe("Sakuya");
     expect(
-      (state.runtime as unknown as { character: Record<string, unknown> })
-        .character,
+      (state.runtime as { character: Record<string, unknown> }).character,
     ).toMatchObject(fullCharacter);
 
     const getResult = await invoke({
@@ -273,7 +271,7 @@ describe("character routes", () => {
       body: {
         field: "bio",
         context: {
-          name: "Milady",
+          name: "Eliza",
           system: "agent system",
           bio: "bio text",
         },
@@ -283,8 +281,7 @@ describe("character routes", () => {
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({ generated: "generated output" });
     expect(
-      (state.runtime as unknown as { useModel: ReturnType<typeof vi.fn> })
-        .useModel,
+      (state.runtime as { useModel: ReturnType<typeof vi.fn> }).useModel,
     ).toHaveBeenCalledTimes(1);
   });
 
@@ -295,7 +292,7 @@ describe("character routes", () => {
       body: {
         field: "system",
         context: {
-          name: "Milady",
+          name: "Eliza",
           system: "agent system",
           bio: "bio text",
         },
@@ -305,8 +302,7 @@ describe("character routes", () => {
     expect(result.status).toBe(200);
     expect(result.payload).toMatchObject({ generated: "generated output" });
     expect(
-      (state.runtime as unknown as { useModel: ReturnType<typeof vi.fn> })
-        .useModel,
+      (state.runtime as { useModel: ReturnType<typeof vi.fn> }).useModel,
     ).toHaveBeenCalledTimes(1);
   });
 
@@ -343,7 +339,7 @@ describe("character routes", () => {
       body: {
         field: "not-real",
         context: {},
-      } as unknown as Record<string, unknown>,
+      } as Record<string, unknown>,
     });
 
     expect(result.status).toBe(400);

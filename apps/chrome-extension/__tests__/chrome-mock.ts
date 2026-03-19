@@ -136,7 +136,7 @@ let _current: ChromeMock | null = null;
 export function installChromeMock(): ChromeMock {
   const mock = createChromeMock();
   _current = mock;
-  (globalThis as Record<string, unknown>).chrome = mock;
+  (globalThis as unknown as Record<string, unknown>).chrome = mock;
   return mock;
 }
 

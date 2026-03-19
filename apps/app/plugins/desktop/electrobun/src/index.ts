@@ -19,7 +19,7 @@ import type { PluginListenerHandle } from "@capacitor/core";
 import {
   invokeDesktopBridgeRequest,
   subscribeDesktopBridgeEvent,
-} from "@miladyai/app-core/bridge/electrobun-rpc";
+} from "@elizaos/app-core/bridge/electrobun-rpc";
 import type {
   AutoLaunchOptions,
   DesktopPlugin,

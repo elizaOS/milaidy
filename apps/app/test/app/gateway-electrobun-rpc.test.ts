@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
-import type { ElectrobunRendererRpc } from "@miladyai/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@elizaos/app-core/bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GatewayElectrobun } from "../../plugins/gateway/electrobun/src/index.ts";
 
 type TestWindow = Window & {
-  __MILADY_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
+  __ELIZA_ELECTROBUN_RPC__?: ElectrobunRendererRpc;
 };
 
 const sampleGateway = {
@@ -19,7 +19,7 @@ const sampleGateway = {
 
 describe("GatewayElectrobun desktop bridge", () => {
   afterEach(() => {
-    delete (window as TestWindow).__MILADY_ELECTROBUN_RPC__;
+    delete (window as TestWindow).__ELIZA_ELECTROBUN_RPC__;
     vi.restoreAllMocks();
   });
 
@@ -31,7 +31,7 @@ describe("GatewayElectrobun desktop bridge", () => {
     });
     const gatewayStopDiscovery = vi.fn().mockResolvedValue(undefined);
 
-    (window as TestWindow).__MILADY_ELECTROBUN_RPC__ = {
+    (window as TestWindow).__ELIZA_ELECTROBUN_RPC__ = {
       request: {
         gatewayStartDiscovery,
         gatewayStopDiscovery,

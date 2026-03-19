@@ -2,7 +2,7 @@ import {
   type AgentTransferRouteState,
   type AgentTransferRouteContext as AutonomousAgentTransferRouteContext,
   handleAgentTransferRoutes as handleAutonomousAgentTransferRoutes,
-} from "@miladyai/autonomous/api/agent-transfer-routes";
+} from "@elizaos/autonomous/api/agent-transfer-routes";
 import {
   AgentExportError,
   estimateExportSize,

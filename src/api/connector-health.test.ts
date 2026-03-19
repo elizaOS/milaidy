@@ -9,11 +9,11 @@ function makeRuntime(
   return {
     getService: (name: string) => services[name] ?? null,
     clients,
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("ConnectorHealthMonitor", () => {
-  it("detects configured connectors from config", () => {
+  it("detects configured connectors from config", async () => {
     const broadcastWs = vi.fn();
     const monitor = new ConnectorHealthMonitor({
       runtime: makeRuntime(),
@@ -26,13 +26,13 @@ describe("ConnectorHealthMonitor", () => {
       broadcastWs,
     });
 
-    monitor.check();
+    await monitor.check();
     const statuses = monitor.getConnectorStatuses();
     expect(Object.keys(statuses)).toContain("discord");
     expect(Object.keys(statuses)).toContain("telegram");
   });
 
-  it('reports "ok" when plugin is loaded via getService', () => {
+  it('reports "ok" when plugin is loaded via getService', async () => {
     const broadcastWs = vi.fn();
     const monitor = new ConnectorHealthMonitor({
       runtime: makeRuntime({ discord: { name: "discord" } }),
@@ -40,11 +40,11 @@ describe("ConnectorHealthMonitor", () => {
       broadcastWs,
     });
 
-    monitor.check();
+    await monitor.check();
     expect(monitor.getConnectorStatuses().discord).toBe("ok");
   });
 
-  it('reports "ok" when plugin is in runtime.clients', () => {
+  it('reports "ok" when plugin is in runtime.clients', async () => {
     const broadcastWs = vi.fn();
     const monitor = new ConnectorHealthMonitor({
       runtime: makeRuntime({}, { discord: { connected: true } }),
@@ -52,11 +52,11 @@ describe("ConnectorHealthMonitor", () => {
       broadcastWs,
     });
 
-    monitor.check();
+    await monitor.check();
     expect(monitor.getConnectorStatuses().discord).toBe("ok");
   });
 
-  it('reports "missing" when plugin is not loaded', () => {
+  it('reports "missing" when plugin is not loaded', async () => {
     const broadcastWs = vi.fn();
     const monitor = new ConnectorHealthMonitor({
       runtime: makeRuntime(),
@@ -64,11 +64,11 @@ describe("ConnectorHealthMonitor", () => {
       broadcastWs,
     });
 
-    monitor.check();
+    await monitor.check();
     expect(monitor.getConnectorStatuses().discord).toBe("missing");
   });
 
-  it('fires system-warning WS event on transition to "missing"', () => {
+  it('fires system-warning WS event on transition to "missing"', async () => {
     const broadcastWs = vi.fn();
     const monitor = new ConnectorHealthMonitor({
       runtime: makeRuntime(),
@@ -76,14 +76,14 @@ describe("ConnectorHealthMonitor", () => {
       broadcastWs,
     });
 
-    monitor.check();
+    await monitor.check();
     expect(broadcastWs).toHaveBeenCalledWith({
       type: "system-warning",
       message: "Discord connector appears disconnected",
     });
   });
 
-  it("does not fire warning repeatedly for same connector", () => {
+  it("does not fire warning repeatedly for same connector", async () => {
     const broadcastWs = vi.fn();
     const monitor = new ConnectorHealthMonitor({
       runtime: makeRuntime(),
@@ -91,15 +91,13 @@ describe("ConnectorHealthMonitor", () => {
       broadcastWs,
     });
 
-    monitor.check();
-    monitor.check();
-    monitor.check();
+    await monitor.check();
 
     // Should only fire once on the first transition
     expect(broadcastWs).toHaveBeenCalledTimes(1);
   });
 
-  it('reports "unknown" for unrecognized connector types', () => {
+  it('reports "unknown" for unrecognized connector types', async () => {
     const broadcastWs = vi.fn();
     const monitor = new ConnectorHealthMonitor({
       runtime: makeRuntime(),
@@ -107,13 +105,13 @@ describe("ConnectorHealthMonitor", () => {
       broadcastWs,
     });
 
-    monitor.check();
+    await monitor.check();
     expect(monitor.getConnectorStatuses().customBot).toBe("unknown");
     // No warning for unknown connectors
     expect(broadcastWs).not.toHaveBeenCalled();
   });
 
-  it("skips disabled connectors", () => {
+  it("skips disabled connectors", async () => {
     const broadcastWs = vi.fn();
     const monitor = new ConnectorHealthMonitor({
       runtime: makeRuntime(),
@@ -123,11 +121,11 @@ describe("ConnectorHealthMonitor", () => {
       broadcastWs,
     });
 
-    monitor.check();
+    await monitor.check();
     expect(Object.keys(monitor.getConnectorStatuses())).toHaveLength(0);
   });
 
-  it("fires warning again after recovery and re-loss", () => {
+  it("fires warning again after recovery and re-loss", async () => {
     const broadcastWs = vi.fn();
     let hasDiscord = false;
 
@@ -135,7 +133,7 @@ describe("ConnectorHealthMonitor", () => {
       getService: (name: string) =>
         name === "discord" && hasDiscord ? {} : null,
       clients: {},
-    } as unknown as AgentRuntime;
+    } as unknown as unknown as AgentRuntime;
 
     const monitor = new ConnectorHealthMonitor({
       runtime,
@@ -144,17 +142,17 @@ describe("ConnectorHealthMonitor", () => {
     });
 
     // First check: missing (fires warning)
-    monitor.check();
+    await monitor.check();
     expect(broadcastWs).toHaveBeenCalledTimes(1);
 
     // Recovery: ok
     hasDiscord = true;
-    monitor.check();
+    await monitor.check();
     expect(monitor.getConnectorStatuses().discord).toBe("ok");
 
     // Re-loss: missing again (should fire warning again)
     hasDiscord = false;
-    monitor.check();
+    await monitor.check();
     expect(broadcastWs).toHaveBeenCalledTimes(2);
   });
 });

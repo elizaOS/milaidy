@@ -5,14 +5,14 @@
  */
 
 import type { IAgentRuntime } from "@elizaos/core";
-import { loadMiladyConfig } from "../../config/config.js";
+import { loadElizaConfig } from "../../config/config.js";
 import type { AwarenessContributor } from "../../contracts/awareness";
 
 type AutomationMode = "connectors-only" | "full";
 
 function resolveAutomationMode(): AutomationMode {
   try {
-    const config = loadMiladyConfig();
+    const config = loadElizaConfig();
     const features =
       config.features && typeof config.features === "object"
         ? (config.features as Record<string, unknown>)

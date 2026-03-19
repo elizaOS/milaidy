@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/config/zod-schema";
+export * from "@elizaos/autonomous/config/zod-schema";

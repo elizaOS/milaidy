@@ -1,1 +1,2 @@
-export * from "@miladyai/autonomous/config/types";
+export type { ElizaConfig } from "@elizaos/autonomous/config/types";
+export * from "@elizaos/autonomous/config/types";

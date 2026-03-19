@@ -28,7 +28,7 @@ describe("@miladyai/capacitor-gateway", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     gw = new GatewayWeb();
-    priv = gw as unknown as Internals;
+    priv = gw as Internals;
   });
 
   afterEach(() => vi.useRealTimers());

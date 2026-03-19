@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/services/coding-agent-context";
+export * from "@elizaos/autonomous/services/coding-agent-context";

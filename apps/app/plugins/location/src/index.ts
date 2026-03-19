@@ -7,5 +7,3 @@ const loadWeb = () => import("./web").then((m) => new m.LocationWeb());
 export const Location = registerPlugin<LocationPlugin>("MiladyLocation", {
   web: loadWeb,
 });
-
-export * from "./definitions";

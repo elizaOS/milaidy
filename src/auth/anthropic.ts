@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/auth/anthropic";
+export * from "@elizaos/autonomous/auth/anthropic";

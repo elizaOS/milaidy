@@ -143,7 +143,7 @@ async function writeEjectedPlugin(
     upstreamPath,
     JSON.stringify(
       {
-        $schema: "milady-upstream-v1",
+        $schema: "eliza-upstream-v1",
         source: "github:elizaos-plugins/plugin-test",
         gitUrl: "https://github.com/elizaos-plugins/plugin-test.git",
         branch: "main",
@@ -168,7 +168,7 @@ let tmpDir = "";
 beforeEach(async () => {
   vi.resetModules();
   vi.clearAllMocks();
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "milady-eject-test-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "eliza-eject-test-"));
   mockedStateDir = tmpDir;
   setExecFileHandler(async () => ({ stdout: "" }));
 });
@@ -225,7 +225,7 @@ describe("plugin-eject", () => {
         "utf-8",
       );
       const upstream = JSON.parse(upstreamRaw) as Record<string, unknown>;
-      expect(upstream.$schema).toBe("milady-upstream-v1");
+      expect(upstream.$schema).toBe("eliza-upstream-v1");
       expect(upstream.gitUrl).toBe(
         "https://github.com/elizaos-plugins/plugin-test.git",
       );
@@ -253,7 +253,6 @@ describe("plugin-eject", () => {
       expect(vi.mocked(execFile)).not.toHaveBeenCalledWith(
         "git",
         expect.arrayContaining(["clone"]),
-        expect.anything(),
         expect.anything(),
       );
     });
@@ -693,7 +692,7 @@ describe("plugin-eject", () => {
         "utf-8",
       );
       const upstream = JSON.parse(upstreamRaw) as Record<string, unknown>;
-      expect(upstream.$schema).toBe("milady-upstream-v1");
+      expect(upstream.$schema).toBe("eliza-upstream-v1");
       expect(upstream.commitHash).toBe("newhead456");
       expect(upstream.localCommits).toBe(1);
       expect(typeof upstream.lastSyncAt).toBe("string");
@@ -1107,7 +1106,7 @@ describe("plugin-eject", () => {
           path: pluginDir,
           version: "1.0.0",
           upstream: {
-            $schema: "milady-upstream-v1",
+            $schema: "eliza-upstream-v1",
             source: "github:elizaos-plugins/plugin-test",
             gitUrl: "https://github.com/elizaos-plugins/plugin-test.git",
             branch: "main",
@@ -1152,7 +1151,7 @@ describe("plugin-eject", () => {
 
       const alpha = list.find((item) => item.path === alphaDir);
       const beta = list.find((item) => item.path === betaDir);
-      expect(alpha?.upstream?.$schema).toBe("milady-upstream-v1");
+      expect(alpha?.upstream?.$schema).toBe("eliza-upstream-v1");
       expect(beta?.upstream).toBeNull();
       expect(alpha?.version).toBe("1.0.0");
       expect(beta?.version).toBe("2.0.0");

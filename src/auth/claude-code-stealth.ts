@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/auth/claude-code-stealth";
+export * from "@elizaos/autonomous/auth/claude-code-stealth";

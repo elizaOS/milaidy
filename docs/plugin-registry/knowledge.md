@@ -154,6 +154,6 @@ for (const result of results) {
 
 ## Related
 
-- [Bootstrap Plugin](/plugin-registry/bootstrap) — Prompt assembly that includes knowledge context
+- [Cron Plugin](/plugin-registry/cron) — Triggers knowledge retrieval on a schedule
 - [SQL Plugin](/plugin-registry/sql) — Vector store backend
 - [Knowledge Guide](/guides/knowledge) — Detailed knowledge management guide

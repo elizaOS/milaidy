@@ -48,7 +48,7 @@ function createBenchmarkActionXml(prompt: string): string {
  * but this base implementation keeps CI and unit tests deterministic.
  */
 export const mockPlugin: Plugin = {
-  name: "milady-benchmark-mock",
+  name: "eliza-benchmark-mock",
   description:
     "Deterministic benchmark mock plugin used by tests and local benchmark smoke runs.",
   models: {

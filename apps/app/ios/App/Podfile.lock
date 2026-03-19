@@ -1,9 +1,9 @@
 PODS:
-  - Capacitor (8.1.0):
+  - Capacitor (8.2.0):
     - CapacitorCordova
   - CapacitorApp (8.0.1):
     - Capacitor
-  - CapacitorCordova (8.1.0)
+  - CapacitorCordova (8.2.0)
   - CapacitorHaptics (8.0.0):
     - Capacitor
   - CapacitorKeyboard (8.0.0):
@@ -12,89 +12,89 @@ PODS:
     - Capacitor
   - CapacitorStatusBar (8.0.1):
     - Capacitor
-  - MiladyCapacitorAgent (1.0.0):
+  - MiladyaiCapacitorAgent (1.0.0):
     - Capacitor
-  - MiladyCapacitorCamera (1.0.0):
+  - MiladyaiCapacitorCamera (1.0.0):
     - Capacitor
-  - MiladyCapacitorCanvas (1.0.0):
+  - MiladyaiCapacitorCanvas (1.0.0):
     - Capacitor
-  - MiladyCapacitorGateway (1.0.0):
+  - MiladyaiCapacitorGateway (1.0.0):
     - Capacitor
-  - MiladyCapacitorLocation (1.0.0):
+  - MiladyaiCapacitorLocation (1.0.0):
     - Capacitor
-  - MiladyCapacitorScreencapture (1.0.0):
+  - MiladyaiCapacitorScreencapture (1.0.0):
     - Capacitor
-  - MiladyCapacitorSwabble (1.0.0):
+  - MiladyaiCapacitorSwabble (1.0.0):
     - Capacitor
-  - MiladyCapacitorTalkmode (1.0.0):
+  - MiladyaiCapacitorTalkmode (1.0.0):
     - Capacitor
 
 DEPENDENCIES:
-  - "Capacitor (from `../../../../node_modules/.bun/@capacitor+ios@8.1.0+15945e198350fa93/node_modules/@capacitor/ios`)"
-  - "CapacitorApp (from `../../../../node_modules/.bun/@capacitor+app@8.0.1+15945e198350fa93/node_modules/@capacitor/app`)"
-  - "CapacitorCordova (from `../../../../node_modules/.bun/@capacitor+ios@8.1.0+15945e198350fa93/node_modules/@capacitor/ios`)"
-  - "CapacitorHaptics (from `../../../../node_modules/.bun/@capacitor+haptics@8.0.0+15945e198350fa93/node_modules/@capacitor/haptics`)"
-  - "CapacitorKeyboard (from `../../../../node_modules/.bun/@capacitor+keyboard@8.0.0+15945e198350fa93/node_modules/@capacitor/keyboard`)"
-  - "CapacitorPreferences (from `../../../../node_modules/.bun/@capacitor+preferences@8.0.1+15945e198350fa93/node_modules/@capacitor/preferences`)"
-  - "CapacitorStatusBar (from `../../../../node_modules/.bun/@capacitor+status-bar@8.0.1+15945e198350fa93/node_modules/@capacitor/status-bar`)"
-  - MiladyCapacitorAgent (from `../../plugins/agent`)
-  - MiladyCapacitorCamera (from `../../plugins/camera`)
-  - MiladyCapacitorCanvas (from `../../plugins/canvas`)
-  - MiladyCapacitorGateway (from `../../plugins/gateway`)
-  - MiladyCapacitorLocation (from `../../plugins/location`)
-  - MiladyCapacitorScreencapture (from `../../plugins/screencapture`)
-  - MiladyCapacitorSwabble (from `../../plugins/swabble`)
-  - MiladyCapacitorTalkmode (from `../../plugins/talkmode`)
+  - "Capacitor (from `../../../../node_modules/.bun/@capacitor+ios@8.2.0+1a4bec108d739029/node_modules/@capacitor/ios`)"
+  - "CapacitorApp (from `../../../../node_modules/.bun/@capacitor+app@8.0.1+1a4bec108d739029/node_modules/@capacitor/app`)"
+  - "CapacitorCordova (from `../../../../node_modules/.bun/@capacitor+ios@8.2.0+1a4bec108d739029/node_modules/@capacitor/ios`)"
+  - "CapacitorHaptics (from `../../../../node_modules/.bun/@capacitor+haptics@8.0.0+1a4bec108d739029/node_modules/@capacitor/haptics`)"
+  - "CapacitorKeyboard (from `../../../../node_modules/.bun/@capacitor+keyboard@8.0.0+1a4bec108d739029/node_modules/@capacitor/keyboard`)"
+  - "CapacitorPreferences (from `../../../../node_modules/.bun/@capacitor+preferences@8.0.1+1a4bec108d739029/node_modules/@capacitor/preferences`)"
+  - "CapacitorStatusBar (from `../../../../node_modules/.bun/@capacitor+status-bar@8.0.1+1a4bec108d739029/node_modules/@capacitor/status-bar`)"
+  - MiladyaiCapacitorAgent (from `../../plugins/agent`)
+  - MiladyaiCapacitorCamera (from `../../plugins/camera`)
+  - MiladyaiCapacitorCanvas (from `../../plugins/canvas`)
+  - MiladyaiCapacitorGateway (from `../../plugins/gateway`)
+  - MiladyaiCapacitorLocation (from `../../plugins/location`)
+  - MiladyaiCapacitorScreencapture (from `../../plugins/screencapture`)
+  - MiladyaiCapacitorSwabble (from `../../plugins/swabble`)
+  - MiladyaiCapacitorTalkmode (from `../../plugins/talkmode`)
 
 EXTERNAL SOURCES:
   Capacitor:
-    :path: "../../../../node_modules/.bun/@capacitor+ios@8.1.0+15945e198350fa93/node_modules/@capacitor/ios"
+    :path: "../../../../node_modules/.bun/@capacitor+ios@8.2.0+1a4bec108d739029/node_modules/@capacitor/ios"
   CapacitorApp:
-    :path: "../../../../node_modules/.bun/@capacitor+app@8.0.1+15945e198350fa93/node_modules/@capacitor/app"
+    :path: "../../../../node_modules/.bun/@capacitor+app@8.0.1+1a4bec108d739029/node_modules/@capacitor/app"
   CapacitorCordova:
-    :path: "../../../../node_modules/.bun/@capacitor+ios@8.1.0+15945e198350fa93/node_modules/@capacitor/ios"
+    :path: "../../../../node_modules/.bun/@capacitor+ios@8.2.0+1a4bec108d739029/node_modules/@capacitor/ios"
   CapacitorHaptics:
-    :path: "../../../../node_modules/.bun/@capacitor+haptics@8.0.0+15945e198350fa93/node_modules/@capacitor/haptics"
+    :path: "../../../../node_modules/.bun/@capacitor+haptics@8.0.0+1a4bec108d739029/node_modules/@capacitor/haptics"
   CapacitorKeyboard:
-    :path: "../../../../node_modules/.bun/@capacitor+keyboard@8.0.0+15945e198350fa93/node_modules/@capacitor/keyboard"
+    :path: "../../../../node_modules/.bun/@capacitor+keyboard@8.0.0+1a4bec108d739029/node_modules/@capacitor/keyboard"
   CapacitorPreferences:
-    :path: "../../../../node_modules/.bun/@capacitor+preferences@8.0.1+15945e198350fa93/node_modules/@capacitor/preferences"
+    :path: "../../../../node_modules/.bun/@capacitor+preferences@8.0.1+1a4bec108d739029/node_modules/@capacitor/preferences"
   CapacitorStatusBar:
-    :path: "../../../../node_modules/.bun/@capacitor+status-bar@8.0.1+15945e198350fa93/node_modules/@capacitor/status-bar"
-  MiladyCapacitorAgent:
+    :path: "../../../../node_modules/.bun/@capacitor+status-bar@8.0.1+1a4bec108d739029/node_modules/@capacitor/status-bar"
+  MiladyaiCapacitorAgent:
     :path: "../../plugins/agent"
-  MiladyCapacitorCamera:
+  MiladyaiCapacitorCamera:
     :path: "../../plugins/camera"
-  MiladyCapacitorCanvas:
+  MiladyaiCapacitorCanvas:
     :path: "../../plugins/canvas"
-  MiladyCapacitorGateway:
+  MiladyaiCapacitorGateway:
     :path: "../../plugins/gateway"
-  MiladyCapacitorLocation:
+  MiladyaiCapacitorLocation:
     :path: "../../plugins/location"
-  MiladyCapacitorScreencapture:
+  MiladyaiCapacitorScreencapture:
     :path: "../../plugins/screencapture"
-  MiladyCapacitorSwabble:
+  MiladyaiCapacitorSwabble:
     :path: "../../plugins/swabble"
-  MiladyCapacitorTalkmode:
+  MiladyaiCapacitorTalkmode:
     :path: "../../plugins/talkmode"
 
 SPEC CHECKSUMS:
-  Capacitor: 47b825120c6b8b6d6f9f053e9350a8960d436710
+  Capacitor: 49a454e1cdbd520bc106a220adca7913536a4933
   CapacitorApp: 942306cd1acf7774a00e89a3986af3a67c8cad7a
-  CapacitorCordova: e8b76fd95fc1e157775abc484c59cc0de464095d
+  CapacitorCordova: a9ac88d84a1f5280f33b349fe50fce1902683ac0
   CapacitorHaptics: 2079d9fa04c5a71e18663b4722323c304c58245c
   CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
   CapacitorPreferences: cca2021f386efb75947c850334447d9ff22b14f1
   CapacitorStatusBar: 32206abd53b14f339763da26f71286deaa891e16
-  MiladyCapacitorAgent: 8cee8d946a02612a981108afc505feb4b6e31345
-  MiladyCapacitorCamera: 26c6971783a3d2b7a00e7df2ee92765b8a5eecf6
-  MiladyCapacitorCanvas: 9b9c3e8e7703270f880b859aeb9f7f76a322135e
-  MiladyCapacitorGateway: 44e0190f0f55d79216b1c3bdf6621fd43e3cbb6d
-  MiladyCapacitorLocation: 05b0a488d8a693a720a6fb84dab5aa01f62b83da
-  MiladyCapacitorScreencapture: e08a3ee59dc3d9b23aac3fc78f68a74cde4fb8f0
-  MiladyCapacitorSwabble: bb15013437ab2da54c10106c59feb1b4cfcaa7f5
-  MiladyCapacitorTalkmode: 226beee5fc130d19fcfb967a6021bd2a6c68cd64
+  MiladyaiCapacitorAgent: d1a76bd65d1fdb5384966ddf6d0e652e278ea25d
+  MiladyaiCapacitorCamera: ba4e573db05084fc02c976fe57866ea29aec0e63
+  MiladyaiCapacitorCanvas: d57a4b5340d25e7b6d462532e35d27c0ecea69d1
+  MiladyaiCapacitorGateway: 65743f10dd4696b39d6b3142f27a87ecc996fd1f
+  MiladyaiCapacitorLocation: 99ccc716f788d741c0a5425cde9b7008a3616c7d
+  MiladyaiCapacitorScreencapture: 3df3d7e94ac6ba7f69c63152ae18a46bf909c0d7
+  MiladyaiCapacitorSwabble: 793036783c59e69a84866dca0841195dbb2c8d83
+  MiladyaiCapacitorTalkmode: fe375718c8defd943b1ce3ff7dfd8af9864325c9
 
-PODFILE CHECKSUM: a1949ade4519fcd9b9c1000786b0148838a8f366
+PODFILE CHECKSUM: b535094f62309f9a882bc3510aa35c9d2e2579ad
 
 COCOAPODS: 1.16.2

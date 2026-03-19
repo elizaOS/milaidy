@@ -25,7 +25,7 @@ describe("LocalModelManager", () => {
     // Use a unique temp directory for each test
     testCacheDir = join(
       tmpdir(),
-      `milady-test-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      `eliza-test-${Date.now()}-${Math.random().toString(36).substring(7)}`,
     );
     mkdirSync(testCacheDir, { recursive: true });
     manager = new LocalModelManager({ cacheDir: testCacheDir });
@@ -214,7 +214,7 @@ describe.skip("LocalModelManager Integration (requires network)", () => {
   let testCacheDir: string;
 
   beforeEach(() => {
-    testCacheDir = join(tmpdir(), `milady-integration-${Date.now()}`);
+    testCacheDir = join(tmpdir(), `eliza-integration-${Date.now()}`);
     mkdirSync(testCacheDir, { recursive: true });
     manager = new LocalModelManager({ cacheDir: testCacheDir });
   });
@@ -265,7 +265,7 @@ describe("LocalModelManager Error Handling", () => {
 
   beforeEach(() => {
     manager = new LocalModelManager({
-      cacheDir: join(tmpdir(), `milady-error-test-${Date.now()}`),
+      cacheDir: join(tmpdir(), `eliza-error-test-${Date.now()}`),
     });
   });
 

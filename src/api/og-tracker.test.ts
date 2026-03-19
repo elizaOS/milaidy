@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const MOCK_STATE_DIR = path.join(__dirname, "__test_og_state__");
 
-vi.mock("../../packages/autonomous/src/config/paths.ts", () => ({
+vi.mock("@elizaos/autonomous/config/paths", () => ({
   resolveStateDir: () => MOCK_STATE_DIR,
 }));
 
@@ -31,7 +31,7 @@ import {
   initializeOGCode,
   isValidOGCode,
   readOGCode,
-} from "../../packages/autonomous/src/api/og-tracker.ts";
+} from "@elizaos/autonomous/api/og-tracker";
 
 // ── Setup / Teardown ─────────────────────────────────────────────────────
 
@@ -145,8 +145,8 @@ describe("og-tracker", () => {
     });
 
     it("generates deterministic output for the same seed", () => {
-      const codes1 = generateValidCodes("milady-seed-2024", 10);
-      const codes2 = generateValidCodes("milady-seed-2024", 10);
+      const codes1 = generateValidCodes("eliza-seed-2024", 10);
+      const codes2 = generateValidCodes("eliza-seed-2024", 10);
       expect(codes1).toEqual(codes2);
     });
 
@@ -206,7 +206,7 @@ describe("og-tracker", () => {
   // ===================================================================
 
   describe("isValidOGCode", () => {
-    const SEED = "milady-secret-seed";
+    const SEED = "eliza-secret-seed";
 
     it("returns true for a valid code from the seed", () => {
       const codes = generateValidCodes(SEED, 100);

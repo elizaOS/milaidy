@@ -87,6 +87,26 @@ describe("Capacitor Plugin Build Verification", () => {
         expect(pkg.types).toBeDefined();
       });
 
+      it("uses the ESM index for module and import entry points", () => {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+        const esmPath =
+          resolveEsmIndexPath(dir)?.replaceAll(path.sep, "/") ?? null;
+
+        if (!esmPath) {
+          console.warn(`[SKIP] ${plugin.name}: ESM build not found`);
+          return;
+        }
+
+        const modulePath = String(pkg.module ?? "").replaceAll(path.sep, "/");
+        const importPath = String(pkg.exports?.["."]?.import ?? "").replaceAll(
+          path.sep,
+          "/",
+        );
+
+        expect(modulePath).toBe("./dist/esm/index.js");
+        expect(importPath).toBe("./dist/esm/index.js");
+      });
+
       it("dist/ directory exists with built files", () => {
         const distDir = path.join(dir, "dist");
         const built = fs.existsSync(distDir);

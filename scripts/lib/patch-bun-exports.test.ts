@@ -10,6 +10,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   applyAgentSkillsCatalogFetchPatch,
+  applyAppCoreMiladyCharacterViewPatch,
+  applyAppCoreMiladyIdentityStepPatch,
+  applyAppCoreMiladyVrmStatePatch,
+  applyAppCoreMiladyVrmTypesPatch,
+  applyAppCoreMiladyVrmViewerPatch,
+  applyAutonomousMiladyOnboardingPresetsPatch,
   applyExtensionlessJsExportAliases,
   applyMissingLifecycleScriptPatch,
   applyNobleHashesCompat,
@@ -18,12 +24,51 @@ import {
   findPackageFilePaths,
   findPackageJsonPaths,
   patchAgentSkillsCatalogFetch,
+  patchAppCoreMiladyAssets,
+  patchAutonomousMiladyOnboardingPresets,
+  patchBrokenElizaCoreRuntimeDists,
   patchBunExports,
   patchExtensionlessJsExports,
   patchMissingLifecycleScript,
   patchNobleHashesCompat,
   patchProperLockfileSignalExitCompat,
+  repairElizaCoreRuntimeDist,
 } from "./patch-bun-exports.mjs";
+
+const MOCK_MILADY_CATALOG = {
+  assets: [
+    { id: 1, slug: "milady-1", title: "Chen", sourceName: "Chen" },
+    { id: 2, slug: "milady-2", title: "Jin", sourceName: "Jin" },
+    { id: 3, slug: "milady-3", title: "Kei", sourceName: "Kei" },
+    { id: 4, slug: "milady-4", title: "Momo", sourceName: "Momo" },
+  ],
+  injectedCharacters: [
+    {
+      catchphrase: "I'm ready to assist.",
+      name: "Rin",
+      avatarAssetId: 1,
+      voicePresetId: "alice",
+      avatarAsset: {
+        id: 1,
+        slug: "milady-1",
+        title: "Chen",
+        sourceName: "Chen",
+      },
+    },
+    {
+      catchphrase: "I'm here to help you.",
+      name: "Ai",
+      avatarAssetId: 2,
+      voicePresetId: "sarah",
+      avatarAsset: {
+        id: 2,
+        slug: "milady-2",
+        title: "Jin",
+        sourceName: "Jin",
+      },
+    },
+  ],
+};
 
 describe("patch-bun-exports", () => {
   it("applyPatchToPackageJson removes bun and default when src/index.ts is missing", () => {
@@ -191,6 +236,114 @@ describe("patch-bun-exports", () => {
 
       const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
       expect(updated.exports["."].bun).toBeUndefined();
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("repairElizaCoreRuntimeDist copies runtime dist into a broken cached core package", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const sourcePkgDir = join(tmp, "node_modules", "@elizaos", "core");
+      const brokenPkgDir = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+core@2.0.0-alpha.21",
+        "node_modules",
+        "@elizaos",
+        "core",
+      );
+
+      mkdirSync(join(sourcePkgDir, "dist", "node"), { recursive: true });
+      mkdirSync(join(sourcePkgDir, "dist", "browser"), { recursive: true });
+      writeFileSync(join(sourcePkgDir, "dist", "index.js"), "// root", "utf8");
+      writeFileSync(
+        join(sourcePkgDir, "dist", "node", "index.node.js"),
+        "// node",
+        "utf8",
+      );
+      writeFileSync(
+        join(sourcePkgDir, "dist", "browser", "index.browser.js"),
+        "// browser",
+        "utf8",
+      );
+
+      mkdirSync(join(brokenPkgDir, "dist", "testing"), { recursive: true });
+      writeFileSync(
+        join(brokenPkgDir, "dist", "testing", "index.js"),
+        "// only testing",
+        "utf8",
+      );
+
+      const patched = repairElizaCoreRuntimeDist(brokenPkgDir, sourcePkgDir);
+      expect(patched).toBe(true);
+      expect(readFileSync(join(brokenPkgDir, "dist", "index.js"), "utf8")).toBe(
+        "// root",
+      );
+      expect(
+        readFileSync(
+          join(brokenPkgDir, "dist", "node", "index.node.js"),
+          "utf8",
+        ),
+      ).toBe("// node");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchBrokenElizaCoreRuntimeDists repairs broken Bun cache copies from the root install", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const rootPkgDir = join(tmp, "node_modules", "@elizaos", "core");
+      const brokenPkgDir = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+core@2.0.0-alpha.13",
+        "node_modules",
+        "@elizaos",
+        "core",
+      );
+
+      mkdirSync(join(rootPkgDir, "dist", "node"), { recursive: true });
+      mkdirSync(join(rootPkgDir, "dist", "browser"), { recursive: true });
+      writeFileSync(join(rootPkgDir, "package.json"), "{}", "utf8");
+      writeFileSync(join(rootPkgDir, "dist", "index.js"), "// root", "utf8");
+      writeFileSync(
+        join(rootPkgDir, "dist", "node", "index.node.js"),
+        "// node",
+        "utf8",
+      );
+      writeFileSync(
+        join(rootPkgDir, "dist", "browser", "index.browser.js"),
+        "// browser",
+        "utf8",
+      );
+
+      mkdirSync(join(brokenPkgDir, "dist", "testing"), { recursive: true });
+      writeFileSync(join(brokenPkgDir, "package.json"), "{}", "utf8");
+      writeFileSync(
+        join(brokenPkgDir, "dist", "testing", "index.js"),
+        "// only testing",
+        "utf8",
+      );
+
+      const logs: string[] = [];
+      const patched = patchBrokenElizaCoreRuntimeDists(tmp, (msg) =>
+        logs.push(msg),
+      );
+
+      expect(patched).toBe(true);
+      expect(logs.some((line) => line.includes("Repaired @elizaos/core"))).toBe(
+        true,
+      );
+      expect(
+        readFileSync(
+          join(brokenPkgDir, "dist", "node", "index.node.js"),
+          "utf8",
+        ),
+      ).toBe("// node");
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
@@ -426,6 +579,385 @@ describe("patch-bun-exports", () => {
 
       const updated = JSON.parse(readFileSync(pkgPath, "utf8"));
       expect(updated.scripts).toBeUndefined();
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyVrmStatePatch rewrites the bundled avatar roster from the catalog", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "state",
+        "vrm.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(filePath, "// upstream", "utf8");
+
+      const patched = applyAppCoreMiladyVrmStatePatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        "Generated from apps/app/characters/catalog.json",
+      );
+      expect(updated).toContain('title: "Chen"');
+      expect(updated).toContain('title: "Momo"');
+      expect(updated).toContain(
+        'vrmPath: resolveAppAssetUrl("vrms/milady-1.vrm.gz")',
+      );
+      expect(updated).toContain(
+        'previewPath: resolveAppAssetUrl("vrms/previews/milady-2.png")',
+      );
+      expect(updated).toContain(
+        'backgroundPath: resolveAppAssetUrl("vrms/backgrounds/milady-4.png")',
+      );
+      expect(updated).toContain(
+        "export const VRM_COUNT = BUNDLED_VRM_ASSETS.length;",
+      );
+      expect(updated).toContain("return resolveBundledVrmAsset(index).title;");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyVrmTypesPatch expands the declared roster size", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "state",
+        "vrm.d.ts",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(filePath, "export declare const VRM_COUNT = 4;\n", "utf8");
+
+      const patched = applyAppCoreMiladyVrmTypesPatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      expect(readFileSync(filePath, "utf8")).toContain(
+        "export declare const VRM_COUNT = 4;",
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyVrmViewerPatch repoints the default fallback avatar", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "avatar",
+        "VrmViewer.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        'const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/eliza-1.vrm.gz");\n',
+        "utf8",
+      );
+
+      const patched = applyAppCoreMiladyVrmViewerPatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      expect(readFileSync(filePath, "utf8")).toContain(
+        'const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/milady-1.vrm.gz");',
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyIdentityStepPatch rewrites injected onboarding characters from the catalog", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "onboarding",
+        "IdentityStep.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const IDENTITY_PRESETS = {
+    "I'm ready to assist.": { name: "Rin", avatarIndex: 1 },
+    "I'm here to help you.": { name: "Ai", avatarIndex: 2 },
+};
+styles.slice(0, 4);
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreMiladyIdentityStepPatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        '"I\'m ready to assist.": { name: "Rin", avatarIndex: 1 }',
+      );
+      expect(updated).toContain(
+        '"I\'m here to help you.": { name: "Ai", avatarIndex: 2 }',
+      );
+      expect(updated).toContain("styles.slice(0, 2);");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAppCoreMiladyCharacterViewPatch rewrites injected roster metadata from the catalog", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "app-core",
+        "components",
+        "CharacterView.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(
+        filePath,
+        `const CHARACTER_PRESET_META = {
+    "I'm ready to assist.": { name: "Rin", avatarIndex: 1, voicePresetId: "alice" },
+};
+const visibleCharacterRoster = characterRoster.slice(0, 4);
+const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
+`,
+        "utf8",
+      );
+
+      const patched = applyAppCoreMiladyCharacterViewPatch(
+        filePath,
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      const updated = readFileSync(filePath, "utf8");
+      expect(updated).toContain(
+        '"I\'m here to help you.": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" }',
+      );
+      expect(updated).toContain("characterRoster.slice(0, 2)");
+      expect(updated).toContain("(index % 4) + 1");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchAppCoreMiladyAssets patches app-core runtime files and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const rootPkgDir = join(tmp, "node_modules", "@elizaos", "app-core");
+      const cachedPkgDir = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+app-core@2.0.0-alpha.53",
+        "node_modules",
+        "@elizaos",
+        "app-core",
+      );
+
+      for (const pkgDir of [rootPkgDir, cachedPkgDir]) {
+        mkdirSync(join(pkgDir, "state"), { recursive: true });
+        mkdirSync(join(pkgDir, "components", "avatar"), { recursive: true });
+        mkdirSync(join(pkgDir, "components", "onboarding"), {
+          recursive: true,
+        });
+        writeFileSync(join(pkgDir, "state", "vrm.js"), "// upstream", "utf8");
+        writeFileSync(
+          join(pkgDir, "state", "vrm.d.ts"),
+          "export declare const VRM_COUNT = 1;\n",
+          "utf8",
+        );
+        writeFileSync(
+          join(pkgDir, "components", "avatar", "VrmViewer.js"),
+          'const DEFAULT_VRM_PATH = resolveAppAssetUrl("vrms/eliza-1.vrm.gz");\n',
+          "utf8",
+        );
+        writeFileSync(
+          join(pkgDir, "components", "onboarding", "IdentityStep.js"),
+          "const IDENTITY_PRESETS = {};\nstyles.slice(0, 4);\n",
+          "utf8",
+        );
+        writeFileSync(
+          join(pkgDir, "components", "CharacterView.js"),
+          "const CHARACTER_PRESET_META = {};\nconst visibleCharacterRoster = characterRoster.slice(0, 4);\nconst avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;\n",
+          "utf8",
+        );
+      }
+
+      const logs: string[] = [];
+      const patched = patchAppCoreMiladyAssets(
+        tmp,
+        (msg) => logs.push(msg),
+        MOCK_MILADY_CATALOG,
+      );
+      expect(patched).toBe(true);
+      expect(
+        logs.some((line) => line.includes("@elizaos/app-core state/vrm.js")),
+      ).toBe(true);
+      expect(
+        logs.some((line) =>
+          line.includes("@elizaos/app-core components/avatar/VrmViewer.js"),
+        ),
+      ).toBe(true);
+      expect(
+        logs.some((line) =>
+          line.includes(
+            "@elizaos/app-core components/onboarding/IdentityStep.js",
+          ),
+        ),
+      ).toBe(true);
+      expect(
+        logs.some((line) =>
+          line.includes("@elizaos/app-core components/CharacterView.js"),
+        ),
+      ).toBe(true);
+      expect(
+        readFileSync(join(rootPkgDir, "state", "vrm.js"), "utf8"),
+      ).toContain('vrmPath: resolveAppAssetUrl("vrms/milady-1.vrm.gz")');
+      expect(
+        readFileSync(join(rootPkgDir, "state", "vrm.d.ts"), "utf8"),
+      ).toContain("export declare const VRM_COUNT = 4;");
+      expect(
+        readFileSync(
+          join(rootPkgDir, "components", "onboarding", "IdentityStep.js"),
+          "utf8",
+        ),
+      ).toContain("styles.slice(0, 2);");
+      expect(
+        readFileSync(
+          join(rootPkgDir, "components", "CharacterView.js"),
+          "utf8",
+        ),
+      ).toContain(
+        '"uwu~": { name: "Ai", avatarIndex: 2, voicePresetId: "sarah" }',
+      );
+      expect(
+        readFileSync(
+          join(cachedPkgDir, "components", "avatar", "VrmViewer.js"),
+          "utf8",
+        ),
+      ).toContain("vrms/milady-1.vrm.gz");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("applyAutonomousMiladyOnboardingPresetsPatch replaces upstream presets with Milady's source", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const filePath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "autonomous",
+        "packages",
+        "autonomous",
+        "src",
+        "onboarding-presets.js",
+      );
+      mkdirSync(join(filePath, ".."), { recursive: true });
+      writeFileSync(filePath, 'export const STYLE_PRESETS = ["upstream"];\n');
+
+      const miladySource =
+        'export const SHARED_STYLE_RULES = ["Keep responses brief."];\nexport const STYLE_PRESETS = ["milady"];\n';
+      const patched = applyAutonomousMiladyOnboardingPresetsPatch(
+        filePath,
+        miladySource,
+      );
+
+      expect(patched).toBe(true);
+      expect(readFileSync(filePath, "utf8")).toBe(miladySource);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("patchAutonomousMiladyOnboardingPresets patches installed autonomous copies and logs", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
+    try {
+      const rootSourcePath = join(tmp, "src", "onboarding-presets.ts");
+      const rootPkgPath = join(
+        tmp,
+        "node_modules",
+        "@elizaos",
+        "autonomous",
+        "packages",
+        "autonomous",
+        "src",
+        "onboarding-presets.js",
+      );
+      const cachedPkgPath = join(
+        tmp,
+        "node_modules",
+        ".bun",
+        "@elizaos+autonomous@2.0.0-alpha.53",
+        "node_modules",
+        "@elizaos",
+        "autonomous",
+        "packages",
+        "autonomous",
+        "src",
+        "onboarding-presets.js",
+      );
+
+      mkdirSync(join(rootSourcePath, ".."), { recursive: true });
+      mkdirSync(join(rootPkgPath, ".."), { recursive: true });
+      mkdirSync(join(cachedPkgPath, ".."), { recursive: true });
+
+      const miladySource =
+        'export const SHARED_STYLE_RULES = ["Keep responses brief."];\nexport const STYLE_PRESETS = ["milady"];\n';
+      writeFileSync(rootSourcePath, miladySource, "utf8");
+      writeFileSync(
+        rootPkgPath,
+        'export const STYLE_PRESETS = ["upstream"];\n',
+      );
+      writeFileSync(
+        cachedPkgPath,
+        'export const STYLE_PRESETS = ["upstream"];\n',
+      );
+
+      const logs: string[] = [];
+      const patched = patchAutonomousMiladyOnboardingPresets(tmp, (msg) =>
+        logs.push(msg),
+      );
+
+      expect(patched).toBe(true);
+      expect(readFileSync(rootPkgPath, "utf8")).toBe(miladySource);
+      expect(readFileSync(cachedPkgPath, "utf8")).toBe(miladySource);
+      expect(
+        logs.some((line) =>
+          line.includes(
+            "@elizaos/autonomous packages/autonomous/src/onboarding-presets.js",
+          ),
+        ),
+      ).toBe(true);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

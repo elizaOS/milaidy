@@ -711,7 +711,7 @@ if printf '%s\n' "$LOG_SLICE" | grep -Eq "Failed plugins:.*(${STREAMING_FAILURE_
   dump_failure_diagnostics "streaming plugins reported failed"
   exit 1
 fi
-if printf '%s\n' "$LOG_SLICE" | grep -Eq "Plugin @miladyai/plugin-streaming-base did not export a valid Plugin object"; then
+if printf '%s\n' "$LOG_SLICE" | grep -Eq "Plugin @elizaos/plugin-streaming-base did not export a valid Plugin object"; then
   echo "ERROR: Streaming helper package was treated as a real plugin."
   printf '%s\n' "$LOG_SLICE" | grep -E "plugin-streaming-base|Plugin resolution complete|Failed plugins:" | tail -n 20
   dump_failure_diagnostics "streaming helper package treated as a plugin"

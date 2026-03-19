@@ -428,9 +428,6 @@ Global agent defaults. Every agent inherits these unless overridden.
 | `workspace` | `string` | -- | Default working directory for agent runs |
 | `adminEntityId` | `string` | -- | Stable owner/admin entity ID for control-chat ownership |
 | `repoRoot` | `string` | -- | Repository root override for system prompt |
-| `skipBootstrap` | `boolean` | -- | Skip bootstrap (BOOTSTRAP.md creation) for pre-configured deployments |
-| `bootstrapMaxChars` | `number` | `20000` | Max chars for injected bootstrap files before truncation |
-| `enableBootstrapProviders` | `boolean` | `true` | Enable bootstrap providers (attachments, entities, facts) |
 | `userTimezone` | `string` | -- | IANA timezone for the user (defaults to host timezone) |
 | `timeFormat` | `"auto" \| "12" \| "24"` | -- | Time format in system prompt |
 | `envelopeTimezone` | `string` | `"utc"` | Envelope timestamp timezone (`"utc"`, `"local"`, `"user"`, or IANA TZ) |

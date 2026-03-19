@@ -24,7 +24,7 @@ describe("cloneWithoutBlockedObjectKeys — connector config sanitization", () =
     const input = {
       token: "abc",
       settings: {
-        $include: "~/.milady/auth/credentials.json",
+        $include: "~/.eliza/auth/credentials.json",
         foo: "bar",
       },
     };

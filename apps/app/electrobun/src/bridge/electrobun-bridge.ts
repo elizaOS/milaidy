@@ -293,7 +293,7 @@ const listenersByChannel: Record<string, Set<IpcListener>> = {};
 // If the built-in preload hasn't fired yet (rare edge case), stub it.
 if (typeof window.__electrobun === "undefined") {
   (
-    window as unknown as {
+    window as {
       __electrobun: {
         receiveMessageFromBun: (m: unknown) => void;
         receiveInternalMessageFromBun: (m: unknown) => void;

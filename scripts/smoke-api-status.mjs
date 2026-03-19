@@ -7,9 +7,9 @@
  * accidentally deployed to a marketing/static origin).
  *
  * Usage:
- *   node scripts/smoke-api-status.mjs https://milady.ai https://app.milady.ai
+ *   node scripts/smoke-api-status.mjs https://eliza.ai https://app.eliza.ai
  * or
- *   MILADY_DEPLOY_BASE_URLS=https://milady.ai,https://app.milady.ai node scripts/smoke-api-status.mjs
+ *   ELIZA_DEPLOY_BASE_URLS=https://eliza.ai,https://app.eliza.ai node scripts/smoke-api-status.mjs
  */
 
 import { pathToFileURL } from "node:url";
@@ -22,10 +22,10 @@ export function resolveBaseUrls(
 ) {
   const argvBases = argv.map((value) => value.trim()).filter(Boolean);
   const envList =
-    env.MILADY_DEPLOY_BASE_URLS?.split(",")
+    env.ELIZA_DEPLOY_BASE_URLS?.split(",")
       .map((value) => value.trim())
       .filter(Boolean) ?? [];
-  const legacyEnv = env.MILADY_DEPLOY_BASE_URL?.trim();
+  const legacyEnv = env.ELIZA_DEPLOY_BASE_URL?.trim();
   if (legacyEnv) envList.push(legacyEnv);
   return argvBases.length > 0 ? argvBases : envList;
 }
@@ -43,7 +43,7 @@ export async function runSmokeApiStatus(options = {}) {
   const bases = resolveBaseUrls(argv, env);
   if (bases.length === 0) {
     error(
-      "[smoke-api-status] Missing base URLs. Pass args or set MILADY_DEPLOY_BASE_URLS.",
+      "[smoke-api-status] Missing base URLs. Pass args or set ELIZA_DEPLOY_BASE_URLS.",
     );
     return 2;
   }

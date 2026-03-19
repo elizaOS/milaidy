@@ -71,7 +71,7 @@ export interface PiCredentialProvider {
  *
  * - Reads API keys + OAuth creds from: ~/.pi/agent/auth.json (or $PI_CODING_AGENT_DIR/auth.json)
  * - Reads defaults from: ~/.pi/agent/settings.json
- * - Falls back to Milady subscription credentials (e.g. openai-codex) when available
+ * - Falls back to Eliza subscription credentials (e.g. openai-codex) when available
  */
 export async function createPiCredentialProvider(): Promise<PiCredentialProvider> {
   const agentDir = resolvePiAgentDir();
@@ -94,7 +94,7 @@ export async function createPiCredentialProvider(): Promise<PiCredentialProvider
     }
   }
 
-  const hasMiladySubscriptionCredentials = (provider: string): boolean => {
+  const hasElizaSubscriptionCredentials = (provider: string): boolean => {
     const subscriptionProvider =
       resolveSubscriptionProviderForPiProvider(provider);
     if (!subscriptionProvider) return false;
@@ -105,7 +105,7 @@ export async function createPiCredentialProvider(): Promise<PiCredentialProvider
     }
   };
 
-  const getMiladySubscriptionApiKey = async (
+  const getElizaSubscriptionApiKey = async (
     provider: string,
   ): Promise<string | undefined> => {
     const subscriptionProvider =
@@ -122,7 +122,7 @@ export async function createPiCredentialProvider(): Promise<PiCredentialProvider
     hasCredentials: (provider: string) => {
       if (getEnvApiKey(provider)) return true;
       if (provider in auth) return true;
-      return hasMiladySubscriptionCredentials(provider);
+      return hasElizaSubscriptionCredentials(provider);
     },
 
     getApiKey: async (provider: string) => {
@@ -150,8 +150,8 @@ export async function createPiCredentialProvider(): Promise<PiCredentialProvider
         }
       }
 
-      // Milady-managed subscription credentials fallback (e.g. openai-codex).
-      return getMiladySubscriptionApiKey(provider);
+      // Eliza-managed subscription credentials fallback (e.g. openai-codex).
+      return getElizaSubscriptionApiKey(provider);
     },
 
     getDefaultModelSpec: async () => {
@@ -161,11 +161,11 @@ export async function createPiCredentialProvider(): Promise<PiCredentialProvider
         return `${provider}/${model}`;
       }
 
-      // If pi settings are absent, fall back to Milady subscription defaults.
-      if (hasMiladySubscriptionCredentials("openai-codex")) {
+      // If pi settings are absent, fall back to Eliza subscription defaults.
+      if (hasElizaSubscriptionCredentials("openai-codex")) {
         return OPENAI_CODEX_DEFAULT_MODEL_SPEC;
       }
-      if (hasMiladySubscriptionCredentials("anthropic")) {
+      if (hasElizaSubscriptionCredentials("anthropic")) {
         return ANTHROPIC_SUBSCRIPTION_DEFAULT_MODEL_SPEC;
       }
       return undefined;

@@ -34,13 +34,13 @@ import { TitlebarSpinner } from "./titlebar-spinner.js";
 
 export type EmbeddingTier = "fallback" | "standard" | "performance";
 
-export interface MiladyTUIOptions {
+export interface ElizaTUIOptions {
   runtime: AgentRuntime;
   modelRegistry?: unknown;
   apiBaseUrl?: string;
 }
 
-export class MiladyTUI {
+export class ElizaTUI {
   private terminal = new ProcessTerminal();
   private ui!: TUI;
 
@@ -57,7 +57,7 @@ export class MiladyTUI {
   private embeddingsOverlay: OverlayHandle | null = null;
   private pluginsOverlay: OverlayHandle | null = null;
   private toolOutputExpanded = false;
-  private showThinking = process.env.MILADY_TUI_SHOW_THINKING === "1";
+  private showThinking = process.env.ELIZA_TUI_SHOW_THINKING === "1";
 
   private titlebarSpinner = new TitlebarSpinner({
     setTitle: (title) => this.terminal.setTitle(title),
@@ -89,7 +89,7 @@ export class MiladyTUI {
       }
     | undefined;
 
-  constructor(private options: MiladyTUIOptions) {}
+  constructor(private options: ElizaTUIOptions) {}
 
   setOnSubmit(handler: (text: string) => Promise<void>): void {
     this.onSubmit = handler;
@@ -142,15 +142,14 @@ export class MiladyTUI {
     this.chatContainer = new Container();
     this.ephemeralStatusContainer = new Container();
 
-    const agentName = this.options.runtime.character?.name ?? "milady";
+    const agentName = this.options.runtime.character?.name ?? "eliza";
 
     this.statusBar.update({ agentName });
     this.titlebarSpinner.setBaseTitle(this.getBaseTitle());
 
     // ── Header: compact branding (hints live in footer) ─────────────
     const logo =
-      tuiTheme.bold(tuiTheme.accent("Milady")) +
-      tuiTheme.dim(` — ${agentName}`);
+      tuiTheme.bold(tuiTheme.accent("Eliza")) + tuiTheme.dim(` — ${agentName}`);
 
     this.chatContainer.addChild(new Spacer(1));
     this.chatContainer.addChild(new Text(logo, 1, 0));
@@ -344,7 +343,7 @@ export class MiladyTUI {
 
   private getBaseTitle(): string {
     const cwd = path.basename(process.cwd());
-    const agentName = this.options.runtime.character?.name ?? "milady";
+    const agentName = this.options.runtime.character?.name ?? "eliza";
     return `${agentName} - ${cwd}`;
   }
 

@@ -12,12 +12,9 @@ import { checkBalanceAction } from "./check-balance";
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function callHandler(params: Record<string, unknown> = {}) {
-  return checkBalanceAction.handler(
-    {} as never,
-    {} as never,
-    {} as never,
-    { parameters: params } as HandlerOptions,
-  );
+  return checkBalanceAction.handler({} as never, {} as never, undefined, {
+    parameters: params,
+  } as HandlerOptions);
 }
 
 /** Full multi-chain mock response matching WalletBalancesResponse. */
@@ -133,11 +130,7 @@ describe("CHECK_BALANCE action", () => {
   });
 
   it("validates successfully", async () => {
-    const result = await checkBalanceAction.validate(
-      {} as never,
-      {} as never,
-      {} as never,
-    );
+    const result = await checkBalanceAction.validate({} as never);
     expect(result).toBe(true);
   });
 
@@ -560,12 +553,7 @@ describe("CHECK_BALANCE action", () => {
       json: async () => makeFullResponse(),
     });
 
-    const result = await checkBalanceAction.handler(
-      {} as never,
-      {} as never,
-      {} as never,
-      undefined,
-    );
+    const result = await checkBalanceAction.handler({} as never, undefined);
     const { success } = result as { success: boolean };
 
     // Should still succeed, defaulting to chain="all"

@@ -6,7 +6,7 @@ import type {
 import chalk from "chalk";
 import { highlight, supportsLanguage } from "cli-highlight";
 
-// ─── Milady brand palette (TUI-specific) ────────────────────────────
+// ─── Eliza brand palette (TUI-specific) ────────────────────────────
 // NOTE: These are intentionally separate from the CLI palette.
 const ACCENT = "#E879F9"; // fuchsia-400
 const ACCENT_DIM = "#A855F7"; // violet-500
@@ -43,7 +43,7 @@ const SYN_PUNCTUATION = "#808080"; // gray
 const hex = (value: string) => chalk.hex(value);
 const bg = (value: string) => chalk.bgHex(value);
 
-/** cli-highlight theme mapped to Milady's palette. */
+/** cli-highlight theme mapped to Eliza's palette. */
 const cliHighlightTheme: Record<string, (s: string) => string> = {
   keyword: (s) => hex(SYN_KEYWORD)(s),
   built_in: (s) => hex(SYN_TYPE)(s),
@@ -62,7 +62,7 @@ const cliHighlightTheme: Record<string, (s: string) => string> = {
   punctuation: (s) => hex(SYN_PUNCTUATION)(s),
 };
 
-export const miladySelectListTheme: SelectListTheme = {
+export const elizaSelectListTheme: SelectListTheme = {
   selectedPrefix: (text) => hex(ACCENT)(text),
   selectedText: (text) => chalk.bold(hex(ACCENT)(text)),
   description: (text) => hex(MUTED)(text),
@@ -70,12 +70,12 @@ export const miladySelectListTheme: SelectListTheme = {
   noMatch: (text) => hex(MUTED)(text),
 };
 
-export const miladyEditorTheme: EditorTheme = {
+export const elizaEditorTheme: EditorTheme = {
   borderColor: (text) => hex(DIM)(text),
-  selectList: miladySelectListTheme,
+  selectList: elizaSelectListTheme,
 };
 
-export const miladyMarkdownTheme: MarkdownTheme = {
+export const elizaMarkdownTheme: MarkdownTheme = {
   heading: (text) => chalk.bold(hex(MD_HEADING)(text)),
   link: (text) => hex(MD_LINK)(text),
   linkUrl: (text) => hex(DIM)(text),
@@ -125,7 +125,7 @@ export const tuiTheme = {
   toolErrorBg: (text: string) => bg(TOOL_ERROR_BG)(text),
 
   // Component themes
-  markdown: miladyMarkdownTheme,
-  editor: miladyEditorTheme,
-  selectList: miladySelectListTheme,
+  markdown: elizaMarkdownTheme,
+  editor: elizaEditorTheme,
+  selectList: elizaSelectListTheme,
 } as const;

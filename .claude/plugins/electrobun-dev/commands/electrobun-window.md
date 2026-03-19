@@ -41,12 +41,12 @@ Generate a new BrowserWindow + BrowserView pair with a working RPC connection.
    const rpc = Electroview.defineRPC<<Name>RPC>({
      maxRequestTime: 10000,
      handlers: {
-       requests: {},  // TODO: add renderer-side request handlers
-       messages: {},  // TODO: add renderer-side message handlers
+       requests: {},  // Add renderer-side request handlers here.
+       messages: {},  // Add renderer-side message handlers here.
      },
    });
 
-   // TODO: implement renderer UI
+   // Implement the renderer UI here.
    document.getElementById("app")!.textContent = "<Name> Window";
    ```
 
@@ -57,19 +57,19 @@ Generate a new BrowserWindow + BrowserView pair with a working RPC connection.
    export type <Name>RPC = {
      bun: RPCSchema<{
        requests: {
-         // TODO: requests the renderer makes to bun
+         // Requests the renderer makes to bun go here.
          // example: getData: { args: {}; response: string[] };
        };
        messages: {
-         // TODO: messages the renderer sends to bun
+         // Messages the renderer sends to bun go here.
        };
      }>;
      webview: RPCSchema<{
        requests: {
-         // TODO: requests bun makes to the renderer
+         // Requests bun makes to the renderer go here.
        };
        messages: {
-         // TODO: messages bun sends to the renderer
+         // Messages bun sends to the renderer go here.
          // example: notify: { message: string };
        };
      }>;
@@ -85,15 +85,15 @@ Generate a new BrowserWindow + BrowserView pair with a working RPC connection.
 
    // <Name> Window
    const <name>RPC = BrowserView.defineRPC<<Name>RPC>({
-     maxRequestTime: 10000,
-     handlers: {
-       requests: {
-         // TODO: add bun-side request handlers
-       },
-       messages: {
-         // TODO: add bun-side message handlers
-       },
-     },
+      maxRequestTime: 10000,
+      handlers: {
+        requests: {
+         // Add bun-side request handlers here.
+        },
+        messages: {
+         // Add bun-side message handlers here.
+        },
+      },
    });
 
    const <name>Win = new BrowserWindow({
@@ -104,4 +104,4 @@ Generate a new BrowserWindow + BrowserView pair with a working RPC connection.
    });
    ```
 
-9. **Tell the user** what was created and prompt them to fill in the `TODO` sections in both the schema and the handlers.
+9. **Tell the user** what was created and prompt them to fill in the remaining schema and handler placeholders.

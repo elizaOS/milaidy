@@ -1,1 +1,1 @@
-export * from "@miladyai/autonomous/contracts/onboarding";
+export * from "@elizaos/autonomous/contracts/onboarding";

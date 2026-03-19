@@ -27,7 +27,7 @@ vi.mock("@elizaos/core", () => ({
 
 // Mock twitter-verify's getVerifiedAddresses
 const mockAddresses: string[] = [];
-vi.mock("../../packages/autonomous/src/api/twitter-verify.ts", () => ({
+vi.mock("@elizaos/autonomous/api/twitter-verify", () => ({
   getVerifiedAddresses: () => mockAddresses,
 }));
 
@@ -41,7 +41,7 @@ import {
   getRoot,
   hashLeaf,
   verifyProof,
-} from "../../packages/autonomous/src/api/merkle-tree.ts";
+} from "@elizaos/autonomous/api/merkle-tree";
 
 // ── Setup ────────────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ afterEach(() => {
 // ── Test Data ────────────────────────────────────────────────────────────
 
 const ADDR_A = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"; // vitalik.eth
-const ADDR_B = "0x5Af0D9827E0c53E4799BB226655A1de152A425a5"; // Milady contract
+const ADDR_B = "0x5Af0D9827E0c53E4799BB226655A1de152A425a5"; // Eliza contract
 const ADDR_C = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // USDC
 const ADDR_D = "0xdAC17F958D2ee523a2206206994597C13D831ec7"; // USDT
 

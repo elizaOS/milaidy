@@ -6,7 +6,7 @@ function makeRuntime(overrides: Partial<AgentRuntime>): AgentRuntime {
   return {
     plugins: [],
     ...overrides,
-  } as unknown as AgentRuntime;
+  } as unknown as unknown as AgentRuntime;
 }
 
 describe("detectRuntimeModel", () => {
@@ -35,7 +35,7 @@ describe("detectRuntimeModel", () => {
   it("prefers explicit character.settings.model.primary", () => {
     const runtime = makeRuntime({
       character: {
-        name: "Milady",
+        name: "Eliza",
         settings: {
           model: {
             primary: "openai/gpt-5.2",
@@ -51,7 +51,7 @@ describe("detectRuntimeModel", () => {
   it("ignores placeholder character model and falls back to provider plugin", () => {
     const runtime = makeRuntime({
       character: {
-        name: "Milady",
+        name: "Eliza",
         settings: {
           model: {
             primary: "provided",
@@ -68,7 +68,7 @@ describe("detectRuntimeModel", () => {
 
   it("returns undefined when no model hints are available", () => {
     const runtime = makeRuntime({
-      character: { name: "Milady" } as AgentRuntime["character"],
+      character: { name: "Eliza" } as AgentRuntime["character"],
       plugins: [{ name: "plugin-random-feature" }] as AgentRuntime["plugins"],
     });
 
@@ -77,7 +77,7 @@ describe("detectRuntimeModel", () => {
 
   it("prefers config model.primary over plugin name scanning", () => {
     const runtime = makeRuntime({
-      character: { name: "Milady" } as AgentRuntime["character"],
+      character: { name: "Eliza" } as AgentRuntime["character"],
       plugins: [
         { name: "@elizaos/plugin-anthropic" },
       ] as AgentRuntime["plugins"],
@@ -92,7 +92,7 @@ describe("detectRuntimeModel", () => {
 
   it("falls back to plugin scanning when config model.primary is absent", () => {
     const runtime = makeRuntime({
-      character: { name: "Milady" } as AgentRuntime["character"],
+      character: { name: "Eliza" } as AgentRuntime["character"],
       plugins: [
         { name: "@elizaos/plugin-anthropic" },
       ] as AgentRuntime["plugins"],
