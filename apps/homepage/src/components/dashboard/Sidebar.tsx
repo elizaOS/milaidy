@@ -38,7 +38,7 @@ export function Sidebar({ active, onChange }: SidebarProps) {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-56 border-r border-border px-3 py-6 flex-shrink-0">
         <nav className="space-y-1 flex-1">
-          {SECTIONS.map((s) => (
+          {SECTIONS.filter((s) => s.id !== "credits" || authed).map((s) => (
             <button
               type="button"
               key={s.id}
@@ -74,7 +74,7 @@ export function Sidebar({ active, onChange }: SidebarProps) {
 
       {/* Mobile tab bar */}
       <div className="md:hidden flex overflow-x-auto border-b border-border px-2 gap-1 bg-dark">
-        {SECTIONS.map((s) => (
+        {SECTIONS.filter((s) => s.id !== "credits" || authed).map((s) => (
           <button
             type="button"
             key={s.id}
