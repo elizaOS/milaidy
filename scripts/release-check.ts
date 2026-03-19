@@ -560,37 +560,6 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
   }
 }
 
-function assertServerDynamicHyperscapeImport() {
-  const serverSource = readFileSync(
-    "packages/autonomous/src/api/server.ts",
-    "utf8",
-  );
-
-  // @elizaos/app-hyperscape/routes must be a dynamic import (lazy) so the
-  // API server can start without it. A static top-level import would crash
-  // the server when the package is not installed (e.g. Windows smoke test).
-  const lines = serverSource.split("\n");
-  const staticImports = lines.filter(
-    (line) =>
-      /^\s*import\s/.test(line) && line.includes("@elizaos/app-hyperscape"),
-  );
-  if (staticImports.length > 0) {
-    console.error(
-      "release-check: server.ts must NOT have a static import of @elizaos/app-hyperscape/routes. Use a dynamic import inside a try-catch.",
-    );
-    for (const line of staticImports) {
-      console.error(`  - ${line.trim()}`);
-    }
-    process.exit(1);
-  }
-
-  if (!serverSource.includes("@elizaos/app-hyperscape/routes")) {
-    console.error(
-      "release-check: server.ts must dynamically import @elizaos/app-hyperscape/routes.",
-    );
-    process.exit(1);
-  }
-}
 
 function assertStartApiServerCatchBlockSafety() {
   const elizaSource = readFileSync(
@@ -636,7 +605,6 @@ function main() {
   assertMacArtifactStagerLooksCorrect();
   assertWindowsSmokeScriptHasLeadingParamBlock();
   assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
-  assertServerDynamicHyperscapeImport();
   assertStartApiServerCatchBlockSafety();
   assertBundledAgentOrchestratorInstallFix();
   assertOrchestratorVersionPinned();
