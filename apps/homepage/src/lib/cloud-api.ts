@@ -489,12 +489,10 @@ export class CloudApiClient {
         primaryFailure = new Error("Invalid JSON: /api/status");
       }
     } else if (primary.status === 401 || primary.status === 403) {
-      // If status is auth-protected and we have no token to send, a 401/403
-      // still proves the agent is up.
-      if (!this.authToken) {
-        return makeUnauthenticatedAgentStatus();
-      }
-      throw new Error(`API ${primary.status}: /api/status`);
+      // If /api/status is auth-gated, keep the legacy endpoint fallback first.
+      // Only synthesize a "running" state when BOTH status endpoints reject an
+      // unauthenticated request, which is the current milady sandbox case.
+      primaryFailure = new Error(`API ${primary.status}: /api/status`);
     } else if (primary.status !== 404) {
       primaryFailure = new Error(`API ${primary.status}: /api/status`);
     }
@@ -504,7 +502,7 @@ export class CloudApiClient {
       return legacy.json();
     }
     if (legacy.status === 401 || legacy.status === 403) {
-      if (!this.authToken && primaryFailure === null) {
+      if (!this.authToken && [401, 403].includes(primary.status)) {
         return makeUnauthenticatedAgentStatus();
       }
       throw (

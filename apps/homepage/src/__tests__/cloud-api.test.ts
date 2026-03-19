@@ -217,14 +217,64 @@ describe("CloudApiClient", () => {
     expect(result.state).toBe("running");
   });
 
-  it("getAgentStatus() returns running when /api/status is unauthorized", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+  it("getAgentStatus() returns running when both status endpoints are unauthorized", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
 
     await expect(client.getAgentStatus()).resolves.toEqual({
       state: "running",
       agentName: "",
       model: "—",
       uptime: 0,
+    });
+  });
+
+  it("getAgentStatus() still uses legacy status when only /api/status is unauthorized", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy Public Agent",
+            model: "gpt-4",
+            state: "paused",
+          }),
+      });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy Public Agent",
+      model: "gpt-4",
+      state: "paused",
+    });
+  });
+
+  it("getAgentStatus() falls back to legacy status when /api/status is unauthorized with auth", async () => {
+    const remoteClient = new CloudApiClient({
+      url: "https://agent.example.com",
+      type: "remote",
+      authToken: "good-token",
+    });
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            agentName: "Legacy Auth Agent",
+            model: "gpt-4",
+            state: "running",
+          }),
+      });
+
+    await expect(remoteClient.getAgentStatus()).resolves.toEqual({
+      agentName: "Legacy Auth Agent",
+      model: "gpt-4",
+      state: "running",
     });
   });
 
@@ -235,7 +285,9 @@ describe("CloudApiClient", () => {
       authToken: "bad-token",
     });
 
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
 
     await expect(remoteClient.getAgentStatus()).rejects.toThrow(
       "API 401: /api/status",
