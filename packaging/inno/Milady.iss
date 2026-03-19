@@ -2,7 +2,7 @@
 #define MyAppName "__APP_NAME__"
 #define MyAppVersion "__APP_VERSION__"
 #define MyAppPublisher "Milady AI"
-#define MyAppExeName "launcher.exe"
+#define MyAppExeName "bin\launcher.exe"
 #define MyDefaultDirName "__DEFAULT_DIR_NAME__"
 #define MyDefaultGroupName "__DEFAULT_GROUP_NAME__"
 #define MyOutputDir "__OUTPUT_DIR__"

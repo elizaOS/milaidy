@@ -133,8 +133,14 @@ if (-not $launcher) {
   throw "launcher.exe not found under $BuildDir"
 }
 
-$sourceDir = Split-Path -Parent $launcher.FullName
-$miladyDistEntry = Join-Path $sourceDir "resources\app\milady-dist\entry.js"
+$launcherParent = Split-Path -Parent $launcher.FullName
+# launcher.exe lives under bin/ in the Electrobun app bundle; the app root is one level up
+$sourceDir = if ((Split-Path -Leaf $launcherParent) -eq "bin") {
+  Split-Path -Parent $launcherParent
+} else {
+  $launcherParent
+}
+$miladyDistEntry = Join-Path $sourceDir "Resources\app\milady-dist\entry.js"
 if (-not (Test-Path $miladyDistEntry)) {
   throw "Packaged app directory does not contain resources\app\milady-dist\entry.js: $sourceDir"
 }
