@@ -14,10 +14,9 @@ import { addConnection, getConnections, removeConnection } from "./connections";
 import {
   AGENT_UI_BASE_DOMAIN,
   CLOUD_BASE,
-  getSandboxDiscoveryUrls,
+  getSameHostSandboxDiscoveryUrl,
   LOCAL_AGENT_BASE,
   rewriteAgentUiUrl,
-  shouldAllowPublicSandboxDiscoveryFallback,
 } from "./runtime-config";
 
 export type AgentSource = "cloud" | "local" | "remote";
@@ -46,8 +45,6 @@ export interface ManagedAgent {
   createdAt?: string;
   nodeId?: string;
   lastHeartbeat?: string;
-  /** API token for direct agent access (from sandbox discovery or manual config). */
-  apiToken?: string;
 }
 
 export type SourceFilter = "all" | "local" | "cloud" | "remote";
@@ -66,9 +63,14 @@ interface AgentContextValue {
 
 const AgentContext = createContext<AgentContextValue | null>(null);
 
-// Milady self-hosted agent discovery
-// Primary: the public sandbox index.
-// Fallback: a same-host discovery service on port 3456 for direct dashboard access.
+interface DiscoveredSandbox {
+  id: string;
+  agent_name: string;
+  web_ui_port: number;
+  api_token?: string;
+  node_id?: string;
+  last_heartbeat_at?: string;
+}
 
 /** Shallow-compare two agent lists to avoid unnecessary re-renders. */
 function agentsEqual(a: ManagedAgent[], b: ManagedAgent[]): boolean {
@@ -86,10 +88,54 @@ function agentsEqual(a: ManagedAgent[], b: ManagedAgent[]): boolean {
       aa.webUiUrl !== bb.webUiUrl ||
       aa.sourceUrl !== bb.sourceUrl ||
       aa.lastHeartbeat !== bb.lastHeartbeat
-    )
+    ) {
       return false;
+    }
   }
   return true;
+}
+
+function isUuid(value: string | undefined): boolean {
+  return Boolean(
+    value?.match(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    ),
+  );
+}
+
+function getDerivedCloudAgentWebUiUrl(agentId: string): string {
+  return rewriteAgentUiUrl(`https://${agentId}.${AGENT_UI_BASE_DOMAIN}`);
+}
+
+function getDiscoveredSandboxUrl(
+  discoveryUrl: string,
+  sandbox: Pick<DiscoveredSandbox, "id" | "web_ui_port">,
+): string {
+  try {
+    const parsedDiscoveryUrl = new URL(discoveryUrl);
+    parsedDiscoveryUrl.port = String(sandbox.web_ui_port);
+    parsedDiscoveryUrl.pathname = "";
+    parsedDiscoveryUrl.search = "";
+    parsedDiscoveryUrl.hash = "";
+    return parsedDiscoveryUrl.toString().replace(/\/$/, "");
+  } catch {
+    return isUuid(sandbox.id)
+      ? getDerivedCloudAgentWebUiUrl(sandbox.id)
+      : discoveryUrl;
+  }
+}
+
+function normalizeAgentUrl(url: string): string {
+  return url.replace(/\/$/, "");
+}
+
+function getCloudAgentWebUiUrl(
+  agentId: string,
+  webUiUrl?: string,
+): string | undefined {
+  if (webUiUrl) return rewriteAgentUiUrl(webUiUrl);
+  if (!isUuid(agentId)) return undefined;
+  return getDerivedCloudAgentWebUiUrl(agentId);
 }
 
 export function AgentProvider({ children }: { children: ReactNode }) {
@@ -120,9 +166,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   const fetchAll = useCallback(async () => {
     const results: ManagedAgent[] = [];
+    const discoveredIds = new Set<string>();
+    const discoveredUrls = new Set<string>();
+    const sameHostDiscoveryUrl = getSameHostSandboxDiscoveryUrl();
 
     // 1. Cloud agents (if authenticated with Eliza Cloud)
-    let cloudAuthOk = false;
     const token = getToken();
     if (token) {
       // Reuse existing CloudClient if token hasn't changed
@@ -133,7 +181,6 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       const cc = cloudClientRef.current;
       try {
         const cloudAgents = await cc.listAgents();
-        cloudAuthOk = true;
         for (const ca of cloudAgents) {
           results.push({
             id: `cloud-${ca.id}`,
@@ -145,7 +192,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             cloudClient: cc,
             cloudAgentId: ca.id,
             sourceUrl: `${CLOUD_BASE}/api/v1/milady/agents/${ca.id}`,
-            webUiUrl: ca.webUiUrl ? rewriteAgentUiUrl(ca.webUiUrl) : undefined,
+            webUiUrl: getCloudAgentWebUiUrl(ca.id, ca.webUiUrl),
             billing: ca.billing,
             region: ca.region,
             createdAt: ca.createdAt,
@@ -153,121 +200,71 @@ export function AgentProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch {
-        // Cloud API failed — skip cloud agents but continue with sandbox discovery
+        // Cloud API failed — skip cloud agents and continue with local/manual agents.
       }
     } else {
       cloudClientRef.current = null;
       cloudTokenRef.current = null;
     }
 
-    // 2. Milady self-hosted agents (auto-discovery)
-    //    The public sandbox discovery endpoint returns ALL sandboxes across orgs.
-    //    On hosted milady.ai, never use that as an unauthenticated fallback.
-    //    Only use discovery there to enrich already-authenticated cloud agents.
-    const discoveredIds = new Set<string>();
-    let sandboxes: Array<{
-      id: string;
-      agent_name: string;
-      web_ui_port: number;
-      api_token?: string;
-      node_id?: string;
-      last_heartbeat_at?: string;
-    }> = [];
-    const allowPublicSandboxFallback =
-      shouldAllowPublicSandboxDiscoveryFallback();
-    const shouldFetchSandboxes = cloudAuthOk || allowPublicSandboxFallback;
-
-    if (shouldFetchSandboxes) {
-      for (const url of getSandboxDiscoveryUrls()) {
-        try {
-          const sandboxRes = await fetch(url, {
-            signal: AbortSignal.timeout(5000),
-          });
-          if (sandboxRes.ok) {
-            sandboxes = await sandboxRes.json();
-            break; // Use first successful response
-          }
-        } catch {
-          // try next URL
+    // 2. Same-host sandbox discovery only.
+    // Never use the public cross-org sandbox index here.
+    let sandboxes: DiscoveredSandbox[] = [];
+    if (sameHostDiscoveryUrl) {
+      try {
+        const sandboxRes = await fetch(sameHostDiscoveryUrl, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (sandboxRes.ok) {
+          sandboxes = await sandboxRes.json();
         }
+      } catch {
+        // self-hosted discovery unavailable — continue without it
       }
     }
 
-    // Build a set of cloud agent names/ids for cross-referencing.
-    // When cloud auth succeeds, sandbox discovery is only used to enrich or match
-    // the authenticated user's agents. Public hosted fallback is localhost-only.
-    const cloudAgentNames = new Set(
-      results
-        .filter((a) => a.source === "cloud")
-        .map((a) => a.name.toLowerCase()),
-    );
-    const cloudAgentIds = new Set(
-      results.filter((a) => a.source === "cloud").map((a) => a.cloudAgentId),
-    );
-
     if (sandboxes.length > 0) {
-      const ownedSandboxes = cloudAuthOk
-        ? sandboxes.filter((sb) => {
-            const nameMatch = cloudAgentNames.has(
-              (sb.agent_name || "").toLowerCase(),
-            );
-            const idMatch = cloudAgentIds.has(sb.id);
-            return nameMatch || idMatch;
-          })
-        : allowPublicSandboxFallback
-          ? sandboxes
-          : [];
-
-      // Build a lookup from cloud agent name (lowercase) → index in results
-      const cloudAgentIndexByName = new Map<string, number>();
+      const cloudAgentIndexById = new Map<string, number>();
       for (let i = 0; i < results.length; i++) {
-        if (results[i].source === "cloud") {
-          cloudAgentIndexByName.set(results[i].name.toLowerCase(), i);
+        const agent = results[i];
+        if (agent.source === "cloud" && agent.cloudAgentId) {
+          cloudAgentIndexById.set(agent.cloudAgentId, i);
         }
       }
 
-      for (const sb of ownedSandboxes) {
+      for (const sb of sandboxes) {
         discoveredIds.add(sb.id);
-        // Each sandbox is accessible at https://{uuid}.milady.ai
-        const url = `https://${sb.id}.${AGENT_UI_BASE_DOMAIN}`;
-        const apiToken = sb.api_token;
+        const url = getDiscoveredSandboxUrl(sameHostDiscoveryUrl, sb);
+        discoveredUrls.add(normalizeAgentUrl(url));
         const client = new CloudApiClient({
           url,
           type: "remote",
-          authToken: apiToken,
+          authToken: sb.api_token,
         });
 
-        // Check if this sandbox matches an existing cloud agent (dedup by name)
-        const sbName = (sb.agent_name || "").toLowerCase();
-        const matchingCloudIdx = cloudAgentIndexByName.get(sbName);
-
+        const matchingCloudIdx = cloudAgentIndexById.get(sb.id);
         if (matchingCloudIdx !== undefined) {
-          // Merge sandbox data INTO the existing cloud agent instead of creating a duplicate.
-          // Cloud agent is preferred (richer data), but sandbox provides live status + connectivity.
           const cloudEntry = results[matchingCloudIdx];
-          cloudEntry.sourceUrl = url;
           cloudEntry.client = client;
           cloudEntry.nodeId = sb.node_id;
           cloudEntry.lastHeartbeat = sb.last_heartbeat_at;
-          cloudEntry.apiToken = apiToken;
-          // Set webUiUrl to the sandbox's public URL (https://{uuid}.milady.ai)
           cloudEntry.webUiUrl = url;
-          // Try to enrich with live status from the sandbox
           try {
             await client.health();
             try {
               const status = await client.getAgentStatus();
-              // Only override cloud fields if sandbox has real data
-              if (status.state && status.state !== "unknown")
+              if (status.state && status.state !== "unknown") {
                 cloudEntry.status = status.state;
-              if (status.model && status.model !== "—")
+              }
+              if (status.model && status.model !== "—") {
                 cloudEntry.model = status.model;
+              }
               if (status.uptime) cloudEntry.uptime = status.uptime;
               if (status.memories) cloudEntry.memories = status.memories;
             } catch {
-              // Health OK but no detailed status — mark as running if cloud says unknown
-              if (cloudEntry.status === "unknown")
+              if (cloudEntry.status === "unknown") {
                 cloudEntry.status = "running";
+              }
             }
           } catch {
             // Sandbox unreachable — keep cloud data as-is
@@ -275,7 +272,6 @@ export function AgentProvider({ children }: { children: ReactNode }) {
           continue;
         }
 
-        // No matching cloud agent — add as standalone remote agent
         try {
           await client.health();
           try {
@@ -293,7 +289,6 @@ export function AgentProvider({ children }: { children: ReactNode }) {
               client,
               nodeId: sb.node_id,
               lastHeartbeat: sb.last_heartbeat_at,
-              apiToken,
             });
           } catch {
             results.push({
@@ -306,7 +301,6 @@ export function AgentProvider({ children }: { children: ReactNode }) {
               client,
               nodeId: sb.node_id,
               lastHeartbeat: sb.last_heartbeat_at,
-              apiToken,
             });
           }
         } catch {
@@ -320,7 +314,6 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             client,
             nodeId: sb.node_id,
             lastHeartbeat: sb.last_heartbeat_at,
-            apiToken,
           });
         }
       }
@@ -363,10 +356,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     }
 
     // 4. Manually-added remote agents (via ConnectionModal)
-    //    Skip any that were already auto-discovered from milady sandboxes.
     const remotes = getConnections().filter((c) => c.type === "remote");
     for (const remote of remotes) {
-      // If this URL matches an auto-discovered milady agent, skip to avoid duplicates
+      const normalizedRemoteUrl = normalizeAgentUrl(remote.url);
+      if (discoveredUrls.has(normalizedRemoteUrl)) continue;
+
       const isMiladyDomain = remote.url.includes(AGENT_UI_BASE_DOMAIN);
       if (isMiladyDomain) {
         const uuidMatch = remote.url.match(
@@ -475,10 +469,12 @@ function mapCloudStatus(status: string): ManagedAgent["status"] {
   const s = status?.toLowerCase() ?? "";
   if (s === "running" || s === "active" || s === "healthy") return "running";
   if (s === "paused" || s === "suspended") return "paused";
-  if (s === "stopped" || s === "terminated" || s === "deleted")
+  if (s === "stopped" || s === "terminated" || s === "deleted") {
     return "stopped";
-  if (s === "provisioning" || s === "creating" || s === "starting")
+  }
+  if (s === "provisioning" || s === "creating" || s === "starting") {
     return "provisioning";
+  }
   return "unknown";
 }
 

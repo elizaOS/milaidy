@@ -5,9 +5,17 @@ const DEFAULT_CLOUD_BASE =
     ? "http://localhost:3000"
     : "https://www.dev.elizacloud.ai";
 const DEFAULT_LOCAL_AGENT_BASE = "http://localhost:2138";
-const DEFAULT_SANDBOX_DISCOVERY_URL = "https://sandboxes.waifu.fun/agents";
 const DEFAULT_AGENT_UI_BASE_DOMAIN = "milady.ai";
 const LEGACY_CLOUD_TOKEN_STORAGE_KEY = "milady-cloud-token";
+const OFFICIAL_HOSTED_DASHBOARD_HOSTS = new Set([
+  "milady.ai",
+  "www.milady.ai",
+  "app.milady.ai",
+  "elizacloud.ai",
+  "www.elizacloud.ai",
+  "www.dev.elizacloud.ai",
+  "dev.elizacloud.ai",
+]);
 
 function normalizeUrl(value: string | undefined, fallback: string): string {
   const candidate = value?.trim();
@@ -51,14 +59,16 @@ export function isHostedRuntime(): boolean {
   );
 }
 
-/**
- * Public sandbox discovery is disabled everywhere.  The sandbox endpoint
- * lists ALL running agents across the cluster — unauthenticated users
- * should never see other people's agents.  Only cloud-authenticated
- * sessions use sandbox data (to enrich their own agent list).
- */
-export function shouldAllowPublicSandboxDiscoveryFallback(): boolean {
-  return false;
+export function shouldUseSameHostSandboxDiscovery(): boolean {
+  if (typeof window === "undefined") return false;
+  return !OFFICIAL_HOSTED_DASHBOARD_HOSTS.has(window.location.hostname);
+}
+
+export function getSameHostSandboxDiscoveryUrl(): string | null {
+  const configured = import.meta.env.VITE_SANDBOX_DISCOVERY_URL?.trim();
+  if (configured) return normalizeUrl(configured, configured);
+  if (!shouldUseSameHostSandboxDiscovery()) return null;
+  return `${window.location.protocol}//${window.location.hostname}:3456/agents`;
 }
 
 export function getCloudTokenStorageKey(): string {
@@ -72,29 +82,13 @@ export function getCloudTokenStorageKey(): string {
 
 export { LEGACY_CLOUD_TOKEN_STORAGE_KEY };
 
-export function getSandboxDiscoveryUrls(): string[] {
-  const urls = [
-    normalizeUrl(
-      import.meta.env.VITE_SANDBOX_DISCOVERY_URL,
-      DEFAULT_SANDBOX_DISCOVERY_URL,
-    ),
-  ];
-
-  if (typeof window !== "undefined" && window.location?.hostname) {
-    urls.push(
-      `${window.location.protocol}//${window.location.hostname}:3456/agents`,
-    );
-  }
-
-  return Array.from(new Set(urls.filter(Boolean)));
-}
-
 /**
  * Rewrite agent UI URLs to use the configured base domain.
  *
- * Sandbox discovery may return *.waifu.fun URLs, but the canonical
+ * Cloud APIs may still return legacy *.waifu.fun URLs, but the canonical
  * user-facing domain is milady.ai (or whatever VITE_AGENT_UI_BASE_DOMAIN
- * is set to). This rewrites so users always see the branded domain.
+ * is set to). This keeps pairing/open-web-ui links on the expected domain
+ * without relying on any public sandbox discovery endpoint.
  */
 export function rewriteAgentUiUrl(url: string): string {
   try {

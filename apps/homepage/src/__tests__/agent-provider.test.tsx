@@ -25,7 +25,7 @@ function TestConsumer() {
       <span data-testid="count">{agents.length}</span>
       {agents.map((a) => (
         <span key={a.id} data-testid={`agent-${a.id}`}>
-          {a.name}|{a.source}|{a.status}
+          {a.name}|{a.source}|{a.status}|{a.webUiUrl ?? ""}
         </span>
       ))}
     </div>
@@ -342,4 +342,106 @@ describe("AgentProvider", () => {
       "Real Name|cloud|",
     );
   });
+
+  it("preserves distinct cloud agents even when names collide", async () => {
+    setToken("test-key");
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: [
+                {
+                  id: "11111111-1111-1111-1111-111111111111",
+                  agentName: "Same Name",
+                  status: "running",
+                },
+                {
+                  id: "22222222-2222-2222-2222-222222222222",
+                  agentName: "Same Name",
+                  status: "paused",
+                },
+              ],
+            }),
+        });
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(result?.getByTestId("count").textContent).toBe("2");
+    expect(
+      result?.getByTestId(
+        "agent-cloud-11111111-1111-1111-1111-111111111111",
+      ).textContent,
+    ).toContain("Same Name|cloud|running");
+    expect(
+      result?.getByTestId(
+        "agent-cloud-22222222-2222-2222-2222-222222222222",
+      ).textContent,
+    ).toContain("Same Name|cloud|paused");
+  });
+
+  it("never falls back to the public sandbox discovery endpoint", async () => {
+    setToken("test-key");
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: [
+                {
+                  id: "safe-1",
+                  agentName: "Safe Agent",
+                  status: "running",
+                  webUiUrl:
+                    "https://safe-1-1111-2222-3333-444444444444.waifu.fun",
+                },
+              ],
+            }),
+        });
+      }
+      if (url.includes("sandboxes.waifu.fun/agents")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve([]),
+        });
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(result?.getByTestId("count").textContent).toBe("1");
+    expect(
+      mockFetch.mock.calls.some((call) =>
+        String(call[0]).includes("sandboxes.waifu.fun/agents"),
+      ),
+    ).toBe(false);
+  });
+
 });
