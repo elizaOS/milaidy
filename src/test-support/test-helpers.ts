@@ -132,6 +132,69 @@ export function resolveDiscordPluginImportSpecifier(): string | null {
   return null;
 }
 
+const LENS_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-lens";
+const LENS_PLUGIN_FALLBACK_PACKAGE = "@elizaos-plugins/client-lens";
+const LENS_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-lens/typescript/dist/index",
+  "../plugins/plugin-lens/dist/index",
+  "../../client-lens/dist/index",
+  "../../client-lens/src/index",
+] as const;
+
+/**
+ * Resolve the Lens plugin import specifier.
+ * Prefers package resolution, then falls back to local plugin checkout paths.
+ * Uses both CJS require.resolve and a direct node_modules check for ESM-only packages.
+ */
+export function resolveLensPluginImportSpecifier(): string | null {
+  // Try canonical package name first (matches CONNECTOR_PLUGINS map)
+  if (isPackageImportResolvable(LENS_PLUGIN_PACKAGE_NAME)) {
+    return LENS_PLUGIN_PACKAGE_NAME;
+  }
+  // Fallback: the community plugin package (may be installed during transition)
+  if (isPackageImportResolvable(LENS_PLUGIN_FALLBACK_PACKAGE)) {
+    return LENS_PLUGIN_FALLBACK_PACKAGE;
+  }
+
+  // ESM-only packages may fail require.resolve — check node_modules directly.
+  // Use the source entry to avoid bun eagerly resolving lazy chunks' imports.
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  // Check @elizaos-plugins/client-lens (fallback package)
+  const nodeModulesSourceEntry = path.resolve(
+    packageRoot,
+    "node_modules",
+    "@elizaos-plugins",
+    "client-lens",
+    "src",
+    "index.ts",
+  );
+  if (existsSync(nodeModulesSourceEntry)) {
+    return pathToFileURL(nodeModulesSourceEntry).href;
+  }
+  const nodeModulesDistEntry = path.resolve(
+    packageRoot,
+    "node_modules",
+    "@elizaos-plugins",
+    "client-lens",
+    "dist",
+    "index.js",
+  );
+  if (existsSync(nodeModulesDistEntry)) {
+    return pathToFileURL(nodeModulesDistEntry).href;
+  }
+
+  for (const relativeEntryPath of LENS_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
 /** Build a mock update check result with deterministic defaults. */
 export function buildMockUpdateCheckResult(
   overrides: Partial<MockUpdateCheckResult> = {},
