@@ -862,6 +862,28 @@ export async function startBenchmarkServer() {
     return created;
   };
 
+  /** Collect request body with size limit. Rejects if body exceeds maxBytes. */
+  function collectBody(
+    req: http.IncomingMessage,
+    maxBytes: number,
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let body = "";
+      let bytes = 0;
+      req.on("data", (chunk: Buffer) => {
+        bytes += chunk.length;
+        if (bytes > maxBytes) {
+          req.destroy();
+          reject(new Error("Request body too large"));
+          return;
+        }
+        body += chunk;
+      });
+      req.on("end", () => resolve(body));
+      req.on("error", reject);
+    });
+  }
+
   const server = http.createServer(async (req, res) => {
     // Security: restrict CORS to localhost origins only.
     const allowedOrigin = resolveAllowedOrigin(req);
@@ -903,61 +925,52 @@ export async function startBenchmarkServer() {
 
     if (pathname === "/api/benchmark/reset" && req.method === "POST") {
       if (!checkBenchAuth(req, res)) return;
-      let body = "";
-      let bodyBytes = 0;
-      req.on("data", (chunk: Buffer) => {
-        bodyBytes += chunk.length;
-        if (bodyBytes > MAX_BODY_BYTES) {
-          req.destroy();
-          return;
+      try {
+        const body = await collectBody(req, MAX_BODY_BYTES);
+        const parsed = body.trim()
+          ? (JSON.parse(body) as {
+              task_id?: unknown;
+              benchmark?: unknown;
+            })
+          : {};
+        const taskId =
+          typeof parsed.task_id === "string" &&
+          parsed.task_id.trim().length > 0
+            ? parsed.task_id
+            : "default-task";
+        const benchmark =
+          typeof parsed.benchmark === "string" &&
+          parsed.benchmark.trim().length > 0
+            ? parsed.benchmark
+            : "unknown";
+
+        const session = resolveSession(taskId, benchmark, true);
+        if (!session) {
+          throw new Error("Failed to initialize benchmark session");
         }
-        body += chunk;
-      });
-      req.on("end", async () => {
-        try {
-          const parsed = body.trim()
-            ? (JSON.parse(body) as {
-                task_id?: unknown;
-                benchmark?: unknown;
-              })
-            : {};
-          const taskId =
-            typeof parsed.task_id === "string" &&
-            parsed.task_id.trim().length > 0
-              ? parsed.task_id
-              : "default-task";
-          const benchmark =
-            typeof parsed.benchmark === "string" &&
-            parsed.benchmark.trim().length > 0
-              ? parsed.benchmark
-              : "unknown";
+        const key = sessionKey(session);
+        trajectoriesBySession.set(key, []);
+        outboxBySession.set(key, []);
 
-          const session = resolveSession(taskId, benchmark, true);
-          if (!session) {
-            throw new Error("Failed to initialize benchmark session");
-          }
-          const key = sessionKey(session);
-          trajectoriesBySession.set(key, []);
-          outboxBySession.set(key, []);
+        await ensureBenchmarkSessionContext(runtime, session);
 
-          await ensureBenchmarkSessionContext(runtime, session);
-
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              status: "ok",
-              room_id: session.roomId,
-              task_id: session.taskId,
-              benchmark: session.benchmark,
-            }),
-          );
-        } catch (err: unknown) {
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          elizaLogger.error(`[bench] Reset error: ${formatUnknownError(err)}`);
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: errorMessage }));
-        }
-      });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            room_id: session.roomId,
+            task_id: session.taskId,
+            benchmark: session.benchmark,
+          }),
+        );
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        elizaLogger.error(`[bench] Reset error: ${formatUnknownError(err)}`);
+        const status =
+          errorMessage === "Request body too large" ? 413 : 500;
+        res.writeHead(status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: errorMessage }));
+      }
       return;
     }
 
@@ -1077,25 +1090,15 @@ export async function startBenchmarkServer() {
 
     if (pathname === "/api/benchmark/message" && req.method === "POST") {
       if (!checkBenchAuth(req, res)) return;
-      let body = "";
-      let bodyBytes = 0;
-      req.on("data", (chunk: Buffer) => {
-        bodyBytes += chunk.length;
-        if (bodyBytes > MAX_BODY_BYTES) {
-          req.destroy();
-          return;
-        }
-        body += chunk;
-      });
-      req.on("end", async () => {
-        try {
-          const parsed = JSON.parse(body) as {
-            text?: unknown;
-            context?: unknown;
-            image?: unknown;
-          };
+      try {
+        const body = await collectBody(req, MAX_BODY_BYTES);
+        const parsed = JSON.parse(body) as {
+          text?: unknown;
+          context?: unknown;
+          image?: unknown;
+        };
 
-          const text =
+        const text =
             typeof parsed.text === "string" ? parsed.text.trim() : "";
           if (!text) {
             throw new Error(
@@ -1224,16 +1227,16 @@ export async function startBenchmarkServer() {
               trajectory_step: trajectory.length,
             }),
           );
-        } catch (err: unknown) {
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          // Log full detail server-side but never expose stack traces to clients.
-          elizaLogger.error(
-            `[bench] Request error: ${formatUnknownError(err)}`,
-          );
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: errorMessage }));
-        }
-      });
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        elizaLogger.error(
+          `[bench] Request error: ${formatUnknownError(err)}`,
+        );
+        const status =
+          errorMessage === "Request body too large" ? 413 : 500;
+        res.writeHead(status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: errorMessage }));
+      }
       return;
     }
 
