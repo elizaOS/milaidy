@@ -1,23 +1,5 @@
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import {
-  cloudLogin,
-  cloudLoginPoll,
-  isAuthenticated,
-  setToken,
-} from "../../lib/auth";
-
-type AuthState =
-  | "checking"
-  | "unauthenticated"
-  | "polling"
-  | "authenticated"
-  | "error";
+import { type ReactNode, useState } from "react";
+import { useCloudLogin } from "./useCloudLogin";
 
 /**
  * CloudLoginBanner — an inline, dismissible banner that lets users optionally
@@ -28,54 +10,10 @@ export function CloudLoginBanner({
 }: {
   onAuthenticated?: () => void;
 }) {
-  const [state, setState] = useState<AuthState>("checking");
-  const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
-
-  useEffect(() => {
-    setState(isAuthenticated() ? "authenticated" : "unauthenticated");
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
-  const handleLogin = useCallback(async () => {
-    setState("polling");
-    setError(null);
-    try {
-      const { sessionId, browserUrl } = await cloudLogin();
-      window.open(browserUrl, "_blank", "noopener,noreferrer");
-
-      const deadline = Date.now() + 5 * 60 * 1000;
-      pollRef.current = setInterval(async () => {
-        try {
-          if (Date.now() > deadline) {
-            clearInterval(pollRef.current);
-            setState("error");
-            setError("Login timed out. Please try again.");
-            return;
-          }
-          const result = await cloudLoginPoll(sessionId);
-          if (result.status === "authenticated" && result.apiKey) {
-            clearInterval(pollRef.current);
-            setToken(result.apiKey);
-            setState("authenticated");
-            onAuthenticated?.();
-          }
-        } catch (err) {
-          if (String(err).includes("expired")) {
-            clearInterval(pollRef.current);
-            setState("error");
-            setError("Session expired. Please try again.");
-          }
-        }
-      }, 2000);
-    } catch (err) {
-      setState("error");
-      setError(`Failed to start login: ${err}`);
-    }
-  }, [onAuthenticated]);
+  const { error, manualLoginUrl, signIn, state } = useCloudLogin({
+    onAuthenticated,
+  });
 
   // Don't show anything if already authenticated or dismissed
   if (state === "authenticated" || state === "checking" || dismissed) {
@@ -86,12 +24,25 @@ export function CloudLoginBanner({
     <div className="mx-6 md:mx-8 mt-4 px-4 py-3 bg-surface/50 border border-border rounded-xl flex items-center gap-4">
       <div className="flex-1">
         {state === "polling" ? (
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
-            <span className="text-text-light text-sm">
-              Waiting for authentication — complete login in the browser tab.
-            </span>
-          </div>
+          <>
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
+              <span className="text-text-light text-sm">
+                Waiting for authentication, complete login in the browser tab.
+              </span>
+            </div>
+            {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+            {manualLoginUrl && (
+              <a
+                href={manualLoginUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex mt-2 text-xs text-brand hover:underline"
+              >
+                Open sign-in page
+              </a>
+            )}
+          </>
         ) : (
           <>
             <p className="text-sm text-text-muted">
@@ -102,6 +53,16 @@ export function CloudLoginBanner({
               alongside your local ones.
             </p>
             {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+            {manualLoginUrl && (
+              <a
+                href={manualLoginUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex mt-2 text-xs text-brand hover:underline"
+              >
+                Open sign-in page
+              </a>
+            )}
           </>
         )}
       </div>
@@ -109,7 +70,7 @@ export function CloudLoginBanner({
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={handleLogin}
+            onClick={signIn}
             className="px-4 py-2 bg-brand text-dark font-medium text-xs rounded-lg
               hover:bg-brand-hover active:scale-[0.98] transition-all duration-150"
           >

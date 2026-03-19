@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getToken, isAuthenticated } from "../../lib/auth";
+import { getToken } from "../../lib/auth";
 import { CloudClient, type JobStatus } from "../../lib/cloud-api";
-import { CLOUD_BASE } from "../../lib/runtime-config";
+import { useCloudLogin } from "./useCloudLogin";
 
 interface CreateAgentFormProps {
+  onAuthenticated?: () => void;
   onCreated: () => void;
   onCancel: () => void;
 }
@@ -17,7 +18,11 @@ const PROGRESS_MESSAGES: Record<string, string> = {
   failed: "Provisioning failed.",
 };
 
-export function CreateAgentForm({ onCreated, onCancel }: CreateAgentFormProps) {
+export function CreateAgentForm({
+  onAuthenticated,
+  onCreated,
+  onCancel,
+}: CreateAgentFormProps) {
   const [name, setName] = useState("");
   const [envVars, setEnvVars] = useState<{ key: string; value: string }[]>([]);
   const [showEnvVars, setShowEnvVars] = useState(false);
@@ -26,6 +31,13 @@ export function CreateAgentForm({ onCreated, onCancel }: CreateAgentFormProps) {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [_createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout>>();
+  const {
+    error: loginError,
+    isAuthenticated: authenticated,
+    manualLoginUrl,
+    signIn,
+    state: loginState,
+  } = useCloudLogin({ onAuthenticated });
 
   // Clean up polling on unmount
   useEffect(() => {
@@ -58,7 +70,7 @@ export function CreateAgentForm({ onCreated, onCancel }: CreateAgentFormProps) {
           );
         }
       } catch {
-        // Network error during polling — retry with backoff
+        // Network error during polling, retry with backoff
         pollRef.current = setTimeout(
           () => pollJob(cc, jobId, attempt + 1),
           5000,
@@ -70,7 +82,7 @@ export function CreateAgentForm({ onCreated, onCancel }: CreateAgentFormProps) {
 
   const handleCreate = useCallback(async () => {
     if (!name.trim()) return;
-    if (!isAuthenticated()) {
+    if (!authenticated) {
       setError("You need to sign in with Eliza Cloud first.");
       return;
     }
@@ -106,12 +118,12 @@ export function CreateAgentForm({ onCreated, onCancel }: CreateAgentFormProps) {
             // Poll job status
             pollJob(cc, provResult.jobId);
           } else {
-            // No job ID — provisioning was synchronous or auto
+            // No job ID, provisioning was synchronous or auto
             setStep("done");
             setTimeout(() => onCreated(), 1500);
           }
         } catch {
-          // Provisioning endpoint failed — agent was still created
+          // Provisioning endpoint failed, agent was still created
           setStep("done");
           setTimeout(() => onCreated(), 1500);
         }
@@ -128,7 +140,7 @@ export function CreateAgentForm({ onCreated, onCancel }: CreateAgentFormProps) {
         setError(`Failed to create agent: ${msg}`);
       }
     }
-  }, [name, envVars, onCreated, pollJob]);
+  }, [authenticated, name, envVars, onCreated, pollJob]);
 
   const addEnvVar = () => setEnvVars([...envVars, { key: "", value: "" }]);
   const removeEnvVar = (i: number) =>
@@ -138,8 +150,6 @@ export function CreateAgentForm({ onCreated, onCancel }: CreateAgentFormProps) {
     updated[i] = { ...updated[i], [field]: val };
     setEnvVars(updated);
   };
-
-  const authenticated = isAuthenticated();
 
   // Provisioning / creating state
   if (step === "creating" || step === "provisioning" || step === "done") {
@@ -224,33 +234,70 @@ export function CreateAgentForm({ onCreated, onCancel }: CreateAgentFormProps) {
       </p>
 
       {!authenticated ? (
-        <div className="flex items-center gap-3 px-4 py-3 bg-brand/5 border border-brand/20 rounded-xl">
-          <svg
-            aria-hidden="true"
-            className="w-5 h-5 text-brand flex-shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="text-sm text-text-muted">
-            Go to{" "}
-            <a
-              href={`${CLOUD_BASE}/auth`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand hover:underline"
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 px-4 py-3 bg-brand/5 border border-brand/20 rounded-xl">
+            <svg
+              aria-hidden="true"
+              className="w-5 h-5 text-brand flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
             >
-              Eliza Cloud
-            </a>{" "}
-            to create an account, then sign in from the dashboard.
-          </span>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-text-muted">
+                Sign in to Eliza Cloud to create and manage hosted agents.
+              </p>
+              {loginError && (
+                <p className="text-xs text-red-400 mt-1">{loginError}</p>
+              )}
+              {manualLoginUrl && (
+                <a
+                  href={manualLoginUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex mt-2 text-xs text-brand hover:underline"
+                >
+                  Open sign-in page
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={signIn}
+              disabled={loginState === "polling"}
+              className="px-5 py-2.5 bg-brand text-dark font-medium text-sm rounded-xl
+                hover:bg-brand-hover active:scale-[0.98] transition-all duration-150
+                disabled:opacity-70 disabled:cursor-wait
+                flex items-center gap-2 shadow-[0_0_16px_rgba(240,185,11,0.12)]"
+            >
+              {loginState === "polling" ? (
+                <>
+                  <div className="w-4 h-4 rounded-full border-2 border-dark/20 border-t-dark animate-spin" />
+                  Waiting for Sign In…
+                </>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2.5 text-text-muted text-sm rounded-xl
+                hover:text-text-light hover:bg-dark transition-all duration-150"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

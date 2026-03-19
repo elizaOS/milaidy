@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
 import { isAuthenticated } from "../../lib/auth";
-import { openWebUIDirect, openWebUIWithPairing } from "../../lib/open-web-ui";
+import { openWebUI } from "../../lib/open-web-ui";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 import { CreateAgentForm } from "./CreateAgentForm";
@@ -102,6 +102,7 @@ export function AgentGrid() {
       {/* Create form */}
       {showCreate && (
         <CreateAgentForm
+          onAuthenticated={() => refresh()}
           onCreated={() => {
             setShowCreate(false);
             refresh();
@@ -145,18 +146,9 @@ export function AgentGrid() {
                   setSelectedId(selectedId === agent.id ? null : agent.id)
                 }
                 onOpenUI={() => {
-                  // Cloud agents: use pairing token flow for proper auth handoff
-                  if (
-                    agent.source === "cloud" &&
-                    agent.cloudClient &&
-                    agent.cloudAgentId
-                  ) {
-                    openWebUIWithPairing(agent.cloudAgentId, agent.cloudClient);
-                    return;
-                  }
-                  // Local/remote agents: open directly (no pairing token needed)
                   const url = getWebUIUrl(agent);
-                  if (url) openWebUIDirect(url);
+                  if (!url) return;
+                  openWebUI(url, agent.source);
                 }}
                 selected={selectedId === agent.id}
               />

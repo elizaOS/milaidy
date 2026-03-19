@@ -1,3 +1,4 @@
+import { clearToken } from "./auth";
 import { CLOUD_BASE } from "./runtime-config";
 
 export interface CloudAgentDetail {
@@ -41,11 +42,40 @@ export interface JobStatus {
   error?: string;
 }
 
+function isCloudAuthFailure(status: number, message: string): boolean {
+  return (
+    status === 401 ||
+    ((status === 500 || status === 403) &&
+      /Unauthorized|Authentication required|Forbidden|Invalid or expired API key|API key is inactive|API key has expired|Invalid or expired token/i.test(
+        message,
+      ))
+  );
+}
+
+async function readErrorMessage(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (typeof body?.error === "string") return body.error;
+    return JSON.stringify(body);
+  } catch {
+    try {
+      return await res.text();
+    } catch {
+      return "";
+    }
+  }
+}
+
 export class CloudClient {
   private apiKey: string;
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+  }
+
+  /** Expose the API key so authenticated launch token requests can use it. */
+  getToken(): string {
+    return this.apiKey;
   }
 
   private async request<T>(path: string, opts: RequestInit = {}): Promise<T> {
@@ -55,7 +85,17 @@ export class CloudClient {
       headers.set("Content-Type", "application/json");
     }
     const res = await fetch(`${CLOUD_BASE}${path}`, { ...opts, headers });
-    if (!res.ok) throw new Error(`Cloud API ${res.status}: ${path}`);
+    if (!res.ok) {
+      const errorMessage = await readErrorMessage(res);
+      if (isCloudAuthFailure(res.status, errorMessage)) {
+        clearToken();
+      }
+      throw new Error(
+        errorMessage
+          ? `Cloud API ${res.status}: ${path}: ${errorMessage}`
+          : `Cloud API ${res.status}: ${path}`,
+      );
+    }
     return res.json();
   }
 
@@ -77,7 +117,7 @@ export class CloudClient {
     // Backend returns agentName; normalize to name for the rest of the app
     return raw.map((a) => ({
       ...a,
-      name: a.name || a.agentName || a.id,
+      name: a.agentName || a.name || a.id,
     }));
   }
 
@@ -376,6 +416,23 @@ export class CloudApiClient {
     if (primary.ok) {
       return primary.json();
     }
+
+    // If auth is required (401/403), try /api/auth/status as a lightweight
+    // probe — it doesn't require a token and confirms the agent is alive.
+    if (primary.status === 401 || primary.status === 403) {
+      const authProbe = await this.rawFetch("/api/auth/status", {
+        method: "GET",
+      });
+      if (authProbe.ok) {
+        return {
+          status: "ok",
+          ready: true,
+          uptime: 0,
+          agentState: "running",
+        };
+      }
+    }
+
     if (primary.status !== 404) {
       throw new Error(`API ${primary.status}: /api/health`);
     }

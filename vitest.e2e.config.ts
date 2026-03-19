@@ -13,6 +13,8 @@ const elizaCoreEntry = getElizaCoreEntry(repoRoot);
 const autonomousSourceRoot = getAutonomousSourceRoot(repoRoot);
 const appCoreSourceRoot = getAppCoreSourceRoot(repoRoot);
 
+const liveTest = process.env.MILADY_LIVE_TEST === "1";
+
 export default defineConfig({
   resolve: {
     alias: [
@@ -94,26 +96,30 @@ export default defineConfig({
         find: "@elizaos/plugin-pi-ai",
         replacement: path.join(repoRoot, "test", "stubs", "pi-ai-module.ts"),
       },
-      {
-        find: "@elizaos/plugin-openai",
-        replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
-      },
-      {
-        find: "@elizaos/plugin-ollama",
-        replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
-      },
-      {
-        find: "@elizaos/plugin-local-embedding",
-        replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
-      },
-      {
-        find: "@elizaos/plugin-sql",
-        replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
-      },
-      {
-        find: "@elizaos/plugin-discord",
-        replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
-      },
+      ...(!liveTest
+        ? [
+            {
+              find: "@elizaos/plugin-openai",
+              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+            },
+            {
+              find: "@elizaos/plugin-ollama",
+              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+            },
+            {
+              find: "@elizaos/plugin-local-embedding",
+              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+            },
+            {
+              find: "@elizaos/plugin-sql",
+              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+            },
+            {
+              find: "@elizaos/plugin-discord",
+              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+            },
+          ]
+        : []),
       {
         find: "@elizaos/plugin-telegram",
         replacement: path.join(
@@ -133,6 +139,12 @@ export default defineConfig({
     testTimeout: 120_000,
     hookTimeout: 120_000,
     pool: "forks",
+    poolOptions: {
+      forks: {
+        singleFork: true,
+        isolate: false,
+      },
+    },
     maxWorkers: 1,
     sequence: {
       concurrent: false,

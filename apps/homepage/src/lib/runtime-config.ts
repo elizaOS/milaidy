@@ -7,6 +7,7 @@ const DEFAULT_CLOUD_BASE =
 const DEFAULT_LOCAL_AGENT_BASE = "http://localhost:2138";
 const DEFAULT_SANDBOX_DISCOVERY_URL = "https://sandboxes.waifu.fun/agents";
 const DEFAULT_AGENT_UI_BASE_DOMAIN = "milady.ai";
+const LEGACY_CLOUD_TOKEN_STORAGE_KEY = "milady-cloud-token";
 
 function normalizeUrl(value: string | undefined, fallback: string): string {
   const candidate = value?.trim();
@@ -42,6 +43,35 @@ export const AGENT_UI_BASE_DOMAIN = normalizeHostname(
   DEFAULT_AGENT_UI_BASE_DOMAIN,
 );
 
+export function isHostedRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  return !(
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  );
+}
+
+/**
+ * Public sandbox discovery is disabled everywhere.  The sandbox endpoint
+ * lists ALL running agents across the cluster — unauthenticated users
+ * should never see other people's agents.  Only cloud-authenticated
+ * sessions use sandbox data (to enrich their own agent list).
+ */
+export function shouldAllowPublicSandboxDiscoveryFallback(): boolean {
+  return false;
+}
+
+export function getCloudTokenStorageKey(): string {
+  try {
+    const origin = new URL(CLOUD_BASE).origin.replace(/^https?:\/\//, "");
+    return `${LEGACY_CLOUD_TOKEN_STORAGE_KEY}:${origin}`;
+  } catch {
+    return LEGACY_CLOUD_TOKEN_STORAGE_KEY;
+  }
+}
+
+export { LEGACY_CLOUD_TOKEN_STORAGE_KEY };
+
 export function getSandboxDiscoveryUrls(): string[] {
   const urls = [
     normalizeUrl(
@@ -59,6 +89,13 @@ export function getSandboxDiscoveryUrls(): string[] {
   return Array.from(new Set(urls.filter(Boolean)));
 }
 
+/**
+ * Rewrite agent UI URLs to use the configured base domain.
+ *
+ * Sandbox discovery may return *.waifu.fun URLs, but the canonical
+ * user-facing domain is milady.ai (or whatever VITE_AGENT_UI_BASE_DOMAIN
+ * is set to). This rewrites so users always see the branded domain.
+ */
 export function rewriteAgentUiUrl(url: string): string {
   try {
     const parsed = new URL(url);

@@ -139,12 +139,15 @@
     "@bufbuild/protobuf": "^2.11.0",
     "@clack/prompts": "^1.1.0",
     "@electric-sql/pglite": "^0.3.16",
-    "@elizaos/app-core": "alpha",
+    "@elizaos/app-core": "2.0.0-alpha.77",
     "@elizaos/app-hyperscape": "1.0.0",
-    "@elizaos/autonomous": "alpha",
-    "@elizaos/core": "alpha",
-    "@elizaos/prompts": "alpha",
-    "@elizaos/tui": "alpha",
+    "@elizaos/autonomous": "2.0.0-alpha.77",
+    "@elizaos/core": "2.0.0-alpha.77",
+    "@elizaos/prompts": "2.0.0-alpha.77",
+    "@elizaos/skills": "2.0.0-alpha.77",
+    "@elizaos/tui": "2.0.0-alpha.77",
+    "@elizaos/plugin-trust": "alpha",
+    "@elizaos/plugin-plugin-manager": "alpha",
     "@hapi/boom": "^10.0.1",
     "@lunchtable/plugin-ltcg": "^0.1.0",
     "@mariozechner/pi-ai": "0.52.12",
@@ -220,8 +223,7 @@
     "drizzle-orm": "0.45.1",
     "ai": "6.0.30",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
-    "pty-manager": "1.9.8",
-    "@elizaos/plugin-ollama": "2.0.0-alpha.70"
+    "pty-manager": "1.9.8"
   },
   "patchedDependencies": {
     "electrobun@1.15.1": "patches/electrobun@1.15.1.patch"

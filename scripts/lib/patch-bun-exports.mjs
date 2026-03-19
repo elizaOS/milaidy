@@ -425,6 +425,9 @@ const BUNDLED_VRM_ASSETS = [
 ${assetEntries}
 ];
 export const VRM_COUNT = BUNDLED_VRM_ASSETS.length;
+export function getVrmCount() {
+    return VRM_COUNT;
+}
 function normalizeAvatarIndex(index) {
     if (!Number.isFinite(index))
         return 1;
@@ -482,6 +485,7 @@ export { normalizeAvatarIndex };
 function buildAppCoreMiladyVrmTypesSource(catalog) {
   return `import type { UiTheme } from "./ui-preferences";
 export declare const VRM_COUNT = ${catalog.assets.length};
+export declare function getVrmCount(): number;
 declare function normalizeAvatarIndex(index: number): number;
 /** Resolve a bundled VRM index (1–N) to its public asset URL. */
 export declare function getVrmUrl(index: number): string;
@@ -663,11 +667,42 @@ export function applyAppCoreMiladyViewRouterPatch(filePath) {
 export function applyAutonomousMiladyOnboardingPresetsPatch(filePath, source) {
   if (!existsSync(filePath)) return false;
 
-  const compatSource = readFileSync(filePath, "utf8");
-  if (compatSource === source) return false;
+  // When writing to a .js file, strip TypeScript-only syntax so Bun can
+  // parse it as plain JavaScript. The source is always loaded from the
+  // local .ts file which may contain `as const`, type annotations, etc.
+  let output = source;
+  if (filePath.endsWith(".js")) {
+    output = stripTypeScriptSyntax(output);
+  }
 
-  writeFileSync(filePath, source, "utf8");
+  const compatSource = readFileSync(filePath, "utf8");
+  if (compatSource === output) return false;
+
+  writeFileSync(filePath, output, "utf8");
   return true;
+}
+
+/**
+ * Naively strip TypeScript-only syntax from a source string so it can be
+ * loaded as plain JavaScript by Bun. Handles the patterns used in
+ * onboarding-presets.ts:
+ *   - `] as const;`  →  `];`
+ *   - `export const FOO: Type<...> = {`  →  `export const FOO = {`
+ *   - Interface-style property lines inside a Record<> type block
+ */
+function stripTypeScriptSyntax(src) {
+  // Remove `as const` assertions
+  src = src.replace(/\]\s+as\s+const\s*;/g, "];");
+
+  // Remove inline type annotations on const declarations:
+  //   export const FOO: Record<\n  string,\n  {\n    ...\n  }\n> = {
+  // Matches `: <type>` between the variable name and ` = `.
+  src = src.replace(
+    /^(export\s+const\s+\w+)\s*:\s*Record<[\s\S]*?>\s*=/gm,
+    "$1 =",
+  );
+
+  return src;
 }
 
 export function patchAutonomousMiladyOnboardingPresets(

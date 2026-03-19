@@ -4,8 +4,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import signalPlugin, {
   signalPlugin as namedSignalPlugin,
-} from "../plugins/signal";
-import { SignalNativeService } from "../plugins/signal/service";
+} from "@elizaos/plugin-signal";
+import { SignalNativeService } from "@elizaos/plugin-signal/service";
 
 function createRuntime(overrides: Record<string, unknown> = {}) {
   return {
