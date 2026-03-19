@@ -239,12 +239,55 @@ if (-not $requireInstaller -and -not $launcher) {
     $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
     $launcherStarted = $true
   }
-} else {
+}
+
+# When $requireInstaller is set, the blocks above are skipped and $launcher is
+# still $null.  Fall through to the Inno-installer-based smoke test path.
+if ($requireInstaller -and -not $launcher) {
+  $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "Milady-Setup-*.exe" -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+
+  if (-not $installer) {
+    $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+  }
+
+  if (-not $installer) {
+    throw "No Inno Setup installer (.exe) found under $resolvedArtifactsDir"
+  }
+
+  Write-Host "Installing via Inno Setup: $($installer.FullName)"
+  Remove-Item $installerRoot -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $installerRoot | Out-Null
+
+  $installerArgs = @(
+    "/VERYSILENT",
+    "/SUPPRESSMSGBOXES",
+    "/NORESTART",
+    "/SP-",
+    "/DIR=$installerRoot"
+  )
+
+  $installerProcess = Start-Process -FilePath $installer.FullName -ArgumentList $installerArgs -WorkingDirectory (Split-Path -Parent $installer.FullName) -PassThru -Wait
+  if ($installerProcess.ExitCode -ne 0) {
+    throw "Windows installer exited with code $($installerProcess.ExitCode)"
+  }
+
+  $launcher = Find-Launcher $installerRoot
+  if (-not $launcher) {
+    throw "Installed launcher.exe not found under $installerRoot"
+  }
+
+  $launcherSource = "installed Inno package"
   $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir
   Write-Host "Using $launcherSource launcher: $($launcher.FullName)"
   $launcherDir = Split-Path -Parent $launcher.FullName
   $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
   $launcherStarted = $true
+}
+
+if (-not $launcherStarted) {
+  throw "No launcher found or started. Check artifacts and installer configuration."
 }
 
 # Bypass proxy for loopback — WinHTTP (used by Invoke-WebRequest) respects
