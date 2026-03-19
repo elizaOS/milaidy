@@ -312,7 +312,8 @@
               "rest/bug-report",
               "rest/ltcg",
               "rest/coding-agents",
-              "rest/whitelist"
+              "rest/whitelist",
+              "rest/nfa"
             ]
           },
           {
@@ -369,7 +370,7 @@
             "group": "Changelog",
             "pages": ["changelog"]
           }
-        ]
+        ],
         "href": "/changelog"
       }
     ],

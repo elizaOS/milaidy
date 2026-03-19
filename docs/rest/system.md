@@ -169,7 +169,9 @@ Atomically switch the active AI provider. Clears competing credentials and env v
 | `provider` | string | Yes | Provider ID |
 | `apiKey` | string | No | API key for the new provider |
 
-Valid providers: `elizacloud`, `openai-codex`, `openai-subscription`, `anthropic-subscription`, `openai`, `anthropic`, `deepseek`, `google`, `groq`, `xai`, `openrouter`.
+Valid providers: `elizacloud`, `pi-ai`, `openai-codex`, `openai-subscription`, `anthropic-subscription`, `openai`, `anthropic`, `deepseek`, `google`, `groq`, `xai`, `openrouter`.
+
+When switching to `elizacloud`, cloud inference is enabled and `cloud.services.inference` is set to `true`. When switching away from `elizacloud` to any other provider, cloud inference is disabled but the cloud connection remains active for other services (RPC, media, TTS, embeddings). See [granular cloud service toggles](/guides/cloud#granular-cloud-service-toggles) for details.
 
 **Response**
 

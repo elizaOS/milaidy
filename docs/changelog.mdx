@@ -20,6 +20,63 @@ If the agent runtime fails to load — for example, due to a missing native modu
 
 - Safe avatar index validation prevents display errors when `STREAM_AVATAR_INDEX` is out of range
 - Oversized voice API requests are now properly rejected with a 413 error and clear size limits
+<Update label="2026-04-09" description="Week of April 3–9" tags={["Feature", "Update", "Fix"]}>
+## Opinion markets plugin
+
+Your agent can now trade on prediction markets through a new opinion markets plugin. Browse markets, place bets, check positions, cancel orders, and redeem outcomes — all from chat or the REST API. Real-time market data streams via WebSocket so your agent stays current on price movements.
+
+## Agent self-awareness
+
+Your agent can now report on its own status. A new awareness system aggregates health signals from the runtime, cloud connection, wallet, connectors, plugins, and permissions into a single view. Ask your agent "what's your status?" and it returns a structured summary of what's working, what's degraded, and what needs attention.
+
+## Coding agent settings
+
+The Settings view now includes a Coding Agents section where you can choose the agent selection strategy, default agent type, permission level, and per-agent model preferences. These controls give you finer-grained control over how [coding swarms](/guides/coding-swarms) behave.
+
+## Granular cloud service toggles
+
+When connected to Eliza Cloud, you can now enable or disable individual cloud services — inference, RPC, media, TTS, and embeddings — instead of toggling the entire cloud connection. This lets you keep cloud RPC while using a local model provider, for example. See the [cloud guide](/guides/cloud) for details.
+
+## Updates
+
+- **Credit exhaustion errors surfaced clearly** — Cloud provider billing errors (HTTP 402 and 429) are now detected and shown in the dashboard with actionable guidance instead of generic failure messages.
+- **Knowledge service retry** — When the knowledge service is still loading, requests return a `Retry-After` header and the client auto-retries with exponential backoff, preventing failed queries during startup.
+- **System warning banners** — Connector failures and coordinator wiring issues now surface directly in the dashboard as dismissible warning banners so you can act on problems immediately.
+</Update>
+
+<Update label="2026-04-02" description="Week of March 27 – April 2" tags={["Feature", "Update", "Fix"]}>
+## Multi-destination streaming with pump.fun and X/Twitter
+
+You can now stream to multiple destinations at once and switch between them at runtime. Two new streaming plugins ship this week:
+
+- **pump.fun** — stream directly to pump.fun via RTMP
+- **X/Twitter** — stream to X/Twitter via RTMPS
+
+Configure your destinations in the [stream settings](/dashboard/stream) and switch the active target without restarting. Streaming plugins now also validate your RTMP URL on startup and surface a clear error if it's missing.
+
+## Windows standalone installer
+
+The Windows download is now a proper single-file installer built with Inno Setup. Previously, the public `.exe` was a bootstrap wrapper that required a companion payload archive. The new installer works on its own — download, run, and you're set. MSIX remains available as an alternative. See the [installation guide](/installation) for details.
+
+## Companion i18n support
+
+The companion UI now supports internationalization. English and Simplified Chinese (zh-CN) are available at launch, with the framework in place for additional languages.
+
+## Coding agent always available
+
+The coding agent plugin is now a core plugin that loads automatically on every startup. You no longer need to manually enable it to use coding and terminal features. See the [coding swarms guide](/guides/coding-swarms) for details.
+
+## Updates
+
+- **Improved desktop startup errors** — When the agent runtime fails to load, the desktop app now keeps the API server running and shows the actual error message in the UI instead of a generic "Failed to fetch." This makes it much easier to diagnose configuration issues.
+- **NFA endpoints graceful fallback** — The `/api/nfa/status` and `/api/nfa/learnings` endpoints now return empty data gracefully when the BNB identity plugin is not installed, instead of failing. See the [wallet guide](/guides/wallet) for details.
+- **Plugin logos in companion view** — Installed plugins now display their logos in the companion UI for easier identification.
+
+## Bug fixes
+
+- Fixed Intel Mac desktop app crashing on startup due to ARM64 native binaries being shipped instead of x64 binaries
+- Fixed plugin resolution failures ("Cannot find module") across CLI, desktop dev mode, and direct runtime load — not just packaged builds
+- Fixed coding agent plugin failing to load under Bun due to a stale package export pointing to a non-existent source file
 </Update>
 
 <Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
