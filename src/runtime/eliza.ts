@@ -2,7 +2,9 @@ import {
   type AgentRuntime,
   AutonomyService,
   ChannelType,
+  type Content,
   logger,
+  type MessageExampleGroup,
   stringToUuid,
 } from "@elizaos/core";
 
@@ -18,7 +20,7 @@ import {
   shutdownRuntime as upstreamShutdownRuntime,
   startEliza as upstreamStartEliza,
 } from "@elizaos/autonomous/runtime/eliza";
-import { HISTORY_KNOWLEDGE } from "../knowledge/history";
+import { CHARACTER_PRESET_META, STYLE_PRESETS } from "../onboarding-presets.js";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import type { EmbeddingProgressCallback } from "./embedding-manager-support.js";
 import {
@@ -33,6 +35,7 @@ const BRAND_ENV_ALIASES = [
   ["MILADY_CLOUD_MEDIA_DISABLED", "ELIZA_CLOUD_MEDIA_DISABLED"],
   ["MILADY_CLOUD_EMBEDDINGS_DISABLED", "ELIZA_CLOUD_EMBEDDINGS_DISABLED"],
   ["MILADY_CLOUD_RPC_DISABLED", "ELIZA_CLOUD_RPC_DISABLED"],
+  ["MILADY_DISABLE_LOCAL_EMBEDDINGS", "ELIZA_DISABLE_LOCAL_EMBEDDINGS"],
 ] as const;
 
 const miladyMirroredEnvKeys = new Set<string>();
@@ -96,8 +99,10 @@ function syncMiladyEnvToEliza(): void {
   for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
     const value = process.env[miladyKey];
     if (typeof value === "string") {
-      process.env[elizaKey] = value;
-      elizaMirroredEnvKeys.add(elizaKey);
+      if (typeof process.env[elizaKey] !== "string") {
+        process.env[elizaKey] = value;
+        elizaMirroredEnvKeys.add(elizaKey);
+      }
     } else if (elizaMirroredEnvKeys.has(elizaKey)) {
       delete process.env[elizaKey];
       elizaMirroredEnvKeys.delete(elizaKey);
@@ -109,8 +114,10 @@ function syncElizaEnvToMilady(): void {
   for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
     const value = process.env[elizaKey];
     if (typeof value === "string") {
-      process.env[miladyKey] = value;
-      miladyMirroredEnvKeys.add(miladyKey);
+      if (typeof process.env[miladyKey] !== "string") {
+        process.env[miladyKey] = value;
+        miladyMirroredEnvKeys.add(miladyKey);
+      }
     } else if (miladyMirroredEnvKeys.has(miladyKey)) {
       delete process.env[miladyKey];
       miladyMirroredEnvKeys.delete(miladyKey);
@@ -118,39 +125,93 @@ function syncElizaEnvToMilady(): void {
   }
 }
 
+function syncBrandEnvAliases(): void {
+  syncElizaEnvToMilady();
+  syncMiladyEnvToEliza();
+}
+
+function resolveMiladyPresetByName(name: string | undefined) {
+  if (!name) return undefined;
+  const presetMeta = Object.values(CHARACTER_PRESET_META).find(
+    (meta) => meta.name === name,
+  );
+  if (!presetMeta) return undefined;
+
+  return STYLE_PRESETS.find(
+    (preset) => preset.catchphrase === presetMeta.catchphrase,
+  );
+}
+
+type PresetMessageExample =
+  | MessageExampleGroup
+  | Array<{ name?: string; user?: string; content: Content }>;
+
+function normalizePresetMessageExamples(
+  messageExamples: PresetMessageExample[],
+): MessageExampleGroup[] {
+  return messageExamples.map((item) => {
+    if (
+      item &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      "examples" in item
+    ) {
+      return item;
+    }
+
+    return {
+      examples: item.map((message) => ({
+        name: message.name ?? message.user ?? "",
+        content: message.content,
+      })),
+    };
+  });
+}
+
 export function collectPluginNames(
   ...args: Parameters<typeof upstreamCollectPluginNames>
 ): ReturnType<typeof upstreamCollectPluginNames> {
-  syncMiladyEnvToEliza();
+  syncBrandEnvAliases();
   const result = upstreamCollectPluginNames(...args);
-  syncElizaEnvToMilady();
+  syncBrandEnvAliases();
   return result;
 }
 
 export function applyCloudConfigToEnv(
   ...args: Parameters<typeof upstreamApplyCloudConfigToEnv>
 ): ReturnType<typeof upstreamApplyCloudConfigToEnv> {
-  syncMiladyEnvToEliza();
+  syncBrandEnvAliases();
   const result = upstreamApplyCloudConfigToEnv(...args);
-  syncElizaEnvToMilady();
+  syncBrandEnvAliases();
   return result;
 }
-
-/** Preset knowledge items baked into every character at boot. */
-const PRESET_KNOWLEDGE = [
-  { item: { case: "path" as const, value: HISTORY_KNOWLEDGE } },
-];
 
 export function buildCharacterFromConfig(
   ...args: Parameters<typeof upstreamBuildCharacterFromConfig>
 ): ReturnType<typeof upstreamBuildCharacterFromConfig> {
-  syncMiladyEnvToEliza();
+  syncBrandEnvAliases();
+  const [config] = args;
   const character = upstreamBuildCharacterFromConfig(...args);
-  syncElizaEnvToMilady();
+  syncBrandEnvAliases();
 
-  // Inject preset knowledge so every agent starts with foundational
-  // context about ELIZA, elizaOS, and the Milady project.
-  character.knowledge = [...PRESET_KNOWLEDGE, ...(character.knowledge ?? [])];
+  const agentEntry = config.agents?.list?.[0];
+  const bundledPreset = resolveMiladyPresetByName(character.name);
+  if (bundledPreset) {
+    if (
+      !agentEntry?.postExamples &&
+      (character.postExamples?.length ?? 0) === 0
+    ) {
+      character.postExamples = [...bundledPreset.postExamples];
+    }
+    if (
+      !agentEntry?.messageExamples &&
+      (character.messageExamples?.length ?? 0) === 0
+    ) {
+      character.messageExamples = normalizePresetMessageExamples(
+        bundledPreset.messageExamples as PresetMessageExample[],
+      );
+    }
+  }
 
   return character;
 }

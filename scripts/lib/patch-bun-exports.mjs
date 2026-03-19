@@ -12,6 +12,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, resolve } from "node:path";
+import ts from "typescript";
 
 const ELIZA_CORE_RUNTIME_FILES = [
   "dist/index.js",
@@ -380,9 +381,20 @@ function loadMiladyCharacterCatalog(root) {
   };
 }
 
-function loadMiladyOnboardingPresetsSource(root) {
+function loadMiladyOnboardingPresetsSource(root, targetPath) {
   const sourcePath = resolve(root, "src/onboarding-presets.ts");
-  return readFileSync(sourcePath, "utf8");
+  const source = readFileSync(sourcePath, "utf8");
+  if (!targetPath?.endsWith(".js")) {
+    return source;
+  }
+
+  return ts.transpileModule(source, {
+    fileName: sourcePath,
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
 }
 
 function toAppCoreRelativeAssetPath(path) {
@@ -696,7 +708,7 @@ function stripTypeScriptSyntax(src) {
 export function patchAutonomousMiladyOnboardingPresets(
   root,
   log = console.log,
-  source = loadMiladyOnboardingPresetsSource(root),
+  source,
 ) {
   const candidates = [
     ...findPackageFilePaths(
@@ -718,7 +730,9 @@ export function patchAutonomousMiladyOnboardingPresets(
 
   let patched = false;
   for (const filePath of candidates) {
-    if (!applyAutonomousMiladyOnboardingPresetsPatch(filePath, source)) {
+    const nextSource =
+      source ?? loadMiladyOnboardingPresetsSource(root, filePath);
+    if (!applyAutonomousMiladyOnboardingPresetsPatch(filePath, nextSource)) {
       continue;
     }
     patched = true;
