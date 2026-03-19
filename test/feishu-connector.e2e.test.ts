@@ -11,7 +11,6 @@
  *   5. Media & Attachments
  *   6. Error Handling
  *   7. Integration
- *   8. Configuration
  *
  * Requirements for live tests:
  *   FEISHU_APP_ID              — Feishu/Lark application ID (cli_xxx format)
@@ -24,7 +23,7 @@
  * Optional env vars:
  *   FEISHU_DOMAIN              — "feishu.cn" (default) or "larksuite.com"
  *
- * Or configure in ~/.milady/milady.json:
+ * Or configure in ~/.eliza/eliza.json:
  *   { "connectors": { "feishu": { "token": "...", "appId": "...", "appSecret": "..." } } }
  *
  * NO MOCKS for live tests — all tests use real Feishu API.
@@ -242,19 +241,7 @@ describe("Feishu Connector - Authentication Formats", () => {
     }
   });
 
-  it("credentials can come from config or environment", () => {
-    const envAppId = process.env.FEISHU_APP_ID;
-    const envAppSecret = process.env.FEISHU_APP_SECRET;
-
-    expect(
-      (typeof envAppId === "string" && typeof envAppSecret === "string") ||
-        (envAppId === undefined && envAppSecret === undefined) ||
-        typeof envAppId === "string" ||
-        typeof envAppSecret === "string",
-    ).toBe(true);
-  });
-
-  it("domain defaults to feishu.cn", () => {
+  it("domain defaults to feishu.cn when FEISHU_DOMAIN is unset", () => {
     const domain = process.env.FEISHU_DOMAIN ?? "feishu.cn";
     expect(["feishu.cn", "larksuite.com"]).toContain(domain);
   });
@@ -304,78 +291,30 @@ describeIfCreds(
 // ---------------------------------------------------------------------------
 
 describe("Feishu Connector - Message Formats", () => {
-  it("text message structure is valid", () => {
-    const textMessage = {
-      msg_type: "text",
-      content: JSON.stringify({ text: "Hello from milady test" }),
-    };
-
-    expect(textMessage.msg_type).toBe("text");
-    expect(textMessage.content).toBeDefined();
-    const parsed = JSON.parse(textMessage.content) as { text: string };
+  it("text message round-trips through JSON serialization", () => {
+    const content = JSON.stringify({ text: "Hello from milady test" });
+    const parsed = JSON.parse(content) as { text: string };
     expect(parsed.text).toBe("Hello from milady test");
   });
 
-  it("post/rich text message structure is valid", () => {
-    const postMessage = {
-      msg_type: "post",
-      content: JSON.stringify({
-        post: {
-          zh_cn: {
-            title: "Test Post",
-            content: [
-              [
-                {
-                  tag: "text",
-                  text: "Hello ",
-                },
-                {
-                  tag: "a",
-                  text: "link",
-                  href: "https://example.com",
-                },
-              ],
+  it("post/rich text structure survives JSON serialization", () => {
+    const post = {
+      post: {
+        zh_cn: {
+          title: "Test Post",
+          content: [
+            [
+              { tag: "text", text: "Hello " },
+              { tag: "a", text: "link", href: "https://example.com" },
             ],
-          },
+          ],
         },
-      }),
-    };
-
-    expect(postMessage.msg_type).toBe("post");
-    const parsed = JSON.parse(postMessage.content) as {
-      post: { zh_cn: { title: string; content: unknown[][] } };
-    };
-    expect(parsed.post.zh_cn.title).toBe("Test Post");
-    expect(parsed.post.zh_cn.content).toHaveLength(1);
-  });
-
-  it("interactive card message structure is valid", () => {
-    const cardMessage = {
-      msg_type: "interactive",
-      card: {
-        config: { wide_screen_mode: true },
-        header: {
-          title: {
-            tag: "plain_text",
-            content: "Test Card",
-          },
-        },
-        elements: [
-          {
-            tag: "div",
-            text: {
-              tag: "plain_text",
-              content: "Card body text",
-            },
-          },
-        ],
       },
     };
-
-    expect(cardMessage.msg_type).toBe("interactive");
-    expect(cardMessage.card.header.title.content).toBe("Test Card");
-    expect(cardMessage.card.elements).toHaveLength(1);
-    expect(cardMessage.card.config.wide_screen_mode).toBe(true);
+    const parsed = JSON.parse(JSON.stringify(post)) as typeof post;
+    expect(parsed.post.zh_cn.title).toBe("Test Post");
+    expect(parsed.post.zh_cn.content[0]).toHaveLength(2);
+    expect(parsed.post.zh_cn.content[0][1].tag).toBe("a");
   });
 });
 
@@ -393,63 +332,6 @@ describe("Feishu Connector - Features", () => {
     expect(mentionPattern.test("")).toBe(false);
   });
 
-  it("interactive card structure is valid", () => {
-    const card = {
-      config: { wide_screen_mode: true },
-      header: {
-        title: { tag: "plain_text", content: "Title" },
-      },
-      elements: [
-        {
-          tag: "action",
-          actions: [
-            {
-              tag: "button",
-              text: { tag: "plain_text", content: "Click me" },
-              type: "primary",
-            },
-          ],
-        },
-      ],
-    };
-
-    expect(card.config.wide_screen_mode).toBe(true);
-    expect(card.header.title.tag).toBe("plain_text");
-    expect(card.elements).toHaveLength(1);
-  });
-
-  it("bot command format is valid", () => {
-    const commands = ["/help", "/status", "/info"];
-
-    for (const cmd of commands) {
-      expect(cmd.startsWith("/")).toBe(true);
-    }
-  });
-
-  it("message action types are valid", () => {
-    const actionTypes = ["urgent", "pin", "forward"] as const;
-
-    expect(actionTypes).toContain("urgent");
-    expect(actionTypes).toContain("pin");
-    expect(actionTypes).toContain("forward");
-    expect(actionTypes).toHaveLength(3);
-  });
-
-  it("event types are correct", () => {
-    const eventTypes = [
-      "im.message.receive_v1",
-      "im.message.message_read_v1",
-      "im.chat.member.bot.added_v1",
-      "im.chat.member.bot.deleted_v1",
-    ] as const;
-
-    expect(eventTypes).toContain("im.message.receive_v1");
-    expect(eventTypes).toContain("im.message.message_read_v1");
-    expect(eventTypes).toContain("im.chat.member.bot.added_v1");
-    expect(eventTypes).toContain("im.chat.member.bot.deleted_v1");
-    expect(eventTypes).toHaveLength(4);
-  });
-
   it("domain options control API endpoint", () => {
     expect(feishuApiBase("feishu.cn")).toBe(
       "https://open.feishu.cn/open-apis",
@@ -465,33 +347,6 @@ describe("Feishu Connector - Features", () => {
 // ---------------------------------------------------------------------------
 
 describe("Feishu Connector - Groups & Chats", () => {
-  it("group chat config structure is valid", () => {
-    const groupConfig = {
-      allowedChats: ["oc_chat1", "oc_chat2"],
-    };
-
-    expect(groupConfig.allowedChats).toHaveLength(2);
-    expect(groupConfig.allowedChats).toContain("oc_chat1");
-  });
-
-  it("1:1 chat type is supported", () => {
-    const chatTypes = ["p2p", "group"] as const;
-
-    expect(chatTypes).toContain("p2p");
-    expect(chatTypes).toContain("group");
-  });
-
-  it("bot invitation events are handled", () => {
-    const botEvents = [
-      "im.chat.member.bot.added_v1",
-      "im.chat.member.bot.deleted_v1",
-    ] as const;
-
-    expect(botEvents).toContain("im.chat.member.bot.added_v1");
-    expect(botEvents).toContain("im.chat.member.bot.deleted_v1");
-    expect(botEvents).toHaveLength(2);
-  });
-
   it("chat ID format validation", () => {
     const chatIdPattern = /^oc_[a-zA-Z0-9]+$/;
 
@@ -517,25 +372,15 @@ describe("Feishu Connector - Groups & Chats", () => {
 // ---------------------------------------------------------------------------
 
 describe("Feishu Connector - Media & Attachments", () => {
-  it("image message format is valid", () => {
-    const imageMessage = {
-      msg_type: "image",
-      content: JSON.stringify({ image_key: "img_v2_abc123" }),
-    };
-
-    expect(imageMessage.msg_type).toBe("image");
-    const parsed = JSON.parse(imageMessage.content) as { image_key: string };
+  it("image message content round-trips through JSON", () => {
+    const content = JSON.stringify({ image_key: "img_v2_abc123" });
+    const parsed = JSON.parse(content) as { image_key: string };
     expect(parsed.image_key).toBe("img_v2_abc123");
   });
 
-  it("file message format is valid", () => {
-    const fileMessage = {
-      msg_type: "file",
-      content: JSON.stringify({ file_key: "file_v2_abc123" }),
-    };
-
-    expect(fileMessage.msg_type).toBe("file");
-    const parsed = JSON.parse(fileMessage.content) as { file_key: string };
+  it("file message content round-trips through JSON", () => {
+    const content = JSON.stringify({ file_key: "file_v2_abc123" });
+    const parsed = JSON.parse(content) as { file_key: string };
     expect(parsed.file_key).toBe("file_v2_abc123");
   });
 });
@@ -554,38 +399,13 @@ describe("Feishu Connector - Error Handling", () => {
     }
   });
 
-  it("invalid JSON for allowed chats is detectable", () => {
-    const invalidJSON = "not-valid-json";
-    let parseError = false;
-    try {
-      JSON.parse(invalidJSON);
-    } catch {
-      parseError = true;
-    }
-    expect(parseError).toBe(true);
+  it("invalid JSON for allowed chats throws", () => {
+    expect(() => JSON.parse("not-valid-json")).toThrow();
   });
 
   it("invalid domain is detectable", () => {
     const validDomains = ["feishu.cn", "larksuite.com"];
-    const invalidDomain = "invalid.com";
-
-    expect(validDomains.includes(invalidDomain)).toBe(false);
-  });
-
-  it("empty App Secret is detectable", () => {
-    const emptySecret = "";
-    expect(Boolean(emptySecret)).toBe(false);
-  });
-
-  it("Feishu API error response structure", () => {
-    const errorResponse = {
-      code: 99991663,
-      msg: "invalid app_id or app_secret",
-    };
-
-    expect(errorResponse.code).not.toBe(0);
-    expect(errorResponse.msg).toBeDefined();
-    expect(typeof errorResponse.msg).toBe("string");
+    expect(validDomains.includes("invalid.com")).toBe(false);
   });
 });
 
@@ -602,58 +422,62 @@ async function tryWorkspaceImport<T>(specifier: string): Promise<T | null> {
   }
 }
 
-describe("Feishu Connector - Integration", () => {
-  it("Feishu is mapped in CONNECTOR_PLUGINS", async () => {
-    const mod = await tryWorkspaceImport<{
-      CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
-    if (!mod) {
-      logger.warn("[feishu-connector] Workspace not built — skipping");
-      return;
+/** Pre-check: can we import the workspace config module? */
+let _workspaceAvailable: boolean | null = null;
+async function isWorkspaceAvailable(): Promise<boolean> {
+  if (_workspaceAvailable === null) {
+    _workspaceAvailable =
+      (await tryWorkspaceImport("../src/config/plugin-auto-enable")) !== null;
+    if (!_workspaceAvailable) {
+      logger.warn(
+        "[feishu-connector] Workspace not built — integration tests will be skipped",
+      );
     }
+  }
+  return _workspaceAvailable;
+}
+
+// Resolve synchronously at module load so we can gate the describe block.
+// If the workspace isn't built these will all be skipped visibly.
+const workspaceBuilt = await isWorkspaceAvailable();
+const describeIfWorkspace = workspaceBuilt ? describe : describe.skip;
+
+describeIfWorkspace("Feishu Connector - Integration", () => {
+  it("Feishu is mapped in CONNECTOR_PLUGINS", async () => {
+    const mod = (await tryWorkspaceImport<{
+      CONNECTOR_PLUGINS: Record<string, string>;
+    }>("../src/config/plugin-auto-enable"))!;
     expect(mod.CONNECTOR_PLUGINS.feishu).toBe("@elizaos/plugin-feishu");
   });
 
   it("Feishu connector is in CONNECTOR_PLUGINS list", async () => {
-    const mod = await tryWorkspaceImport<{
+    const mod = (await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
-    if (!mod) {
-      logger.warn("[feishu-connector] Workspace not built — skipping");
-      return;
-    }
+    }>("../src/config/plugin-auto-enable"))!;
     const connectors = Object.keys(mod.CONNECTOR_PLUGINS);
     expect(connectors).toContain("feishu");
   });
 
-  it("isConnectorConfigured returns true for feishu with token", async () => {
-    const mod = await tryWorkspaceImport<{
+  it("isConnectorConfigured recognizes feishu with token", async () => {
+    const mod = (await tryWorkspaceImport<{
       isConnectorConfigured: (
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable");
-    if (!mod) {
-      logger.warn("[feishu-connector] Workspace not built — skipping");
-      return;
-    }
+    }>("../src/config/plugin-auto-enable"))!;
     const configured = mod.isConnectorConfigured("feishu", {
       token: "fs-token",
     });
-    expect(typeof configured).toBe("boolean");
+    expect(configured).toBe(true);
   });
 
   it("Feishu respects enabled: false", async () => {
-    const mod = await tryWorkspaceImport<{
+    const mod = (await tryWorkspaceImport<{
       isConnectorConfigured: (
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable");
-    if (!mod) {
-      logger.warn("[feishu-connector] Workspace not built — skipping");
-      return;
-    }
+    }>("../src/config/plugin-auto-enable"))!;
     const configured = mod.isConnectorConfigured("feishu", {
       enabled: false,
       token: "fs-token",
@@ -662,13 +486,9 @@ describe("Feishu Connector - Integration", () => {
   });
 
   it("collectPluginNames includes feishu when configured", async () => {
-    const mod = await tryWorkspaceImport<{
+    const mod = (await tryWorkspaceImport<{
       collectPluginNames: (config: unknown) => Set<string>;
-    }>("../src/runtime/eliza");
-    if (!mod) {
-      logger.warn("[feishu-connector] Workspace not built — skipping");
-      return;
-    }
+    }>("../src/runtime/eliza"))!;
 
     const config = {
       connectors: {
@@ -680,85 +500,5 @@ describe("Feishu Connector - Integration", () => {
     };
     const plugins = mod.collectPluginNames(config as never);
     expect(plugins.has("@elizaos/plugin-feishu")).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 8. Configuration Tests (always run)
-// ---------------------------------------------------------------------------
-
-describe("Feishu Connector - Configuration", () => {
-  it("validates complete Feishu configuration", () => {
-    const validConfig = {
-      enabled: true,
-      appId: "cli_a1b2c3d4e5f6",
-      appSecret: "secret123",
-      domain: "feishu.cn",
-      allowedChats: ["oc_chat1", "oc_chat2"],
-      testChatId: "oc_testchat",
-    };
-
-    expect(validConfig.enabled).toBe(true);
-    expect(validConfig.appId).toBeDefined();
-    expect(validConfig.appSecret).toBeDefined();
-    expect(validConfig.domain).toBe("feishu.cn");
-    expect(validConfig.allowedChats).toHaveLength(2);
-    expect(validConfig.testChatId).toBeDefined();
-  });
-
-  it("validates optional config fields", () => {
-    const fullConfig = {
-      enabled: true,
-      appId: "cli_a1b2c3d4e5f6",
-      appSecret: "secret123",
-      domain: "feishu.cn",
-      allowedChats: ["oc_chat1"],
-      testChatId: "oc_testchat",
-    };
-
-    expect(fullConfig.appId).toMatch(/^cli_/);
-    expect(fullConfig.domain).toBe("feishu.cn");
-    expect(fullConfig.allowedChats).toHaveLength(1);
-    expect(fullConfig.testChatId).toMatch(/^oc_/);
-  });
-
-  it("domain options are feishu.cn or larksuite.com", () => {
-    const validDomains = ["feishu.cn", "larksuite.com"];
-    expect(validDomains).toContain("feishu.cn");
-    expect(validDomains).toContain("larksuite.com");
-    expect(validDomains).toHaveLength(2);
-  });
-
-  it("allowed chats parsing from JSON string", () => {
-    const jsonStr = '["oc_chat1","oc_chat2"]';
-    const parsed = JSON.parse(jsonStr) as string[];
-
-    expect(parsed).toHaveLength(2);
-    expect(parsed).toContain("oc_chat1");
-    expect(parsed).toContain("oc_chat2");
-  });
-
-  it("validates environment variable names follow FEISHU_ prefix", () => {
-    const envVars = [
-      "FEISHU_APP_ID",
-      "FEISHU_APP_SECRET",
-      "FEISHU_DOMAIN",
-      "FEISHU_ALLOWED_CHATS",
-      "FEISHU_TEST_CHAT_ID",
-    ];
-
-    for (const envVar of envVars) {
-      expect(envVar).toMatch(/^FEISHU_/);
-    }
-    expect(envVars).toHaveLength(5);
-  });
-
-  it("milady.json connector config path is connectors.feishu", () => {
-    const configPath = "connectors.feishu";
-    expect(configPath).toBe("connectors.feishu");
-
-    const parts = configPath.split(".");
-    expect(parts[0]).toBe("connectors");
-    expect(parts[1]).toBe("feishu");
   });
 });
