@@ -53,6 +53,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       env: ${{ steps.version.outputs.env }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,7 +78,8 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "env=$BUILD_ENV" >> "$GITHUB_OUTPUT"
-          echo "Release: $VERSION (tag: $TAG, env: $BUILD_ENV)"
+          echo "source_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "Release: $VERSION (tag: $TAG, env: $BUILD_ENV, sha: $GITHUB_SHA)"
 
   validate-release:
     name: Validate Release Inputs
@@ -174,7 +176,6 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
 
       - name: Cache Bun install
         uses: actions/cache@v4
@@ -692,6 +693,31 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Stage Windows setup executables
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $artifactsDir = Join-Path $PWD "apps/app/electrobun/artifacts"
+          $setupExecutables = Get-ChildItem -Path "apps/app/electrobun/build" -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue
+          if (-not $setupExecutables) {
+            Write-Error "No Windows setup executable found under apps/app/electrobun/build"
+            exit 1
+          }
+          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
+          foreach ($setupExecutable in $setupExecutables) {
+            Copy-Item $setupExecutable.FullName -Destination $artifactsDir -Force
+            Write-Host "Staged Windows setup executable: $($setupExecutable.Name)"
+          }
+
+      - name: Sign Windows executables
+        if: matrix.platform.os == 'windows'
+        env:
+          WINDOWS_SIGN_CERT_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_BASE64 }}
+          WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
+          WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
+        shell: pwsh
+        run: pwsh -File apps/app/electrobun/scripts/sign-windows.ps1 -ArtifactsDir (Join-Path $PWD "apps/app/electrobun/artifacts") -BuildDir (Join-Path $PWD "apps/app/electrobun/build")
+
       - name: Verify Windows code signature
         if: matrix.platform.os == 'windows' && env.WINDOWS_SIGN_CERT_BASE64 != ''
         env:
@@ -935,6 +961,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -994,6 +1021,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ needs.prepare.outputs.source_sha }}
           name: Milady ${{ needs.prepare.outputs.tag }}
           draft: ${{ inputs.draft || false }}
           prerelease: ${{ contains(needs.prepare.outputs.version, 'alpha') || contains(needs.prepare.outputs.version, 'beta') || contains(needs.prepare.outputs.version, 'rc') || contains(needs.prepare.outputs.version, 'nightly') }}
@@ -1033,3 +1061,17 @@ jobs:
             update-channel/ \
             releases@milady.ai:/var/www/releases/
           rm -f /tmp/release_key
+
+  publish-docker:
+    name: Publish Docker Image
+    needs: [prepare, release]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      version: ${{ needs.prepare.outputs.tag }}
+      push_image: true
+      tag_latest: true
+      source_sha: ${{ needs.prepare.outputs.source_sha }}
+    secrets: inherit
