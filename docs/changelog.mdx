@@ -1,0 +1,64 @@
+---
+title: Changelog
+description: What's new in Milady — features, improvements, and fixes.
+---
+
+<Update label="2026-03-19" description="Week of March 14–19" tags={["Feature", "Security", "Fix"]}>
+## Cloud control plane dashboard
+
+You can now manage your cloud agents directly from the Milady homepage. The new dashboard at `/#/dashboard` includes agent lifecycle controls (provision, suspend, resume, delete), snapshots and backups, credits and billing, container metrics, and log streaming — all without leaving the app. Local and remote agents are auto-discovered alongside cloud agents.
+
+## Game-style notebook character editor
+
+The character editor has been redesigned as an interactive notebook UI. Sidebar tabs let you navigate between About Me, Directions, and Style Rules sections. Each section supports Core/Examples switching, and the editor works in both light and dark mode. You can now also edit character topics and the character name directly from the editor.
+
+## VRM wave greeting and smooth loading transitions
+
+Your VRM avatar now plays a wave greeting animation after loading on app launch and character swaps. The loading screen transitions smoothly with animated progress and a fade-out instead of a hard cut.
+
+## Dashboard UI redesign
+
+Several dashboard tabs have been rebuilt with a cleaner two-panel layout:
+
+- **Settings** — section navigation on the left, active section on the right
+- **Heartbeats** — trigger list on the left, create/edit form on the right with a friendlier duration picker
+- **Wallets** — portfolio and chain selector on the left, token table on the right
+- **Social and Plugins** — channel/plugin list on the left, configuration detail on the right
+- **Apps** — game-style phone and tablet device UI for browsing and launching apps
+
+## Homepage redesign
+
+The homepage now features platform download icons with hover labels that always link to the latest release, a typewriter hero animation, and a streamlined footer. Download links are fetched from the latest GitHub release at build time so they stay current.
+
+## Wallet key export security
+
+Wallet private key exports now require a 10-second confirmation delay, are rate-limited to one export per 10 minutes, and generate an audit log entry for every attempt. This protects against instant key extraction from compromised sessions.
+
+## Cloud API key protection
+
+Cloud API keys are no longer stored in `process.env` after login. They are scrubbed immediately and held in a sealed, non-enumerable store — preventing leakage through crash dumps, child processes, or environment inspection.
+
+## Windows desktop crash fix
+
+The Windows desktop app no longer crashes on startup due to a `node-llama-cpp` embedding initialization issue. Fatal startup errors are now written to a log file for easier diagnosis.
+
+## Character editor bug fixes
+
+- Character topics are now properly loaded and saved when editing
+- Saving a character no longer fails with a 422 error from extra fields in the payload
+- Raw translation keys (e.g., `characterview.StyleRules`) now display as proper English text
+- Save and Customize buttons are now visible when using companion mode, with a frosted glass backdrop
+- The Etherscan link from the character view now points to the correct wallet address page
+
+## Additional fixes
+
+- Dark mode navigation tabs are now visible in all dashboard views
+- Empty conversations are automatically cleaned up when you navigate away
+- Password field toggle no longer erases entered API keys or bot tokens
+- Wallet RPC selection is now consistent across onboarding, settings, and runtime
+- Onboarding configuration persists correctly across app relaunches
+- Avatar index parsing now validates input range, preventing display errors
+- Voice defaults are now consistent — `autoSpeak` no longer appears enabled while voice is off
+- Oversized voice API requests are properly rejected with a 413 error
+- Performance improved for LLM turns and streaming by eliminating redundant sorting and string allocations
+</Update>
