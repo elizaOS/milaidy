@@ -3,6 +3,29 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-03-26" description="Week of March 20–26" tags={["Feature", "Update", "Fix"]}>
+## API key validation for model providers
+
+The desktop app now automatically validates your API keys for eight model providers — including OpenAI, Anthropic, Groq, Google GenAI, OpenRouter, and xAI. Keys are scanned on startup and verified in the background so you know immediately if a provider is misconfigured. You can also test connections on demand from the tray menu. See [model providers](/model-providers) for setup details.
+
+## Dedicated settings window
+
+A new standalone Settings window gives you quick access to General, Providers, Advanced, and About tabs without navigating away from your current view. The window syncs with your dark mode preference and connects directly to the API for real-time configuration changes. Open it from the tray menu or the application menu bar.
+
+## Application menu overhaul
+
+The menu bar has been reorganized with a new Agent menu that gives you one-click access to [Knowledge](/guides/knowledge), [Skills](/plugins/skills), [Plugins](/plugins/overview), and [Social Connectors](/guides/connectors). File, View, and Window menus have also been expanded for quicker navigation.
+
+## Interactive tray provider management
+
+The system tray now includes interactive submenus for each model provider. You can set a provider as active, test its connection, or enable it — all from the tray icon without opening the dashboard.
+
+## Bug fixes
+
+- Character view no longer crashes when no character draft is loaded
+- Character editor dark mode now renders correctly across the notebook frame and decorative elements
+</Update>
+
 <Update label="2026-03-19" description="Week of March 14–19" tags={["Feature", "Update", "Security", "Fix"]}>
 ## Cloud control plane dashboard
 
