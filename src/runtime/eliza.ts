@@ -1284,12 +1284,26 @@ export function resolveMiladyPluginImportSpecifier(
 
   const shortName = pluginName.replace("@milady/plugin-", "");
   const thisDir = path.dirname(fileURLToPath(runtimeModuleUrl));
-  const distRoot = thisDir.endsWith("runtime")
-    ? path.resolve(thisDir, "..")
-    : thisDir;
-  const indexPath = path.resolve(distRoot, "plugins", shortName, "index.js");
+  const distRootCandidates = [
+    // When running compiled JS, thisDir is usually .../dist/runtime
+    thisDir.endsWith("runtime") ? path.resolve(thisDir, "..") : thisDir,
+    // When running from src (tsx on src/runtime/*), fall back to repo dist.
+    path.resolve(thisDir, "..", "..", "dist"),
+    path.resolve(thisDir, "..", "..", "..", "dist"),
+    path.resolve(thisDir, "..", "..", "..", "..", "dist"),
+  ];
 
-  return existsSync(indexPath) ? pathToFileURL(indexPath).href : pluginName;
+  for (const distRoot of distRootCandidates) {
+    const indexPath = path.resolve(
+      distRoot,
+      "plugins",
+      shortName,
+      "index.js",
+    );
+    if (existsSync(indexPath)) return pathToFileURL(indexPath).href;
+  }
+
+  return pluginName;
 }
 
 export function shouldIgnoreMissingPluginExport(pluginName: string): boolean {
