@@ -23,6 +23,8 @@ export interface DetectedProvider {
   apiKey?: string;
   authMode?: string;
   cliInstalled: boolean;
+  status: "valid" | "invalid" | "unchecked" | "error";
+  statusDetail?: string;
 }
 
 interface CodexAuthJson {
@@ -124,6 +126,7 @@ async function scanCodexCredentials(
     apiKey: data.OPENAI_API_KEY,
     authMode: data.auth_mode ?? "api-key",
     cliInstalled,
+    status: "unchecked",
   };
 }
 
@@ -142,6 +145,7 @@ async function scanClaudeFileCredentials(
     apiKey: token,
     authMode: "oauth",
     cliInstalled,
+    status: "unchecked",
   };
 }
 
@@ -162,6 +166,7 @@ async function scanClaudeKeychainCredentials(): Promise<DetectedProvider | null>
       apiKey: token,
       authMode: "oauth",
       cliInstalled,
+      status: "unchecked",
     };
   } catch {
     // Not JSON — treat the raw string as the credential
@@ -172,33 +177,44 @@ async function scanClaudeKeychainCredentials(): Promise<DetectedProvider | null>
       apiKey: keychainData,
       authMode: "oauth",
       cliInstalled,
+      status: "unchecked",
     };
   }
 }
 
+/**
+ * Environment variable → provider ID mapping for all Eliza AI providers.
+ * Each entry maps an env var name to its provider plugin ID.
+ */
+const ENV_PROVIDER_MAP: Array<{ envVar: string; providerId: string }> = [
+  { envVar: "OPENAI_API_KEY", providerId: "openai" },
+  { envVar: "ANTHROPIC_API_KEY", providerId: "anthropic" },
+  { envVar: "GROQ_API_KEY", providerId: "groq" },
+  { envVar: "GOOGLE_GENERATIVE_AI_API_KEY", providerId: "google-genai" },
+  { envVar: "OPENROUTER_API_KEY", providerId: "openrouter" },
+  { envVar: "XAI_API_KEY", providerId: "xai" },
+  { envVar: "AI_GATEWAY_API_KEY", providerId: "vercel-ai-gateway" },
+  { envVar: "AIGATEWAY_API_KEY", providerId: "vercel-ai-gateway" },
+];
+
 function scanEnvCredentials(): DetectedProvider[] {
   const results: DetectedProvider[] = [];
+  const seen = new Set<string>();
 
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (openaiKey && openaiKey.trim().length > 0) {
-    results.push({
-      id: "openai",
-      source: "env",
-      apiKey: openaiKey.trim(),
-      authMode: "api-key",
-      cliInstalled: false,
-    });
-  }
-
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (anthropicKey && anthropicKey.trim().length > 0) {
-    results.push({
-      id: "anthropic",
-      source: "env",
-      apiKey: anthropicKey.trim(),
-      authMode: "api-key",
-      cliInstalled: false,
-    });
+  for (const { envVar, providerId } of ENV_PROVIDER_MAP) {
+    if (seen.has(providerId)) continue;
+    const value = process.env[envVar];
+    if (value && value.trim().length > 0) {
+      seen.add(providerId);
+      results.push({
+        id: providerId,
+        source: "env",
+        apiKey: value.trim(),
+        authMode: "api-key",
+        cliInstalled: false,
+        status: "unchecked",
+      });
+    }
   }
 
   return results;
@@ -236,4 +252,61 @@ export async function scanProviderCredentials(): Promise<DetectedProvider[]> {
   }
 
   return Array.from(detected.values());
+}
+
+export async function scanAndValidateProviderCredentials(): Promise<DetectedProvider[]> {
+  const providers = await scanProviderCredentials();
+  return Promise.all(providers.map(validateProvider));
+}
+
+/**
+ * Provider validation endpoints. Each entry maps a provider ID to its
+ * models/health endpoint and how to pass the API key.
+ */
+const VALIDATION_ENDPOINTS: Record<string, { url: string; authHeader: (key: string) => Record<string, string> }> = {
+  openai: {
+    url: "https://api.openai.com/v1/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  anthropic: {
+    url: "https://api.anthropic.com/v1/models",
+    authHeader: (key) => ({ "x-api-key": key, "anthropic-version": "2023-06-01" }),
+  },
+  groq: {
+    url: "https://api.groq.com/openai/v1/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  "google-genai": {
+    url: "https://generativelanguage.googleapis.com/v1beta/models",
+    authHeader: (key) => ({ "x-goog-api-key": key }),
+  },
+  openrouter: {
+    url: "https://openrouter.ai/api/v1/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  xai: {
+    url: "https://api.x.ai/v1/models",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+};
+
+async function validateProvider(p: DetectedProvider): Promise<DetectedProvider> {
+  if (!p.apiKey || p.authMode === "oauth") {
+    return { ...p, status: "unchecked" };
+  }
+  const endpoint = VALIDATION_ENDPOINTS[p.id];
+  if (!endpoint) {
+    return { ...p, status: "unchecked" };
+  }
+  try {
+    const res = await fetch(endpoint.url, {
+      headers: endpoint.authHeader(p.apiKey),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) return { ...p, status: "valid" };
+    if (res.status === 401 || res.status === 403) return { ...p, status: "invalid", statusDetail: "API key rejected" };
+    return { ...p, status: "error", statusDetail: `HTTP ${res.status}` };
+  } catch (err) {
+    return { ...p, status: "error", statusDetail: err instanceof Error ? err.message : "Unknown error" };
+  }
 }

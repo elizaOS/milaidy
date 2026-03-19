@@ -29,7 +29,7 @@ vi.mock("node:path", async () => {
   };
 });
 
-import { scanProviderCredentials } from "../credentials";
+import { scanProviderCredentials, scanAndValidateProviderCredentials } from "../credentials";
 
 type SpawnResult = {
   exited: Promise<number>;
@@ -120,6 +120,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "sk-openai",
         authMode: "chatgpt",
         cliInstalled: true,
+        status: "unchecked",
       },
     ]);
     expect(mockSpawn).toHaveBeenCalledTimes(1);
@@ -145,6 +146,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "claude-oauth-token",
         authMode: "oauth",
         cliInstalled: true,
+        status: "unchecked",
       },
     ]);
     expect(mockSpawn).toHaveBeenCalledTimes(1);
@@ -180,6 +182,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "file-openai",
         authMode: "api-key",
         cliInstalled: true,
+        status: "unchecked",
       },
       {
         id: "anthropic-subscription",
@@ -187,6 +190,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "file-anthropic",
         authMode: "oauth",
         cliInstalled: true,
+        status: "unchecked",
       },
       {
         id: "anthropic",
@@ -194,6 +198,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "env-anthropic",
         authMode: "api-key",
         cliInstalled: false,
+        status: "unchecked",
       },
     ]);
     expect(
@@ -221,6 +226,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "keychain-oauth-token",
         authMode: "oauth",
         cliInstalled: true,
+        status: "unchecked",
       },
       {
         id: "openai",
@@ -228,6 +234,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "env-openai",
         authMode: "api-key",
         cliInstalled: false,
+        status: "unchecked",
       },
     ]);
     expect(mockSpawn).toHaveBeenCalledWith(
@@ -258,6 +265,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "raw-keychain-token",
         authMode: "oauth",
         cliInstalled: false,
+        status: "unchecked",
       },
     ]);
   });
@@ -285,6 +293,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "nested-keychain-token",
         authMode: "oauth",
         cliInstalled: true,
+        status: "unchecked",
       },
     ]);
   });
@@ -321,6 +330,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "env-openai",
         authMode: "api-key",
         cliInstalled: false,
+        status: "unchecked",
       },
       {
         id: "anthropic",
@@ -328,6 +338,7 @@ describe("scanProviderCredentials", () => {
         apiKey: "env-anthropic",
         authMode: "api-key",
         cliInstalled: false,
+        status: "unchecked",
       },
     ]);
     expect(
@@ -344,5 +355,399 @@ describe("scanProviderCredentials", () => {
 
     await expect(scanProviderCredentials()).resolves.toEqual([]);
     expect(mockSpawn).not.toHaveBeenCalled();
+  });
+});
+
+describe("scanAndValidateProviderCredentials", () => {
+  let files: Record<string, string>;
+  let installedClis: Set<string>;
+  let mockSpawn: ReturnType<typeof vi.fn>;
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  function setPlatform(platform: NodeJS.Platform): void {
+    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+  }
+
+  beforeEach(() => {
+    files = {};
+    installedClis = new Set();
+    mockExistsSync.mockImplementation((filePath) => String(filePath) in files);
+    mockReadFileSync.mockImplementation((filePath) => files[String(filePath)] ?? "");
+    mockHomedir.mockReturnValue("/Users/test");
+    mockSpawn = vi.fn((cmd: string[]) => {
+      if (cmd[0] === "which") return makeSpawnResult(installedClis.has(cmd[1] ?? "") ? 0 : 1);
+      throw new Error(`unexpected spawn: ${cmd.join(" ")}`);
+    });
+    vi.stubGlobal("Bun", { spawn: mockSpawn });
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    setPlatform("linux");
+  });
+
+  afterEach(() => {
+    setPlatform(ORIGINAL_PLATFORM);
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("valid key returns status 'valid'", async () => {
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-test" });
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+    const providers = await scanAndValidateProviderCredentials();
+    expect(providers).toHaveLength(1);
+    expect(providers[0].status).toBe("valid");
+  });
+
+  it("401 response returns status 'invalid' with statusDetail", async () => {
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-bad" });
+    mockFetch.mockResolvedValue({ ok: false, status: 401 });
+    const providers = await scanAndValidateProviderCredentials();
+    expect(providers[0].status).toBe("invalid");
+    expect(providers[0].statusDetail).toBe("API key rejected");
+  });
+
+  it("403 response returns status 'invalid'", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-bad-anthropic");
+    mockFetch.mockResolvedValue({ ok: false, status: 403 });
+    const providers = await scanAndValidateProviderCredentials();
+    expect(providers[0].status).toBe("invalid");
+  });
+
+  it("network error returns status 'error' with message", async () => {
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-test" });
+    mockFetch.mockRejectedValue(new Error("fetch failed"));
+    const providers = await scanAndValidateProviderCredentials();
+    expect(providers[0].status).toBe("error");
+    expect(providers[0].statusDetail).toBe("fetch failed");
+  });
+
+  it("OAuth token skips validation and returns 'unchecked'", async () => {
+    files["/Users/test/.claude/.credentials.json"] = JSON.stringify({
+      claudeAiOauth: { accessToken: "oauth-token" },
+    });
+    const providers = await scanAndValidateProviderCredentials();
+    expect(providers[0].status).toBe("unchecked");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("unknown provider returns 'unchecked'", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-test" });
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+    const providers = await scanAndValidateProviderCredentials();
+    // openai should be validated
+    expect(providers[0].id).toBe("openai");
+    expect(providers[0].status).toBe("valid");
+  });
+
+  it("HTTP 500 returns status 'error' with detail", async () => {
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-test" });
+    mockFetch.mockResolvedValue({ ok: false, status: 500 });
+    const providers = await scanAndValidateProviderCredentials();
+    expect(providers[0].status).toBe("error");
+    expect(providers[0].statusDetail).toBe("HTTP 500");
+  });
+
+  it("provider without apiKey returns 'unchecked'", async () => {
+    files["/Users/test/.codex/auth.json"] = JSON.stringify({ OPENAI_API_KEY: "sk-key" });
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+    const providers = await scanAndValidateProviderCredentials();
+    expect(providers.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Part 2: Additional env var detection tests
+// ---------------------------------------------------------------------------
+
+describe("scanProviderCredentials — env var detection", () => {
+  let files: Record<string, string>;
+  let mockSpawn: ReturnType<typeof vi.fn>;
+
+  function setPlatform(platform: NodeJS.Platform): void {
+    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+  }
+
+  beforeEach(() => {
+    files = {};
+    mockExistsSync.mockImplementation((filePath) => String(filePath) in files);
+    mockReadFileSync.mockImplementation((filePath) => files[String(filePath)] ?? "");
+    mockHomedir.mockReturnValue("/Users/test");
+    mockSpawn = vi.fn((cmd: string[]) => {
+      if (cmd[0] === "which") return makeSpawnResult(1);
+      throw new Error(`unexpected spawn: ${cmd.join(" ")}`);
+    });
+    vi.stubGlobal("Bun", { spawn: mockSpawn });
+    setPlatform("linux");
+  });
+
+  afterEach(() => {
+    setPlatform(ORIGINAL_PLATFORM);
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("detects GROQ_API_KEY as provider 'groq'", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk-test-groq");
+    const providers = await scanProviderCredentials();
+    const groq = providers.find((p) => p.id === "groq");
+    expect(groq).toBeDefined();
+    expect(groq?.source).toBe("env");
+    expect(groq?.apiKey).toBe("gsk-test-groq");
+    expect(groq?.authMode).toBe("api-key");
+  });
+
+  it("detects GOOGLE_GENERATIVE_AI_API_KEY as provider 'google-genai'", async () => {
+    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "AIza-test-google");
+    const providers = await scanProviderCredentials();
+    const google = providers.find((p) => p.id === "google-genai");
+    expect(google).toBeDefined();
+    expect(google?.source).toBe("env");
+    expect(google?.apiKey).toBe("AIza-test-google");
+  });
+
+  it("detects OPENROUTER_API_KEY as provider 'openrouter'", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-or-test-openrouter");
+    const providers = await scanProviderCredentials();
+    const openrouter = providers.find((p) => p.id === "openrouter");
+    expect(openrouter).toBeDefined();
+    expect(openrouter?.source).toBe("env");
+    expect(openrouter?.apiKey).toBe("sk-or-test-openrouter");
+  });
+
+  it("detects XAI_API_KEY as provider 'xai'", async () => {
+    vi.stubEnv("XAI_API_KEY", "xai-test-key");
+    const providers = await scanProviderCredentials();
+    const xai = providers.find((p) => p.id === "xai");
+    expect(xai).toBeDefined();
+    expect(xai?.source).toBe("env");
+    expect(xai?.apiKey).toBe("xai-test-key");
+  });
+
+  it("detects AI_GATEWAY_API_KEY as provider 'vercel-ai-gateway'", async () => {
+    vi.stubEnv("AI_GATEWAY_API_KEY", "ag-test-key");
+    const providers = await scanProviderCredentials();
+    const gateway = providers.find((p) => p.id === "vercel-ai-gateway");
+    expect(gateway).toBeDefined();
+    expect(gateway?.source).toBe("env");
+    expect(gateway?.apiKey).toBe("ag-test-key");
+  });
+
+  it("detects AIGATEWAY_API_KEY as provider 'vercel-ai-gateway' (alias)", async () => {
+    vi.stubEnv("AIGATEWAY_API_KEY", "aig-alias-key");
+    const providers = await scanProviderCredentials();
+    const gateway = providers.find((p) => p.id === "vercel-ai-gateway");
+    expect(gateway).toBeDefined();
+    expect(gateway?.source).toBe("env");
+    expect(gateway?.apiKey).toBe("aig-alias-key");
+  });
+
+  it("deduplicates provider IDs from different env vars (first wins)", async () => {
+    vi.stubEnv("AI_GATEWAY_API_KEY", "first-gateway-key");
+    vi.stubEnv("AIGATEWAY_API_KEY", "second-gateway-key");
+    const providers = await scanProviderCredentials();
+    const gateways = providers.filter((p) => p.id === "vercel-ai-gateway");
+    expect(gateways).toHaveLength(1);
+    expect(gateways[0].apiKey).toBe("first-gateway-key");
+  });
+
+  it("detects multiple env providers simultaneously", async () => {
+    vi.stubEnv("GROQ_API_KEY", "groq-key");
+    vi.stubEnv("XAI_API_KEY", "xai-key");
+    vi.stubEnv("OPENROUTER_API_KEY", "or-key");
+    const providers = await scanProviderCredentials();
+    const ids = providers.map((p) => p.id);
+    expect(ids).toContain("groq");
+    expect(ids).toContain("xai");
+    expect(ids).toContain("openrouter");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Part 2: Validation endpoint tests
+// ---------------------------------------------------------------------------
+
+describe("scanAndValidateProviderCredentials — endpoint validation", () => {
+  let files: Record<string, string>;
+  let mockSpawn: ReturnType<typeof vi.fn>;
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  function setPlatform(platform: NodeJS.Platform): void {
+    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+  }
+
+  beforeEach(() => {
+    files = {};
+    mockExistsSync.mockImplementation((filePath) => String(filePath) in files);
+    mockReadFileSync.mockImplementation((filePath) => files[String(filePath)] ?? "");
+    mockHomedir.mockReturnValue("/Users/test");
+    mockSpawn = vi.fn((cmd: string[]) => {
+      if (cmd[0] === "which") return makeSpawnResult(1);
+      throw new Error(`unexpected spawn: ${cmd.join(" ")}`);
+    });
+    vi.stubGlobal("Bun", { spawn: mockSpawn });
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    setPlatform("linux");
+  });
+
+  afterEach(() => {
+    setPlatform(ORIGINAL_PLATFORM);
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("groq validation uses api.groq.com with Bearer auth", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk-groq-key");
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+    await scanAndValidateProviderCredentials();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.groq.com/openai/v1/models",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer gsk-groq-key" },
+      }),
+    );
+  });
+
+  it("google-genai validation uses generativelanguage.googleapis.com with x-goog-api-key", async () => {
+    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "AIza-google-key");
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+    await scanAndValidateProviderCredentials();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://generativelanguage.googleapis.com/v1beta/models",
+      expect.objectContaining({
+        headers: { "x-goog-api-key": "AIza-google-key" },
+      }),
+    );
+  });
+
+  it("openrouter validation uses openrouter.ai with Bearer auth", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-or-key");
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+    await scanAndValidateProviderCredentials();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://openrouter.ai/api/v1/models",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer sk-or-key" },
+      }),
+    );
+  });
+
+  it("xai validation uses api.x.ai with Bearer auth", async () => {
+    vi.stubEnv("XAI_API_KEY", "xai-test-key");
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+    await scanAndValidateProviderCredentials();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.x.ai/v1/models",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer xai-test-key" },
+      }),
+    );
+  });
+
+  it("vercel-ai-gateway returns 'unchecked' (no validation endpoint)", async () => {
+    vi.stubEnv("AI_GATEWAY_API_KEY", "ag-key");
+    const providers = await scanAndValidateProviderCredentials();
+    const gateway = providers.find((p) => p.id === "vercel-ai-gateway");
+    expect(gateway).toBeDefined();
+    expect(gateway?.status).toBe("unchecked");
+    // fetch should not be called for vercel-ai-gateway since there is no validation endpoint
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Part 2: Integration tests
+// ---------------------------------------------------------------------------
+
+describe("scanAndValidateProviderCredentials — integration", () => {
+  let files: Record<string, string>;
+  let mockSpawn: ReturnType<typeof vi.fn>;
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  function setPlatform(platform: NodeJS.Platform): void {
+    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+  }
+
+  beforeEach(() => {
+    files = {};
+    mockExistsSync.mockImplementation((filePath) => String(filePath) in files);
+    mockReadFileSync.mockImplementation((filePath) => files[String(filePath)] ?? "");
+    mockHomedir.mockReturnValue("/Users/test");
+    mockSpawn = vi.fn((cmd: string[]) => {
+      if (cmd[0] === "which") return makeSpawnResult(1);
+      throw new Error(`unexpected spawn: ${cmd.join(" ")}`);
+    });
+    vi.stubGlobal("Bun", { spawn: mockSpawn });
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    setPlatform("linux");
+  });
+
+  afterEach(() => {
+    setPlatform(ORIGINAL_PLATFORM);
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("validates all detected providers in parallel", async () => {
+    vi.stubEnv("GROQ_API_KEY", "groq-key");
+    vi.stubEnv("XAI_API_KEY", "xai-key");
+    vi.stubEnv("OPENROUTER_API_KEY", "or-key");
+
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+
+    const providers = await scanAndValidateProviderCredentials();
+    const validProviders = providers.filter((p) => p.status === "valid");
+    expect(validProviders).toHaveLength(3);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("returns mixed results when some keys are valid and others invalid", async () => {
+    vi.stubEnv("GROQ_API_KEY", "good-groq-key");
+    vi.stubEnv("XAI_API_KEY", "bad-xai-key");
+    vi.stubEnv("AI_GATEWAY_API_KEY", "unchecked-gateway");
+
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.includes("groq.com")) return { ok: true, status: 200 };
+      if (url.includes("x.ai")) return { ok: false, status: 401 };
+      return { ok: true, status: 200 };
+    });
+
+    const providers = await scanAndValidateProviderCredentials();
+
+    const groq = providers.find((p) => p.id === "groq");
+    const xai = providers.find((p) => p.id === "xai");
+    const gateway = providers.find((p) => p.id === "vercel-ai-gateway");
+
+    expect(groq?.status).toBe("valid");
+    expect(xai?.status).toBe("invalid");
+    expect(xai?.statusDetail).toBe("API key rejected");
+    expect(gateway?.status).toBe("unchecked"); // no validation endpoint
+  });
+
+  it("individual provider timeout does not affect other providers", async () => {
+    vi.stubEnv("GROQ_API_KEY", "groq-key");
+    vi.stubEnv("XAI_API_KEY", "xai-key");
+
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.includes("groq.com")) {
+        throw new Error("The operation timed out");
+      }
+      return { ok: true, status: 200 };
+    });
+
+    const providers = await scanAndValidateProviderCredentials();
+
+    const groq = providers.find((p) => p.id === "groq");
+    const xai = providers.find((p) => p.id === "xai");
+
+    expect(groq?.status).toBe("error");
+    expect(groq?.statusDetail).toBe("The operation timed out");
+    expect(xai?.status).toBe("valid");
   });
 });

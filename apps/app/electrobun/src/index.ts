@@ -22,6 +22,11 @@ import {
   resolveDesktopRuntimeMode,
   resolveInitialApiBase,
 } from "./api-base";
+import {
+  buildApplicationMenu,
+  EMPTY_HEARTBEAT_MENU_SNAPSHOT,
+  type HeartbeatMenuSnapshot,
+} from "./application-menu";
 import { getAgentManager } from "./native/agent";
 import { getDesktopManager } from "./native/desktop";
 import { disposeNativeModules, initializeNativeModules } from "./native/index";
@@ -36,8 +41,32 @@ import { checkWebGpuSupport } from "./native/webgpu-browser-support";
 import { readBuiltPreloadScript } from "./preload-validation";
 import { registerRpcHandlers } from "./rpc-handlers";
 import { PUSH_CHANNEL_TO_RPC_MESSAGE } from "./rpc-schema";
+import {
+  isDetachedSurface,
+  SurfaceWindowManager,
+  type ManagedWindowLike,
+} from "./surface-windows";
 
 type SendToWebview = (message: string, payload?: unknown) => void;
+
+type HeartbeatMenuTriggerSummary = {
+  enabled: boolean;
+  nextRunAtMs?: number;
+  lastRunAtIso?: string;
+};
+
+type HeartbeatMenuHealthResponse = {
+  activeTriggers?: number;
+  totalExecutions?: number;
+  totalFailures?: number;
+  lastExecutionAt?: number;
+};
+
+const HEARTBEAT_MENU_REFRESH_MS = 30_000;
+const CONFIG_EXPORT_FILE_NAME = "milady-config.json";
+let heartbeatMenuSnapshot: HeartbeatMenuSnapshot =
+  EMPTY_HEARTBEAT_MENU_SNAPSHOT;
+let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
 // ============================================================================
 // App Menu
@@ -45,71 +74,155 @@ type SendToWebview = (message: string, payload?: unknown) => void;
 
 function setupApplicationMenu(): void {
   const isMac = process.platform === "darwin";
-  ApplicationMenu.setApplicationMenu([
-    {
-      label: "Milady",
-      submenu: [
-        { role: "about" },
-        { type: "separator" as const },
-        { label: "Show Milady", action: "show" },
-        { label: "Check for Updates", action: "check-for-updates" },
-        { label: "Restart Agent", action: "restart-agent" },
-        { type: "separator" as const },
-        // services, hide, hideOthers, unhide are macOS-only menu roles
-        ...(isMac
-          ? [
-              { role: "services" },
-              { type: "separator" as const },
-              { role: "hide" },
-              { role: "hideOthers" },
-              { role: "unhide" },
-              { type: "separator" as const },
-            ]
-          : []),
-        { role: "quit" },
-      ],
-    },
-    {
-      label: "Edit",
-      submenu: [
-        { role: "undo" },
-        { role: "redo" },
-        { type: "separator" as const },
-        { role: "cut" },
-        { role: "copy" },
-        { role: "paste" },
-        { role: "selectAll" },
-      ],
-    },
-    {
-      label: "View",
-      submenu: [
-        { role: "reload" },
-        { role: "forceReload" },
-        { role: "toggleDevTools" },
-        { type: "separator" as const },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
-        { type: "separator" as const },
-        { role: "togglefullscreen" },
-      ],
-    },
-    {
-      label: "Window",
-      submenu: [
-        { role: "minimize" },
-        // zoom and front are macOS-only Window menu roles
-        ...(isMac
-          ? [
-              { role: "zoom" },
-              { type: "separator" as const },
-              { role: "front" },
-            ]
-          : []),
-      ],
-    },
+  const menu = buildApplicationMenu({
+    isMac,
+    heartbeatSnapshot: heartbeatMenuSnapshot,
+    detachedWindows: surfaceWindowManager?.listWindows() ?? [],
+  });
+  ApplicationMenu.setApplicationMenu(
+    menu as unknown as Parameters<typeof ApplicationMenu.setApplicationMenu>[0],
+  );
+}
+
+function summarizeDesktopActionError(
+  error: unknown,
+  fallback: string,
+): string {
+  const message =
+    error instanceof Error ? error.message : fallback;
+  const trimmed = message.trim();
+  if (!trimmed) return fallback;
+  return trimmed.length > 80 ? `${trimmed.slice(0, 77)}...` : trimmed;
+}
+
+function summarizeHeartbeatMenuError(error: unknown): string {
+  return summarizeDesktopActionError(error, "Heartbeat status unavailable");
+}
+
+function buildApiRequestHeaders(
+  contentType?: string,
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+  const apiToken = process.env.MILADY_API_TOKEN?.trim();
+  if (apiToken) {
+    headers.Authorization = `Bearer ${apiToken}`;
+  }
+  return headers;
+}
+
+function resolveHeartbeatMenuApiBase(): string | null {
+  const port = getAgentManager().getStatus().port;
+  if (typeof port === "number" && port > 0) {
+    return `http://127.0.0.1:${port}`;
+  }
+  return resolveInitialApiBase(process.env);
+}
+
+async function fetchHeartbeatMenuSnapshot(
+  apiBase: string,
+): Promise<HeartbeatMenuSnapshot> {
+  const headers = buildApiRequestHeaders();
+
+  const [triggersResponse, healthResponse] = await Promise.all([
+    fetch(`${apiBase}/api/triggers`, { headers }),
+    fetch(`${apiBase}/api/triggers/health`, { headers }),
   ]);
+
+  if (!triggersResponse.ok) {
+    throw new Error(`Trigger list failed (${triggersResponse.status})`);
+  }
+  if (!healthResponse.ok) {
+    throw new Error(`Trigger health failed (${healthResponse.status})`);
+  }
+
+  const triggersPayload = (await triggersResponse.json()) as {
+    triggers?: HeartbeatMenuTriggerSummary[];
+  };
+  const healthPayload =
+    (await healthResponse.json()) as HeartbeatMenuHealthResponse;
+
+  const triggers = Array.isArray(triggersPayload.triggers)
+    ? triggersPayload.triggers
+    : [];
+  const enabledTriggers = triggers.filter((trigger) => trigger.enabled);
+
+  const nextRunCandidates = enabledTriggers
+    .map((trigger) =>
+      typeof trigger.nextRunAtMs === "number" ? trigger.nextRunAtMs : null,
+    )
+    .filter((value): value is number => typeof value === "number");
+
+  const lastRunCandidates = triggers
+    .map((trigger) => {
+      if (!trigger.lastRunAtIso) return null;
+      const parsed = Date.parse(trigger.lastRunAtIso);
+      return Number.isNaN(parsed) ? null : parsed;
+    })
+    .filter((value): value is number => typeof value === "number");
+
+  return {
+    loading: false,
+    error: null,
+    totalHeartbeats: triggers.length,
+    activeHeartbeats:
+      typeof healthPayload.activeTriggers === "number"
+        ? healthPayload.activeTriggers
+        : enabledTriggers.length,
+    totalExecutions:
+      typeof healthPayload.totalExecutions === "number"
+        ? healthPayload.totalExecutions
+        : 0,
+    totalFailures:
+      typeof healthPayload.totalFailures === "number"
+        ? healthPayload.totalFailures
+        : 0,
+    lastRunAtMs:
+      typeof healthPayload.lastExecutionAt === "number"
+        ? healthPayload.lastExecutionAt
+        : lastRunCandidates.length > 0
+          ? Math.max(...lastRunCandidates)
+          : null,
+    nextRunAtMs:
+      nextRunCandidates.length > 0 ? Math.min(...nextRunCandidates) : null,
+  };
+}
+
+async function refreshHeartbeatMenuSnapshot(): Promise<void> {
+  const apiBase = resolveHeartbeatMenuApiBase();
+  if (!apiBase) {
+    heartbeatMenuSnapshot = {
+      ...heartbeatMenuSnapshot,
+      loading: false,
+      error: "Agent unavailable",
+    };
+    setupApplicationMenu();
+    return;
+  }
+
+  try {
+    heartbeatMenuSnapshot = await fetchHeartbeatMenuSnapshot(apiBase);
+  } catch (error) {
+    heartbeatMenuSnapshot = {
+      ...heartbeatMenuSnapshot,
+      loading: false,
+      error: summarizeHeartbeatMenuError(error),
+    };
+  }
+
+  setupApplicationMenu();
+}
+
+function startHeartbeatMenuRefresh(): void {
+  if (heartbeatMenuRefreshTimer) return;
+  void refreshHeartbeatMenuSnapshot();
+  heartbeatMenuRefreshTimer = setInterval(() => {
+    void refreshHeartbeatMenuSnapshot();
+  }, HEARTBEAT_MENU_REFRESH_MS);
 }
 
 // ============================================================================
@@ -220,9 +333,11 @@ function scheduleStateSave(statePath: string, win: BrowserWindow): void {
 
 let currentWindow: BrowserWindow | null = null;
 let currentSendToWebview: SendToWebview | null = null;
+let surfaceWindowManager: SurfaceWindowManager | null = null;
 let rendererUrlPromise: Promise<string> | null = null;
 let backgroundWindowPromise: Promise<void> | null = null;
 let isQuitting = false;
+let lastFocusedWindow: ManagedWindowLike | null = null;
 
 function sendToActiveRenderer(message: string, payload?: unknown): void {
   currentSendToWebview?.(message, payload);
@@ -410,6 +525,7 @@ function attachMainWindow(win: BrowserWindow): BrowserWindow {
   const sendToWebview = wireRpcAndModules(win);
   currentWindow = win;
   currentSendToWebview = sendToWebview;
+  trackFocusedWindow(win);
 
   win.webview.on("dom-ready", () => {
     injectApiBase(win);
@@ -482,6 +598,160 @@ async function ensureBackgroundWindow(): Promise<void> {
 }
 
 // ============================================================================
+// Settings Window
+// ============================================================================
+
+async function createSettingsWindow(tabHint?: string): Promise<void> {
+  console.log("[Settings] createSettingsWindow called, tabHint:", tabHint);
+  if (!surfaceWindowManager) return;
+  await surfaceWindowManager.openSettingsWindow(tabHint);
+}
+
+function showMainSurface(surface: string): void {
+  const itemId =
+    surface === "chat" ? "navigate-chat" : `navigate-${surface}`;
+  void getDesktopManager().showWindow();
+  sendToActiveRenderer("desktopTrayMenuClick", { itemId });
+}
+
+function resolveDefaultDialogPath(): string {
+  const downloadsPath = path.join(os.homedir(), "Downloads");
+  return fs.existsSync(downloadsPath) ? downloadsPath : os.homedir();
+}
+
+async function exportConfigFromMenu(): Promise<void> {
+  const apiBase = resolveHeartbeatMenuApiBase();
+  if (!apiBase) {
+    Utils.showNotification({
+      title: "Config Export Failed",
+      body: "Agent unavailable",
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch(`${apiBase}/api/config`, {
+      headers: buildApiRequestHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error(`Config fetch failed (${response.status})`);
+    }
+
+    const config = await response.json();
+    const dialog = await getDesktopManager().showSaveDialog({
+      defaultPath: resolveDefaultDialogPath(),
+      allowedFileTypes: "json",
+    });
+    if (dialog.canceled || dialog.filePaths.length === 0) {
+      return;
+    }
+
+    const outputPath = path.join(dialog.filePaths[0], CONFIG_EXPORT_FILE_NAME);
+    fs.writeFileSync(
+      outputPath,
+      `${JSON.stringify(config, null, 2)}\n`,
+      "utf8",
+    );
+
+    Utils.showNotification({
+      title: "Config Exported",
+      body: `Saved to ${outputPath}`,
+    });
+  } catch (error) {
+    Utils.showNotification({
+      title: "Config Export Failed",
+      body: summarizeDesktopActionError(error, "Config export failed"),
+    });
+  }
+}
+
+async function importConfigFromMenu(): Promise<void> {
+  const apiBase = resolveHeartbeatMenuApiBase();
+  if (!apiBase) {
+    Utils.showNotification({
+      title: "Config Import Failed",
+      body: "Agent unavailable",
+    });
+    return;
+  }
+
+  try {
+    const dialog = await getDesktopManager().showOpenDialog({
+      defaultPath: resolveDefaultDialogPath(),
+      allowedFileTypes: "json",
+      canChooseFiles: true,
+      canChooseDirectory: false,
+      allowsMultipleSelection: false,
+    });
+    if (dialog.canceled || dialog.filePaths.length === 0) {
+      return;
+    }
+
+    const inputPath = dialog.filePaths[0];
+    const rawConfig = fs.readFileSync(inputPath, "utf8");
+    const parsedConfig = JSON.parse(rawConfig) as unknown;
+    if (
+      typeof parsedConfig !== "object" ||
+      parsedConfig === null ||
+      Array.isArray(parsedConfig)
+    ) {
+      throw new Error("Config file must contain a JSON object");
+    }
+
+    const response = await fetch(`${apiBase}/api/config`, {
+      method: "PUT",
+      headers: buildApiRequestHeaders("application/json"),
+      body: JSON.stringify(parsedConfig),
+    });
+    if (!response.ok) {
+      throw new Error(`Config import failed (${response.status})`);
+    }
+
+    Utils.showNotification({
+      title: "Config Imported",
+      body: `Loaded ${path.basename(inputPath)}`,
+    });
+  } catch (error) {
+    Utils.showNotification({
+      title: "Config Import Failed",
+      body: summarizeDesktopActionError(error, "Config import failed"),
+    });
+  }
+}
+
+function trackFocusedWindow(window: ManagedWindowLike): void {
+  lastFocusedWindow = window;
+  window.on("focus", () => {
+    lastFocusedWindow = window;
+  });
+}
+
+function toggleFocusedWindowDevTools(): void {
+  const targetWindow = lastFocusedWindow ?? currentWindow;
+  const webview = targetWindow?.webview as
+    | {
+        toggleDevTools?: () => void;
+        openDevTools?: () => void;
+      }
+    | undefined;
+
+  if (typeof webview?.toggleDevTools === "function") {
+    webview.toggleDevTools();
+    return;
+  }
+
+  if (typeof webview?.openDevTools === "function") {
+    webview.openDevTools();
+    return;
+  }
+
+  Utils.showNotification({
+    title: "Developer Tools Unavailable",
+    body: "The focused window does not expose Electrobun devtools controls.",
+  });
+}
+
+// ============================================================================
 // RPC + Native Module Wiring
 // ============================================================================
 
@@ -534,6 +804,33 @@ function wireRpcAndModules(
   registerRpcHandlers(rpc, sendToWebview);
 
   return sendToWebview;
+}
+
+/**
+ * Wire RPC handlers on a secondary window (e.g. settings) without calling
+ * initializeNativeModules — avoids overwriting the main window reference on
+ * DesktopManager and other singletons.
+ */
+function wireSettingsRpc(win: BrowserWindow): void {
+  const rpc = win.webview.rpc as unknown as ElectrobunRpcInstance | undefined;
+
+  const sendToWebview = (message: string, payload?: unknown): void => {
+    const rpcMessage = PUSH_CHANNEL_TO_RPC_MESSAGE[message] ?? message;
+    if (rpc?.send) {
+      const sender = rpc?.send?.[rpcMessage];
+      if (sender) {
+        sender(payload ?? null);
+        return;
+      }
+    }
+    console.warn(
+      `[sendToWebview:settings] No RPC method for message: ${message}`,
+    );
+  };
+
+  // Register request handlers on the settings window's RPC — reuses the same
+  // handler registry but does not touch native module singletons.
+  registerRpcHandlers(rpc, sendToWebview);
 }
 
 // ============================================================================
@@ -683,8 +980,46 @@ async function setupUpdater(): Promise<void> {
     Electrobun.events.on(
       "application-menu-clicked",
       (e: { data?: { action?: string } }) => {
-        if (e?.data?.action === "check-for-updates") {
+        const action = e?.data?.action;
+        if (action === "check-for-updates") {
           triggerManualUpdateCheck();
+        } else if (action === "export-config") {
+          void exportConfigFromMenu();
+        } else if (action === "import-config") {
+          void importConfigFromMenu();
+        } else if (action === "toggle-devtools") {
+          toggleFocusedWindowDevTools();
+        } else if (action === "refresh-heartbeats") {
+          void refreshHeartbeatMenuSnapshot();
+        } else if (action === "relaunch") {
+          void getDesktopManager().relaunch();
+        } else if (action === "open-settings") {
+          void createSettingsWindow();
+        } else if (action?.startsWith("open-settings-")) {
+          void createSettingsWindow(action);
+        } else if (action?.startsWith("new-window:")) {
+          const surface = action.slice("new-window:".length);
+          if (surfaceWindowManager && isDetachedSurface(surface)) {
+            void surfaceWindowManager.openSurfaceWindow(surface);
+          }
+        } else if (action?.startsWith("focus-window:")) {
+          const windowId = action.slice("focus-window:".length);
+          surfaceWindowManager?.focusWindow(windowId);
+        } else if (action?.startsWith("show-main:")) {
+          const surface = action.slice("show-main:".length);
+          showMainSurface(surface);
+        } else if (action === "restart-agent") {
+          getAgentManager()
+            .restart()
+            .catch((err: unknown) => {
+              console.error("[Main] Agent restart failed:", err);
+            });
+        } else if (action === "show") {
+          void getDesktopManager().showWindow();
+        } else if (action?.startsWith("navigate-")) {
+          // Show main window + push tab change to renderer
+          void getDesktopManager().showWindow();
+          sendToActiveRenderer("desktopTrayMenuClick", { itemId: action });
         }
       },
     );
@@ -692,6 +1027,10 @@ async function setupUpdater(): Promise<void> {
     Electrobun.events.on("context-menu-clicked", (action: string) => {
       if (action === "check-for-updates") {
         triggerManualUpdateCheck();
+      } else if (action === "refresh-heartbeats") {
+        void refreshHeartbeatMenuSnapshot();
+      } else if (action === "relaunch") {
+        void getDesktopManager().relaunch();
       }
     });
 
@@ -796,6 +1135,7 @@ async function main(): Promise<void> {
       if (currentWindow && status.port) {
         injectApiBase(currentWindow);
       }
+      void refreshHeartbeatMenuSnapshot();
     }),
   );
 
@@ -804,8 +1144,34 @@ async function main(): Promise<void> {
   // Calling setupApplicationMenu() before createMainWindow() deadlocks.
   const mainWin = attachMainWindow(await createMainWindow());
 
+  surfaceWindowManager = new SurfaceWindowManager({
+    createWindow: (options) =>
+      new BrowserWindow(options) as unknown as ManagedWindowLike,
+    resolveRendererUrl,
+    readPreload: () => readBuiltPreloadScript(import.meta.dir),
+    wireRpc: (window) => wireSettingsRpc(window as unknown as BrowserWindow),
+    injectApiBase: (window) =>
+      injectApiBase(window as unknown as BrowserWindow),
+    onWindowFocused: (window) => {
+      lastFocusedWindow = window;
+    },
+    onRegistryChanged: () => setupApplicationMenu(),
+  });
+
   // Set up app menu after the window (and its message loop) exists.
   setupApplicationMenu();
+  startHeartbeatMenuRefresh();
+  cleanupFns.push(() => {
+    if (heartbeatMenuRefreshTimer) {
+      clearInterval(heartbeatMenuRefreshTimer);
+      heartbeatMenuRefreshTimer = null;
+    }
+  });
+
+  // Wire settings window callback so menus and RPC can open it.
+  getDesktopManager().setOpenSettingsCallback(() => {
+    void createSettingsWindow();
+  });
 
   // If launched with --hidden (e.g. auto-launch with openAsHidden), minimize immediately.
   if (process.argv.includes("--hidden")) {
@@ -832,9 +1198,13 @@ async function main(): Promise<void> {
       menu: [
         { id: "show", label: "Show Milady", type: "normal" },
         { id: "sep1", type: "separator" },
+        { id: "navigate-triggers", label: "Open Heartbeats", type: "normal" },
+        { id: "refresh-heartbeats", label: "Refresh Heartbeats", type: "normal" },
+        { id: "sep1b", type: "separator" },
         { id: "check-for-updates", label: "Check for Updates", type: "normal" },
         { id: "sep2", type: "separator" },
         { id: "restart-agent", label: "Restart Agent", type: "normal" },
+        { id: "relaunch", label: "Relaunch Milady", type: "normal" },
         { id: "sep3", type: "separator" },
         { id: "quit", label: "Quit", type: "normal" },
       ],
