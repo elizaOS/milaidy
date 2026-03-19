@@ -124,195 +124,121 @@ export interface VisionAnalysisProvider {
 // Eliza Cloud Provider Implementations
 // ============================================================================
 
-class ElizaCloudImageProvider implements ImageGenerationProvider {
+/**
+ * Base class for Eliza Cloud providers. Handles shared fetch + auth logic.
+ * ElizaCloud uses server-side auth so apiKey is optional (not validated).
+ */
+abstract class ElizaCloudProvider<TResult> {
   name = "eliza-cloud";
   private baseUrl: string;
   private apiKey?: string;
+  private endpoint: string;
 
-  constructor(baseUrl: string, apiKey?: string) {
+  constructor(baseUrl: string, endpoint: string, apiKey?: string) {
     this.baseUrl = baseUrl;
+    this.endpoint = endpoint;
     this.apiKey = apiKey;
+  }
+
+  protected async callApi(
+    body: Record<string, unknown>,
+  ): Promise<MediaProviderResult<TResult>> {
+    const response = await fetch(`${this.baseUrl}${this.endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return { success: false, error: `Eliza Cloud error: ${text}` };
+    }
+
+    const data = (await response.json()) as TResult;
+    return { success: true, data };
+  }
+}
+
+class ElizaCloudImageProvider
+  extends ElizaCloudProvider<ImageGenerationResult>
+  implements ImageGenerationProvider
+{
+  constructor(baseUrl: string, apiKey?: string) {
+    super(baseUrl, "/media/image/generate", apiKey);
   }
 
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/media/image/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        size: options.size,
-        quality: options.quality,
-        style: options.style,
-      }),
+    return this.callApi({
+      prompt: options.prompt,
+      size: options.size,
+      quality: options.quality,
+      style: options.style,
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Eliza Cloud error: ${text}` };
-    }
-
-    const data = (await response.json()) as {
-      imageUrl?: string;
-      imageBase64?: string;
-      revisedPrompt?: string;
-    };
-    return {
-      success: true,
-      data: {
-        imageUrl: data.imageUrl,
-        imageBase64: data.imageBase64,
-        revisedPrompt: data.revisedPrompt,
-      },
-    };
   }
 }
 
-class ElizaCloudVideoProvider implements VideoGenerationProvider {
-  name = "eliza-cloud";
-  private baseUrl: string;
-  private apiKey?: string;
-
+class ElizaCloudVideoProvider
+  extends ElizaCloudProvider<VideoGenerationResult>
+  implements VideoGenerationProvider
+{
   constructor(baseUrl: string, apiKey?: string) {
-    this.baseUrl = baseUrl;
-    this.apiKey = apiKey;
+    super(baseUrl, "/media/video/generate", apiKey);
   }
 
   async generate(
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/media/video/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        duration: options.duration,
-        aspectRatio: options.aspectRatio,
-        imageUrl: options.imageUrl,
-      }),
+    return this.callApi({
+      prompt: options.prompt,
+      duration: options.duration,
+      aspectRatio: options.aspectRatio,
+      imageUrl: options.imageUrl,
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Eliza Cloud error: ${text}` };
-    }
-
-    const data = (await response.json()) as {
-      videoUrl?: string;
-      thumbnailUrl?: string;
-      duration?: number;
-    };
-    return {
-      success: true,
-      data: {
-        videoUrl: data.videoUrl,
-        thumbnailUrl: data.thumbnailUrl,
-        duration: data.duration,
-      },
-    };
   }
 }
 
-class ElizaCloudAudioProvider implements AudioGenerationProvider {
-  name = "eliza-cloud";
-  private baseUrl: string;
-  private apiKey?: string;
-
+class ElizaCloudAudioProvider
+  extends ElizaCloudProvider<AudioGenerationResult>
+  implements AudioGenerationProvider
+{
   constructor(baseUrl: string, apiKey?: string) {
-    this.baseUrl = baseUrl;
-    this.apiKey = apiKey;
+    super(baseUrl, "/media/audio/generate", apiKey);
   }
 
   async generate(
     options: AudioGenerationOptions,
   ): Promise<MediaProviderResult<AudioGenerationResult>> {
-    const response = await fetch(`${this.baseUrl}/media/audio/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        duration: options.duration,
-        instrumental: options.instrumental,
-        genre: options.genre,
-      }),
+    return this.callApi({
+      prompt: options.prompt,
+      duration: options.duration,
+      instrumental: options.instrumental,
+      genre: options.genre,
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Eliza Cloud error: ${text}` };
-    }
-
-    const data = (await response.json()) as {
-      audioUrl?: string;
-      title?: string;
-      duration?: number;
-    };
-    return {
-      success: true,
-      data: {
-        audioUrl: data.audioUrl,
-        title: data.title,
-        duration: data.duration,
-      },
-    };
   }
 }
 
-class ElizaCloudVisionProvider implements VisionAnalysisProvider {
-  name = "eliza-cloud";
-  private baseUrl: string;
-  private apiKey?: string;
-
+class ElizaCloudVisionProvider
+  extends ElizaCloudProvider<VisionAnalysisResult>
+  implements VisionAnalysisProvider
+{
   constructor(baseUrl: string, apiKey?: string) {
-    this.baseUrl = baseUrl;
-    this.apiKey = apiKey;
+    super(baseUrl, "/media/vision/analyze", apiKey);
   }
 
   async analyze(
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
-    const response = await fetch(`${this.baseUrl}/media/vision/analyze`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        imageUrl: options.imageUrl,
-        imageBase64: options.imageBase64,
-        prompt: options.prompt,
-        maxTokens: options.maxTokens,
-      }),
+    return this.callApi({
+      imageUrl: options.imageUrl,
+      imageBase64: options.imageBase64,
+      prompt: options.prompt,
+      maxTokens: options.maxTokens,
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Eliza Cloud error: ${text}` };
-    }
-
-    const data = (await response.json()) as {
-      description: string;
-      labels?: string[];
-      confidence?: number;
-    };
-    return {
-      success: true,
-      data: {
-        description: data.description,
-        labels: data.labels,
-        confidence: data.confidence,
-      },
-    };
   }
 }
 
