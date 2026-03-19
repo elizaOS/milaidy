@@ -9,6 +9,7 @@ function getMenu(
   detachedWindows: Array<{
     id: string;
     surface:
+      | "browser"
       | "chat"
       | "triggers"
       | "plugins"
@@ -41,6 +42,7 @@ describe("buildApplicationMenu", () => {
       "Edit",
       "View",
       "Cloud",
+      "Browser",
       "Plugins",
       "Connectors",
       "Heartbeats",
@@ -114,6 +116,12 @@ describe("buildApplicationMenu", () => {
         singleton: false,
       },
       {
+        id: "browser_1",
+        surface: "browser" as const,
+        title: "Milady Browser",
+        singleton: false,
+      },
+      {
         id: "chat_1",
         surface: "chat" as const,
         title: "Milady Chat",
@@ -142,6 +150,9 @@ describe("buildApplicationMenu", () => {
     const cloudLabels = (getMenu("Cloud", detachedWindows)?.submenu ?? []).map(
       (item) => item.label ?? item.type ?? "",
     );
+    const browserLabels = (
+      getMenu("Browser", detachedWindows)?.submenu ?? []
+    ).map((item) => item.label ?? item.type ?? "");
     const heartbeatsLabels = (
       getMenu("Heartbeats", detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
@@ -153,12 +164,16 @@ describe("buildApplicationMenu", () => {
     expect(pluginsLabels).toContain("Milady Plugins");
     expect(cloudLabels).toContain("Open Cloud Window");
     expect(cloudLabels).toContain("Eliza Cloud");
+    expect(browserLabels).toContain("Open Browser Window");
+    expect(browserLabels).toContain("Milady Browser");
     expect(connectorsLabels).toContain("Open New Connectors Window");
     expect(connectorsLabels).toContain("Milady Connectors");
     expect(heartbeatsLabels).toContain("Milady Heartbeats");
+    expect(windowLabels).toContain("New Browser Window");
     expect(windowLabels).toContain("New Chat Window");
     expect(windowLabels).toContain("New Plugins Window");
     expect(windowLabels).toContain("New Cloud Window");
+    expect(windowLabels).toContain("Milady Browser");
     expect(windowLabels).toContain("Milady Chat");
     expect(windowLabels).toContain("Eliza Cloud");
     expect(windowLabels).toContain("Milady Settings");

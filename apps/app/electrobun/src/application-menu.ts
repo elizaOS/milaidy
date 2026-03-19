@@ -149,6 +149,19 @@ function buildCloudMenu(windows: ManagedWindowSnapshot[]): ApplicationMenuItem {
   };
 }
 
+function buildBrowserMenu(
+  windows: ManagedWindowSnapshot[],
+): ApplicationMenuItem {
+  return {
+    label: "Browser",
+    submenu: [
+      { label: "Open Browser Window", action: "new-window:browser" },
+      { type: "separator" },
+      ...buildOpenWindowItems(windows, "No open browser windows"),
+    ],
+  };
+}
+
 export function buildApplicationMenu({
   isMac,
   heartbeatSnapshot,
@@ -166,6 +179,9 @@ export function buildApplicationMenu({
   );
   const heartbeatWindows = detachedWindows.filter(
     (window) => window.surface === "triggers",
+  );
+  const browserWindows = detachedWindows.filter(
+    (window) => window.surface === "browser",
   );
   const cloudWindows = detachedWindows.filter(
     (window) => window.surface === "cloud",
@@ -233,6 +249,7 @@ export function buildApplicationMenu({
       ],
     },
     buildCloudMenu(cloudWindows),
+    buildBrowserMenu(browserWindows),
     buildSurfaceMenu("Plugins", "plugins", pluginsWindows),
     buildSurfaceMenu("Connectors", "connectors", connectorsWindows),
     buildSurfaceMenu(
@@ -255,6 +272,7 @@ export function buildApplicationMenu({
           : []),
         { type: "separator" },
         { label: "Show Milady", action: "show" },
+        { label: "New Browser Window", action: "new-window:browser" },
         { label: "New Chat Window", action: "new-window:chat" },
         { label: "New Heartbeats Window", action: "new-window:triggers" },
         { label: "New Plugins Window", action: "new-window:plugins" },
