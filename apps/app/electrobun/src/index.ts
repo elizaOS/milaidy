@@ -967,16 +967,13 @@ async function _startAgent(win: BrowserWindow): Promise<void> {
   }
 
   const agent = getAgentManager();
+  const apiToken = ensureDesktopApiToken();
 
   try {
     const status = await agent.start();
 
     if (status.state === "running" && status.port) {
-      pushApiBaseToRenderer(
-        win,
-        `http://127.0.0.1:${status.port}`,
-        process.env.MILADY_API_TOKEN,
-      );
+      pushApiBaseToRenderer(win, `http://127.0.0.1:${status.port}`, apiToken);
       setAgentReady(true);
       // Sync real OS permission states to the REST API so the renderer
       // can display them and capability toggles can unlock.

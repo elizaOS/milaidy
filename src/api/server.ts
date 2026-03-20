@@ -1935,8 +1935,14 @@ async function handleMiladyCompatRoute(
   }
 
   // ── GET /api/wallet/keys (onboarding only) ──────────────────────────
-  // Returns generated wallet private keys + addresses so the Save Keys
-  // onboarding screen can display them. Gated by onboarding not yet complete.
+  // Security note: this compat route exists only for the embedded desktop
+  // onboarding flow, where the renderer needs to display the keys already
+  // generated inside the local runtime. Electrobun injects a loopback
+  // `http://127.0.0.1:<port>` API base plus a generated API token before the
+  // renderer mounts, and ensureCompatSensitiveRouteAuthorized fails closed if
+  // that token is missing. The route is also permanently disabled once
+  // onboardingComplete flips true so the backup screen cannot be reopened as a
+  // general-purpose key export endpoint.
   if (method === "GET" && url.pathname === "/api/wallet/keys") {
     if (!ensureCompatSensitiveRouteAuthorized(req, res)) {
       return true;
@@ -1965,6 +1971,10 @@ async function handleMiladyCompatRoute(
         solanaAddress: addresses.solanaAddress ?? "",
       });
     } catch {
+      // Intentionally still return the raw keys with blank addresses. Address
+      // derivation can fail independently of key generation, and the backup
+      // step must still let the user save the generated secrets before
+      // onboarding completes.
       sendJsonResponse(res, 200, {
         evmPrivateKey: evmKey,
         evmAddress: "",

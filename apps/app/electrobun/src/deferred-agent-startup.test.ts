@@ -38,4 +38,10 @@ describe("deferred agent startup (desktop)", () => {
     expect(source).toContain("onStatusChange");
     expect(source).toContain("injectApiBase");
   });
+
+  it("initializes the embedded API token before renderer injection", () => {
+    expect(source).toContain("const apiToken = ensureDesktopApiToken();");
+    expect(source).toContain("pushApiBaseToRenderer(win, `http://127.0.0.1:");
+    expect(source).toContain("apiToken);");
+  });
 });
