@@ -218,8 +218,10 @@ function extractHeaderValue(
 }
 
 function getCompatApiToken(): string | null {
+  // Milady-first priority matches BRAND_ENV_ALIASES ordering in brand-env.ts
+  // where MILADY_API_TOKEN is the primary (index 0) key.
   const token =
-    process.env.ELIZA_API_TOKEN?.trim() ?? process.env.MILADY_API_TOKEN?.trim();
+    process.env.MILADY_API_TOKEN?.trim() ?? process.env.ELIZA_API_TOKEN?.trim();
   return token ? token : null;
 }
 
@@ -1063,10 +1065,15 @@ function buildPluginListResponse(runtime: AgentRuntime | null): {
   for (const entry of manifest?.plugins ?? []) {
     const pluginId = normalizePluginId(entry.id);
     const parameters = buildPluginParamDefs(entry.pluginParameters);
+    const active = isPluginLoaded(pluginId, entry.npmName, loadedNames);
+    // If the plugin is actively loaded at runtime it must be reported as
+    // enabled regardless of what the static config says — otherwise the
+    // frontend can show a plugin as "disabled" while it is actually running.
     const enabled =
-      typeof configEntries[pluginId]?.enabled === "boolean"
+      active ||
+      (typeof configEntries[pluginId]?.enabled === "boolean"
         ? Boolean(configEntries[pluginId]?.enabled)
-        : isPluginLoaded(pluginId, entry.npmName, loadedNames);
+        : false);
     const validationErrors = parameters
       .filter((parameter) => parameter.required && !parameter.isSet)
       .map((parameter) => ({
@@ -1093,7 +1100,7 @@ function buildPluginListResponse(runtime: AgentRuntime | null): {
         entry.version ??
         undefined,
       pluginDeps: entry.pluginDeps,
-      isActive: isPluginLoaded(pluginId, entry.npmName, loadedNames),
+      isActive: active,
       configUiHints: entry.configUiHints,
       icon: entry.logoUrl ?? entry.icon ?? null,
       homepage: entry.homepage,
@@ -1484,8 +1491,14 @@ async function handleMiladyCompatRoute(
   const method = (req.method ?? "GET").toUpperCase();
   const url = new URL(req.url ?? "/", "http://localhost");
 
+  // The task-backed compat handler is only used as a fallback when the
+  // runtime has no native todo database.  When runtime.db is present the
+  // upstream handler serves /api/workbench/todos instead.  Both handlers
+  // MUST return the same response shape — callers cannot distinguish which
+  // path served the response.
   if (
     !runtimeHasTodoDatabase(state.current) &&
+    url.pathname.startsWith("/api/workbench/todos") &&
     (await handleTaskBackedWorkbenchTodoRoute(
       req,
       res,
