@@ -63,30 +63,46 @@ describe("resolveWebSocketUpgradeRejection", () => {
   }
 
   afterEach(() => {
-    prevToken === undefined
-      ? delete process.env.ELIZA_API_TOKEN
-      : (process.env.ELIZA_API_TOKEN = prevToken);
-    prevMiladyToken === undefined
-      ? delete process.env.MILADY_API_TOKEN
-      : (process.env.MILADY_API_TOKEN = prevMiladyToken);
-    prevAllowQueryToken === undefined
-      ? delete process.env.ELIZA_ALLOW_WS_QUERY_TOKEN
-      : (process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = prevAllowQueryToken);
-    prevMiladyAllowQueryToken === undefined
-      ? delete process.env.MILADY_ALLOW_WS_QUERY_TOKEN
-      : (process.env.MILADY_ALLOW_WS_QUERY_TOKEN = prevMiladyAllowQueryToken);
-    prevAllowedOrigins === undefined
-      ? delete process.env.ELIZA_ALLOWED_ORIGINS
-      : (process.env.ELIZA_ALLOWED_ORIGINS = prevAllowedOrigins);
-    prevMiladyAllowedOrigins === undefined
-      ? delete process.env.MILADY_ALLOWED_ORIGINS
-      : (process.env.MILADY_ALLOWED_ORIGINS = prevMiladyAllowedOrigins);
-    prevAllowNullOrigin === undefined
-      ? delete process.env.ELIZA_ALLOW_NULL_ORIGIN
-      : (process.env.ELIZA_ALLOW_NULL_ORIGIN = prevAllowNullOrigin);
-    prevMiladyAllowNullOrigin === undefined
-      ? delete process.env.MILADY_ALLOW_NULL_ORIGIN
-      : (process.env.MILADY_ALLOW_NULL_ORIGIN = prevMiladyAllowNullOrigin);
+    if (prevToken === undefined) {
+      delete process.env.ELIZA_API_TOKEN;
+    } else {
+      process.env.ELIZA_API_TOKEN = prevToken;
+    }
+    if (prevMiladyToken === undefined) {
+      delete process.env.MILADY_API_TOKEN;
+    } else {
+      process.env.MILADY_API_TOKEN = prevMiladyToken;
+    }
+    if (prevAllowQueryToken === undefined) {
+      delete process.env.ELIZA_ALLOW_WS_QUERY_TOKEN;
+    } else {
+      process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = prevAllowQueryToken;
+    }
+    if (prevMiladyAllowQueryToken === undefined) {
+      delete process.env.MILADY_ALLOW_WS_QUERY_TOKEN;
+    } else {
+      process.env.MILADY_ALLOW_WS_QUERY_TOKEN = prevMiladyAllowQueryToken;
+    }
+    if (prevAllowedOrigins === undefined) {
+      delete process.env.ELIZA_ALLOWED_ORIGINS;
+    } else {
+      process.env.ELIZA_ALLOWED_ORIGINS = prevAllowedOrigins;
+    }
+    if (prevMiladyAllowedOrigins === undefined) {
+      delete process.env.MILADY_ALLOWED_ORIGINS;
+    } else {
+      process.env.MILADY_ALLOWED_ORIGINS = prevMiladyAllowedOrigins;
+    }
+    if (prevAllowNullOrigin === undefined) {
+      delete process.env.ELIZA_ALLOW_NULL_ORIGIN;
+    } else {
+      process.env.ELIZA_ALLOW_NULL_ORIGIN = prevAllowNullOrigin;
+    }
+    if (prevMiladyAllowNullOrigin === undefined) {
+      delete process.env.MILADY_ALLOW_NULL_ORIGIN;
+    } else {
+      process.env.MILADY_ALLOW_NULL_ORIGIN = prevMiladyAllowNullOrigin;
+    }
   });
 
   it("rejects non-/ws paths", () => {

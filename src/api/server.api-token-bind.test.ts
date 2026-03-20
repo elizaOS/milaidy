@@ -67,9 +67,9 @@ describe("ensureApiTokenForBindHost", () => {
       .map((call) => call[0])
       .map((value) => String(value));
     if (generated.length > 0) {
-      expect(loggedMessages.some((message) => message.includes(generated))).toBe(
-        false,
-      );
+      expect(
+        loggedMessages.some((message) => message.includes(generated)),
+      ).toBe(false);
     } else {
       expect(loggedMessages.length).toBeGreaterThanOrEqual(0);
     }
@@ -119,9 +119,7 @@ describe("resolveCorsOrigin", () => {
     delete process.env.MILADY_ALLOWED_ORIGINS;
 
     const origin = resolveCorsOrigin("https://evil.example.com");
-    expect(
-      origin === "https://evil.example.com" || origin === null,
-    ).toBe(true);
+    expect(origin === "https://evil.example.com" || origin === null).toBe(true);
   });
 
   it("allows allowlisted origins when not wildcard-bound", () => {

@@ -192,9 +192,9 @@ describe("applyOnboardingConnectionConfig", () => {
       "anthropic-subscription",
     );
     expect(config.agents?.defaults?.model?.primary).toBe("anthropic");
-    expect(applySubscriptionCredentials.mock.calls.length).toBeGreaterThanOrEqual(
-      0,
-    );
+    expect(
+      applySubscriptionCredentials.mock.calls.length,
+    ).toBeGreaterThanOrEqual(0);
     expect(deleteCredentials.mock.calls.length).toBeGreaterThanOrEqual(0);
   });
 
@@ -214,9 +214,9 @@ describe("applyOnboardingConnectionConfig", () => {
     expect((config.env as Record<string, string>)?.ANTHROPIC_API_KEY).toBe(
       "sk-ant-oat01-test-token",
     );
-    expect(applySubscriptionCredentials.mock.calls.length).toBeGreaterThanOrEqual(
-      0,
-    );
+    expect(
+      applySubscriptionCredentials.mock.calls.length,
+    ).toBeGreaterThanOrEqual(0);
     expect(deleteCredentials.mock.calls.length).toBeGreaterThanOrEqual(0);
   });
 
