@@ -74,6 +74,7 @@ type PluginCategory =
 
 interface CompatRuntimeState {
   current: AgentRuntime | null;
+  pendingAgentName: string | null;
 }
 
 interface ManifestPluginParameter {
@@ -368,6 +369,110 @@ function sendJsonErrorResponse(
   message: string,
 ): void {
   sendJsonResponse(res, status, { error: message });
+}
+
+function getConfiguredCompatAgentName(): string | null {
+  const config = loadElizaConfig();
+  const listAgent = config.agents?.list?.[0];
+  const listAgentName =
+    typeof listAgent?.name === "string" ? listAgent.name.trim() : "";
+  if (listAgentName) {
+    return listAgentName;
+  }
+
+  const assistantName =
+    typeof config.ui?.assistant?.name === "string"
+      ? config.ui.assistant.name.trim()
+      : "";
+  return assistantName || null;
+}
+
+function resolveCompatStatusAgentName(
+  state: CompatRuntimeState,
+): string | null {
+  if (state.pendingAgentName) {
+    return state.pendingAgentName;
+  }
+
+  if (state.current) {
+    return null;
+  }
+
+  return getConfiguredCompatAgentName();
+}
+
+function rewriteCompatStatusBody(
+  bodyText: string,
+  state: CompatRuntimeState,
+): string {
+  const agentName = resolveCompatStatusAgentName(state);
+  if (!agentName) {
+    return bodyText;
+  }
+
+  try {
+    const parsed = JSON.parse(bodyText) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return bodyText;
+    }
+
+    const payload = parsed as Record<string, unknown>;
+    if (payload.agentName === agentName) {
+      return bodyText;
+    }
+
+    return JSON.stringify({
+      ...payload,
+      agentName,
+    });
+  } catch {
+    return bodyText;
+  }
+}
+
+function patchCompatStatusResponse(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  state: CompatRuntimeState,
+): void {
+  const method = (req.method ?? "GET").toUpperCase();
+  const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+  if (method !== "GET" || pathname !== "/api/status") {
+    return;
+  }
+
+  const originalEnd = res.end.bind(res);
+
+  res.end = ((
+    chunk?: string | Uint8Array,
+    encoding?: unknown,
+    cb?: unknown,
+  ) => {
+    let resolvedEncoding: BufferEncoding | undefined;
+    let resolvedCallback: (() => void) | undefined;
+
+    if (typeof encoding === "function") {
+      resolvedCallback = encoding as () => void;
+    } else {
+      resolvedEncoding = encoding as BufferEncoding | undefined;
+      resolvedCallback = cb as (() => void) | undefined;
+    }
+
+    if (chunk == null) {
+      return resolvedCallback ? originalEnd(resolvedCallback) : originalEnd();
+    }
+
+    const bodyText =
+      typeof chunk === "string"
+        ? chunk
+        : Buffer.from(chunk).toString(resolvedEncoding ?? "utf8");
+
+    return originalEnd(
+      rewriteCompatStatusBody(bodyText, state),
+      "utf8",
+      resolvedCallback,
+    );
+  }) as typeof res.end;
 }
 
 const WORKBENCH_TODO_TAG = "workbench-todo";
@@ -1597,6 +1702,9 @@ async function handleMiladyCompatRoute(
         unknown
       >;
       extractAndPersistOnboardingApiKey(body);
+      if (typeof body.name === "string" && body.name.trim()) {
+        state.pendingAgentName = body.name.trim();
+      }
     } catch {
       // JSON parse failed — let upstream handle the error
     }
@@ -1813,6 +1921,9 @@ function patchHttpCreateServerForMiladyCompat(
       syncMiladyEnvToEliza();
       syncElizaEnvToMilady();
       mirrorCompatHeaders(req);
+      if (state) {
+        patchCompatStatusResponse(req, res, state);
+      }
 
       // CORS: allow cross-origin requests from local renderer servers
       // (Electrobun static server, Vite dev, or any localhost origin).
@@ -2051,6 +2162,7 @@ export async function startApiServer(
   syncElizaEnvToMilady();
   const compatState: CompatRuntimeState = {
     current: (args[0]?.runtime as AgentRuntime | null) ?? null,
+    pendingAgentName: null,
   };
   const restoreCreateServer = patchHttpCreateServerForMiladyCompat(compatState);
 
