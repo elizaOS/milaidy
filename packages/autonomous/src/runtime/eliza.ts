@@ -2571,6 +2571,11 @@ export function installRuntimeMethodBindings(runtime: AgentRuntime): void {
     // Custom credential forwarding — intentionally broad: users configure which env vars
     // to forward to coding agents via this comma-separated key list (e.g. MCP server tokens).
     "CUSTOM_CREDENTIAL_KEYS",
+    // Telegram connector
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_API_ROOT",
+    "TELEGRAM_ALLOWED_CHATS",
+    "TELEGRAM_TEST_CHAT_ID",
   ]);
   const originalGetSetting = runtime.getSetting.bind(runtime);
   runtime.getSetting = (key: string) => {
@@ -3687,6 +3692,11 @@ export const logToChatListener = (entry: LogEntry) => {
  * In headless mode the runtime is returned instead of entering the
  * interactive readline loop.
  */
+// Module-level reference to the Telegraf bot so hot-reload can stop it
+// before starting a new instance (avoids 409 Conflict errors).
+// biome-ignore lint/style/noVar: must be hoisted for hot-reload access
+let _miladyTelegramBot: { stop: (reason?: string) => void } | null = null;
+
 export async function startEliza(
   opts?: StartElizaOptions,
 ): Promise<AgentRuntime | undefined> {
@@ -4306,6 +4316,119 @@ export async function startEliza(
       }
     }
 
+    // Ensure the Telegram bot is actually polling. The upstream plugin's
+    // initializeBot() calls bot.launch() without await, and on bun/Windows
+    // the polling promise can be lost. We create a standalone Telegraf
+    // instance and wire messages into the runtime's message handling.
+    {
+      // Stop any previous bot instance before starting a new one
+      if (_miladyTelegramBot) {
+        try { _miladyTelegramBot.stop("restart"); } catch { /* ignore */ }
+        _miladyTelegramBot = null;
+        // Brief delay to let Telegram release the polling slot
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      if (botToken) {
+        try {
+          const { Telegraf } = await import("telegraf");
+          const apiRoot = process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
+          const bot = new Telegraf(botToken, { telegram: { apiRoot } });
+
+          // Build character context for the system prompt
+          const char = runtime.character;
+          const bioText = Array.isArray(char.bio) ? char.bio.join(" ") : (char.bio ?? "");
+          const loreText = Array.isArray((char as Record<string, unknown>).lore)
+            ? ((char as Record<string, unknown>).lore as string[]).join(" ")
+            : "";
+          const styleText = (() => {
+            const s = (char as Record<string, unknown>).style as Record<string, string[]> | undefined;
+            if (!s) return "";
+            const parts: string[] = [];
+            if (s.all?.length) parts.push(s.all.join(" "));
+            if (s.chat?.length) parts.push(s.chat.join(" "));
+            return parts.join(" ");
+          })();
+          const systemPrompt = [
+            `You are ${char.name}.`,
+            char.system ?? "",
+            bioText ? `Bio: ${bioText}` : "",
+            loreText ? `Lore: ${loreText}` : "",
+            styleText ? `Style: ${styleText}` : "",
+            "Respond in character. Keep responses concise for chat.",
+          ].filter(Boolean).join("\n");
+
+          // Per-chat conversation history for context
+          const chatHistories = new Map<number, Array<{ role: string; content: string }>>();
+
+          bot.on("message", async (ctx: { message: { text?: string; from?: { username?: string; first_name?: string }; chat?: { id: number } }; reply: (text: string) => Promise<unknown> }) => {
+            const text = ctx.message?.text;
+            if (!text) return;
+            const chatId = ctx.message.chat?.id ?? 0;
+
+            // Check allowed chats (reads live from process.env so API changes take effect without restart)
+            const allowedChats = process.env.TELEGRAM_ALLOWED_CHATS;
+            if (allowedChats && allowedChats.trim() !== "" && allowedChats.trim() !== "[]") {
+              try {
+                const allowed = JSON.parse(allowedChats) as string[];
+                if (!allowed.includes(String(chatId))) {
+                  return;
+                }
+              } catch {
+                return;
+              }
+            }
+
+            const username = ctx.message.from?.username ?? ctx.message.from?.first_name ?? "Unknown";
+            logger.info(`[milady] Telegram message from @${username}: ${text.substring(0, 80)}`);
+
+            // Maintain conversation history per chat (last 20 messages)
+            if (!chatHistories.has(chatId)) chatHistories.set(chatId, []);
+            const history = chatHistories.get(chatId)!;
+            history.push({ role: "user", content: `@${username}: ${text}` });
+            if (history.length > 20) history.splice(0, history.length - 20);
+
+            try {
+              const conversationContext = history.map((m) => `${m.role === "user" ? "User" : char.name}: ${m.content}`).join("\n");
+              const response = await runtime.useModel("TEXT_LARGE" as import("@elizaos/core").ModelType, {
+                prompt: `${systemPrompt}\n\nConversation:\n${conversationContext}\n\n${char.name}:`,
+              });
+              const responseText = typeof response === "string" ? response : (response as { text?: string })?.text ?? "";
+              if (responseText) {
+                history.push({ role: "assistant", content: responseText });
+                await ctx.reply(responseText);
+                logger.info(`[milady] Telegram replied to @${username}`);
+              }
+            } catch (err) {
+              logger.warn(`[milady] Telegram response error: ${formatError(err)}`);
+              await ctx.reply("Sorry, I encountered an error processing your message.").catch(() => {});
+            }
+          });
+
+          bot.catch((err: Error) => {
+            logger.warn(`[milady] Telegram bot error: ${err.message}`);
+          });
+
+          // Fire-and-forget — bot.launch() only resolves on stop()
+          bot.launch({
+            dropPendingUpdates: true,
+            allowedUpdates: ["message", "message_reaction"],
+          }).catch((err: Error) => {
+            logger.warn(`[milady] Telegram bot launch error: ${err.message}`);
+          });
+
+          _miladyTelegramBot = bot;
+          process.once("SIGINT", () => bot.stop("SIGINT"));
+          process.once("SIGTERM", () => bot.stop("SIGTERM"));
+
+          await new Promise((r) => setTimeout(r, 500));
+          logger.info("[milady] Telegram bot polling started");
+        } catch (err) {
+          logger.warn(`[milady] Telegram bot setup failed: ${formatError(err)}`);
+        }
+      }
+    }
+
     // Do not block runtime startup on skills warm-up.
     void warmAgentSkillsService();
   };
@@ -4593,6 +4716,67 @@ export async function startEliza(
               logger.warn(
                 `[milady] AutonomyService failed to start after hot-reload: ${formatError(err)}`,
               );
+            }
+          }
+
+          // Restart Telegram bot polling after hot-reload
+          {
+            // Stop old bot
+            if (_miladyTelegramBot) {
+              try { _miladyTelegramBot.stop("hot-reload"); } catch { /* ignore */ }
+              _miladyTelegramBot = null;
+              await new Promise((r) => setTimeout(r, 1000));
+            }
+            const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+            if (tgToken) {
+              try {
+                const { Telegraf: TelegrafHR } = await import("telegraf");
+                const tgApiRoot = process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
+                const hrBot = new TelegrafHR(tgToken, { telegram: { apiRoot: tgApiRoot } });
+                const hrChar = newRuntime.character;
+                const hrBio = Array.isArray(hrChar.bio) ? hrChar.bio.join(" ") : (hrChar.bio ?? "");
+                const hrSystem = [
+                  `You are ${hrChar.name}.`,
+                  hrChar.system ?? "",
+                  hrBio ? `Bio: ${hrBio}` : "",
+                  "Respond in character. Keep responses concise for chat.",
+                ].filter(Boolean).join("\n");
+                const hrHistories = new Map<number, Array<{ role: string; content: string }>>();
+
+                hrBot.on("message", async (ctx: { message: { text?: string; from?: { username?: string; first_name?: string }; chat?: { id: number } }; reply: (t: string) => Promise<unknown> }) => {
+                  const txt = ctx.message?.text;
+                  if (!txt) return;
+                  const cid = ctx.message.chat?.id ?? 0;
+                  const ac = process.env.TELEGRAM_ALLOWED_CHATS;
+                  if (ac && ac.trim() !== "" && ac.trim() !== "[]") {
+                    try { if (!(JSON.parse(ac) as string[]).includes(String(cid))) return; } catch { return; }
+                  }
+                  const uname = ctx.message.from?.username ?? ctx.message.from?.first_name ?? "Unknown";
+                  logger.info(`[milady] Telegram message from @${uname}: ${txt.substring(0, 80)}`);
+                  if (!hrHistories.has(cid)) hrHistories.set(cid, []);
+                  const hist = hrHistories.get(cid)!;
+                  hist.push({ role: "user", content: `@${uname}: ${txt}` });
+                  if (hist.length > 20) hist.splice(0, hist.length - 20);
+                  try {
+                    const conv = hist.map((m) => `${m.role === "user" ? "User" : hrChar.name}: ${m.content}`).join("\n");
+                    const resp = await newRuntime.useModel("TEXT_LARGE" as import("@elizaos/core").ModelType, {
+                      prompt: `${hrSystem}\n\nConversation:\n${conv}\n\n${hrChar.name}:`,
+                    });
+                    const rText = typeof resp === "string" ? resp : (resp as { text?: string })?.text ?? "";
+                    if (rText) { hist.push({ role: "assistant", content: rText }); await ctx.reply(rText); }
+                  } catch (err) {
+                    logger.warn(`[milady] Telegram response error: ${formatError(err)}`);
+                  }
+                });
+                hrBot.catch((err: Error) => logger.warn(`[milady] Telegram bot error: ${err.message}`));
+                hrBot.launch({ dropPendingUpdates: true, allowedUpdates: ["message", "message_reaction"] })
+                  .catch((err: Error) => logger.warn(`[milady] Telegram bot launch error: ${err.message}`));
+                _miladyTelegramBot = hrBot;
+                await new Promise((r) => setTimeout(r, 500));
+                logger.info("[milady] Telegram bot polling started after hot-reload");
+              } catch (err) {
+                logger.warn(`[milady] Telegram bot setup failed after hot-reload: ${formatError(err)}`);
+              }
             }
           }
 

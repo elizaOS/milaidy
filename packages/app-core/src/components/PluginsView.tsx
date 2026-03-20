@@ -84,6 +84,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PluginInfo, PluginParamDef } from "../api";
 import { client } from "../api";
+import { ConfirmModal, useConfirm } from "./ConfirmModal";
 import {
   ConfigRenderer,
   defaultRegistry,
@@ -501,12 +502,26 @@ function PluginConfigForm({
   plugin,
   pluginConfigs,
   onParamChange,
+  revealSecret,
 }: {
   plugin: PluginInfo;
   pluginConfigs: Record<string, Record<string, string>>;
   onParamChange: (pluginId: string, paramKey: string, value: string) => void;
+  revealSecret?: (pluginId: string, key: string) => Promise<string | null>;
 }) {
-  const params = plugin.parameters ?? [];
+  // Hide Telegram fields that have custom UI or are advanced/test-only
+  const TELEGRAM_HIDDEN_KEYS = new Set([
+    "TELEGRAM_ALLOWED_CHATS",
+    "TELEGRAM_API_ROOT",
+    "TELEGRAM_TEST_CHAT_ID",
+  ]);
+  const params = useMemo(
+    () =>
+      (plugin.parameters ?? []).filter(
+        (p) => !(plugin.id === "telegram" && TELEGRAM_HIDDEN_KEYS.has(p.key)),
+      ),
+    [plugin.parameters, plugin.id],
+  );
   const { schema, hints: autoHints } = useMemo(
     () => paramsToSchema(params, plugin.id),
     [params, plugin.id],
@@ -591,8 +606,170 @@ function PluginConfigForm({
       setKeys={setKeys}
       registry={defaultRegistry}
       pluginId={plugin.id}
+      revealSecret={revealSecret}
       onChange={handleChange}
     />
+  );
+}
+
+/* ── Telegram Extras (Chat Access + Advanced) ─────────────────────── */
+
+function TelegramExtras({
+  plugin,
+  pluginConfigs,
+  onParamChange,
+}: {
+  plugin: PluginInfo;
+  pluginConfigs: Record<string, Record<string, string>>;
+  onParamChange: (pluginId: string, paramKey: string, value: string) => void;
+}) {
+  const getParamValue = (key: string) =>
+    pluginConfigs.telegram?.[key] ??
+    plugin.parameters.find((p) => p.key === key)?.currentValue ??
+    "";
+
+  // Chat access toggle
+  const allowedChatsValue = getParamValue("TELEGRAM_ALLOWED_CHATS");
+  const [restricted, setRestricted] = useState(() => {
+    const v = allowedChatsValue.trim();
+    return v.length > 0 && v !== "[]";
+  });
+  const displayAllowedChats = (() => {
+    const v = allowedChatsValue.trim();
+    return v === "[]" ? "" : v;
+  })();
+
+  // Advanced section
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  return (
+    <>
+      {/* Chat Access Toggle */}
+      <div className="rounded-xl border border-border/40 bg-card/30 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-txt">Chat Access</div>
+            <div className="text-[11px] text-muted mt-0.5">
+              {!restricted
+                ? "Bot responds to all chats"
+                : "Bot only responds to allowed chats"}
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+              !restricted ? "bg-ok" : "bg-border"
+            }`}
+            onClick={() => {
+              if (!restricted) {
+                setRestricted(true);
+                if (!allowedChatsValue.trim()) {
+                  onParamChange("telegram", "TELEGRAM_ALLOWED_CHATS", "[]");
+                }
+              } else {
+                setRestricted(false);
+                onParamChange("telegram", "TELEGRAM_ALLOWED_CHATS", "");
+              }
+            }}
+          >
+            <span
+              className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
+                !restricted ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
+        {restricted && (
+          <div className="mt-3">
+            <label className="text-[11px] tracking-wider text-muted block mb-1">
+              Allowed Chat IDs
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-lg border border-border/60 bg-bg/50 px-3 py-2 text-sm"
+              placeholder='e.g. ["123456789", "-1001234567890"]'
+              value={displayAllowedChats}
+              onChange={(e) =>
+                onParamChange(
+                  "telegram",
+                  "TELEGRAM_ALLOWED_CHATS",
+                  e.target.value || "[]",
+                )
+              }
+            />
+            <div className="text-[10px] text-muted mt-1">
+              JSON array of chat IDs. Positive = private chats, negative
+              (-100...) = groups. Use @userinfobot on Telegram to find your ID.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Advanced Settings */}
+      <div className="rounded-xl border border-border/40 bg-card/30">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+        >
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+            Advanced
+          </span>
+          <ChevronRight
+            className={`h-3.5 w-3.5 text-muted transition-transform ${
+              advancedOpen ? "rotate-90" : ""
+            }`}
+          />
+        </button>
+        {advancedOpen && (
+          <div className="space-y-3 border-t border-border/30 px-4 py-3">
+            <div>
+              <label className="text-[11px] tracking-wider text-muted block mb-1">
+                API Root
+              </label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-border/60 bg-bg/50 px-3 py-2 text-sm"
+                placeholder="https://api.telegram.org"
+                value={pluginConfigs.telegram?.TELEGRAM_API_ROOT ?? ""}
+                onChange={(e) =>
+                  onParamChange(
+                    "telegram",
+                    "TELEGRAM_API_ROOT",
+                    e.target.value,
+                  )
+                }
+              />
+              <div className="text-[10px] text-muted mt-1">
+                Custom Bot API endpoint. Only change if using a local API server
+                or proxy.
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] tracking-wider text-muted block mb-1">
+                Test Chat ID
+              </label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-border/60 bg-bg/50 px-3 py-2 text-sm"
+                placeholder="e.g. 5213018149"
+                value={pluginConfigs.telegram?.TELEGRAM_TEST_CHAT_ID ?? ""}
+                onChange={(e) =>
+                  onParamChange(
+                    "telegram",
+                    "TELEGRAM_TEST_CHAT_ID",
+                    e.target.value,
+                  )
+                }
+              />
+              <div className="text-[10px] text-muted mt-1">
+                Chat ID used by the E2E test suite. Not needed for production.
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -1045,6 +1222,8 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     t,
   } = useApp();
 
+  const { confirm, modalProps: confirmModalProps } = useConfirm();
+
   const [pluginConfigs, setPluginConfigs] = useState<
     Record<string, Record<string, string>>
   >({});
@@ -1285,12 +1464,57 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
     });
   };
 
-  const handleConfigReset = (pluginId: string) => {
+  const handleConfigReset = async (pluginId: string) => {
+    const plugin = plugins.find((p) => p.id === pluginId);
+    if (!plugin?.parameters?.length) return;
+    const ok = await confirm({
+      title: "Reset Configuration",
+      message: `This will delete all saved settings for ${plugin.name ?? pluginId}. You will need to reconfigure it.`,
+      confirmLabel: "Reset",
+      tone: "warn",
+    });
+    if (!ok) return;
+    const emptyConfig: Record<string, string> = {};
+    for (const param of plugin.parameters) {
+      emptyConfig[param.key] = "";
+    }
+    await handlePluginConfigSave(pluginId, emptyConfig);
     setPluginConfigs((prev) => {
       const next = { ...prev };
       delete next[pluginId];
       return next;
     });
+    // Restart so the connector picks up cleared config
+    if (plugin.category === "connector") {
+      await client.restart().catch(() => {});
+    }
+    void loadPlugins();
+  };
+
+  const handleConnectorUninstall = async (pluginId: string) => {
+    const plugin = plugins.find((p) => p.id === pluginId);
+    if (!plugin) return;
+    const ok = await confirm({
+      title: "Uninstall Connector",
+      message: `This will disable ${plugin.name ?? pluginId} and delete all its saved settings. Are you sure?`,
+      confirmLabel: "Uninstall",
+      tone: "danger",
+    });
+    if (!ok) return;
+    if (plugin.parameters?.length) {
+      const emptyConfig: Record<string, string> = {};
+      for (const param of plugin.parameters) {
+        emptyConfig[param.key] = "";
+      }
+      await handlePluginConfigSave(pluginId, emptyConfig);
+    }
+    await handlePluginToggle(pluginId, false);
+    setPluginConfigs((prev) => {
+      const next = { ...prev };
+      delete next[pluginId];
+      return next;
+    });
+    void loadPlugins();
   };
 
   const handleTestConnection = async (pluginId: string) => {
@@ -1319,6 +1543,11 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       });
     }
   };
+
+  const handleRevealSecret = useCallback(
+    (pluginId: string, key: string) => client.revealPluginSecret(pluginId, key),
+    [client],
+  );
 
   const handleInstallPlugin = async (pluginId: string, npmName: string) => {
     setInstallingPlugins((prev) => new Set(prev).add(pluginId));
@@ -1526,7 +1755,13 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
       ? p.parameters.filter((param: PluginParamDef) => param.isSet).length
       : 0;
     const totalCount = hasParams ? p.parameters.length : 0;
-    const allParamsSet = !hasParams || setCount === totalCount;
+    const requiredParams = hasParams
+      ? p.parameters.filter((param: PluginParamDef) => param.required)
+      : [];
+    const allRequiredSet =
+      requiredParams.length === 0 ||
+      requiredParams.every((param: PluginParamDef) => param.isSet);
+    const allParamsSet = !hasParams || allRequiredSet;
     const isShowcase = p.id === "__ui-showcase__";
     const categoryLabel = isShowcase
       ? "showcase"
@@ -1991,12 +2226,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                 </div>
               </div>
               <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-                {(desktopConnectorLayout
-                  ? visiblePlugins.filter((plugin) => {
-                      return plugin.id === connectorSelectedId;
-                    })
-                  : visiblePlugins
-                ).map((plugin) => {
+                {visiblePlugins.map((plugin) => {
                   const isSelected = connectorSelectedId === plugin.id;
                   const isExpanded = connectorExpandedIds.has(plugin.id);
                   const isToggleBusy = togglingPlugins.has(plugin.id);
@@ -2137,7 +2367,13 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                     ? plugin.parameters.filter((param) => param.isSet).length
                     : 0;
                   const totalCount = hasParams ? plugin.parameters.length : 0;
-                  const allParamsSet = !hasParams || setCount === totalCount;
+                  const requiredParams = hasParams
+                    ? plugin.parameters.filter((param) => param.required)
+                    : [];
+                  const allRequiredSet =
+                    requiredParams.length === 0 ||
+                    requiredParams.every((param) => param.isSet);
+                  const allParamsSet = !hasParams || allRequiredSet;
                   const isToggleBusy = togglingPlugins.has(plugin.id);
                   const toggleDisabled =
                     isToggleBusy || (hasPluginToggleInFlight && !isToggleBusy);
@@ -2361,7 +2597,15 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                 plugin={plugin}
                                 pluginConfigs={pluginConfigs}
                                 onParamChange={handleParamChange}
+                                revealSecret={handleRevealSecret}
                               />
+                              {plugin.id === "telegram" && (
+                                <TelegramExtras
+                                  plugin={plugin}
+                                  pluginConfigs={pluginConfigs}
+                                  onParamChange={handleParamChange}
+                                />
+                              )}
                               {plugin.id === "whatsapp" && (
                                 <WhatsAppQrOverlay accountId="default" />
                               )}
@@ -2412,7 +2656,9 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 rounded-xl px-4 text-[11px] font-semibold text-muted hover:text-txt"
-                                  onClick={() => handleConfigReset(plugin.id)}
+                                  onClick={() =>
+                                    void handleConfigReset(plugin.id)
+                                  }
                                 >
                                   Reset
                                 </Button>
@@ -2449,6 +2695,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
             )}
           </div>
         </div>
+        <ConfirmModal {...confirmModalProps} />
       </div>
     );
   }
@@ -2693,6 +2940,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
               </span>
             </div>
           )}
+        <ConfirmModal {...confirmModalProps} />
         </div>
       </div>
     );
@@ -2964,6 +3212,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       plugin={p}
                       pluginConfigs={pluginConfigs}
                       onParamChange={handleParamChange}
+                      revealSecret={handleRevealSecret}
                     />
                     {p.id === "whatsapp" && (
                       <WhatsAppQrOverlay accountId="default" />
@@ -3033,7 +3282,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
                       variant="ghost"
                       size="sm"
                       className="h-8 px-4 text-[12px] font-bold text-muted hover:text-txt transition-all"
-                      onClick={() => handleConfigReset(p.id)}
+                      onClick={() => void handleConfigReset(p.id)}
                     >
                       {t("pluginsview.Reset")}
                     </Button>
@@ -3139,6 +3388,7 @@ function PluginListView({ label, mode = "all", inModal }: PluginListViewProps) {
           </div>
         </div>
       )}
+      <ConfirmModal {...confirmModalProps} />
     </div>
   );
 }

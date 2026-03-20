@@ -885,12 +885,15 @@ function maskValue(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-function buildParamDefs(
+export function buildParamDefs(
   pluginParams: Record<string, Record<string, unknown>>,
+  savedValues?: Record<string, string>,
 ): PluginParamDef[] {
   return Object.entries(pluginParams).map(([key, def]) => {
-    const envValue = process.env[key];
-    const isSet = Boolean(envValue?.trim());
+    const envValue = process.env[key]?.trim() || undefined;
+    const savedValue = savedValues?.[key];
+    const effectiveValue = envValue ?? (savedValue ? savedValue.trim() || undefined : undefined);
+    const isSet = Boolean(effectiveValue);
     const sensitive = Boolean(def.sensitive);
     return {
       key,
@@ -904,8 +907,8 @@ function buildParamDefs(
         : undefined,
       currentValue: isSet
         ? sensitive
-          ? maskValue(envValue ?? "")
-          : (envValue ?? "")
+          ? maskValue(effectiveValue!)
+          : effectiveValue!
         : null,
       isSet,
     };
@@ -1392,6 +1395,7 @@ export function discoverInstalledPlugins(
               pluginConfigKeys = Object.keys(pkg.agentConfig.pluginParameters);
               pluginParameters = buildParamDefs(
                 pkg.agentConfig.pluginParameters,
+                (config.env ?? {}) as Record<string, string>,
               );
             }
             // Map logoUrl or icon from package.json if available
@@ -8752,15 +8756,19 @@ async function handleRequest(
       }
     }
 
-    // Always refresh current env values and re-validate
+    // Always refresh current env values and re-validate.
+    // Check both process.env and saved config so the UI reflects milady.json
+    // values even before a restart hydrates them into the environment.
+    const savedEnv = (freshConfig.env ?? {}) as Record<string, string>;
     for (const plugin of allPlugins) {
       for (const param of plugin.parameters) {
-        const envValue = process.env[param.key];
-        param.isSet = Boolean(envValue?.trim());
+        const envValue = process.env[param.key]?.trim() || undefined;
+        const effectiveValue = envValue ?? (savedEnv[param.key]?.trim() || undefined);
+        param.isSet = Boolean(effectiveValue);
         param.currentValue = param.isSet
           ? param.sensitive
-            ? maskValue(envValue ?? "")
-            : (envValue ?? "")
+            ? maskValue(effectiveValue!)
+            : effectiveValue!
           : null;
       }
       const paramInfos: PluginParamInfo[] = plugin.parameters.map((p) => ({
@@ -8915,11 +8923,16 @@ async function handleRequest(
         if (
           allowedParamKeys.has(key) &&
           !BLOCKED_ENV_KEYS.has(key.toUpperCase()) &&
-          typeof value === "string" &&
-          value.trim()
+          typeof value === "string"
         ) {
-          process.env[key] = value;
-          (state.config.env as Record<string, unknown>)[key] = value;
+          if (value.trim()) {
+            process.env[key] = value;
+            (state.config.env as Record<string, unknown>)[key] = value;
+          } else {
+            // Empty string = clear the saved value
+            delete process.env[key];
+            delete (state.config.env as Record<string, unknown>)[key];
+          }
         }
       }
       plugin.configured = true;
@@ -8932,6 +8945,12 @@ async function handleRequest(
           logger.warn(
             `[milady-api] Failed to save config: ${err instanceof Error ? err.message : err}`,
           );
+        }
+
+        // Schedule restart when a connector becomes fully configured so it
+        // actually starts without requiring a manual restart.
+        if (plugin.category === "connector" && plugin.configured && plugin.enabled) {
+          scheduleRuntimeRestart(`Connector config updated: ${pluginId}`);
         }
       }
     }
@@ -9002,7 +9021,10 @@ async function handleRequest(
       scheduleRuntimeRestart(`Plugin toggle: ${pluginId}`);
     }
 
-    json(res, { ok: true, plugin });
+    const restartNeeded =
+      (body.enabled !== undefined) ||
+      (plugin.category === "connector" && plugin.configured && plugin.enabled);
+    json(res, { ok: true, plugin, restartNeeded });
     return;
   }
 
@@ -9141,6 +9163,43 @@ async function handleRequest(
         return;
       }
 
+      // Connector-specific fallback tests when plugin has no testConnection()
+      if (pluginId === "telegram") {
+        const token =
+          process.env.TELEGRAM_BOT_TOKEN ??
+          (state.config.env as Record<string, string> | undefined)
+            ?.TELEGRAM_BOT_TOKEN;
+        if (!token) {
+          json(res, {
+            success: false,
+            pluginId,
+            error: "No bot token configured",
+            durationMs: Date.now() - startMs,
+          });
+          return;
+        }
+        const apiRoot =
+          process.env.TELEGRAM_API_ROOT ??
+          (state.config.env as Record<string, string> | undefined)
+            ?.TELEGRAM_API_ROOT ??
+          "https://api.telegram.org";
+        const tgResp = await fetch(`${apiRoot}/bot${token}/getMe`);
+        const tgData = (await tgResp.json()) as {
+          ok: boolean;
+          result?: { username?: string };
+          description?: string;
+        };
+        json(res, {
+          success: tgData.ok,
+          pluginId,
+          message: tgData.ok
+            ? `Connected as @${tgData.result?.username}`
+            : `Telegram API error: ${tgData.description}`,
+          durationMs: Date.now() - startMs,
+        });
+        return;
+      }
+
       // No test function — return a basic "plugin is loaded" status
       json(res, {
         success: true,
@@ -9160,6 +9219,27 @@ async function handleRequest(
         500,
       );
     }
+    return;
+  }
+
+  // ── POST /api/plugins/:id/reveal ─────────────────────────────────────────
+  // Return the unmasked value of a sensitive plugin parameter.
+  const pluginRevealMatch =
+    method === "POST" && pathname.match(/^\/api\/plugins\/([^/]+)\/reveal$/);
+  if (pluginRevealMatch) {
+    const pluginId = decodeURIComponent(pluginRevealMatch[1]);
+    const body = await readJsonBody<{ key: string }>(req, res);
+    if (!body) return;
+    const key = body.key?.trim();
+    if (!key) {
+      json(res, { ok: false, error: "Missing key parameter" }, 400);
+      return;
+    }
+    const value =
+      process.env[key] ??
+      (state.config.env as Record<string, string> | undefined)?.[key] ??
+      null;
+    json(res, { ok: true, value });
     return;
   }
 

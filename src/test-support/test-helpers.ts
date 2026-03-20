@@ -132,6 +132,49 @@ export function resolveDiscordPluginImportSpecifier(): string | null {
   return null;
 }
 
+const TELEGRAM_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-telegram";
+const TELEGRAM_PLUGIN_LOCAL_ENTRY_CANDIDATES = [
+  "../plugins/plugin-telegram/typescript/dist/index",
+  "../plugins/plugin-telegram/dist/index",
+] as const;
+
+/**
+ * Resolve the Telegram plugin import specifier.
+ * Prefers package resolution, then falls back to node_modules ESM entry
+ * (the telegram plugin is ESM-only so CJS require.resolve fails), then
+ * falls back to local plugin checkout paths.
+ */
+export function resolveTelegramPluginImportSpecifier(): string | null {
+  if (isPackageImportResolvable(TELEGRAM_PLUGIN_PACKAGE_NAME)) {
+    return TELEGRAM_PLUGIN_PACKAGE_NAME;
+  }
+
+  const helperDir = path.dirname(fileURLToPath(import.meta.url));
+  const packageRoot = path.resolve(helperDir, "..", "..");
+
+  // ESM-only: try direct node_modules entry
+  const nodeModulesEntry = path.resolve(
+    packageRoot,
+    "node_modules",
+    "@elizaos",
+    "plugin-telegram",
+    "dist",
+    "index.js",
+  );
+  if (existsSync(nodeModulesEntry)) {
+    return pathToFileURL(nodeModulesEntry).href;
+  }
+
+  for (const relativeEntryPath of TELEGRAM_PLUGIN_LOCAL_ENTRY_CANDIDATES) {
+    const absoluteEntryPath = path.resolve(packageRoot, relativeEntryPath);
+    if (existsSync(absoluteEntryPath)) {
+      return pathToFileURL(absoluteEntryPath).href;
+    }
+  }
+
+  return null;
+}
+
 const LENS_PLUGIN_PACKAGE_NAME = "@elizaos/plugin-lens";
 const LENS_PLUGIN_FALLBACK_PACKAGE = "@elizaos-plugins/client-lens";
 const LENS_PLUGIN_LOCAL_ENTRY_CANDIDATES = [

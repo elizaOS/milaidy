@@ -2880,6 +2880,20 @@ export class MiladyClient {
     });
   }
 
+  async revealPluginSecret(
+    pluginId: string,
+    key: string,
+  ): Promise<string | null> {
+    const resp: { ok: boolean; value: string | null } = await this.fetch(
+      `/api/plugins/${encodeURIComponent(pluginId)}/reveal`,
+      {
+        method: "POST",
+        body: JSON.stringify({ key }),
+      },
+    );
+    return resp?.value ?? null;
+  }
+
   async restart(): Promise<{ ok: boolean }> {
     return this.fetch("/api/restart", { method: "POST" });
   }
