@@ -413,9 +413,25 @@ describe("Electrobun release workflow drift", () => {
       'Write-Host "Using $launcherSource launcher:',
     );
     expect(smokeScript).toContain(
+      "Installer-required runs skip build/tarball reuse and validate the installed package directly.",
+    );
+    expect(smokeScript).toContain(
       "$persistLauncherPathFile = $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE",
     );
     expect(smokeScript).toContain("Set-Content -Path $persistLauncherPathFile");
+    const tarballBranchIndex = smokeScript.indexOf(
+      'Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*.tar.zst"',
+    );
+    const installerFallbackIndex = smokeScript.indexOf(
+      "if (-not $launcher) {",
+      tarballBranchIndex,
+    );
+    const installerLaunchIndex = smokeScript.indexOf(
+      'Write-Host "Installing via Inno Setup: $($installer.FullName)"',
+    );
+    expect(tarballBranchIndex).toBeGreaterThan(-1);
+    expect(installerFallbackIndex).toBeGreaterThan(tarballBranchIndex);
+    expect(installerLaunchIndex).toBeGreaterThan(installerFallbackIndex);
     expect(workflow).toContain(
       "MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: $" +
         "{{ runner.temp }}\\milady-windows-ui-launcher.txt",

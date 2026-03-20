@@ -173,79 +173,69 @@ if (-not $requireInstaller -and -not $launcher) {
       Write-Warning "Falling back to installer path."
     }
   }
-
-  if ($launcher) {
-    $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir
-    Write-Host "Using $launcherSource launcher: $($launcher.FullName)"
-    $launcherDir = Split-Path -Parent $launcher.FullName
-    $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
-    $launcherStarted = $true
-  } else {
-    $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "Milady-Setup-*.exe" -ErrorAction SilentlyContinue |
-      Select-Object -First 1
-
-    if (-not $installer) {
-      $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
-      Select-Object -First 1
-    }
-
-    if (-not $installer) {
-      $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "Milady-Setup-*.exe.zip" -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-      if (-not $installerZip) {
-        $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.zip" -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-      }
-      if (-not $installerZip) {
-        throw "No launcher.exe, packaged .tar.zst, installer .exe, or installer .zip found under $resolvedArtifactsDir"
-      }
-
-      New-Item -ItemType Directory -Force -Path $tempExtractDir | Out-Null
-      Expand-Archive -Path $installerZip.FullName -DestinationPath $tempExtractDir -Force
-      $installer = Get-ChildItem -Path $tempExtractDir -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-    }
-
-    if (-not $installer) {
-      throw "No installer executable found for Windows smoke test."
-    }
-
-    Write-Host "Installing via Inno Setup: $($installer.FullName)"
-    Remove-Item $installerRoot -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force -Path $installerRoot | Out-Null
-
-    $installerArgs = @(
-      "/VERYSILENT",
-      "/SUPPRESSMSGBOXES",
-      "/NORESTART",
-      "/SP-",
-      "/DIR=$installerRoot"
-    )
-
-    $installerProcess = Start-Process -FilePath $installer.FullName -ArgumentList $installerArgs -WorkingDirectory (Split-Path -Parent $installer.FullName) -PassThru -Wait
-    if ($installerProcess.ExitCode -ne 0) {
-      throw "Windows installer exited with code $($installerProcess.ExitCode)"
-    }
-
-    $launcher = Find-Launcher $installerRoot
-    if (-not $launcher) {
-      throw "Installed launcher.exe not found under $installerRoot"
-    }
-
-    $launcherSource = "installed Inno package"
-    $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir
-    Write-Host "Using $launcherSource launcher: $($launcher.FullName)"
-    $launcherDir = Split-Path -Parent $launcher.FullName
-    $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
-    $launcherStarted = $true
-  }
-} else {
-  $launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir
-  Write-Host "Using $launcherSource launcher: $($launcher.FullName)"
-  $launcherDir = Split-Path -Parent $launcher.FullName
-  $launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
-  $launcherStarted = $true
 }
+
+# Installer-required runs skip build/tarball reuse and validate the installed package directly.
+if (-not $launcher) {
+  $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "Milady-Setup-*.exe" -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+
+  if (-not $installer) {
+    $installer = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+  }
+
+  if (-not $installer) {
+    $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "Milady-Setup-*.exe.zip" -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    if (-not $installerZip) {
+      $installerZip = Get-ChildItem -Path $resolvedArtifactsDir -File -Filter "*Setup*.zip" -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    }
+    if (-not $installerZip) {
+      throw "No launcher.exe, packaged .tar.zst, installer .exe, or installer .zip found under $resolvedArtifactsDir"
+    }
+
+    New-Item -ItemType Directory -Force -Path $tempExtractDir | Out-Null
+    Expand-Archive -Path $installerZip.FullName -DestinationPath $tempExtractDir -Force
+    $installer = Get-ChildItem -Path $tempExtractDir -Recurse -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+  }
+
+  if (-not $installer) {
+    throw "No installer executable found for Windows smoke test."
+  }
+
+  Write-Host "Installing via Inno Setup: $($installer.FullName)"
+  Remove-Item $installerRoot -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $installerRoot | Out-Null
+
+  $installerArgs = @(
+    "/VERYSILENT",
+    "/SUPPRESSMSGBOXES",
+    "/NORESTART",
+    "/SP-",
+    "/DIR=$installerRoot"
+  )
+
+  $installerProcess = Start-Process -FilePath $installer.FullName -ArgumentList $installerArgs -WorkingDirectory (Split-Path -Parent $installer.FullName) -PassThru -Wait
+  if ($installerProcess.ExitCode -ne 0) {
+    throw "Windows installer exited with code $($installerProcess.ExitCode)"
+  }
+
+  $launcher = Find-Launcher $installerRoot
+  if (-not $launcher) {
+    throw "Installed launcher.exe not found under $installerRoot"
+  }
+
+  $launcherSource = "installed Inno package"
+}
+
+$launcher = Write-ReusableLauncherPath -Launcher $launcher -TemporaryRoot $tempExtractDir
+Write-Host "Using $launcherSource launcher: $($launcher.FullName)"
+$launcherDir = Split-Path -Parent $launcher.FullName
+$launcherProcess = Start-Process -FilePath $launcher.FullName -WorkingDirectory $launcherDir -PassThru
+$launcherStarted = $true
 
 # Bypass proxy for loopback — WinHTTP (used by Invoke-WebRequest) respects
 # system proxy settings on GitHub Actions runners, causing 127.0.0.1 requests

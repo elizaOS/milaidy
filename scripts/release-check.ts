@@ -541,6 +541,7 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
     "/VERYSILENT",
     "installed Inno package",
     "$persistLauncherPathFile = $env:MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE",
+    "Installer-required runs skip build/tarball reuse and validate the installed package directly.",
     "Using $launcherSource launcher:",
     "Using packaged tarball:",
     "Find-Launcher $selfExtractionRoot",
