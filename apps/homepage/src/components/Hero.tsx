@@ -105,7 +105,7 @@ export function HeroBackground() {
         {/* Restore white/yellow color scheme and solid readability */}
         <motion.h1
           variants={itemVariants}
-          className="text-[10vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.8] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-12"
+          className="text-[10vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.8] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none -mt-[8vh]"
         >
           <span>MILADY</span>
           <span className="text-brand drop-shadow-lg">
