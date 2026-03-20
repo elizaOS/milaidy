@@ -1016,6 +1016,8 @@
   "onboarding.stepSub.connection": "神经链接",
   "onboarding.stepName.senses": "权限",
   "onboarding.stepSub.senses": "系统权限",
+  "onboarding.stepName.identity": "身份",
+  "onboarding.stepSub.identity": "角色配置",
   "onboarding.stepName.activate": "启动",
   "onboarding.welcomeTitle": "欢迎使用 Milady",
   "onboarding.welcomeSubtitle": "你的自主 AI 伙伴等待你。",

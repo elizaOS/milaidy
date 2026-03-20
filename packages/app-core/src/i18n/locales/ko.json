@@ -1044,6 +1044,8 @@
   "onboarding.stepSub.connection": "신경 링크",
   "onboarding.stepName.senses": "접근",
   "onboarding.stepSub.senses": "시스템 권한",
+  "onboarding.stepName.identity": "정체성",
+  "onboarding.stepSub.identity": "캐릭터 프로필",
   "onboarding.stepName.activate": "시작",
   "onboarding.welcomeTitle": "Milady에 오신 것을 환영합니다",
   "onboarding.welcomeSubtitle": "당신의 자율 AI 동반자가 기다리고 있습니다.",

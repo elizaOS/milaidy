@@ -1044,6 +1044,8 @@
   "onboarding.stepSub.connection": "Enlace neural",
   "onboarding.stepName.senses": "Acceso",
   "onboarding.stepSub.senses": "Permisos del sistema",
+  "onboarding.stepName.identity": "Identidad",
+  "onboarding.stepSub.identity": "Perfil del personaje",
   "onboarding.stepName.activate": "Lanzar",
   "onboarding.welcomeTitle": "Bienvenido a Milady",
   "onboarding.welcomeSubtitle": "Tu compañero autónomo de IA te espera.",

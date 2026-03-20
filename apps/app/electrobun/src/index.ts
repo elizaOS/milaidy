@@ -419,7 +419,10 @@ async function startRendererServer(): Promise<string> {
           const proxyRes = await fetch(target, {
             method: req.method,
             headers: req.headers,
-            body: req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
+            body:
+              req.method !== "GET" && req.method !== "HEAD"
+                ? req.body
+                : undefined,
             redirect: "manual",
           });
           const resHeaders = new Headers(proxyRes.headers);
@@ -444,7 +447,8 @@ async function startRendererServer(): Promise<string> {
           headers: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Milady-Token, X-Api-Key",
+            "Access-Control-Allow-Headers":
+              "Content-Type, Authorization, X-Milady-Token, X-Api-Key",
             "Access-Control-Max-Age": "86400",
           },
         });
