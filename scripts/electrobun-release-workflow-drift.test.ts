@@ -112,6 +112,18 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("needs: [prepare, validate-release]");
   });
 
+  it("installs Inno Setup on Windows without relying on winget", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("Downloading Inno Setup 6.7.1...");
+    expect(workflow).toContain(
+      "https://github.com/jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe",
+    );
+    expect(workflow).toContain("Start-Process -FilePath $installer");
+    expect(workflow).toContain('MILADY_INNO_SETUP_COMPILER=$iscc');
+    expect(workflow).not.toContain("winget install --exact --id JRSoftware.InnoSetup");
+  });
+
   it("uses a non-matrix cache key in validate-release", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
     const validateSection = workflow.slice(
@@ -215,8 +227,10 @@ describe("Electrobun release workflow drift", () => {
     const buildIndex = workflow.indexOf("name: Build Inno Setup installer");
 
     expect(workflow).toContain("name: Install Inno Setup 6.7.1");
-    expect(workflow).toContain("JRSoftware.InnoSetup");
-    expect(workflow).toContain("--version 6.7.1");
+    expect(workflow).toContain("Downloading Inno Setup 6.7.1...");
+    expect(workflow).toContain(
+      "https://github.com/jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe",
+    );
     expect(workflow).toContain("name: Build Inno Setup installer");
     expect(workflow).toContain("packaging/inno/build-inno.ps1");
     expect(installIndex).toBeGreaterThan(signIndex);

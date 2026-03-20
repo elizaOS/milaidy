@@ -565,7 +565,12 @@ jobs:
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
-          winget install --exact --id JRSoftware.InnoSetup --version 6.7.1 --accept-package-agreements --accept-source-agreements --disable-interactivity
+          $url = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe"
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup-6.7.1.exe"
+          Write-Host "Downloading Inno Setup 6.7.1..."
+          Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+          Write-Host "Installing silently..."
+          Start-Process -FilePath $installer -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/SP-" -Wait -NoNewWindow
 
           $iscc = @(
             "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
