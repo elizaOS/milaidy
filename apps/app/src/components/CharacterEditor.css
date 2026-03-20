@@ -311,7 +311,7 @@
    the selected item.  In milady's yellow-accent theme the dark foreground
    is hard to read, so we swap to a subtle highlight with light text. */
 
-.ce-root .ce-voice-inline .ce-voice-inline-select .bg-accent {
+.ce-voice-inline .bg-accent {
   background: var(--ce-gold-glow);
   color: var(--ce-gold-highlight);
 }

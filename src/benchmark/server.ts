@@ -694,7 +694,7 @@ export async function startBenchmarkServer() {
   // Load mock plugin for testing (file is gitignored for local-only use)
   if (
     process.env.ELIZA_BENCH_MOCK === "true" ||
-    process.env.ELIZA_BENCH_MOCK === "true"
+    process.env.MILADY_BENCH_MOCK === "true"
   ) {
     try {
       const mockLocation = "./mock-plugin.ts";
@@ -832,7 +832,7 @@ export async function startBenchmarkServer() {
   };
 
   const sessions = new Map<string, BenchmarkSession>();
-  let activeSession: BenchmarkSession | null = null;
+  let lastSessionKey: string | null = null;
 
   // Session TTL eviction (R4)
   const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -870,6 +870,9 @@ export async function startBenchmarkServer() {
     entityToSession.set(session.userEntityId, key);
   };
 
+  const getLastSession = (): BenchmarkSession | null =>
+    lastSessionKey ? (sessions.get(lastSessionKey) ?? null) : null;
+
   const resolveSession = (
     taskId: string,
     benchmark: string,
@@ -878,7 +881,7 @@ export async function startBenchmarkServer() {
     const key = `${benchmark}:${taskId}`;
     const existing = sessions.get(key);
     if (existing) {
-      activeSession = existing;
+      lastSessionKey = key;
       return existing;
     }
     if (!createIfMissing) return null;
@@ -886,7 +889,7 @@ export async function startBenchmarkServer() {
     sessions.set(key, created);
     sessionCreatedAt.set(key, Date.now());
     registerSessionRefs(created);
-    activeSession = created;
+    lastSessionKey = key;
     return created;
   };
 
@@ -911,6 +914,7 @@ export async function startBenchmarkServer() {
     }
 
     if (pathname === "/api/benchmark/health" && req.method === "GET") {
+      const activeSession = getLastSession();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
@@ -1001,7 +1005,7 @@ export async function startBenchmarkServer() {
       const benchmark = extractBenchmarkName(context);
       const session =
         resolveSession(taskId, benchmark, false) ??
-        activeSession ??
+        getLastSession() ??
         resolveSession("default-task", "unknown", false);
 
       if (!session) {
@@ -1036,7 +1040,7 @@ export async function startBenchmarkServer() {
       const benchmark = extractBenchmarkName(context);
       const session =
         resolveSession(taskId, benchmark, false) ??
-        activeSession ??
+        getLastSession() ??
         resolveSession("default-task", "unknown", false);
 
       if (!session) {
@@ -1080,7 +1084,7 @@ export async function startBenchmarkServer() {
         const benchmark = extractBenchmarkName(context);
         const session =
           resolveSession(taskId, benchmark, false) ??
-          activeSession ??
+          getLastSession() ??
           resolveSession("default-task", "unknown", false);
 
         if (!session) {
@@ -1117,11 +1121,24 @@ export async function startBenchmarkServer() {
       });
       req.on("end", async () => {
         try {
-          const parsed = JSON.parse(body) as {
+          let parsed: {
             text?: unknown;
             context?: unknown;
             image?: unknown;
           };
+          try {
+            parsed = JSON.parse(body) as {
+              text?: unknown;
+              context?: unknown;
+              image?: unknown;
+            };
+          } catch {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({ error: "Malformed JSON in request body" }),
+            );
+            return;
+          }
 
           const text =
             typeof parsed.text === "string" ? parsed.text.trim() : "";
@@ -1136,7 +1153,7 @@ export async function startBenchmarkServer() {
           const benchmark = extractBenchmarkName(context);
           const session =
             resolveSession(taskId, benchmark, true) ??
-            activeSession ??
+            getLastSession() ??
             resolveSession("default-task", "unknown", true);
           if (!session) {
             throw new Error("Failed to resolve benchmark session");

@@ -15,6 +15,7 @@ import { useApp } from "@elizaos/app-core/state";
 import { PREMADE_VOICES, sanitizeApiKey } from "@elizaos/app-core/voice";
 import { Button, Input, Textarea, ThemedSelect } from "@elizaos/ui";
 import { STYLE_PRESETS } from "../../../../src/onboarding-presets";
+import { normalizeCharacterMessageExamples } from "../../../../src/utils/character-message-examples";
 import {
   CharacterRoster,
   type CharacterRosterEntry,
@@ -290,6 +291,16 @@ export function CharacterEditor({
   const characterRoster = resolveRosterEntries(rosterStyles);
 
   const d = characterDraft;
+  const fallbackCharacterName =
+    (typeof d.name === "string" && d.name.trim()) ||
+    (typeof characterData?.name === "string" && characterData.name.trim()) ||
+    "Agent";
+  const normalizedMessageExamples = Array.isArray(d.messageExamples)
+    ? normalizeCharacterMessageExamples(
+        d.messageExamples,
+        fallbackCharacterName,
+      )
+    : [];
   const bioText =
     typeof d.bio === "string"
       ? d.bio
@@ -333,6 +344,27 @@ export function CharacterEditor({
   const hasPendingChanges =
     fieldsEdited ||
     (selectedCharacterId !== null && selectedCharacterId !== savedCharacterId);
+
+  useEffect(() => {
+    if (!Array.isArray(d.messageExamples) || d.messageExamples.length === 0) {
+      return;
+    }
+
+    const normalized = normalizeCharacterMessageExamples(
+      d.messageExamples,
+      fallbackCharacterName,
+    );
+
+    if (JSON.stringify(d.messageExamples) === JSON.stringify(normalized)) {
+      return;
+    }
+
+    suppressDirtyRef.current = true;
+    handleFieldEdit("messageExamples", normalized);
+    queueMicrotask(() => {
+      suppressDirtyRef.current = false;
+    });
+  }, [d.messageExamples, fallbackCharacterName, handleFieldEdit]);
 
   /* ── Load voice config on mount ─────────────────────────────────── */
   useEffect(() => {
@@ -601,19 +633,13 @@ export function CharacterEditor({
             }
           } catch {}
         } else if (field === "chatExamples") {
-          try {
-            const parsed = JSON.parse(generated);
-            if (Array.isArray(parsed)) {
-              type ConvoMsg = { user: string; content: { text: string } };
-              const formatted = parsed.map((convo: ConvoMsg[]) => ({
-                examples: convo.map((msg: ConvoMsg) => ({
-                  name: msg.user,
-                  content: { text: msg.content.text },
-                })),
-              }));
-              handleFieldEdit("messageExamples", formatted);
-            }
-          } catch {}
+          const formatted = normalizeCharacterMessageExamples(
+            generated,
+            fallbackCharacterName,
+          );
+          if (formatted.length > 0) {
+            handleFieldEdit("messageExamples", formatted);
+          }
         } else if (field === "postExamples") {
           try {
             const parsed = JSON.parse(generated);
@@ -633,6 +659,7 @@ export function CharacterEditor({
       setGenerating(null);
     },
     [
+      fallbackCharacterName,
       getCharContext,
       d,
       handleFieldEdit,
@@ -1068,7 +1095,7 @@ export function CharacterEditor({
                 </Button>
               </div>
               <div className="ce-examples-list">
-                {(d.messageExamples ?? []).map((convo, ci) => (
+                {normalizedMessageExamples.map((convo, ci) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: order is static in designer
                   <div key={`convo-${ci}`} className="ce-example-convo">
                     <div className="ce-example-convo-header">
@@ -1079,7 +1106,7 @@ export function CharacterEditor({
                         type="button"
                         className="ce-style-entry-remove"
                         onClick={() => {
-                          const updated = [...(d.messageExamples ?? [])];
+                          const updated = [...normalizedMessageExamples];
                           updated.splice(ci, 1);
                           handleFieldEdit("messageExamples", updated);
                         }}
@@ -1111,7 +1138,7 @@ export function CharacterEditor({
                             type="text"
                             value={msg.content?.text ?? ""}
                             onChange={(e) => {
-                              const updated = [...(d.messageExamples ?? [])];
+                              const updated = [...normalizedMessageExamples];
                               const convoClone = {
                                 examples: [...updated[ci].examples],
                               };
@@ -1129,7 +1156,7 @@ export function CharacterEditor({
                     </div>
                   </div>
                 ))}
-                {(d.messageExamples ?? []).length === 0 && (
+                {normalizedMessageExamples.length === 0 && (
                   <div className="ce-style-empty">No chat examples yet.</div>
                 )}
               </div>

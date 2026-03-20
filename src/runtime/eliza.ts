@@ -2,9 +2,7 @@ import {
   type AgentRuntime,
   AutonomyService,
   ChannelType,
-  type Content,
   logger,
-  type MessageExampleGroup,
   stringToUuid,
 } from "@elizaos/core";
 
@@ -22,6 +20,7 @@ import {
   startEliza as upstreamStartEliza,
 } from "@elizaos/autonomous/runtime/eliza";
 import { CHARACTER_PRESET_META, STYLE_PRESETS } from "../onboarding-presets.js";
+import { normalizeCharacterMessageExamples } from "../utils/character-message-examples";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import type { EmbeddingProgressCallback } from "./embedding-manager-support.js";
 import {
@@ -158,32 +157,6 @@ function resolveMiladyPresetByName(name: string | undefined) {
   );
 }
 
-type PresetMessageExample =
-  | MessageExampleGroup
-  | Array<{ name?: string; user?: string; content: Content }>;
-
-function normalizePresetMessageExamples(
-  messageExamples: PresetMessageExample[],
-): MessageExampleGroup[] {
-  return messageExamples.map((item) => {
-    if (
-      item &&
-      typeof item === "object" &&
-      !Array.isArray(item) &&
-      "examples" in item
-    ) {
-      return item;
-    }
-
-    return {
-      examples: item.map((message) => ({
-        name: message.name ?? message.user ?? "",
-        content: message.content,
-      })),
-    };
-  });
-}
-
 export function collectPluginNames(
   ...args: Parameters<typeof upstreamCollectPluginNames>
 ): ReturnType<typeof upstreamCollectPluginNames> {
@@ -221,6 +194,12 @@ export function buildCharacterFromConfig(
 
   const agentEntry = config.agents?.list?.[0];
   const bundledPreset = resolveMiladyPresetByName(character.name);
+  if ((character.messageExamples?.length ?? 0) > 0) {
+    character.messageExamples = normalizeCharacterMessageExamples(
+      character.messageExamples,
+      character.name,
+    );
+  }
   if (bundledPreset) {
     if (
       !agentEntry?.postExamples &&
@@ -232,8 +211,9 @@ export function buildCharacterFromConfig(
       !agentEntry?.messageExamples &&
       (character.messageExamples?.length ?? 0) === 0
     ) {
-      character.messageExamples = normalizePresetMessageExamples(
-        bundledPreset.messageExamples as PresetMessageExample[],
+      character.messageExamples = normalizeCharacterMessageExamples(
+        bundledPreset.messageExamples,
+        character.name,
       );
     }
   }

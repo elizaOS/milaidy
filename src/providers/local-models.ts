@@ -228,6 +228,7 @@ export class LocalModelManager {
   private manifestPath: string;
   private manifest: Record<string, { downloadedAt: string; path: string }> = {};
   private ollamaUrl: string;
+  private downloadLocks = new Map<string, Promise<string>>();
 
   constructor(options?: { cacheDir?: string; ollamaUrl?: string }) {
     this.cacheDir =
@@ -293,6 +294,24 @@ export class LocalModelManager {
     modelId: string,
     onProgress?: (progress: ModelDownloadProgress) => void,
   ): Promise<string> {
+    const existingDownload = this.downloadLocks.get(modelId);
+    if (existingDownload) {
+      return existingDownload;
+    }
+
+    const downloadPromise = this.downloadModelInner(modelId, onProgress);
+    this.downloadLocks.set(modelId, downloadPromise);
+    try {
+      return await downloadPromise;
+    } finally {
+      this.downloadLocks.delete(modelId);
+    }
+  }
+
+  private async downloadModelInner(
+    modelId: string,
+    onProgress?: (progress: ModelDownloadProgress) => void,
+  ): Promise<string> {
     // Check if it's an Ollama model
     const config = Object.values(LOCAL_MODEL_REGISTRY)
       .flat()
@@ -341,6 +360,7 @@ export class LocalModelManager {
         : files.map((f) => f.rfilename);
 
     let totalDownloaded = 0;
+    const downloadedFiles = new Set<string>();
     for (const filename of downloadList) {
       validateFilename(filename);
       const fileUrl = `https://huggingface.co/${modelId}/resolve/main/${filename}`;
@@ -364,6 +384,7 @@ export class LocalModelManager {
 
       const arrayBuffer = await fileResponse.arrayBuffer();
       writeFileSync(filePath, Buffer.from(arrayBuffer));
+      downloadedFiles.add(filename);
 
       totalDownloaded++;
       onProgress?.({
@@ -373,6 +394,19 @@ export class LocalModelManager {
         total: downloadList.length,
         percent: (totalDownloaded / downloadList.length) * 100,
       });
+    }
+
+    const requiredWeightFiles = downloadList.filter((filename) =>
+      /model.*\.(bin|safetensors|onnx)$/.test(filename),
+    );
+    const hasConfig = downloadedFiles.has("config.json");
+    const hasWeights =
+      requiredWeightFiles.length === 0 ||
+      requiredWeightFiles.some((filename) => downloadedFiles.has(filename));
+    if (!hasConfig || !hasWeights) {
+      throw new Error(
+        `Model download incomplete for ${modelId}: missing required config or weight files`,
+      );
     }
 
     // Update manifest

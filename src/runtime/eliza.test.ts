@@ -1612,6 +1612,36 @@ describe("buildCharacterFromConfig", () => {
     expect(char.messageExamples.length).toBeGreaterThan(0);
   });
 
+  it("normalizes legacy messageExamples from saved agent config", () => {
+    const config = {
+      agents: {
+        list: [
+          {
+            id: "main",
+            name: "Sakuya",
+            messageExamples: [
+              [
+                { user: "{{user1}}", content: { text: "status?" } },
+                { user: "{{agentName}}", content: { text: "On track." } },
+              ],
+            ],
+          },
+        ],
+      },
+    } as ElizaConfig;
+
+    const char = buildCharacterFromConfig(config);
+
+    expect(char.messageExamples).toEqual([
+      {
+        examples: [
+          { name: "{{user1}}", content: { text: "status?" } },
+          { name: "Sakuya", content: { text: "On track." } },
+        ],
+      },
+    ]);
+  });
+
   it("hydrates username and topics from agent config", () => {
     const config = {
       agents: {

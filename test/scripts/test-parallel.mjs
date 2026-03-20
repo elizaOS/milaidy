@@ -80,6 +80,15 @@ const WARNING_SUPPRESSION_FLAGS = [
   "--disable-warning=DEP0040",
   "--disable-warning=DEP0060",
 ];
+const LOCALSTORAGE_NODE_OPTION_PATTERN =
+  /(^|\s)--localstorage-file(?:=\S+)?(?=\s|$)/g;
+
+function sanitiseNodeOptions(nodeOptions) {
+  return nodeOptions
+    .replace(LOCALSTORAGE_NODE_OPTION_PATTERN, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 const runOnce = (entry, extraArgs = []) =>
   new Promise((resolve) => {
@@ -114,7 +123,8 @@ const runOnce = (entry, extraArgs = []) =>
       env: {
         ...process.env,
         VITEST_GROUP: entry.name,
-        NODE_OPTIONS: nextNodeOptions,
+        NODE_OPTIONS: sanitiseNodeOptions(nextNodeOptions),
+        NODE_NO_WARNINGS: process.env.NODE_NO_WARNINGS ?? "1",
       },
       shell: process.platform === "win32",
     });

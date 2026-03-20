@@ -138,6 +138,7 @@ export default defineConfig({
   test: {
     testTimeout: 120_000,
     hookTimeout: 120_000,
+    globalSetup: ["test/e2e-global-setup.ts"],
     pool: "forks",
     poolOptions: {
       forks: {
