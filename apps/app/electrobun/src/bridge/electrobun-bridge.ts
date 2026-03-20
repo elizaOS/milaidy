@@ -317,7 +317,7 @@ function dispatchMessage(messageName: string, payload: any): void {
   if (messageName === "apiBaseUpdate") {
     const p = payload as { base: string; token?: string };
     window.__MILADY_API_BASE__ = p.base;
-    if (p.token) window.__MILADY_API_TOKEN__ = p.token;
+    if (p.token) Object.defineProperty(window, '__MILADY_API_TOKEN__', { value: p.token, writable: true, enumerable: false, configurable: true });
   }
 
   // Dispatch to all registered ipcRenderer.on() listeners

@@ -59,6 +59,7 @@ WORKDIR /app
 COPY . .
 
 RUN bun install --frozen-lockfile --ignore-scripts 2>&1
+RUN node ./scripts/link-browser-server.mjs 2>/dev/null || true && node ./scripts/patch-deps.mjs
 RUN npx tsdown 2>&1 || echo "tsdown done"
 
 # Patch @elizaos/autonomous version to match the milady wrapper version
@@ -336,10 +337,10 @@ WORKDIR /app
 COPY --from=pruner /app /app
 
 ENV NODE_ENV=production
-ENV MILADY_PORT=3000
-ENV ELIZA_API_BIND=0.0.0.0
+ENV MILADY_PORT=2138
+ENV MILADY_API_BIND=0.0.0.0
 
-EXPOSE 3000
+EXPOSE 2138
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:${MILADY_PORT}/api/health || exit 1

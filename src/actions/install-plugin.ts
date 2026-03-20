@@ -13,7 +13,7 @@
 import type { Action, HandlerOptions } from "@elizaos/core";
 
 /** API port for posting install requests. */
-const API_PORT = process.env.API_PORT || process.env.SERVER_PORT || "2138";
+const API_PORT = process.env.MILADY_API_PORT || process.env.MILADY_PORT || "2138";
 
 export const installPluginAction: Action = {
   name: "INSTALL_PLUGIN",

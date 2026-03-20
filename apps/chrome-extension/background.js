@@ -85,6 +85,10 @@ export async function ensureRelayConnection() {
       );
     }
 
+    // TODO(security): This WebSocket connection is unauthenticated. A future
+    // iteration should read a stored API token from chrome.storage.local and
+    // pass it as a query parameter (e.g. `wsUrl + '?token=' + token`), with
+    // corresponding server-side validation in the WebSocket upgrade handler.
     const ws = new WebSocket(wsUrl);
     relayWs = ws;
 

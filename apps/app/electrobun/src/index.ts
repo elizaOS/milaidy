@@ -357,6 +357,7 @@ let lastFocusedWindow: ManagedWindowLike | null = null;
 
 function sendToActiveRenderer(message: string, payload?: unknown): void {
   currentSendToWebview?.(message, payload);
+  if (!currentSendToWebview) console.debug("[Main] Dropped renderer message (no window):", message);
 }
 
 // ============================================================================
@@ -524,7 +525,13 @@ async function createMainWindow(): Promise<BrowserWindow> {
   // Read the pre-built webview bridge preload (built by `bun run build:preload`).
   // The preload runs in the webview context after Electrobun's built-in preload,
   // setting up Milady's direct Electrobun RPC bridge on the window.
-  const preload = readBuiltPreloadScript(import.meta.dir);
+  let preload: string;
+  try {
+    preload = readBuiltPreloadScript(import.meta.dir);
+  } catch (err) {
+    console.error("[Main] Failed to read preload script:", err);
+    preload = "// preload unavailable";
+  }
 
   const win = new BrowserWindow({
     title: "Milady",
@@ -1317,7 +1324,9 @@ async function main(): Promise<void> {
       // in local mode via injectApiBaseIntoHtml), so the main process must
       // ensure the agent is running before the renderer starts polling.
       console.log("[Main] Starting embedded agent (local mode).");
-      void _startAgent(currentWindow);
+      _startAgent(currentWindow).catch((err) => {
+        console.error("[Main] Agent auto-start failed:", err);
+      });
     }
   }
 

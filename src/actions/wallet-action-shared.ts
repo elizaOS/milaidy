@@ -7,7 +7,7 @@
 
 /** API port for loopback wallet API calls. Shared across all wallet actions. */
 export const WALLET_ACTION_API_PORT =
-  process.env.API_PORT || process.env.SERVER_PORT || "2138";
+  process.env.MILADY_API_PORT || process.env.MILADY_PORT || "2138";
 
 /**
  * Build Authorization headers for loopback API calls.

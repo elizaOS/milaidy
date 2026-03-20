@@ -5,6 +5,8 @@
  * utilities to inject it into the webview via RPC messages.
  */
 
+import { DEFAULT_PORT } from "./constants";
+
 type ExternalApiBaseEnvKey =
   | "MILADY_DESKTOP_TEST_API_BASE"
   | "MILADY_DESKTOP_API_BASE"
@@ -96,7 +98,7 @@ export function resolveInitialApiBase(
     return resolution.externalApi.base;
   }
 
-  const agentPort = Number(env.MILADY_PORT) || 2138;
+  const agentPort = Number(env.MILADY_PORT) || DEFAULT_PORT;
   return `http://127.0.0.1:${agentPort}`;
 }
 

@@ -390,8 +390,8 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
       .catch((err: Error) => logger.warn(`[milady] Telegram bot launch error: ${err.message}`));
 
     _miladyTelegramBot = bot;
-    process.once("SIGINT", () => bot.stop("SIGINT"));
-    process.once("SIGTERM", () => bot.stop("SIGTERM"));
+    // Telegram bot cleanup is handled by the unified signal handler in
+    // startEliza() via _miladyTelegramBot — no separate registration needed.
 
     await new Promise((r) => setTimeout(r, 500));
     logger.info("[milady] Telegram bot polling started");
@@ -549,6 +549,10 @@ export async function startEliza(
           process.exit(1);
         }, 10_000);
         forceExitTimer.unref?.();
+        // Stop Telegram bot if running (previously registered via separate process.once handlers)
+        if (_miladyTelegramBot) {
+          try { _miladyTelegramBot.stop("SIGINT"); } catch { /* ignore */ }
+        }
         if (currentRuntime) {
           await upstreamShutdownRuntime(currentRuntime, "server-only shutdown");
         }

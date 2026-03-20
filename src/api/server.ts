@@ -1294,21 +1294,30 @@ function persistCompatPluginMutation(
     config.env ??= {};
     for (const [key, value] of Object.entries(values)) {
       if (value.trim()) {
-        process.env[key] = value;
         config.env[key] = value;
         nextConfig[key] = value;
       } else {
         // Empty string = clear the saved value
-        delete process.env[key];
         delete config.env[key];
         delete nextConfig[key];
       }
     }
 
     pluginEntry.config = nextConfig;
-  }
 
-  saveElizaConfig(config);
+    saveElizaConfig(config);
+
+    // Only mutate process.env after config is persisted successfully
+    for (const [key, value] of Object.entries(values)) {
+      if (value.trim()) {
+        process.env[key] = value;
+      } else {
+        delete process.env[key];
+      }
+    }
+  } else {
+    saveElizaConfig(config);
+  }
 
   const refreshed = (
     buildPluginListResponse(null).plugins as unknown as CompatPluginRecord[]
@@ -1423,16 +1432,18 @@ async function handleDatabaseRowsCompatRoute(
 
   const filters: string[] = [];
   if (search) {
-    const escapedSearch = search
+    // Escape LIKE-special characters, then wrap with % wildcards via sqlLiteral
+    // to avoid SQL injection through string interpolation.
+    const likeEscaped = search
       .replace(/\\/g, "\\\\")
       .replace(/%/g, "\\%")
-      .replace(/_/g, "\\_")
-      .replace(/'/g, "''");
+      .replace(/_/g, "\\_");
+    const searchLiteral = sqlLiteral(`%${likeEscaped}%`);
     filters.push(
       `(${columns
         .map(
           (columnName) =>
-            `CAST(${quoteIdent(columnName)} AS TEXT) ILIKE '%${escapedSearch}%'`,
+            `CAST(${quoteIdent(columnName)} AS TEXT) ILIKE ${searchLiteral}`,
         )
         .join(" OR ")})`,
     );
@@ -1556,8 +1567,14 @@ async function handleMiladyCompatRoute(
     // Read the body, persist the key, then push bytes back so upstream
     // can re-read the same body from the request stream.
     const chunks: Buffer[] = [];
-    for await (const chunk of req) {
-      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    try {
+      for await (const chunk of req) {
+        chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+      }
+    } catch {
+      // Stream error — signal end-of-stream and bail out
+      req.push(null);
+      return false;
     }
     const rawBody = Buffer.concat(chunks);
 
@@ -1571,11 +1588,16 @@ async function handleMiladyCompatRoute(
       // JSON parse failed — let upstream handle the error
     }
 
-    // Push the raw bytes back into the request stream so the upstream
-    // handler can consume the body normally.
+    // Respond immediately so the 10-second client timeout doesn't fire.
+    // The upstream handler triggers an agent restart which can take much
+    // longer than the client allows.
+    sendJsonResponse(res, 200, { ok: true });
+
+    // Still forward the body to upstream so it processes the onboarding
+    // config (character, style, etc.) in the background.
     req.push(rawBody);
     req.push(null);
-    return false;
+    return true;
   }
 
   if (method === "GET" && url.pathname === "/api/config") {
@@ -1625,21 +1647,21 @@ async function handleMiladyCompatRoute(
     if (testPluginId === "telegram") {
       const token = process.env.TELEGRAM_BOT_TOKEN;
       if (!token) {
-        sendJsonResponse(res, 200, { success: false, pluginId: testPluginId, error: "No bot token configured", durationMs: Date.now() - startMs });
+        sendJsonResponse(res, 502, { success: false, pluginId: testPluginId, error: "No bot token configured", durationMs: Date.now() - startMs });
         return true;
       }
       try {
         const apiRoot = process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
         const tgResp = await fetch(`${apiRoot}/bot${token}/getMe`);
         const tgData = (await tgResp.json()) as { ok: boolean; result?: { username?: string }; description?: string };
-        sendJsonResponse(res, 200, {
+        sendJsonResponse(res, tgData.ok ? 200 : 502, {
           success: tgData.ok,
           pluginId: testPluginId,
           message: tgData.ok ? `Connected as @${tgData.result?.username}` : `Telegram API error: ${tgData.description}`,
           durationMs: Date.now() - startMs,
         });
       } catch (err) {
-        sendJsonResponse(res, 200, { success: false, pluginId: testPluginId, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs });
+        sendJsonResponse(res, 502, { success: false, pluginId: testPluginId, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs });
       }
       return true;
     }
@@ -1649,6 +1671,18 @@ async function handleMiladyCompatRoute(
   }
 
   // ── POST /api/plugins/:id/reveal — Return unmasked secret value
+  // Only allow revealing plugin-related config keys, not arbitrary env vars.
+  const REVEALABLE_KEY_PREFIXES = [
+    "OPENAI_", "ANTHROPIC_", "GOOGLE_", "GROQ_", "MISTRAL_",
+    "PERPLEXITY_", "COHERE_", "TOGETHER_", "FIREWORKS_", "REPLICATE_",
+    "HUGGINGFACE_", "ELEVENLABS_", "DISCORD_", "TELEGRAM_", "TWITTER_",
+    "SLACK_", "GITHUB_", "REDIS_", "POSTGRES_", "DATABASE_",
+    "SUPABASE_", "PINECONE_", "QDRANT_", "WEAVIATE_", "CHROMADB_",
+    "AWS_", "AZURE_", "CLOUDFLARE_", "SOLANA_", "ETHEREUM_",
+    "EVM_", "WALLET_", "ELIZA_", "MILADY_", "PLUGIN_",
+    "XAI_", "DEEPSEEK_", "OLLAMA_", "FAL_", "LETZAI_",
+    "GAIANET_", "LIVEPEER_",
+  ];
   const revealMatch = method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/reveal$/);
   if (revealMatch) {
     if (!ensureCompatApiAuthorized(req, res)) return true;
@@ -1659,12 +1693,18 @@ async function handleMiladyCompatRoute(
       sendJsonErrorResponse(res, 400, "Missing key parameter");
       return true;
     }
+    const upperKey = key.toUpperCase();
+    if (!REVEALABLE_KEY_PREFIXES.some((prefix) => upperKey.startsWith(prefix))) {
+      sendJsonErrorResponse(res, 403, "Key is not in the allowlist of revealable plugin config keys");
+      return true;
+    }
     const config = loadElizaConfig();
     const value = process.env[key] ?? (config.env as Record<string, string> | undefined)?.[key] ?? null;
     sendJsonResponse(res, 200, { ok: true, value });
     return true;
   }
 
+  if (!ensureCompatApiAuthorized(req, res)) return true;
   return handleDatabaseRowsCompatRoute(req, res, state.current, url.pathname);
 }
 
@@ -1721,7 +1761,17 @@ function patchHttpCreateServerForMiladyCompat(
           await ensureRuntimeSqlCompatibility(state.current);
         }
 
-        if (await handleMiladyCompatRoute(req, res, state)) {
+        try {
+          if (await handleMiladyCompatRoute(req, res, state)) {
+            return;
+          }
+        } catch (err) {
+          console.error("[milady-compat] unhandled error in route handler", err);
+          if (!res.headersSent) {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(JSON.stringify({ error: "Internal server error" }));
+          }
           return;
         }
       }

@@ -37,7 +37,7 @@ const API_PORT = Number(process.env.MILADY_API_PORT) || 31337;
 // --app=<name> selects which app to serve (default: "app" → apps/app)
 const appArgMatch = process.argv.find((a) => a.startsWith("--app="));
 const appName = appArgMatch ? appArgMatch.split("=")[1] : "app";
-const APP_UI_PORTS = { app: 2138, home: 2142 };
+const APP_UI_PORTS = { app: 2138, home: Number(process.env.MILADY_HOME_PORT) || 2142 };
 const UI_PORT = APP_UI_PORTS[appName] ?? 2138;
 const appDir = `apps/${appName}`;
 

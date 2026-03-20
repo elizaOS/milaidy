@@ -59,7 +59,7 @@
     "benchmark:server": "node --import tsx src/benchmark/server.ts",
     "benchmark:normalize-capture": "node --import tsx scripts/normalize-parallax-capture.ts",
     "build": "tsdown && echo '{\"type\":\"module\"}' > dist/package.json && bun scripts/write-build-info.ts && cd apps/app && bun run build",
-    "build:node": "tsdown && echo '{\"type\":\"module\"}' > dist/package.json && node --import tsx scripts/write-build-info.ts && cd apps/app && npm run build",
+    "build:node": "tsdown && echo '{\"type\":\"module\"}' > dist/package.json && node --import tsx scripts/write-build-info.ts && cd apps/app && bun run build",
     "build:android": "cd apps/app && bun scripts/build.mjs && capacitor sync android",
     "build:contracts": "cd test/contracts && forge build --skip Harness",
     "build:desktop": "node scripts/desktop-build.mjs build --variant=base --stage-macos-release-app",
