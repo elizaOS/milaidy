@@ -10,6 +10,7 @@ import fs from "node:fs";
  */
 
 import { Updater, Utils } from "electrobun/bun";
+import { setAgentReady } from "./agent-ready-state";
 import { showBackgroundNoticeOnce } from "./background-notice";
 import { getAgentManager } from "./native/agent";
 import { getCameraManager } from "./native/camera";
@@ -88,12 +89,23 @@ export function registerRpcHandlers(
 
   rpc?.setRequestHandler?.({
     // ---- Agent ----
-    agentStart: async () => agent.start(),
+    agentStart: async () => {
+      const status = await agent.start();
+      if (status.state === "running") {
+        setAgentReady(true);
+      }
+      return status;
+    },
     agentStop: async () => {
       await agent.stop();
+      setAgentReady(false);
       return { ok: true };
     },
-    agentRestart: async () => agent.restart(),
+    agentRestart: async () => {
+      const status = await agent.restart();
+      setAgentReady(status.state === "running");
+      return status;
+    },
     agentStatus: async () => agent.getStatus(),
 
     // ---- Desktop: Tray ----

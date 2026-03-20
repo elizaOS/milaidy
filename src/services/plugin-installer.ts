@@ -31,8 +31,8 @@ import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { requestRestart } from "../runtime/restart";
-import { getPluginInfo, type RegistryPluginInfo } from "./registry-client";
 import { createSerialise } from "../utils/serialise";
+import { getPluginInfo, type RegistryPluginInfo } from "./registry-client";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);

@@ -193,6 +193,9 @@ describe("applyOnboardingConnectionConfig", () => {
     );
     expect(config.agents?.defaults?.model?.primary).toBe("anthropic");
     expect(applySubscriptionCredentials).toHaveBeenCalledWith(config);
+    // Ensure subscription credentials are applied exactly once (by the
+    // upstream handler) — a double call could overwrite an explicit apiKey.
+    expect(applySubscriptionCredentials).toHaveBeenCalledTimes(1);
     expect(deleteCredentials).toHaveBeenCalledWith("openai-codex");
   });
 
@@ -212,7 +215,10 @@ describe("applyOnboardingConnectionConfig", () => {
     expect((config.env as Record<string, string>)?.ANTHROPIC_API_KEY).toBe(
       "sk-ant-oat01-test-token",
     );
-    expect(applySubscriptionCredentials).toHaveBeenCalledWith(config);
+    // When an explicit apiKey is provided, the upstream handler sets it
+    // directly in config.env without calling applySubscriptionCredentials —
+    // calling it here would overwrite the setup token with stale stored creds.
+    expect(applySubscriptionCredentials).not.toHaveBeenCalled();
     expect(deleteCredentials).toHaveBeenCalledWith("openai-codex");
   });
 

@@ -1,0 +1,1247 @@
+{
+  "version": 1,
+  "providerId": "vercel-ai-gateway",
+  "fetchedAt": "2026-03-20T08:39:53.279Z",
+  "models": [
+    {
+      "id": "alibaba/qwen-3-14b",
+      "name": "Qwen3-14B",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen-3-235b",
+      "name": "Qwen3-235B-A22B",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen-3-30b",
+      "name": "Qwen3-30B-A3B",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen-3-32b",
+      "name": "Qwen 3 32B",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-235b-a22b-thinking",
+      "name": "Qwen3 235B A22B Thinking 2507",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-coder",
+      "name": "Qwen3 Coder 480B A35B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-coder-30b-a3b",
+      "name": "Qwen 3 Coder 30B A3B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-coder-next",
+      "name": "Qwen3 Coder Next",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-coder-plus",
+      "name": "Qwen3 Coder Plus",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-embedding-0.6b",
+      "name": "Qwen3 Embedding 0.6B",
+      "category": "embedding"
+    },
+    {
+      "id": "alibaba/qwen3-embedding-4b",
+      "name": "Qwen3 Embedding 4B",
+      "category": "embedding"
+    },
+    {
+      "id": "alibaba/qwen3-embedding-8b",
+      "name": "Qwen3 Embedding 8B",
+      "category": "embedding"
+    },
+    {
+      "id": "alibaba/qwen3-max",
+      "name": "Qwen3 Max",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-max-preview",
+      "name": "Qwen3 Max Preview",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-max-thinking",
+      "name": "Qwen 3 Max Thinking",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-next-80b-a3b-instruct",
+      "name": "Qwen3 Next 80B A3B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-next-80b-a3b-thinking",
+      "name": "Qwen3 Next 80B A3B Thinking",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-vl-instruct",
+      "name": "Qwen3 VL 235B A22B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3-vl-thinking",
+      "name": "Qwen3 VL 235B A22B Thinking",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3.5-flash",
+      "name": "Qwen 3.5 Flash",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/qwen3.5-plus",
+      "name": "Qwen 3.5 Plus",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/wan-v2.5-t2v-preview",
+      "name": "Wan v2.5 Text-to-Video Preview",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/wan-v2.6-i2v",
+      "name": "Wan v2.6 Image-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/wan-v2.6-i2v-flash",
+      "name": "Wan v2.6 Image-to-Video Flash",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/wan-v2.6-r2v",
+      "name": "Wan v2.6 Reference-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/wan-v2.6-r2v-flash",
+      "name": "Wan v2.6 Reference-to-Video Flash",
+      "category": "chat"
+    },
+    {
+      "id": "alibaba/wan-v2.6-t2v",
+      "name": "Wan v2.6 Text-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "amazon/nova-2-lite",
+      "name": "Nova 2 Lite",
+      "category": "chat"
+    },
+    {
+      "id": "amazon/nova-lite",
+      "name": "Nova Lite",
+      "category": "chat"
+    },
+    {
+      "id": "amazon/nova-micro",
+      "name": "Nova Micro",
+      "category": "chat"
+    },
+    {
+      "id": "amazon/nova-pro",
+      "name": "Nova Pro",
+      "category": "chat"
+    },
+    {
+      "id": "amazon/titan-embed-text-v2",
+      "name": "Titan Text Embeddings V2",
+      "category": "embedding"
+    },
+    {
+      "id": "anthropic/claude-3-haiku",
+      "name": "Claude 3 Haiku",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-3-opus",
+      "name": "Claude 3 Opus",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-3.5-haiku",
+      "name": "Claude 3.5 Haiku",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-3.5-sonnet",
+      "name": "Claude 3.5 Sonnet",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-3.5-sonnet-20240620",
+      "name": "Claude 3.5 Sonnet (2024-06-20)",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-3.7-sonnet",
+      "name": "Claude 3.7 Sonnet",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-haiku-4.5",
+      "name": "Claude Haiku 4.5",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-opus-4",
+      "name": "Claude Opus 4",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-opus-4.1",
+      "name": "Claude Opus 4.1",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-opus-4.5",
+      "name": "Claude Opus 4.5",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-opus-4.6",
+      "name": "Claude Opus 4.6",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-sonnet-4",
+      "name": "Claude Sonnet 4",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-sonnet-4.5",
+      "name": "Claude Sonnet 4.5",
+      "category": "chat"
+    },
+    {
+      "id": "anthropic/claude-sonnet-4.6",
+      "name": "Claude Sonnet 4.6",
+      "category": "chat"
+    },
+    {
+      "id": "arcee-ai/trinity-large-preview",
+      "name": "Trinity Large Preview",
+      "category": "chat"
+    },
+    {
+      "id": "arcee-ai/trinity-mini",
+      "name": "Trinity Mini",
+      "category": "chat"
+    },
+    {
+      "id": "bfl/flux-2-flex",
+      "name": "FLUX.2 [flex]",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-2-klein-4b",
+      "name": "FLUX.2 [klein] 4B",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-2-klein-9b",
+      "name": "FLUX.2 [klein] 9B",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-2-max",
+      "name": "FLUX.2 [max]",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-2-pro",
+      "name": "FLUX.2 [pro]",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-kontext-max",
+      "name": "FLUX.1 Kontext Max",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-kontext-pro",
+      "name": "FLUX.1 Kontext Pro",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-pro-1.0-fill",
+      "name": "FLUX.1 Fill [pro]",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-pro-1.1",
+      "name": "FLUX1.1 [pro]",
+      "category": "image"
+    },
+    {
+      "id": "bfl/flux-pro-1.1-ultra",
+      "name": "FLUX1.1 [pro] Ultra",
+      "category": "image"
+    },
+    {
+      "id": "bytedance/seed-1.6",
+      "name": "Seed 1.6",
+      "category": "chat"
+    },
+    {
+      "id": "bytedance/seed-1.8",
+      "name": "Bytedance Seed 1.8",
+      "category": "chat"
+    },
+    {
+      "id": "bytedance/seedance-v1.0-lite-i2v",
+      "name": "Seedance v1.0 Lite Image-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "bytedance/seedance-v1.0-lite-t2v",
+      "name": "Seedance v1.0 Lite Text-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "bytedance/seedance-v1.0-pro",
+      "name": "Seedance v1.0 Pro",
+      "category": "chat"
+    },
+    {
+      "id": "bytedance/seedance-v1.0-pro-fast",
+      "name": "Seedance v1.0 Pro Fast",
+      "category": "chat"
+    },
+    {
+      "id": "bytedance/seedance-v1.5-pro",
+      "name": "Seedance v1.5 Pro",
+      "category": "chat"
+    },
+    {
+      "id": "cohere/command-a",
+      "name": "Command A",
+      "category": "chat"
+    },
+    {
+      "id": "cohere/embed-v4.0",
+      "name": "Embed v4.0",
+      "category": "embedding"
+    },
+    {
+      "id": "deepseek/deepseek-r1",
+      "name": "DeepSeek-R1",
+      "category": "chat"
+    },
+    {
+      "id": "deepseek/deepseek-v3",
+      "name": "DeepSeek V3 0324",
+      "category": "chat"
+    },
+    {
+      "id": "deepseek/deepseek-v3.1",
+      "name": "DeepSeek-V3.1",
+      "category": "chat"
+    },
+    {
+      "id": "deepseek/deepseek-v3.1-terminus",
+      "name": "DeepSeek V3.1 Terminus",
+      "category": "chat"
+    },
+    {
+      "id": "deepseek/deepseek-v3.2",
+      "name": "DeepSeek V3.2",
+      "category": "chat"
+    },
+    {
+      "id": "deepseek/deepseek-v3.2-thinking",
+      "name": "DeepSeek V3.2 Thinking",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-2.0-flash",
+      "name": "Gemini 2.0 Flash",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-2.0-flash-lite",
+      "name": "Gemini 2.0 Flash Lite",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-2.5-flash",
+      "name": "Gemini 2.5 Flash",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-2.5-flash-image",
+      "name": "Nano Banana (Gemini 2.5 Flash Image)",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-2.5-flash-lite",
+      "name": "Gemini 2.5 Flash Lite",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-2.5-pro",
+      "name": "Gemini 2.5 Pro",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-3-flash",
+      "name": "Gemini 3 Flash",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-3-pro-image",
+      "name": "Nano Banana Pro (Gemini 3 Pro Image)",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-3-pro-preview",
+      "name": "Gemini 3 Pro Preview",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-3.1-flash-image-preview",
+      "name": "Gemini 3.1 Flash Image Preview (Nano Banana 2)",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-3.1-flash-lite-preview",
+      "name": "Gemini 3.1 Flash Lite Preview",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-3.1-pro-preview",
+      "name": "Gemini 3.1 Pro Preview",
+      "category": "chat"
+    },
+    {
+      "id": "google/gemini-embedding-001",
+      "name": "Gemini Embedding 001",
+      "category": "embedding"
+    },
+    {
+      "id": "google/imagen-4.0-fast-generate-001",
+      "name": "Imagen 4 Fast",
+      "category": "image"
+    },
+    {
+      "id": "google/imagen-4.0-generate-001",
+      "name": "Imagen 4",
+      "category": "image"
+    },
+    {
+      "id": "google/imagen-4.0-ultra-generate-001",
+      "name": "Imagen 4 Ultra",
+      "category": "image"
+    },
+    {
+      "id": "google/text-embedding-005",
+      "name": "Text Embedding 005",
+      "category": "embedding"
+    },
+    {
+      "id": "google/text-multilingual-embedding-002",
+      "name": "Text Multilingual Embedding 002",
+      "category": "embedding"
+    },
+    {
+      "id": "google/veo-3.0-fast-generate-001",
+      "name": "Veo 3.0 Fast Generate",
+      "category": "chat"
+    },
+    {
+      "id": "google/veo-3.0-generate-001",
+      "name": "Veo 3.0",
+      "category": "chat"
+    },
+    {
+      "id": "google/veo-3.1-fast-generate-001",
+      "name": "Veo 3.1 Fast Generate",
+      "category": "chat"
+    },
+    {
+      "id": "google/veo-3.1-generate-001",
+      "name": "Veo 3.1",
+      "category": "chat"
+    },
+    {
+      "id": "inception/mercury-2",
+      "name": "Mercury 2",
+      "category": "chat"
+    },
+    {
+      "id": "inception/mercury-coder-small",
+      "name": "Mercury Coder Small Beta",
+      "category": "chat"
+    },
+    {
+      "id": "klingai/kling-v2.5-turbo-i2v",
+      "name": "Kling v2.5 Turbo Image-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "klingai/kling-v2.5-turbo-t2v",
+      "name": "Kling v2.5 Turbo Text-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "klingai/kling-v2.6-i2v",
+      "name": "Kling v2.6 Image-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "klingai/kling-v2.6-motion-control",
+      "name": "Kling v2.6 Motion Control",
+      "category": "chat"
+    },
+    {
+      "id": "klingai/kling-v2.6-t2v",
+      "name": "Kling v2.6 Text-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "klingai/kling-v3.0-i2v",
+      "name": "Kling v3.0 Image-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "klingai/kling-v3.0-t2v",
+      "name": "Kling v3.0 Text-to-Video",
+      "category": "chat"
+    },
+    {
+      "id": "kwaipilot/kat-coder-pro-v1",
+      "name": "KAT-Coder-Pro V1",
+      "category": "chat"
+    },
+    {
+      "id": "meituan/longcat-flash-chat",
+      "name": "LongCat Flash Chat",
+      "category": "chat"
+    },
+    {
+      "id": "meituan/longcat-flash-thinking",
+      "name": "LongCat Flash Thinking",
+      "category": "chat"
+    },
+    {
+      "id": "meituan/longcat-flash-thinking-2601",
+      "name": "LongCat Flash Thinking 2601",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-3.1-70b",
+      "name": "Llama 3.1 70B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-3.1-8b",
+      "name": "Llama 3.1 8B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-3.2-11b",
+      "name": "Llama 3.2 11B Vision Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-3.2-1b",
+      "name": "Llama 3.2 1B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-3.2-3b",
+      "name": "Llama 3.2 3B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-3.2-90b",
+      "name": "Llama 3.2 90B Vision Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-3.3-70b",
+      "name": "Llama 3.3 70B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-4-maverick",
+      "name": "Llama 4 Maverick 17B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "meta/llama-4-scout",
+      "name": "Llama 4 Scout 17B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "minimax/minimax-m2",
+      "name": "MiniMax M2",
+      "category": "chat"
+    },
+    {
+      "id": "minimax/minimax-m2.1",
+      "name": "MiniMax M2.1",
+      "category": "chat"
+    },
+    {
+      "id": "minimax/minimax-m2.1-lightning",
+      "name": "MiniMax M2.1 Lightning",
+      "category": "chat"
+    },
+    {
+      "id": "minimax/minimax-m2.5",
+      "name": "MiniMax M2.5",
+      "category": "chat"
+    },
+    {
+      "id": "minimax/minimax-m2.5-highspeed",
+      "name": "MiniMax M2.5 High Speed",
+      "category": "chat"
+    },
+    {
+      "id": "minimax/minimax-m2.7",
+      "name": "Minimax M2.7",
+      "category": "chat"
+    },
+    {
+      "id": "minimax/minimax-m2.7-highspeed",
+      "name": "MiniMax M2.7 High Speed",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/codestral",
+      "name": "Mistral Codestral",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/codestral-embed",
+      "name": "Codestral Embed",
+      "category": "embedding"
+    },
+    {
+      "id": "mistral/devstral-2",
+      "name": "Devstral 2",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/devstral-small",
+      "name": "Devstral Small 1.1",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/devstral-small-2",
+      "name": "Devstral Small 2",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/magistral-medium",
+      "name": "Magistral Medium 2509",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/magistral-small",
+      "name": "Magistral Small 2509",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/ministral-14b",
+      "name": "Ministral 14B",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/ministral-3b",
+      "name": "Ministral 3B",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/ministral-8b",
+      "name": "Ministral 8B",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/mistral-embed",
+      "name": "Mistral Embed",
+      "category": "embedding"
+    },
+    {
+      "id": "mistral/mistral-large-3",
+      "name": "Mistral Large 3",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/mistral-medium",
+      "name": "Mistral Medium 3.1",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/mistral-nemo",
+      "name": "Mistral Nemo 12B",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/mistral-small",
+      "name": "Mistral Small",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/mixtral-8x22b-instruct",
+      "name": "Mixtral MoE 8x22B Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/pixtral-12b",
+      "name": "Pixtral 12B 2409",
+      "category": "chat"
+    },
+    {
+      "id": "mistral/pixtral-large",
+      "name": "Pixtral Large",
+      "category": "chat"
+    },
+    {
+      "id": "moonshotai/kimi-k2",
+      "name": "Kimi K2",
+      "category": "chat"
+    },
+    {
+      "id": "moonshotai/kimi-k2-0905",
+      "name": "Kimi K2 0905",
+      "category": "chat"
+    },
+    {
+      "id": "moonshotai/kimi-k2-thinking",
+      "name": "Kimi K2 Thinking",
+      "category": "chat"
+    },
+    {
+      "id": "moonshotai/kimi-k2-thinking-turbo",
+      "name": "Kimi K2 Thinking Turbo",
+      "category": "chat"
+    },
+    {
+      "id": "moonshotai/kimi-k2-turbo",
+      "name": "Kimi K2 Turbo",
+      "category": "chat"
+    },
+    {
+      "id": "moonshotai/kimi-k2.5",
+      "name": "Kimi K2.5",
+      "category": "chat"
+    },
+    {
+      "id": "morph/morph-v3-fast",
+      "name": "Morph V3 Fast",
+      "category": "chat"
+    },
+    {
+      "id": "morph/morph-v3-large",
+      "name": "Morph V3 Large",
+      "category": "chat"
+    },
+    {
+      "id": "nvidia/nemotron-3-nano-30b-a3b",
+      "name": "Nemotron 3 Nano 30B A3B",
+      "category": "chat"
+    },
+    {
+      "id": "nvidia/nemotron-nano-12b-v2-vl",
+      "name": "Nvidia Nemotron Nano 12B V2 VL",
+      "category": "chat"
+    },
+    {
+      "id": "nvidia/nemotron-nano-9b-v2",
+      "name": "Nvidia Nemotron Nano 9B V2",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-3.5-turbo",
+      "name": "GPT-3.5 Turbo",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-3.5-turbo-instruct",
+      "name": "GPT-3.5 Turbo Instruct",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-4-turbo",
+      "name": "GPT-4 Turbo",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-4.1",
+      "name": "GPT-4.1",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-4.1-mini",
+      "name": "GPT-4.1 mini",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-4.1-nano",
+      "name": "GPT-4.1 nano",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-4o",
+      "name": "GPT-4o",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-4o-mini",
+      "name": "GPT-4o mini",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-4o-mini-search-preview",
+      "name": "GPT 4o Mini Search Preview",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5",
+      "name": "GPT-5",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5-chat",
+      "name": "GPT 5 Chat",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5-codex",
+      "name": "GPT-5-Codex",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5-mini",
+      "name": "GPT-5 mini",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5-nano",
+      "name": "GPT-5 nano",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5-pro",
+      "name": "GPT-5 pro",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.1-codex",
+      "name": "GPT-5.1-Codex",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.1-codex-max",
+      "name": "GPT 5.1 Codex Max",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.1-codex-mini",
+      "name": "GPT 5.1 Codex Mini",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.1-instant",
+      "name": "GPT-5.1 Instant",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.1-thinking",
+      "name": "GPT 5.1 Thinking",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.2",
+      "name": "GPT 5.2",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.2-chat",
+      "name": "GPT 5.2 Chat",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.2-codex",
+      "name": "GPT 5.2 Codex",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.2-pro",
+      "name": "GPT 5.2 ",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.3-chat",
+      "name": "GPT-5.3 Chat",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.3-codex",
+      "name": "GPT 5.3 Codex",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.4",
+      "name": "GPT 5.4",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.4-mini",
+      "name": "GPT 5.4 Mini",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.4-nano",
+      "name": "GPT 5.4 Nano",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-5.4-pro",
+      "name": "GPT 5.4 Pro",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-image-1",
+      "name": "GPT Image 1",
+      "category": "image"
+    },
+    {
+      "id": "openai/gpt-image-1-mini",
+      "name": "GPT Image 1 Mini",
+      "category": "image"
+    },
+    {
+      "id": "openai/gpt-image-1.5",
+      "name": "GPT Image 1.5",
+      "category": "image"
+    },
+    {
+      "id": "openai/gpt-oss-120b",
+      "name": "gpt-oss-120b",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-oss-20b",
+      "name": "gpt-oss-20b",
+      "category": "chat"
+    },
+    {
+      "id": "openai/gpt-oss-safeguard-20b",
+      "name": "gpt-oss-safeguard-20b",
+      "category": "chat"
+    },
+    {
+      "id": "openai/o1",
+      "name": "o1",
+      "category": "chat"
+    },
+    {
+      "id": "openai/o3",
+      "name": "o3",
+      "category": "chat"
+    },
+    {
+      "id": "openai/o3-deep-research",
+      "name": "o3-deep-research",
+      "category": "chat"
+    },
+    {
+      "id": "openai/o3-mini",
+      "name": "o3-mini",
+      "category": "chat"
+    },
+    {
+      "id": "openai/o3-pro",
+      "name": "o3 Pro",
+      "category": "chat"
+    },
+    {
+      "id": "openai/o4-mini",
+      "name": "o4-mini",
+      "category": "chat"
+    },
+    {
+      "id": "openai/text-embedding-3-large",
+      "name": "text-embedding-3-large",
+      "category": "embedding"
+    },
+    {
+      "id": "openai/text-embedding-3-small",
+      "name": "text-embedding-3-small",
+      "category": "embedding"
+    },
+    {
+      "id": "openai/text-embedding-ada-002",
+      "name": "text-embedding-ada-002",
+      "category": "embedding"
+    },
+    {
+      "id": "perplexity/sonar",
+      "name": "Sonar",
+      "category": "chat"
+    },
+    {
+      "id": "perplexity/sonar-pro",
+      "name": "Sonar Pro",
+      "category": "chat"
+    },
+    {
+      "id": "perplexity/sonar-reasoning",
+      "name": "Sonar Reasoning",
+      "category": "chat"
+    },
+    {
+      "id": "perplexity/sonar-reasoning-pro",
+      "name": "Sonar Reasoning Pro",
+      "category": "chat"
+    },
+    {
+      "id": "prime-intellect/intellect-3",
+      "name": "INTELLECT 3",
+      "category": "chat"
+    },
+    {
+      "id": "prodia/flux-fast-schnell",
+      "name": "Flux Schnell",
+      "category": "image"
+    },
+    {
+      "id": "recraft/recraft-v2",
+      "name": "Recraft V2",
+      "category": "image"
+    },
+    {
+      "id": "recraft/recraft-v3",
+      "name": "Recraft V3",
+      "category": "image"
+    },
+    {
+      "id": "recraft/recraft-v4",
+      "name": "Recraft V4",
+      "category": "image"
+    },
+    {
+      "id": "recraft/recraft-v4-pro",
+      "name": "Recraft V4 Pro",
+      "category": "image"
+    },
+    {
+      "id": "voyage/voyage-3-large",
+      "name": "voyage-3-large",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-3.5",
+      "name": "voyage-3.5",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-3.5-lite",
+      "name": "voyage-3.5-lite",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-4",
+      "name": "voyage-4",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-4-large",
+      "name": "voyage-4-large",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-4-lite",
+      "name": "voyage-4-lite",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-code-2",
+      "name": "voyage-code-2",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-code-3",
+      "name": "voyage-code-3",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-finance-2",
+      "name": "voyage-finance-2",
+      "category": "embedding"
+    },
+    {
+      "id": "voyage/voyage-law-2",
+      "name": "voyage-law-2",
+      "category": "embedding"
+    },
+    {
+      "id": "xai/grok-2-vision",
+      "name": "Grok 2 Vision",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-3",
+      "name": "Grok 3 Beta",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-3-fast",
+      "name": "Grok 3 Fast Beta",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-3-mini",
+      "name": "Grok 3 Mini Beta",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-3-mini-fast",
+      "name": "Grok 3 Mini Fast Beta",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-4",
+      "name": "Grok 4",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-4-fast-non-reasoning",
+      "name": "Grok 4 Fast Non-Reasoning",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-4-fast-reasoning",
+      "name": "Grok 4 Fast Reasoning",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-4.1-fast-non-reasoning",
+      "name": "Grok 4.1 Fast Non-Reasoning",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-4.1-fast-reasoning",
+      "name": "Grok 4.1 Fast Reasoning",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-4.20-multi-agent-beta",
+      "name": "Grok 4.20 Multi Agent Beta",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-4.20-non-reasoning-beta",
+      "name": "Grok 4.20 Beta Non-Reasoning",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-4.20-reasoning-beta",
+      "name": "Grok 4.20 Beta Reasoning",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-code-fast-1",
+      "name": "Grok Code Fast 1",
+      "category": "chat"
+    },
+    {
+      "id": "xai/grok-imagine-image",
+      "name": "Grok Imagine Image",
+      "category": "image"
+    },
+    {
+      "id": "xai/grok-imagine-image-pro",
+      "name": "Grok Imagine Image Pro",
+      "category": "image"
+    },
+    {
+      "id": "xai/grok-imagine-video",
+      "name": "Grok Imagine",
+      "category": "chat"
+    },
+    {
+      "id": "xiaomi/mimo-v2-flash",
+      "name": "MiMo V2 Flash",
+      "category": "chat"
+    },
+    {
+      "id": "xiaomi/mimo-v2-pro",
+      "name": "MiMo V2 Pro",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.5",
+      "name": "GLM-4.5",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.5-air",
+      "name": "GLM 4.5 Air",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.5v",
+      "name": "GLM 4.5V",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.6",
+      "name": "GLM 4.6",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.6v",
+      "name": "GLM-4.6V",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.6v-flash",
+      "name": "GLM-4.6V-Flash",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.7",
+      "name": "GLM 4.7",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.7-flash",
+      "name": "GLM 4.7 Flash",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-4.7-flashx",
+      "name": "GLM 4.7 FlashX",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-5",
+      "name": "GLM 5",
+      "category": "chat"
+    },
+    {
+      "id": "zai/glm-5-turbo",
+      "name": "GLM 5 Turbo",
+      "category": "chat"
+    }
+  ]
+}

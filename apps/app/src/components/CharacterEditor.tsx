@@ -62,6 +62,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -118,12 +119,20 @@ interface OnboardingPreset {
   postExamples: string[];
 }
 
+function getOnboardingPresetStyles(
+  options: unknown,
+): readonly OnboardingPreset[] {
+  if (!options || typeof options !== "object") return [];
+  const styles = (options as { styles?: unknown }).styles;
+  return Array.isArray(styles) ? (styles as OnboardingPreset[]) : [];
+}
+
 function replaceCharacterToken(value: string, name: string) {
   return value.replaceAll("{{name}}", name).replaceAll("{{agentName}}", name);
 }
 
 function buildCharacterDraftFromPreset(entry: CharacterRosterEntry) {
-  const p = entry.preset as OnboardingPreset;
+  const p = entry.preset as unknown as OnboardingPreset;
   const name = entry.name;
   return {
     name,
@@ -246,10 +255,13 @@ export function CharacterEditor({
   const [fieldsEdited, setFieldsEdited] = useState(false);
   /** Ref to suppress dirty-tracking during programmatic field updates. */
   const suppressDirtyRef = useRef(false);
-  const [rosterStyles, setRosterStyles] = useState<OnboardingPreset[]>(
-    // biome-ignore lint/suspicious/noExplicitAny: onboardingOptions is untyped API response
-    (onboardingOptions as any)?.styles ?? [],
+  const onboardingPresetStyles = useMemo(
+    () => getOnboardingPresetStyles(onboardingOptions),
+    [onboardingOptions],
   );
+  const [rosterStyles, setRosterStyles] = useState<OnboardingPreset[]>([
+    ...onboardingPresetStyles,
+  ]);
 
   /* ── Voice config state ─────────────────────────────────────────── */
   type VoiceConfig = Record<
@@ -271,18 +283,19 @@ export function CharacterEditor({
   // Use static STYLE_PRESETS shipped in the frontend bundle — no API call
   // needed. If the server provides styles via onboardingOptions, prefer those.
   useEffect(() => {
-    // biome-ignore lint/suspicious/noExplicitAny: onboardingOptions is untyped API response
-    if ((onboardingOptions as any)?.styles?.length) {
-      // biome-ignore lint/suspicious/noExplicitAny: onboardingOptions is untyped API response
-      setRosterStyles((onboardingOptions as any).styles);
+    if (onboardingPresetStyles.length) {
+      setRosterStyles([...onboardingPresetStyles]);
     } else {
-      // biome-ignore lint/suspicious/noExplicitAny: STYLE_PRESETS needs cast to OnboardingPreset[]
-      setRosterStyles(STYLE_PRESETS as any);
+      setRosterStyles(STYLE_PRESETS as unknown as OnboardingPreset[]);
     }
-    // biome-ignore lint/suspicious/noExplicitAny: onboardingOptions is untyped API response
-  }, [(onboardingOptions as any)?.styles]);
+  }, [onboardingPresetStyles]);
 
-  const characterRoster = resolveRosterEntries(rosterStyles);
+  const characterRoster = resolveRosterEntries(
+    rosterStyles as unknown as readonly {
+      [k: string]: unknown;
+      catchphrase: string;
+    }[],
+  );
 
   const d = characterDraft;
   const fallbackCharacterName =
@@ -388,10 +401,14 @@ export function CharacterEditor({
   const handleSelectPreset = useCallback(
     (preset: (typeof PREMADE_VOICES)[0]) => {
       setSelectedVoicePresetId(preset.id);
-      setVoiceConfig((prev) => ({
-        ...prev,
-        elevenlabs: { ...(prev.elevenlabs ?? {}), voiceId: preset.voiceId },
-      }));
+      setVoiceConfig((prev) => {
+        const existing =
+          typeof prev.elevenlabs === "object" ? prev.elevenlabs : {};
+        return {
+          ...prev,
+          elevenlabs: { ...existing, voiceId: preset.voiceId },
+        };
+      });
     },
     [],
   );

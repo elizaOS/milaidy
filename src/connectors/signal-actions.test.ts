@@ -1,5 +1,25 @@
-import { sendSignalMessage } from "@elizaos/plugin-signal/actions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { tryOptionalDynamicImport } from "../test-support/test-helpers";
+
+type SignalAction = {
+  name: string;
+  similes?: string[];
+  parameters?: unknown[];
+  examples?: unknown[];
+  validate?: (runtime: unknown, message: unknown) => Promise<boolean>;
+  handler?: (
+    runtime: unknown,
+    message: unknown,
+    state: unknown,
+    options: unknown,
+    callback: (response: unknown) => Promise<unknown>,
+  ) => Promise<{ success: boolean }>;
+};
+
+const signalActionsModule = await tryOptionalDynamicImport<{
+  sendSignalMessage?: SignalAction;
+}>("@elizaos/plugin-signal/actions");
+const sendSignalMessage = signalActionsModule?.sendSignalMessage ?? null;
 
 function createRuntime(overrides: Record<string, unknown> = {}) {
   return {
@@ -21,7 +41,7 @@ function createMessage(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe.skipIf(!sendSignalMessage)("sendSignalMessage", () => {
+describe.skipIf(sendSignalMessage === null)("sendSignalMessage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

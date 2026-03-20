@@ -28,6 +28,7 @@ vi.mock("@elizaos/app-core/components", () => ({
     />
   ),
   ConnectorsPageView: () => <div data-testid="connectors-view" />,
+  ConversationsSidebar: () => <div data-testid="conversations-sidebar" />,
   HeartbeatsView: () => <div data-testid="heartbeats-view" />,
   MediaSettingsSection: () => <div data-testid="media-settings-section" />,
   PairingView: () => <div data-testid="pairing-view" />,
@@ -53,6 +54,8 @@ describe("DetachedShellRoot", () => {
     useAppMock.mockReset();
     useAppMock.mockReturnValue({
       authRequired: false,
+      onboardingComplete: true,
+      onboardingLoading: false,
       retryStartup,
       startupError: null,
     });
@@ -178,6 +181,8 @@ describe("DetachedShellRoot", () => {
   it("lets browser windows render even when app auth or startup is unavailable", async () => {
     useAppMock.mockReturnValueOnce({
       authRequired: true,
+      onboardingComplete: true,
+      onboardingLoading: false,
       retryStartup,
       startupError: null,
     });
@@ -195,6 +200,8 @@ describe("DetachedShellRoot", () => {
 
     useAppMock.mockReturnValueOnce({
       authRequired: false,
+      onboardingComplete: true,
+      onboardingLoading: false,
       retryStartup,
       startupError: new Error("boom"),
     });
@@ -208,5 +215,85 @@ describe("DetachedShellRoot", () => {
     expect(
       tree?.root.findByProps({ "data-testid": "browser-surface-window" }),
     ).toBeTruthy();
+  });
+
+  it("regression: shows onboarding blocked view when onboarding is not complete", async () => {
+    useAppMock.mockReturnValueOnce({
+      authRequired: false,
+      onboardingComplete: false,
+      onboardingLoading: false,
+      retryStartup,
+      startupError: null,
+    });
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+    await act(async () => {
+      tree = TestRenderer.create(
+        <DetachedShellRoot route={{ mode: "surface", tab: "chat" }} />,
+      );
+    });
+
+    const json = tree?.toJSON() as TestRenderer.ReactTestRendererJSON;
+    const textContent = JSON.stringify(json);
+    expect(textContent).toContain("Setup in progress");
+    expect(
+      tree?.root.findAllByProps({ "data-testid": "chat-view" }),
+    ).toHaveLength(0);
+  });
+
+  it("does not show blocked view while onboarding is still loading", async () => {
+    useAppMock.mockReturnValueOnce({
+      authRequired: false,
+      onboardingComplete: false,
+      onboardingLoading: true,
+      retryStartup,
+      startupError: null,
+    });
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+    await act(async () => {
+      tree = TestRenderer.create(
+        <DetachedShellRoot route={{ mode: "surface", tab: "plugins" }} />,
+      );
+    });
+
+    expect(
+      tree?.root.findByProps({ "data-testid": "plugins-page-view" }),
+    ).toBeTruthy();
+  });
+
+  it("browser surface bypasses onboarding gate", async () => {
+    useAppMock.mockReturnValueOnce({
+      authRequired: false,
+      onboardingComplete: false,
+      onboardingLoading: false,
+      retryStartup,
+      startupError: null,
+    });
+
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+    await act(async () => {
+      tree = TestRenderer.create(
+        <DetachedShellRoot route={{ mode: "surface", tab: "browser" }} />,
+      );
+    });
+
+    expect(
+      tree?.root.findByProps({ "data-testid": "browser-surface-window" }),
+    ).toBeTruthy();
+  });
+
+  it("chat tab renders ConversationsSidebar alongside ChatView", async () => {
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+    await act(async () => {
+      tree = TestRenderer.create(
+        <DetachedShellRoot route={{ mode: "surface", tab: "chat" }} />,
+      );
+    });
+
+    expect(
+      tree?.root.findByProps({ "data-testid": "conversations-sidebar" }),
+    ).toBeTruthy();
+    expect(tree?.root.findByProps({ "data-testid": "chat-view" })).toBeTruthy();
   });
 });

@@ -8,7 +8,8 @@ const PATCH_STATE = Symbol.for("milady.cloudPreferencePatch");
 
 type ClientLike = Pick<typeof appClient, "getCloudStatus" | "getConfig"> & {
   getCloudCredits?: typeof appClient.getCloudCredits;
-} & Record<string | symbol, unknown>;
+  [key: string | symbol]: unknown;
+};
 
 type StorageConfig = Record<string, unknown>;
 
@@ -134,6 +135,13 @@ function hasInactiveCloudSignals(
 export function shouldPreferLocalProviderConfig(
   config: StorageConfig | null | undefined,
 ): boolean {
+  // If cloud.enabled is explicitly true, the user has actively chosen cloud —
+  // never override their preference even if a local provider is also configured.
+  const cloud = asRecord(config?.cloud);
+  if (readBoolean(cloud, "enabled") === true) {
+    return false;
+  }
+
   return Boolean(
     resolveConfiguredLocalProvider(config) &&
       !hasRemoteConnection(config) &&
@@ -228,13 +236,16 @@ export function installLocalProviderCloudPreferencePatch(
     getCloudCredits: client.getCloudCredits,
   } satisfies PatchState;
 
-  client.getConfig = async () => {
+  client.getConfig = (async () => {
     const config = (await originalGetConfig()) as
       | StorageConfig
       | null
       | undefined;
-    return normalizeConfigForLocalProviderPreference(config);
-  };
+    return normalizeConfigForLocalProviderPreference(config) as Record<
+      string,
+      unknown
+    >;
+  }) as typeof client.getConfig;
 
   client.getCloudStatus = async () => {
     const [status, config] = await Promise.all([

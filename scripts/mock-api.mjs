@@ -5,7 +5,7 @@
  */
 import http from "node:http";
 
-const PORT = 31337;
+const PORT = Number(process.env.MILADY_API_PORT) || 31337;
 
 const MOCK_ROUTES = {
   "/api/auth/status": { authenticated: true, required: false },

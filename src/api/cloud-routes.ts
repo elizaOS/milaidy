@@ -175,12 +175,21 @@ export async function handleCloudRoute(
   state: CloudRouteState,
 ): Promise<boolean> {
   if (method === "POST" && pathname === "/api/cloud/disconnect") {
-    await disconnectUnifiedCloudConnection({
-      cloudManager: state.cloudManager,
-      config: state.config,
-      runtime: state.runtime,
-      saveConfig: saveElizaConfig,
-    });
+    try {
+      await disconnectUnifiedCloudConnection({
+        cloudManager: state.cloudManager,
+        config: state.config,
+        runtime: state.runtime,
+        saveConfig: saveElizaConfig,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[cloud/disconnect] failed", err);
+      res.statusCode = 500;
+      res.setHeader("content-type", "application/json; charset=utf-8");
+      res.end(JSON.stringify({ ok: false, error: message }));
+      return true;
+    }
     res.statusCode = 200;
     res.setHeader("content-type", "application/json; charset=utf-8");
     res.end(JSON.stringify({ ok: true, status: "disconnected" }));

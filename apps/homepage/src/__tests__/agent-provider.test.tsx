@@ -1,7 +1,7 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentProvider, useAgents } from "../lib/AgentProvider";
-import { setToken } from "../lib/auth";
+import { CLOUD_AUTH_CHANGED_EVENT, clearToken, setToken } from "../lib/auth";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -18,11 +18,20 @@ afterEach(() => {
 });
 
 function TestConsumer() {
-  const { agents, loading } = useAgents();
+  const { agents, loading, isRefreshing, error, clearError, refresh } =
+    useAgents();
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
+      <span data-testid="refreshing">{String(isRefreshing)}</span>
+      <span data-testid="error">{error ?? ""}</span>
       <span data-testid="count">{agents.length}</span>
+      <button type="button" data-testid="refresh" onClick={() => refresh()} />
+      <button
+        type="button"
+        data-testid="clear-error"
+        onClick={() => clearError()}
+      />
       {agents.map((a) => (
         <span key={a.id} data-testid={`agent-${a.id}`}>
           {a.name}|{a.source}|{a.status}
@@ -341,5 +350,412 @@ describe("AgentProvider", () => {
     expect(result?.getByTestId("agent-cloud-an-1").textContent).toContain(
       "Real Name|cloud|",
     );
+  });
+
+  it("stale unauthenticated fetch does not overwrite post-login agents", async () => {
+    // Start without token — a slow fetch begins returning empty agents
+    let slowResolve: (() => void) | null = null;
+    const slowPromise = new Promise<void>((resolve) => {
+      slowResolve = resolve;
+    });
+
+    mockFetch.mockImplementation(() => {
+      // First fetch (unauthenticated) will be slow
+      return slowPromise.then(() =>
+        Promise.reject(new Error("connection refused")),
+      );
+    });
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      // Initial fetch is in flight but not resolved
+      await vi.advanceTimersByTimeAsync(10);
+    });
+
+    // User logs in before the slow fetch completes
+    act(() => {
+      setToken("new-api-key");
+    });
+
+    // Switch to fast response for authenticated fetch
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: [
+                {
+                  id: "post-login",
+                  agentName: "Authenticated Agent",
+                  status: "running",
+                },
+              ],
+            }),
+        });
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    // Auth change triggers immediate fetch
+    await act(async () => {
+      window.dispatchEvent(new Event(CLOUD_AUTH_CHANGED_EVENT));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // Agents from authenticated fetch should be present
+    expect(result?.getByTestId("count").textContent).toBe("1");
+    expect(result?.getByTestId("agent-cloud-post-login").textContent).toContain(
+      "Authenticated Agent|cloud|running",
+    );
+
+    // Now the slow unauthenticated fetch completes
+    await act(async () => {
+      slowResolve?.();
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // Agents should still be the authenticated ones (stale fetch discarded)
+    expect(result?.getByTestId("count").textContent).toBe("1");
+    expect(result?.getByTestId("agent-cloud-post-login").textContent).toContain(
+      "Authenticated Agent|cloud|running",
+    );
+  });
+
+  it("stale authenticated fetch does not resurrect agents after sign-out", async () => {
+    setToken("test-key");
+
+    let slowResolve: (() => void) | null = null;
+    const slowPromise = new Promise<void>((resolve) => {
+      slowResolve = resolve;
+    });
+
+    // Authenticated fetch will be slow
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return slowPromise.then(() =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: [
+                  {
+                    id: "old-agent",
+                    agentName: "Old Authenticated Agent",
+                    status: "running",
+                  },
+                ],
+              }),
+          }),
+        );
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      // Initial fetch is in flight but not resolved
+      await vi.advanceTimersByTimeAsync(10);
+    });
+
+    // User signs out before the slow fetch completes
+    act(() => {
+      clearToken();
+    });
+
+    // Switch to fast response for unauthenticated fetch (no agents)
+    mockFetch.mockImplementation(() => {
+      return Promise.reject(new Error("connection refused"));
+    });
+
+    // Auth change triggers immediate fetch
+    await act(async () => {
+      window.dispatchEvent(new Event(CLOUD_AUTH_CHANGED_EVENT));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // No agents should be present after sign-out
+    expect(result?.getByTestId("count").textContent).toBe("0");
+
+    // Now the slow authenticated fetch completes
+    await act(async () => {
+      slowResolve?.();
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // Agents should still be empty (stale fetch discarded, agents not resurrected)
+    expect(result?.getByTestId("count").textContent).toBe("0");
+  });
+
+  it("refreshes agents immediately on auth change event", async () => {
+    mockFetch.mockRejectedValue(new Error("connection refused"));
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(result?.getByTestId("count").textContent).toBe("0");
+
+    // User logs in
+    setToken("auth-key");
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: [
+                {
+                  id: "event-agent",
+                  agentName: "Event Agent",
+                  status: "running",
+                },
+              ],
+            }),
+        });
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    // Dispatch auth change event — should trigger immediate refresh, not wait 30s
+    await act(async () => {
+      window.dispatchEvent(new Event(CLOUD_AUTH_CHANGED_EVENT));
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(result?.getByTestId("count").textContent).toBe("1");
+    expect(
+      result?.getByTestId("agent-cloud-event-agent").textContent,
+    ).toContain("Event Agent|cloud|running");
+  });
+
+  it("sets isRefreshing during fetch and clears it after", async () => {
+    setToken("test-key");
+    let resolveAgents: (() => void) | null = null;
+    const agentsPromise = new Promise<void>((resolve) => {
+      resolveAgents = resolve;
+    });
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return agentsPromise.then(() =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: [{ id: "r1", agentName: "Agent", status: "running" }],
+              }),
+          }),
+        );
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(10);
+    });
+
+    // While fetch is in progress, isRefreshing should be true
+    expect(result?.getByTestId("refreshing").textContent).toBe("true");
+
+    // Resolve the fetch
+    await act(async () => {
+      resolveAgents?.();
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // After fetch completes, isRefreshing should be false
+    expect(result?.getByTestId("refreshing").textContent).toBe("false");
+    expect(result?.getByTestId("loading").textContent).toBe("false");
+  });
+
+  it("does not set loading to true on interval refetches", async () => {
+    setToken("test-key");
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: [{ id: "a1", agentName: "Agent 1", status: "running" }],
+            }),
+        });
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    // Initial load complete
+    expect(result?.getByTestId("loading").textContent).toBe("false");
+    expect(result?.getByTestId("count").textContent).toBe("1");
+
+    // Make fetch slow for the interval refetch
+    let resolveInterval: (() => void) | null = null;
+    const intervalPromise = new Promise<void>((resolve) => {
+      resolveInterval = resolve;
+    });
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return intervalPromise.then(() =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: [{ id: "a1", agentName: "Agent 1", status: "running" }],
+              }),
+          }),
+        );
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    // Trigger interval refetch
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+      await vi.advanceTimersByTimeAsync(10);
+    });
+
+    // During interval refetch, loading should stay false (only isRefreshing is true)
+    expect(result?.getByTestId("loading").textContent).toBe("false");
+    expect(result?.getByTestId("refreshing").textContent).toBe("true");
+
+    // Resolve the interval fetch
+    await act(async () => {
+      resolveInterval?.();
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(result?.getByTestId("refreshing").textContent).toBe("false");
+  });
+
+  it("captures cloud API errors and exposes them via error state", async () => {
+    setToken("test-key");
+    mockFetch.mockRejectedValue(new Error("Network timeout"));
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(result?.getByTestId("error").textContent).toContain("Cloud API");
+    expect(result?.getByTestId("error").textContent).toContain(
+      "Network timeout",
+    );
+  });
+
+  it("clears error when clearError is called", async () => {
+    setToken("test-key");
+    mockFetch.mockRejectedValue(new Error("Network timeout"));
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(result?.getByTestId("error").textContent).toContain("Cloud API");
+
+    // Clear the error
+    await act(async () => {
+      result?.getByTestId("clear-error").click();
+    });
+
+    expect(result?.getByTestId("error").textContent).toBe("");
+  });
+
+  it("clears error on successful fetch", async () => {
+    setToken("test-key");
+    mockFetch.mockRejectedValue(new Error("Network timeout"));
+
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(
+        <AgentProvider>
+          <TestConsumer />
+        </AgentProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(result?.getByTestId("error").textContent).toContain("Cloud API");
+
+    // Make next fetch succeed
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/v1/milady/agents")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: [{ id: "a1", agentName: "Agent", status: "running" }],
+            }),
+        });
+      }
+      return Promise.reject(new Error("offline"));
+    });
+
+    // Trigger manual refresh
+    await act(async () => {
+      result?.getByTestId("refresh").click();
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    // Error should be cleared after successful fetch
+    expect(result?.getByTestId("error").textContent).toBe("");
+    expect(result?.getByTestId("count").textContent).toBe("1");
   });
 });

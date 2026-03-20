@@ -167,11 +167,13 @@ export function buildApplicationMenu({
   browserEnabled,
   heartbeatSnapshot,
   detachedWindows,
+  agentReady = true,
 }: {
   isMac: boolean;
   browserEnabled: boolean;
   heartbeatSnapshot: HeartbeatMenuSnapshot;
   detachedWindows: ManagedWindowSnapshot[];
+  agentReady?: boolean;
 }): ApplicationMenuItem[] {
   const visibleDetachedWindows = browserEnabled
     ? detachedWindows
@@ -253,16 +255,20 @@ export function buildApplicationMenu({
         { label: "Toggle Full Screen", role: "togglefullscreen" },
       ],
     },
-    buildCloudMenu(cloudWindows),
-    ...(browserEnabled ? [buildBrowserMenu(browserWindows)] : []),
-    buildSurfaceMenu("Plugins", "plugins", pluginsWindows),
-    buildSurfaceMenu("Connectors", "connectors", connectorsWindows),
-    buildSurfaceMenu(
-      "Heartbeats",
-      "triggers",
-      heartbeatWindows,
-      heartbeatSnapshot,
-    ),
+    ...(agentReady
+      ? [
+          buildCloudMenu(cloudWindows),
+          ...(browserEnabled ? [buildBrowserMenu(browserWindows)] : []),
+          buildSurfaceMenu("Plugins", "plugins", pluginsWindows),
+          buildSurfaceMenu("Connectors", "connectors", connectorsWindows),
+          buildSurfaceMenu(
+            "Heartbeats",
+            "triggers",
+            heartbeatWindows,
+            heartbeatSnapshot,
+          ),
+        ]
+      : []),
     {
       label: "Window",
       submenu: [
@@ -277,25 +283,35 @@ export function buildApplicationMenu({
           : []),
         { type: "separator" },
         { label: "Show Milady", action: "show" },
-        ...(browserEnabled
+        ...(agentReady
           ? [
+              ...(browserEnabled
+                ? [
+                    {
+                      label: "New Browser Window",
+                      action: "new-window:browser",
+                    } satisfies ApplicationMenuItem,
+                  ]
+                : []),
+              { label: "New Chat Window", action: "new-window:chat" },
               {
-                label: "New Browser Window",
-                action: "new-window:browser",
-              } satisfies ApplicationMenuItem,
+                label: "New Heartbeats Window",
+                action: "new-window:triggers",
+              },
+              { label: "New Plugins Window", action: "new-window:plugins" },
+              {
+                label: "New Connectors Window",
+                action: "new-window:connectors",
+              },
+              { label: "New Cloud Window", action: "new-window:cloud" },
+              { label: "Settings Window", action: "open-settings" },
+              { type: "separator" as const },
+              ...buildOpenWindowItems(
+                visibleDetachedWindows,
+                "No open detached windows",
+              ),
             ]
           : []),
-        { label: "New Chat Window", action: "new-window:chat" },
-        { label: "New Heartbeats Window", action: "new-window:triggers" },
-        { label: "New Plugins Window", action: "new-window:plugins" },
-        { label: "New Connectors Window", action: "new-window:connectors" },
-        { label: "New Cloud Window", action: "new-window:cloud" },
-        { label: "Settings Window", action: "open-settings" },
-        { type: "separator" },
-        ...buildOpenWindowItems(
-          visibleDetachedWindows,
-          "No open detached windows",
-        ),
       ] as ApplicationMenuItem[],
     },
   ];

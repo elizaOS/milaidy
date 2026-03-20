@@ -5,12 +5,12 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
 import { resolveStateDir } from "../config/paths";
+import { createSerialise } from "../utils/serialise";
 import {
   assertValidGitUrl,
   VALID_BRANCH,
   VALID_GIT_URL,
 } from "./plugin-installer";
-import { createSerialise } from "../utils/serialise";
 import { getPluginInfo } from "./registry-client";
 
 const execFileAsync = promisify(execFile);

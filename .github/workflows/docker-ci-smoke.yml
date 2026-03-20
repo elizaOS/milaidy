@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      BUN_VERSION: "1.3.9"
+      BUN_VERSION: "1.3.10"
       DOCKER_IMAGE: miladyai/agent:docker-smoke
       SMOKE_TIMEOUT_SEC: "180"
       SMOKE_PORT: "32138"

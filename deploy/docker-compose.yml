@@ -13,7 +13,7 @@ services:
       - ${MILADY_CONFIG_DIR}:/home/node/.milady
       - ${MILADY_WORKSPACE_DIR}:/home/node/.milady/workspace
     ports:
-      - "${MILADY_GATEWAY_PORT:-18789}:18789"
+      - "${MILADY_GATEWAY_PORT:-18789}:${MILADY_GATEWAY_PORT:-18789}"
       - "${MILADY_BRIDGE_PORT:-18790}:18790"
     init: true
     restart: unless-stopped
@@ -25,7 +25,7 @@ services:
         "--bind",
         "${MILADY_GATEWAY_BIND:-lan}",
         "--port",
-        "18789",
+        "${MILADY_GATEWAY_PORT:-18789}",
       ]
 
   milady-cli:
