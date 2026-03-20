@@ -1839,9 +1839,10 @@ async function handleMiladyCompatRoute(
       if (config.meta) {
         delete (config.meta as Record<string, unknown>).onboardingComplete;
       }
-      // Clear agent list
+      // Clear agent state markers that make onboarding look complete
       if (config.agents) {
         (config.agents as Record<string, unknown>).list = [];
+        (config.agents as Record<string, unknown>).defaults = {};
       }
       // Clear cloud connection
       if (config.cloud) {

@@ -65,6 +65,22 @@
 
 <body>
   <div id="root"></div>
+  <script>
+    // Ensure onboarding cloud auth uses the local API proxy in localhost dev.
+    // This must run before the app bundle initializes the API client.
+    (function () {
+      try {
+        var host = window.location.hostname;
+        var isLocal =
+          host === "localhost" || host === "127.0.0.1" || host === "::1";
+        if (isLocal && !window.__MILADY_API_BASE__) {
+          window.__MILADY_API_BASE__ = window.location.origin;
+        }
+      } catch {
+        // no-op
+      }
+    })();
+  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

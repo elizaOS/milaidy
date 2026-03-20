@@ -580,12 +580,24 @@ function applyStoredDetachedShellTheme(): void {
   }
 }
 
+function ensureLocalApiBaseForDev(): void {
+  // In browser dev on localhost, app-core can treat empty baseUrl as "no backend"
+  // and incorrectly switch to direct cloud auth. Force same-origin API base.
+  if (typeof window === "undefined") return;
+  if (window.__MILADY_API_BASE__) return;
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+    window.__MILADY_API_BASE__ = window.location.origin;
+  }
+}
+
 /**
  * Main initialization
  */
 async function main(): Promise<void> {
   // Set up platform-specific styles first
   setupPlatformStyles();
+  ensureLocalApiBaseForDev();
 
   try {
     await applyLaunchConnectionFromUrl();
