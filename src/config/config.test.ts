@@ -1,54 +1,9 @@
-/**
- * Tests for cloud provider config helpers.
- *
- * These functions implement migration from the legacy `cloud.enabled: true`
- * boolean flag to the newer provider-list model where "elizacloud" is an
- * entry in providers[]. They should be extracted from server.ts / the
- * onboarding flow into this module once the helpers are stable.
- */
 import { describe, expect, it } from "vitest";
-
-// ── Inline implementations (mirrors the logic under test) ──────────────────
-// These match the exact contract described in the task spec.  Once the real
-// functions are exported from src/config/config.ts (or another module), swap
-// the import and delete these stubs.
-
-function isCloudActiveFromProviders(
-  providers: string[] | undefined | null,
-): boolean {
-  if (!Array.isArray(providers) || providers.length === 0) {
-    return false;
-  }
-  return providers.includes("elizacloud");
-}
-
-interface LegacyCloudConfig {
-  cloud?: { enabled?: boolean } | null;
-  providers?: string[];
-  [key: string]: unknown;
-}
-
-function migrateCloudEnabledToProviders(
-  config: LegacyCloudConfig,
-): LegacyCloudConfig {
-  const cloudEnabled = config?.cloud?.enabled === true;
-  if (!cloudEnabled) {
-    return config;
-  }
-
-  const existingProviders: string[] = Array.isArray(config.providers)
-    ? config.providers
-    : [];
-
-  if (existingProviders.includes("elizacloud")) {
-    return config;
-  }
-
-  return {
-    ...config,
-    providers: [...existingProviders, "elizacloud"],
-  };
-}
+import {
+  isCloudActiveFromProviders,
+  type LegacyCloudConfig,
+  migrateCloudEnabledToProviders,
+} from "./config";
 
 // ── isCloudActiveFromProviders ─────────────────────────────────────────────
 
@@ -58,7 +13,9 @@ describe("isCloudActiveFromProviders", () => {
   });
 
   it("returns true when elizacloud is among multiple providers", () => {
-    expect(isCloudActiveFromProviders(["openai", "elizacloud", "anthropic"])).toBe(true);
+    expect(
+      isCloudActiveFromProviders(["openai", "elizacloud", "anthropic"]),
+    ).toBe(true);
   });
 
   it("returns false for an empty providers array", () => {

@@ -13,7 +13,12 @@ vi.mock("../services/mcp-marketplace", () => ({
 
 async function cleanupTempDir(dir: string): Promise<void> {
   try {
-    await fs.rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    await fs.rm(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: 3,
+      retryDelay: 100,
+    });
   } catch {
     // ignore
   }
@@ -102,7 +107,11 @@ describe("GET /api/wallet/keys", () => {
 
     const server = await startApiServer({ port: 0, runtime: RUNTIME_STUB });
     try {
-      const { status, data } = await req(server.port, "GET", "/api/wallet/keys");
+      const { status, data } = await req(
+        server.port,
+        "GET",
+        "/api/wallet/keys",
+      );
       expect(status).toBe(403);
       expect(data.error).toBeTruthy();
     } finally {
@@ -137,7 +146,11 @@ describe("GET /api/wallet/keys", () => {
 
     const server = await startApiServer({ port: 0, runtime: RUNTIME_STUB });
     try {
-      const { status, data } = await req(server.port, "GET", "/api/wallet/keys");
+      const { status, data } = await req(
+        server.port,
+        "GET",
+        "/api/wallet/keys",
+      );
       expect(status).toBe(200);
       expect(typeof data.evmPrivateKey).toBe("string");
       expect(typeof data.solanaPrivateKey).toBe("string");

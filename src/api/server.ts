@@ -1968,7 +1968,8 @@ async function handleMiladyCompatRoute(
           // Ensure the cloud API key survives — it was set by
           // persistCloudLoginStatus, then scrubbed from process.env into
           // the sealed cloud secrets store. Read it back from there.
-          const existingApiKey = (config.cloud as Record<string, unknown>).apiKey;
+          const existingApiKey = (config.cloud as Record<string, unknown>)
+            .apiKey;
           if (!existingApiKey) {
             const { getCloudSecret } = await import("./cloud-secrets");
             const sealedKey = getCloudSecret("ELIZAOS_CLOUD_API_KEY");
@@ -1981,8 +1982,10 @@ async function handleMiladyCompatRoute(
             if (!config.models) {
               (config as Record<string, unknown>).models = {};
             }
-            (config.models as Record<string, string>).small = body.smallModel as string;
-            (config.models as Record<string, string>).large = (body.largeModel as string) || "";
+            (config.models as Record<string, string>).small =
+              body.smallModel as string;
+            (config.models as Record<string, string>).large =
+              (body.largeModel as string) || "";
           }
         }
         saveElizaConfig(config);

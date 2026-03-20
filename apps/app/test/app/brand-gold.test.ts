@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const APP_SRC_DIR = path.resolve(import.meta.dirname, "../../src");
+const APP_INDEX_PATH = path.resolve(import.meta.dirname, "../../index.html");
 const MAIN_PATH = path.join(APP_SRC_DIR, "main.tsx");
 const BRAND_CSS_PATH = path.join(APP_SRC_DIR, "brand-gold.css");
 const CHARACTER_EDITOR_CSS_PATH = path.join(
@@ -31,11 +32,19 @@ describe("brand gold theme overrides", () => {
   it("overrides app-core accent tokens with the richer gold palette", () => {
     const css = fs.readFileSync(BRAND_CSS_PATH, "utf8");
 
-    expect(css).toContain("--jet-black: #0b0b0c;");
+    expect(css).toContain(
+      '--font-sans: "DM Sans", "Helvetica Neue", Arial, sans-serif;',
+    );
+    expect(css).toContain(
+      '--font-mono: "JetBrains Mono", "Cascadia Code", "Courier New", monospace;',
+    );
+    expect(css).toContain("--jet-black: #08080a;");
+    expect(css).toContain("--rich-black: #0e0e11;");
     expect(css).toContain("--deep-gold: #a67c2e;");
     expect(css).toContain("--classic-gold: #cfaf5a;");
     expect(css).toContain("--highlight-gold: #f2d27a;");
     expect(css).toContain("--accent: var(--classic-gold);");
+    expect(css).toContain("--border-subtle: #1c1c24;");
     expect(css).toContain(".onboarding-screen {");
     expect(css).toContain(".onboarding-step-item--active .onboarding-step-dot");
     expect(css).toContain(
@@ -53,6 +62,9 @@ describe("brand gold theme overrides", () => {
     );
     expect(css).toContain(
       '[data-testid="companion-header-chat-controls"] > button:hover,',
+    );
+    expect(css).toContain(
+      "/* Component-level theme overrides removed — use theme variables directly. */",
     );
   });
 
@@ -84,5 +96,16 @@ describe("brand gold theme overrides", () => {
     expect(source).toContain('itemId.startsWith("show-main:")');
     expect(source).toContain('switchShellView("desktop")');
     expect(source).toContain("setTab(target)");
+  });
+
+  it("keeps the boot document aligned with the darker homepage palette", () => {
+    const html = fs.readFileSync(APP_INDEX_PATH, "utf8");
+
+    expect(html).toContain('<meta name="theme-color" content="#08080a" />');
+    expect(html).toContain("background-color: #08080a;");
+    expect(html).toContain("color: #e8e8ec;");
+    expect(html).toContain(
+      'font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;',
+    );
   });
 });

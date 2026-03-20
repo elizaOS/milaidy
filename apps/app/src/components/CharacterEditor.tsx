@@ -274,7 +274,9 @@ export function CharacterEditor({
   const [voiceSaving, setVoiceSaving] = useState(false);
   const [voiceSaveError, setVoiceSaveError] = useState<string | null>(null);
   const [voiceTesting, setVoiceTesting] = useState(false);
-  const [voiceTestAudio, setVoiceTestAudio] = useState<HTMLAudioElement | null>(null);
+  const [voiceTestAudio, setVoiceTestAudio] = useState<HTMLAudioElement | null>(
+    null,
+  );
   const [selectedVoicePresetId, setSelectedVoicePresetId] = useState<
     string | null
   >(null);
@@ -669,8 +671,7 @@ export function CharacterEditor({
           } catch {}
         }
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Generation failed";
+        const msg = err instanceof Error ? err.message : "Generation failed";
         setGenerateError(msg);
       }
       setGenerating(null);
@@ -849,10 +850,19 @@ export function CharacterEditor({
                         } else if (activeVoicePreset?.previewUrl) {
                           setVoiceTesting(true);
                           const audio = new Audio(activeVoicePreset.previewUrl);
-                          audio.onended = () => { setVoiceTesting(false); setVoiceTestAudio(null); };
-                          audio.onerror = () => { setVoiceTesting(false); setVoiceTestAudio(null); };
+                          audio.onended = () => {
+                            setVoiceTesting(false);
+                            setVoiceTestAudio(null);
+                          };
+                          audio.onerror = () => {
+                            setVoiceTesting(false);
+                            setVoiceTestAudio(null);
+                          };
                           setVoiceTestAudio(audio);
-                          audio.play().catch(() => { setVoiceTesting(false); setVoiceTestAudio(null); });
+                          audio.play().catch(() => {
+                            setVoiceTesting(false);
+                            setVoiceTestAudio(null);
+                          });
                         }
                       }}
                       aria-label={
