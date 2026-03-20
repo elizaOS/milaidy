@@ -395,6 +395,82 @@ export function AvatarLoader({ label = "Initializing entity", fullScreen = false
 patchAvatarLoaderLinearProgress();
 
 /**
+ * Patch @elizaos/app-core cloud login backend detection during onboarding.
+ *
+ * In localhost dev, app-core can have an empty explicit base URL while still
+ * having a reachable same-origin API via Vite proxy. Upstream currently treats
+ * this as "no backend" and takes the direct cloud auth path, which can fail
+ * with 401 for desktop/onboarding flows.
+ *
+ * We treat apiAvailable as a valid backend signal so onboarding uses
+ * /api/cloud/login when the local API is reachable.
+ * Remove once upstream fixes hasBackend detection in AppContext.
+ */
+function patchAppCoreCloudLoginBackendDetection() {
+  const appContextPaths = [];
+  const seenRealpaths = new Set();
+
+  addUniquePath(
+    appContextPaths,
+    seenRealpaths,
+    resolve(root, "node_modules/@elizaos/app-core/state/AppContext.js"),
+  );
+
+  const bunCacheDir = resolve(root, "node_modules/.bun");
+  if (existsSync(bunCacheDir)) {
+    try {
+      for (const entry of readdirSync(bunCacheDir)) {
+        if (entry.startsWith("@elizaos+app-core@")) {
+          addUniquePath(
+            appContextPaths,
+            seenRealpaths,
+            resolve(
+              bunCacheDir,
+              entry,
+              "node_modules/@elizaos/app-core/state/AppContext.js",
+            ),
+          );
+        }
+      }
+    } catch {}
+  }
+
+  let patched = 0;
+  for (const target of appContextPaths) {
+    if (!existsSync(target)) continue;
+    let src = readFileSync(target, "utf8");
+
+    if (
+      src.includes(
+        "const hasBackend = Boolean(client.getBaseUrl()) || client.apiAvailable;",
+      )
+    ) {
+      continue;
+    }
+
+    const needle = "const hasBackend = Boolean(client.getBaseUrl());";
+    if (!src.includes(needle)) continue;
+
+    src = src.replace(
+      needle,
+      "const hasBackend = Boolean(client.getBaseUrl()) || client.apiAvailable;",
+    );
+    writeFileSync(target, src, "utf8");
+    patched++;
+    console.log(
+      `[patch-deps] Applied app-core cloud-login backend detection patch: ${target}`,
+    );
+  }
+
+  if (patched > 0) {
+    console.log(
+      `[patch-deps] app-core cloud-login backend detection: patched ${patched} file(s).`,
+    );
+  }
+}
+patchAppCoreCloudLoginBackendDetection();
+
+/**
  * Vite caches prebundled dependencies under node_modules/.vite. When patch-deps
  * rewrites installed @elizaos packages, that cache can keep serving the old
  * upstream app-core bundle until it is cleared or Vite is forced to rebuild.

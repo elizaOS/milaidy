@@ -1918,6 +1918,16 @@ async function handleMiladyCompatRoute(
       // Clear agent list
       if (config.agents) {
         (config.agents as Record<string, unknown>).list = [];
+        // Only clear fields that onboarding-status uses as completion signals.
+        // Keep other defaults (model/provider preferences) intact.
+        if (
+          config.agents.defaults &&
+          typeof config.agents.defaults === "object"
+        ) {
+          delete (config.agents.defaults as Record<string, unknown>)
+            .adminEntityId;
+          delete (config.agents.defaults as Record<string, unknown>).workspace;
+        }
       }
       // Clear cloud connection
       if (config.cloud) {
