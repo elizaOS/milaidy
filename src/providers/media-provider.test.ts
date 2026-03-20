@@ -279,10 +279,14 @@ describe("Vision Providers", () => {
       );
 
       expect(fetchMock).toHaveBeenCalledOnce();
-      const [url] = fetchMock.mock.calls[0];
+      const [url, init] = fetchMock.mock.calls[0];
       expect(url).toContain("generativelanguage.googleapis.com");
       expect(url).toContain("gemini-2.0-flash");
-      expect(url).toContain("key=google-test-api-key");
+      expect(url).not.toContain("key=");
+      expect(init?.headers).toHaveProperty(
+        "x-goog-api-key",
+        "google-test-api-key",
+      );
     });
 
     it("handles Google API errors", async () => {
