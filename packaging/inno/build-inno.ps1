@@ -133,10 +133,16 @@ if (-not $launcher) {
   throw "launcher.exe not found under $BuildDir"
 }
 
-$sourceDir = Split-Path -Parent $launcher.FullName
-$miladyDistEntry = Join-Path $sourceDir "resources\app\milady-dist\entry.js"
+$launcherParent = Split-Path -Parent $launcher.FullName
+# launcher.exe lives under bin/ in the Electrobun app bundle; the app root is one level up
+$sourceDir = if ((Split-Path -Leaf $launcherParent) -eq "bin") {
+  Split-Path -Parent $launcherParent
+} else {
+  $launcherParent
+}
+$miladyDistEntry = Join-Path $sourceDir "Resources\app\milady-dist\entry.js"
 if (-not (Test-Path $miladyDistEntry)) {
-  throw "Packaged app directory does not contain resources\app\milady-dist\entry.js: $sourceDir"
+  throw "Packaged app directory does not contain Resources\app\milady-dist\entry.js: $sourceDir"
 }
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
@@ -161,8 +167,8 @@ $generated = $generated.Replace("__DEFAULT_DIR_NAME__", (Escape-InnoValue $defau
 $generated = $generated.Replace("__DEFAULT_GROUP_NAME__", (Escape-InnoValue $appName))
 $generated = $generated.Replace("__OUTPUT_DIR__", (Escape-InnoValue (Resolve-Path $OutputDir).Path))
 $generated = $generated.Replace("__OUTPUT_BASE_FILENAME__", (Escape-InnoValue $outputBaseFilename))
-$generated = $generated.Replace("__SOURCE_DIR__", (Escape-InnoValue $sourceDir))
-$generated = $generated.Replace("__ICON_FILE__", (Escape-InnoValue $iconPath))
+$generated = $generated.Replace("__SOURCE_DIR__", (Escape-InnoValue (Resolve-Path $sourceDir).Path))
+$generated = $generated.Replace("__ICON_FILE__", (Escape-InnoValue (Resolve-Path $iconPath).Path))
 $generated = $generated.Replace("__SIGN_SETUP_LINES__", $signSection)
 
 $generatedIssPath = Join-Path $env:RUNNER_TEMP "milady-$normalizedChannel-installer.iss"

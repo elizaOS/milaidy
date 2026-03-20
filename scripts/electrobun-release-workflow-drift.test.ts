@@ -39,6 +39,7 @@ const WINDOWS_PACKAGED_TEST_PATH = path.join(
   ROOT,
   "apps/app/test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
 );
+const INNO_BUILD_SCRIPT_PATH = path.join(ROOT, "packaging/inno/build-inno.ps1");
 const ELECTROBUN_CONFIG_PATH = path.join(
   ROOT,
   "apps/app/electrobun/electrobun.config.ts",
@@ -261,6 +262,22 @@ describe("Electrobun release workflow drift", () => {
       'Get-ChildItem -Path "apps/app/electrobun/artifacts" -File -Filter "Milady-Setup-*.exe"',
     );
     expect(workflow).toContain("$minimumBytes = 50MB");
+  });
+
+  it("normalizes the Windows launcher path back to the app root before packaging with Inno", () => {
+    const script = fs.readFileSync(INNO_BUILD_SCRIPT_PATH, "utf8");
+
+    expect(script).toContain(
+      "# launcher.exe lives under bin/ in the Electrobun app bundle; the app root is one level up",
+    );
+    expect(script).toContain(
+      'if ((Split-Path -Leaf $launcherParent) -eq "bin") {',
+    );
+    expect(script).toContain("Split-Path -Parent $launcherParent");
+    expect(script).toContain(
+      'Join-Path $sourceDir "Resources\\app\\milady-dist\\entry.js"',
+    );
+    expect(script).toContain("Resolve-Path $sourceDir");
   });
 
   it("treats the staged macOS app as an intermediate signed bundle, not a notarized final artifact", () => {
