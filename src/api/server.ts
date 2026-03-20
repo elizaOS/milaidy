@@ -48,6 +48,7 @@ import {
   syncElizaEnvToMilady,
   syncMiladyEnvToEliza,
 } from "../config/brand-env.js";
+import { getCloudSecret } from "./cloud-secrets";
 
 const HEADER_ALIASES = [
   ["x-milady-token", "x-eliza-token"],
@@ -281,12 +282,135 @@ function resolveCloudVoiceName(
   return "nova";
 }
 
+function resolveCloudApiKey(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const envKey = normalizeSecretEnvValue(env.ELIZAOS_CLOUD_API_KEY);
+  if (envKey) {
+    return envKey;
+  }
+
+  try {
+    const config = loadElizaConfig();
+    const configKey = normalizeSecretEnvValue(
+      typeof config.cloud?.apiKey === "string" ? config.cloud.apiKey : undefined,
+    );
+    if (configKey) {
+      return configKey;
+    }
+  } catch {
+    // ignore config load errors and continue with secret store fallback
+  }
+
+  const sealedKey = normalizeSecretEnvValue(getCloudSecret("ELIZAOS_CLOUD_API_KEY"));
+  if (sealedKey) {
+    return sealedKey;
+  }
+
+  return null;
+}
+
 async function readRawRequestBody(req: http.IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
   }
   return Buffer.concat(chunks);
+}
+
+async function handleCloudTtsPreviewRoute(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<boolean> {
+  const cloudApiKey = resolveCloudApiKey();
+  if (!cloudApiKey) {
+    sendJsonErrorResponse(
+      res,
+      401,
+      "Eliza Cloud is not connected. Connect your Eliza Cloud account first.",
+    );
+    return true;
+  }
+
+  const rawBody = await readRawRequestBody(req);
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(rawBody.toString("utf8")) as Record<string, unknown>;
+  } catch {
+    sendJsonErrorResponse(res, 400, "Invalid JSON request body");
+    return true;
+  }
+
+  const text = sanitizeSpeechText(typeof body.text === "string" ? body.text : "");
+  if (!text) {
+    sendJsonErrorResponse(res, 400, "Missing text");
+    return true;
+  }
+
+  const cloudModel =
+    (typeof body.modelId === "string" && body.modelId.trim()) ||
+    process.env.ELIZAOS_CLOUD_TTS_MODEL?.trim() ||
+    "gpt-5-mini-tts";
+  const cloudVoice = resolveCloudVoiceName(body.voiceId);
+  const cloudInstructions = process.env.ELIZAOS_CLOUD_TTS_INSTRUCTIONS?.trim();
+  const cloudUrls = resolveCloudTtsCandidateUrls();
+
+  try {
+    let lastStatus = 0;
+    let lastDetails = "unknown error";
+    let cloudResponse: Response | null = null;
+    for (const cloudUrl of cloudUrls) {
+      const attempt = await fetch(cloudUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${cloudApiKey}`,
+          "x-api-key": cloudApiKey,
+          "Content-Type": "application/json",
+          Accept: "audio/mpeg",
+        },
+        body: JSON.stringify({
+          text,
+          input: text,
+          model: cloudModel,
+          modelId: cloudModel,
+          voice: cloudVoice,
+          voiceId: cloudVoice,
+          format: "mp3",
+          ...(cloudInstructions ? { instructions: cloudInstructions } : {}),
+        }),
+      });
+
+      if (attempt.ok) {
+        cloudResponse = attempt;
+        break;
+      }
+
+      lastStatus = attempt.status;
+      lastDetails = await attempt.text().catch(() => "unknown error");
+    }
+    if (!cloudResponse) {
+      sendJsonErrorResponse(
+        res,
+        502,
+        `Eliza Cloud TTS failed (${lastStatus || 502}): ${lastDetails}`,
+      );
+      return true;
+    }
+
+    const audioBuffer = Buffer.from(await cloudResponse.arrayBuffer());
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.end(audioBuffer);
+    return true;
+  } catch (err) {
+    sendJsonErrorResponse(
+      res,
+      502,
+      `Eliza Cloud TTS request failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return true;
+  }
 }
 
 function mirrorCompatHeaders(req: Pick<http.IncomingMessage, "headers">): void {
@@ -1981,114 +2105,11 @@ async function handleMiladyCompatRoute(
     return true;
   }
 
+  if (method === "POST" && url.pathname === "/api/tts/cloud") {
+    return await handleCloudTtsPreviewRoute(req, res);
+  }
+
   if (method === "POST" && url.pathname === "/api/tts/elevenlabs") {
-    const cloudEnabled = process.env.ELIZAOS_CLOUD_ENABLED === "true";
-    const cloudApiKey = normalizeSecretEnvValue(process.env.ELIZAOS_CLOUD_API_KEY);
-    const directElevenLabsKey = normalizeSecretEnvValue(
-      process.env.ELEVENLABS_API_KEY,
-    );
-
-    // Cloud mode without a local ElevenLabs key: handle voice preview through
-    // Eliza Cloud TTS instead of forwarding cloud auth to ElevenLabs.
-    if (
-      cloudEnabled &&
-      cloudApiKey &&
-      !directElevenLabsKey &&
-      process.env.ELIZA_CLOUD_TTS_DISABLED !== "true"
-    ) {
-      const rawBody = await readRawRequestBody(req);
-      let body: Record<string, unknown>;
-      try {
-        body = JSON.parse(rawBody.toString("utf8")) as Record<string, unknown>;
-      } catch {
-        sendJsonErrorResponse(res, 400, "Invalid JSON request body");
-        return true;
-      }
-
-      const requestedApiKey = normalizeSecretEnvValue(
-        typeof body.apiKey === "string" ? body.apiKey : undefined,
-      );
-      // If the client explicitly supplied an ElevenLabs API key, let upstream
-      // handle the standard ElevenLabs proxy path.
-      if (requestedApiKey) {
-        req.push(rawBody);
-        req.push(null);
-        return false;
-      }
-
-      const text = sanitizeSpeechText(
-        typeof body.text === "string" ? body.text : "",
-      );
-      if (!text) {
-        sendJsonErrorResponse(res, 400, "Missing text");
-        return true;
-      }
-
-      const cloudModel =
-        (typeof body.modelId === "string" && body.modelId.trim()) ||
-        process.env.ELIZAOS_CLOUD_TTS_MODEL?.trim() ||
-        "gpt-5-mini-tts";
-      const cloudVoice = resolveCloudVoiceName(body.voiceId);
-      const cloudInstructions = process.env.ELIZAOS_CLOUD_TTS_INSTRUCTIONS?.trim();
-      const cloudUrls = resolveCloudTtsCandidateUrls();
-
-      try {
-        let lastStatus = 0;
-        let lastDetails = "unknown error";
-        let cloudResponse: Response | null = null;
-        for (const cloudUrl of cloudUrls) {
-          const attempt = await fetch(cloudUrl, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${cloudApiKey}`,
-              "Content-Type": "application/json",
-              Accept: "audio/mpeg",
-            },
-            body: JSON.stringify({
-              text,
-              input: text,
-              model: cloudModel,
-              modelId: cloudModel,
-              voice: cloudVoice,
-              voiceId: cloudVoice,
-              format: "mp3",
-              ...(cloudInstructions ? { instructions: cloudInstructions } : {}),
-            }),
-          });
-
-          if (attempt.ok) {
-            cloudResponse = attempt;
-            break;
-          }
-
-          lastStatus = attempt.status;
-          lastDetails = await attempt.text().catch(() => "unknown error");
-        }
-        if (!cloudResponse) {
-          sendJsonErrorResponse(
-            res,
-            502,
-            `Eliza Cloud TTS failed (${lastStatus || 502}): ${lastDetails}`,
-          );
-          return true;
-        }
-
-        const audioBuffer = Buffer.from(await cloudResponse.arrayBuffer());
-        res.statusCode = 200;
-        res.setHeader("Content-Type", "audio/mpeg");
-        res.setHeader("Cache-Control", "no-store");
-        res.end(audioBuffer);
-        return true;
-      } catch (err) {
-        sendJsonErrorResponse(
-          res,
-          502,
-          `Eliza Cloud TTS request failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return true;
-      }
-    }
-
     return false;
   }
 

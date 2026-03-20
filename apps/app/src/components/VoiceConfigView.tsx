@@ -1,24 +1,22 @@
 import { Button, Input } from "@elizaos/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { client } from "@elizaos/app-core/api";
-import { dispatchWindowEvent, VOICE_CONFIG_UPDATED_EVENT } from "@elizaos/app-core/events";
+import {
+  dispatchWindowEvent,
+  VOICE_CONFIG_UPDATED_EVENT,
+} from "@elizaos/app-core/events";
 import { useApp } from "@elizaos/app-core/state";
-import {
-  PREMADE_VOICES,
-  sanitizeApiKey,
-  VOICE_PROVIDERS,
-} from "@elizaos/app-core/voice";
-import {
-  CloudConnectionStatus,
-  CloudSourceModeToggle,
-} from "@elizaos/app-core/components/CloudSourceControls";
+import { PREMADE_VOICES, sanitizeApiKey } from "@elizaos/app-core/voice";
 import { ConfigSaveFooter } from "@elizaos/app-core/components/ConfigSaveFooter";
 
-type VoiceMode = "cloud" | "own-key";
-type ProviderId = "elevenlabs" | "edge" | "simple-voice";
+type ProviderId = "cloud" | "elevenlabs" | "edge";
+
 type VoiceConfig = {
   provider?: ProviderId;
-  mode?: VoiceMode;
+  cloud?: {
+    voiceId?: string;
+    modelId?: string;
+  };
   elevenlabs?: {
     apiKey?: string;
     voiceId?: string;
@@ -27,6 +25,8 @@ type VoiceConfig = {
   edge?: {
     voice?: string;
   };
+  // Legacy field kept for migration only.
+  mode?: "cloud" | "own-key";
 };
 
 type CloudVoicePreset = {
@@ -37,7 +37,32 @@ type CloudVoicePreset = {
   language: string;
 };
 
+type ProviderCard = {
+  id: ProviderId;
+  label: string;
+  hint: string;
+};
+
+const PROVIDER_CARDS: ProviderCard[] = [
+  {
+    id: "cloud",
+    label: "Eliza Cloud",
+    hint: "Managed cloud voices",
+  },
+  {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    hint: "Use your ElevenLabs API key",
+  },
+  {
+    id: "edge",
+    label: "Microsoft Edge",
+    hint: "Free, local browser voices",
+  },
+];
+
 const DEFAULT_ELEVEN_MODEL = "eleven_flash_v2_5";
+const DEFAULT_CLOUD_MODEL = "gpt-5-mini-tts";
 
 const CLOUD_VOICE_PRESETS: CloudVoicePreset[] = [
   {
@@ -110,6 +135,42 @@ function languageFromElevenHint(hint: string | undefined): string {
   return prefix && prefix.length > 0 ? prefix : "Other";
 }
 
+function normalizeLoadedVoiceConfig(input?: VoiceConfig): VoiceConfig {
+  if (!input) {
+    return { provider: "cloud" };
+  }
+
+  const provider = input.provider;
+  const legacyMode = input.mode;
+
+  // Legacy migration: old model was provider=elevenlabs + mode=cloud.
+  if ((provider === "elevenlabs" || !provider) && legacyMode === "cloud") {
+    return {
+      provider: "cloud",
+      cloud: {
+        voiceId: input.cloud?.voiceId ?? input.elevenlabs?.voiceId,
+        modelId: input.cloud?.modelId ?? input.elevenlabs?.modelId,
+      },
+      elevenlabs: input.elevenlabs,
+      edge: input.edge,
+    };
+  }
+
+  if (provider === "cloud" || provider === "elevenlabs" || provider === "edge") {
+    return {
+      ...input,
+      provider,
+      mode: undefined,
+    };
+  }
+
+  return {
+    ...input,
+    provider: "cloud",
+    mode: undefined,
+  };
+}
+
 export function VoiceConfigView() {
   const { t, elizaCloudConnected } = useApp();
   const [loading, setLoading] = useState(true);
@@ -121,7 +182,7 @@ export function VoiceConfigView() {
   const [testError, setTestError] = useState<string | null>(null);
   const [voiceLanguageFilter, setVoiceLanguageFilter] = useState("all");
   const [customVoiceIdInput, setCustomVoiceIdInput] = useState("");
-  const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({});
+  const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({ provider: "cloud" });
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -130,11 +191,9 @@ export function VoiceConfigView() {
       try {
         const cfg = await client.getConfig();
         const messages = cfg.messages as { tts?: VoiceConfig } | undefined;
-        if (messages?.tts) {
-          setVoiceConfig(messages.tts);
-        }
+        setVoiceConfig(normalizeLoadedVoiceConfig(messages?.tts));
       } catch {
-        // keep defaults
+        setVoiceConfig({ provider: "cloud" });
       } finally {
         setLoading(false);
       }
@@ -150,67 +209,96 @@ export function VoiceConfigView() {
     };
   }, []);
 
-  const currentProvider = (voiceConfig.provider ?? "elevenlabs") as ProviderId;
-  const currentMode = (voiceConfig.mode ?? "own-key") as VoiceMode;
-  const providerInfo = VOICE_PROVIDERS.find((p) => p.id === currentProvider);
+  const currentProvider = (voiceConfig.provider ?? "cloud") as ProviderId;
 
-  const isConfigured =
-    currentProvider !== "elevenlabs"
-      ? true
-      : currentMode === "cloud"
-        ? elizaCloudConnected
-        : Boolean(voiceConfig.elevenlabs?.apiKey);
+  const isConfigured = useMemo(() => {
+    if (currentProvider === "cloud") {
+      return elizaCloudConnected;
+    }
+    if (currentProvider === "elevenlabs") {
+      return Boolean(voiceConfig.elevenlabs?.apiKey);
+    }
+    return true;
+  }, [currentProvider, elizaCloudConnected, voiceConfig.elevenlabs?.apiKey]);
 
   const allLanguages = useMemo(() => {
-    if (currentProvider !== "elevenlabs") {
-      return ["all"];
-    }
-    if (currentMode === "cloud") {
+    if (currentProvider === "cloud") {
       return ["all", ...new Set(CLOUD_VOICE_PRESETS.map((v) => v.language))];
     }
-    return [
-      "all",
-      ...new Set(PREMADE_VOICES.map((v) => languageFromElevenHint(v.hint))),
-    ];
-  }, [currentProvider, currentMode]);
+    if (currentProvider === "elevenlabs") {
+      return [
+        "all",
+        ...new Set(PREMADE_VOICES.map((v) => languageFromElevenHint(v.hint))),
+      ];
+    }
+    return ["all"];
+  }, [currentProvider]);
 
-  const visibleVoices = useMemo(() => {
-    if (currentProvider !== "elevenlabs") return [];
-    if (currentMode === "cloud") {
-      return CLOUD_VOICE_PRESETS.filter((v) =>
-        voiceLanguageFilter === "all" ? true : v.language === voiceLanguageFilter,
-      ).sort((a, b) => a.name.localeCompare(b.name));
+  const visibleCloudVoices = useMemo(() => {
+    if (currentProvider !== "cloud") {
+      return [];
+    }
+    return CLOUD_VOICE_PRESETS.filter((v) =>
+      voiceLanguageFilter === "all" ? true : v.language === voiceLanguageFilter,
+    ).sort((a, b) => a.name.localeCompare(b.name));
+  }, [currentProvider, voiceLanguageFilter]);
+
+  const visibleElevenVoices = useMemo(() => {
+    if (currentProvider !== "elevenlabs") {
+      return [];
     }
     return PREMADE_VOICES.filter((v) => {
       const lang = languageFromElevenHint(v.hint);
       return voiceLanguageFilter === "all" ? true : lang === voiceLanguageFilter;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [currentMode, currentProvider, voiceLanguageFilter]);
+  }, [currentProvider, voiceLanguageFilter]);
 
-  const selectedVoiceId = voiceConfig.elevenlabs?.voiceId;
+  const selectedVoiceId = useMemo(() => {
+    if (currentProvider === "cloud") {
+      return voiceConfig.cloud?.voiceId;
+    }
+    if (currentProvider === "elevenlabs") {
+      return voiceConfig.elevenlabs?.voiceId;
+    }
+    return undefined;
+  }, [currentProvider, voiceConfig.cloud?.voiceId, voiceConfig.elevenlabs?.voiceId]);
 
   const handleProviderChange = useCallback((provider: ProviderId) => {
     setVoiceConfig((prev) => ({ ...prev, provider }));
+    setVoiceLanguageFilter("all");
+    setTestError(null);
     setDirty(true);
   }, []);
 
-  const handleModeChange = useCallback((mode: VoiceMode) => {
-    setVoiceConfig((prev) => ({ ...prev, mode }));
-    setDirty(true);
-  }, []);
-
-  const handleApiKeyChange = useCallback((apiKey: string) => {
+  const handleCloudVoiceSelect = useCallback((voiceId: string) => {
     setVoiceConfig((prev) => ({
       ...prev,
-      elevenlabs: { ...prev.elevenlabs, apiKey: apiKey || undefined },
+      cloud: {
+        ...prev.cloud,
+        voiceId,
+      },
     }));
     setDirty(true);
   }, []);
 
-  const handleVoiceSelect = useCallback((voiceId: string) => {
+  const handleElevenApiKeyChange = useCallback((apiKey: string) => {
     setVoiceConfig((prev) => ({
       ...prev,
-      elevenlabs: { ...prev.elevenlabs, voiceId },
+      elevenlabs: {
+        ...prev.elevenlabs,
+        apiKey: apiKey || undefined,
+      },
+    }));
+    setDirty(true);
+  }, []);
+
+  const handleElevenVoiceSelect = useCallback((voiceId: string) => {
+    setVoiceConfig((prev) => ({
+      ...prev,
+      elevenlabs: {
+        ...prev.elevenlabs,
+        voiceId,
+      },
     }));
     setDirty(true);
   }, []);
@@ -220,37 +308,58 @@ export function VoiceConfigView() {
       audioRef.current.pause();
       audioRef.current = null;
     }
+
     setTesting(true);
     setTestError(null);
 
     try {
-      if (currentProvider !== "elevenlabs") {
-        throw new Error("Voice test currently supports ElevenLabs/Cloud mode only.");
+      if (currentProvider === "edge") {
+        throw new Error("Voice test is not supported for Microsoft Edge provider.");
       }
-      const voiceId = voiceConfig.elevenlabs?.voiceId;
-      if (!voiceId) {
-        throw new Error("Select a voice before testing.");
-      }
-      const modelId = voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_MODEL;
-      const rawApiKey = voiceConfig.elevenlabs?.apiKey;
-      const providedApiKey =
-        currentMode === "own-key" &&
-        typeof rawApiKey === "string" &&
-        rawApiKey.trim().length > 0 &&
-        rawApiKey !== "[REDACTED]"
-          ? rawApiKey.trim()
-          : undefined;
 
-      const response = await fetch("/api/tts/elevenlabs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: "Hello from your selected voice.",
-          voiceId,
-          modelId,
-          ...(providedApiKey ? { apiKey: providedApiKey } : {}),
-        }),
-      });
+      const text = "Hello from your selected voice.";
+      let response: Response;
+
+      if (currentProvider === "cloud") {
+        const voiceId = voiceConfig.cloud?.voiceId;
+        if (!voiceId) {
+          throw new Error("Select an Eliza Cloud voice before testing.");
+        }
+
+        response = await fetch("/api/tts/cloud", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            voiceId,
+            modelId: voiceConfig.cloud?.modelId ?? DEFAULT_CLOUD_MODEL,
+          }),
+        });
+      } else {
+        const voiceId = voiceConfig.elevenlabs?.voiceId;
+        if (!voiceId) {
+          throw new Error("Select an ElevenLabs voice before testing.");
+        }
+
+        const rawApiKey = voiceConfig.elevenlabs?.apiKey;
+        const providedApiKey =
+          typeof rawApiKey === "string" &&
+          rawApiKey.trim().length > 0 &&
+          rawApiKey !== "[REDACTED]"
+            ? rawApiKey.trim()
+            : undefined;
+
+        response = await fetch("/api/tts/elevenlabs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            voiceId,
+            modelId: voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_MODEL,
+            ...(providedApiKey ? { apiKey: providedApiKey } : {}),
+          }),
+        });
+      }
 
       if (!response.ok) {
         const upstreamBody = await response.text().catch(() => "");
@@ -275,28 +384,30 @@ export function VoiceConfigView() {
       setTesting(false);
       setTestError(err instanceof Error ? err.message : "Voice test failed.");
     }
-  }, [currentMode, currentProvider, voiceConfig]);
+  }, [currentProvider, voiceConfig]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
+
     try {
       const cfg = await client.getConfig();
       const messages = (cfg.messages ?? {}) as Record<string, unknown>;
-      const provider = (voiceConfig.provider ?? "elevenlabs") as ProviderId;
-      const normalized = {
+      const provider = (voiceConfig.provider ?? "cloud") as ProviderId;
+      const normalized: VoiceConfig = {
         ...voiceConfig,
         provider,
-        mode: provider === "elevenlabs" ? (voiceConfig.mode ?? "own-key") : undefined,
-        elevenlabs:
-          provider === "elevenlabs"
-            ? {
-                ...voiceConfig.elevenlabs,
-                modelId: voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_MODEL,
-                apiKey: sanitizeApiKey(voiceConfig.elevenlabs?.apiKey),
-              }
-            : voiceConfig.elevenlabs,
+        mode: undefined,
+        cloud: {
+          ...voiceConfig.cloud,
+          modelId: voiceConfig.cloud?.modelId ?? DEFAULT_CLOUD_MODEL,
+        },
+        elevenlabs: {
+          ...voiceConfig.elevenlabs,
+          modelId: voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_MODEL,
+          apiKey: sanitizeApiKey(voiceConfig.elevenlabs?.apiKey),
+        },
       };
 
       await client.updateConfig({
@@ -305,7 +416,9 @@ export function VoiceConfigView() {
           tts: normalized,
         },
       });
+
       dispatchWindowEvent(VOICE_CONFIG_UPDATED_EVENT, normalized);
+      setVoiceConfig(normalized);
       setSaveSuccess(true);
       setDirty(false);
       window.setTimeout(() => setSaveSuccess(false), 2500);
@@ -327,17 +440,19 @@ export function VoiceConfigView() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <div className="text-xs font-semibold text-[var(--muted)]">
-          {t("voiceconfigview.TTSProvider")}
-        </div>
+        <div className="text-xs font-semibold text-[var(--muted)]">TTS Provider</div>
         <div className="flex gap-2">
-          {VOICE_PROVIDERS.map((p) => (
+          {PROVIDER_CARDS.map((p) => (
             <Button
               key={p.id}
               variant="outline"
               size="sm"
-              className="flex-1 h-auto flex-col py-2"
-              onClick={() => handleProviderChange(p.id as ProviderId)}
+              className={`flex-1 h-auto flex-col py-2 ${
+                currentProvider === p.id
+                  ? "border-[var(--accent)] bg-[var(--accent)]/20"
+                  : ""
+              }`}
+              onClick={() => handleProviderChange(p.id)}
             >
               <div className="font-semibold">{p.label}</div>
               <div className="text-[10px] opacity-70 mt-0.5">{p.hint}</div>
@@ -348,13 +463,11 @@ export function VoiceConfigView() {
 
       <div className="flex items-center justify-between py-2 px-3 border border-[var(--border)] bg-[var(--bg-muted)]">
         <span className="text-xs">
-          {currentProvider === "elevenlabs"
-            ? `ElevenLabs — ${
-                currentMode === "cloud"
-                  ? t("voiceconfigview.ServedViaElizaCloud")
-                  : t("voiceconfigview.RequiresApiKey")
-              }`
-            : `${providerInfo?.label} — ${t("voiceconfigview.NoApiKeyNeeded")}`}
+          {currentProvider === "cloud"
+            ? "Eliza Cloud voice catalog"
+            : currentProvider === "elevenlabs"
+              ? "ElevenLabs voice catalog"
+              : "Microsoft Edge local voices"}
         </span>
         <span
           className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
@@ -369,48 +482,11 @@ export function VoiceConfigView() {
         </span>
       </div>
 
-      {currentProvider === "elevenlabs" && (
+      {currentProvider === "cloud" && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-[var(--muted)]">
-              {t("voiceconfigview.APISource")}
-            </span>
-            <CloudSourceModeToggle mode={currentMode} onChange={handleModeChange} />
-          </div>
-
-          {currentMode === "cloud" && (
-            <CloudConnectionStatus
-              connected={elizaCloudConnected}
-              disconnectedText={t("elizaclouddashboard.ElizaCloudNotConnected")}
-            />
-          )}
-
-          {currentMode === "own-key" && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold">
-                {t("voiceconfigview.ElevenLabsAPIKey")}
-              </span>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="password"
-                  className="bg-card text-xs"
-                  placeholder={
-                    voiceConfig.elevenlabs?.apiKey
-                      ? t("mediasettingssection.ApiKeySetLeaveBlank")
-                      : t("mediasettingssection.EnterApiKey")
-                  }
-                  onChange={(e) => handleApiKeyChange(e.target.value)}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 font-semibold"
-                  disabled={saving || !dirty}
-                  onClick={() => void handleSave()}
-                >
-                  {saving ? "Saving..." : "Save Voice Settings"}
-                </Button>
-              </div>
+          {!elizaCloudConnected && (
+            <div className="py-2 px-3 border border-[var(--warn)] bg-[var(--warn-subtle)] text-xs text-[var(--text)]">
+              {t("elizaclouddashboard.ElizaCloudNotConnected")}
             </div>
           )}
 
@@ -419,7 +495,7 @@ export function VoiceConfigView() {
             <div className="flex flex-wrap gap-1.5">
               {allLanguages.map((lang) => (
                 <Button
-                  key={`voice-lang-${lang}`}
+                  key={`cloud-voice-lang-${lang}`}
                   variant="outline"
                   size="sm"
                   className={`text-[10px] px-2 py-1 ${
@@ -434,32 +510,8 @@ export function VoiceConfigView() {
               ))}
             </div>
 
-            {currentMode === "own-key" && (
-              <div className="flex items-center gap-2">
-                <Input
-                  type="text"
-                  className="bg-card text-xs"
-                  placeholder="Paste custom ElevenLabs voice ID"
-                  value={customVoiceIdInput}
-                  onChange={(e) => setCustomVoiceIdInput(e.target.value)}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 font-semibold"
-                  onClick={() => {
-                    const trimmed = customVoiceIdInput.trim();
-                    if (!trimmed) return;
-                    handleVoiceSelect(trimmed);
-                  }}
-                >
-                  Use Voice ID
-                </Button>
-              </div>
-            )}
-
             <div className="grid grid-cols-3 gap-1.5">
-              {visibleVoices.map((preset) => {
+              {visibleCloudVoices.map((preset) => {
                 const active = selectedVoiceId === preset.voiceId;
                 return (
                   <Button
@@ -471,7 +523,106 @@ export function VoiceConfigView() {
                         ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]"
                         : ""
                     }`}
-                    onClick={() => handleVoiceSelect(preset.voiceId)}
+                    onClick={() => handleCloudVoiceSelect(preset.voiceId)}
+                  >
+                    <div className="font-semibold truncate w-full">{preset.name}</div>
+                    <div className="text-[10px] opacity-70 truncate w-full">
+                      {preset.hint}
+                    </div>
+                  </Button>
+                );
+              })}
+            </div>
+
+            {selectedVoiceId && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-semibold"
+                  disabled={testing}
+                  onClick={() => void handleTestVoice()}
+                >
+                  {testing ? t("voiceconfigview.Playing") : "Test Selected Voice"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {currentProvider === "elevenlabs" && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold">ElevenLabs API Key</span>
+            <Input
+              type="password"
+              className="bg-card text-xs"
+              placeholder={
+                voiceConfig.elevenlabs?.apiKey
+                  ? t("mediasettingssection.ApiKeySetLeaveBlank")
+                  : t("mediasettingssection.EnterApiKey")
+              }
+              onChange={(e) => handleElevenApiKeyChange(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="text-xs font-semibold">Voice</div>
+            <div className="flex flex-wrap gap-1.5">
+              {allLanguages.map((lang) => (
+                <Button
+                  key={`eleven-voice-lang-${lang}`}
+                  variant="outline"
+                  size="sm"
+                  className={`text-[10px] px-2 py-1 ${
+                    voiceLanguageFilter === lang
+                      ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white"
+                      : ""
+                  }`}
+                  onClick={() => setVoiceLanguageFilter(lang)}
+                >
+                  {lang === "all" ? "All Languages" : lang}
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                className="bg-card text-xs"
+                placeholder="Paste custom ElevenLabs voice ID"
+                value={customVoiceIdInput}
+                onChange={(e) => setCustomVoiceIdInput(e.target.value)}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 font-semibold"
+                onClick={() => {
+                  const trimmed = customVoiceIdInput.trim();
+                  if (!trimmed) return;
+                  handleElevenVoiceSelect(trimmed);
+                }}
+              >
+                Use Voice ID
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5">
+              {visibleElevenVoices.map((preset) => {
+                const active = selectedVoiceId === preset.voiceId;
+                return (
+                  <Button
+                    key={preset.id}
+                    variant="outline"
+                    size="sm"
+                    className={`h-auto flex-col items-start py-1.5 px-2 text-left ${
+                      active
+                        ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]"
+                        : ""
+                    }`}
+                    onClick={() => handleElevenVoiceSelect(preset.voiceId)}
                   >
                     <div className="font-semibold truncate w-full">{preset.name}</div>
                     <div className="text-[10px] opacity-70 truncate w-full">
@@ -502,12 +653,6 @@ export function VoiceConfigView() {
       {currentProvider === "edge" && (
         <div className="py-2 px-3 border border-[var(--border)] bg-[var(--bg-muted)] text-xs text-[var(--muted)]">
           {t("voiceconfigview.EdgeTTSUsesMicros")}
-        </div>
-      )}
-
-      {currentProvider === "simple-voice" && (
-        <div className="py-2 px-3 border border-[var(--border)] bg-[var(--bg-muted)] text-xs text-[var(--muted)]">
-          {t("voiceconfigview.SimpleVoiceUsesYo")}
         </div>
       )}
 
