@@ -1,6 +1,6 @@
+import { createElizaPlugin as createUpstreamElizaPlugin } from "@elizaos/autonomous/runtime/eliza-plugin";
 import { executeTradeAction } from "../actions/execute-trade.js";
 import { transferTokenAction } from "../actions/transfer-token.js";
-import { createElizaPlugin as createUpstreamElizaPlugin } from "@elizaos/autonomous/runtime/eliza-plugin";
 
 export * from "@elizaos/autonomous/runtime/eliza-plugin";
 
