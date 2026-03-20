@@ -8,7 +8,9 @@ export function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
-export function sanitizeIdentifier(value: string | null | undefined): string | null {
+export function sanitizeIdentifier(
+  value: string | null | undefined,
+): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;

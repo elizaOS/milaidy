@@ -37,7 +37,12 @@ try {
 
 console.log(`${getLogPrefix()} dotenv loaded (${Date.now() - SCRIPT_START}ms)`);
 
-const port = Number(process.env.MILADY_API_PORT || process.env.MILADY_PORT || process.env.ELIZA_PORT) || 31337;
+const port =
+  Number(
+    process.env.MILADY_API_PORT ||
+      process.env.MILADY_PORT ||
+      process.env.ELIZA_PORT,
+  ) || 31337;
 
 /** The currently active runtime — swapped on restart. */
 let currentRuntime: AgentRuntime | null = null;
@@ -76,8 +81,6 @@ let runtimeBootTimer: ReturnType<typeof setTimeout> | null = null;
 let runtimeBootFirstFailureAt: number | null = null;
 const RUNTIME_BOOT_ERROR_ATTEMPT_THRESHOLD = 3;
 const RUNTIME_BOOT_ERROR_DURATION_MS = 2 * 60_000;
-
-
 
 function nextRetryDelayMs(attempt: number): number {
   // 1s, 2s, 4s, 8s, 16s, then cap at 30s.
@@ -270,7 +273,9 @@ async function shutdown(): Promise<void> {
 
   // Force exit if graceful shutdown hangs for more than 10 seconds.
   const forceExitTimer = setTimeout(() => {
-    logger.warn(`${getLogPrefix()} Shutdown timed out after 10s — forcing exit`);
+    logger.warn(
+      `${getLogPrefix()} Shutdown timed out after 10s — forcing exit`,
+    );
     process.exit(1);
   }, 10_000);
   forceExitTimer.unref?.();

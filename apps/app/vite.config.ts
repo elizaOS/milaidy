@@ -252,7 +252,7 @@ export default defineConfig({
         target: `http://localhost:${apiPort}`,
         changeOrigin: true,
         configure: (proxy) => {
-          proxy.on("error", (err, _req, res) => {
+          proxy.on("error", (_err, _req, res) => {
             if (!res.headersSent) {
               res.writeHead(502, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ error: "API server unavailable" }));

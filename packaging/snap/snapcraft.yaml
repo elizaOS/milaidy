@@ -18,7 +18,7 @@ description: |
   Quick start: sudo snap install milady && milady setup
 
 grade: devel
-confinement: classic
+confinement: strict
 base: core22
 license: MIT
 website: https://milady.ai

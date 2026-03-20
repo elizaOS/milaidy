@@ -54,7 +54,9 @@ describe("app public bundle assets", () => {
     // files that actually exist on disk.  Some character VRMs/previews are
     // generated at build time and may not be present in CI (git-tracked only).
     // Collect all animation files (emotes + mixamo + idle) dynamically
-    const animationFiles = actualFiles.filter((f) => f.startsWith("animations/"));
+    const animationFiles = actualFiles.filter((f) =>
+      f.startsWith("animations/"),
+    );
 
     const allExpected = new Set<string>([
       "android-chrome-192x192.png",

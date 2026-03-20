@@ -62,7 +62,9 @@ export function buildPluginCatalogIndex(): Map<string, PluginCatalogEntry> {
 
   const thisDir =
     import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
-  const packageRoot = resolveElizaPackageRootSync({ moduleUrl: import.meta.url, cwd: thisDir }) ?? thisDir;
+  const packageRoot =
+    resolveElizaPackageRootSync({ moduleUrl: import.meta.url, cwd: thisDir }) ??
+    thisDir;
   const manifestPath = path.join(packageRoot, "plugins.json");
   const map = new Map<string, PluginCatalogEntry>();
 

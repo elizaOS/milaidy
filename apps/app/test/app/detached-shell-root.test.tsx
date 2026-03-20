@@ -236,7 +236,9 @@ describe("DetachedShellRoot", () => {
     const json = tree?.toJSON() as TestRenderer.ReactTestRendererJSON;
     const textContent = JSON.stringify(json);
     expect(textContent).toContain("Setup in progress");
-    expect(tree?.root.findAllByProps({ "data-testid": "chat-view" })).toHaveLength(0);
+    expect(
+      tree?.root.findAllByProps({ "data-testid": "chat-view" }),
+    ).toHaveLength(0);
   });
 
   it("does not show blocked view while onboarding is still loading", async () => {
@@ -292,8 +294,6 @@ describe("DetachedShellRoot", () => {
     expect(
       tree?.root.findByProps({ "data-testid": "conversations-sidebar" }),
     ).toBeTruthy();
-    expect(
-      tree?.root.findByProps({ "data-testid": "chat-view" }),
-    ).toBeTruthy();
+    expect(tree?.root.findByProps({ "data-testid": "chat-view" })).toBeTruthy();
   });
 });
