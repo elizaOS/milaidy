@@ -39,6 +39,10 @@ const WINDOWS_PACKAGED_TEST_PATH = path.join(
   ROOT,
   "apps/app/test/electrobun-packaged/electrobun-windows-startup.e2e.spec.ts",
 );
+const WINDOWS_PACKAGED_BOOTSTRAP_HELPER_PATH = path.join(
+  ROOT,
+  "apps/app/test/electrobun-packaged/windows-bootstrap.ts",
+);
 const INNO_BUILD_SCRIPT_PATH = path.join(ROOT, "packaging/inno/build-inno.ps1");
 const ELECTROBUN_CONFIG_PATH = path.join(
   ROOT,
@@ -566,11 +570,22 @@ describe("Electrobun release workflow drift", () => {
       WINDOWS_PACKAGED_TEST_PATH,
       "utf8",
     );
+    const windowsBootstrapHelper = fs.readFileSync(
+      WINDOWS_PACKAGED_BOOTSTRAP_HELPER_PATH,
+      "utf8",
+    );
 
     expect(windowsPackagedTest).toContain(
       "MILADY_DESKTOP_TEST_API_BASE: api.baseUrl",
     );
-    expect(windowsPackagedTest).toContain('request.includes("/api/status")');
+    expect(windowsPackagedTest).toContain('from "./windows-bootstrap"');
+    expect(windowsPackagedTest).toContain(
+      "hasPackagedRendererBootstrapRequests(api.requests)",
+    );
+    expect(windowsBootstrapHelper).toContain('"/api/status"');
+    expect(windowsBootstrapHelper).toContain('"/api/config"');
+    expect(windowsBootstrapHelper).toContain('"/api/drop/status"');
+    expect(windowsBootstrapHelper).toContain('"/api/stream/settings"');
     expect(windowsPackagedTest).toContain("waitForRendererBootstrap");
     expect(windowsPackagedTest).not.toContain("chromium.connectOverCDP");
     expect(windowsPackagedTest).not.toContain("--remote-debugging-port");
