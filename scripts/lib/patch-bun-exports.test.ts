@@ -11,13 +11,13 @@ import { describe, expect, it } from "vitest";
 import {
   applyAgentSkillsCatalogFetchPatch,
   applyAppCoreCloudLoginPopupPatch,
+  applyAppCoreConfigPageAuthOnlyPatch,
+  applyAppCoreMediaSettingsAuthOnlyPatch,
   applyAppCoreMiladyCharacterViewPatch,
   applyAppCoreMiladyIdentityStepPatch,
   applyAppCoreMiladyVrmStatePatch,
   applyAppCoreMiladyVrmTypesPatch,
   applyAppCoreMiladyVrmViewerPatch,
-  applyAppCoreConfigPageAuthOnlyPatch,
-  applyAppCoreMediaSettingsAuthOnlyPatch,
   applyAppCoreOnboardingConnectionStepPatch,
   applyAppCoreProviderSwitcherAuthOnlyPatch,
   applyAppCoreRpcStepByokOnlyPatch,
@@ -1145,7 +1145,7 @@ return _jsx("select", { value: resolvedSelectedId ?? "__cloud__", onChange: (e) 
       expect(patched).toBe(true);
       const updated = readFileSync(filePath, "utf8");
       expect(updated).toContain(
-        'const [selectedProviderId, setSelectedProviderId] = useState(() => null);',
+        "const [selectedProviderId, setSelectedProviderId] = useState(() => null);",
       );
       expect(updated).toContain('label: "Eliza Cloud (Auth only)"');
       expect(updated).toContain(
@@ -1203,7 +1203,9 @@ currentMode === "cloud" && (_jsx(CloudConnectionStatus, { connected: elizaCloudC
       const updated = readFileSync(filePath, "utf8");
       expect(updated).toContain("const FALLBACK_MEDIA_PROVIDER_BY_CATEGORY =");
       expect(updated).toContain('cfg.mode === "cloud" ? "own-key"');
-      expect(updated).toContain("const fallbackProvider = FALLBACK_MEDIA_PROVIDER_BY_CATEGORY[category];");
+      expect(updated).toContain(
+        "const fallbackProvider = FALLBACK_MEDIA_PROVIDER_BY_CATEGORY[category];",
+      );
       expect(updated).toContain("onChange: () => {");
       expect(updated).not.toContain(
         'currentMode === "cloud" && (_jsx(CloudConnectionStatus',

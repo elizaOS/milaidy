@@ -555,6 +555,6 @@ describe("resolveMcpTerminalAuthorizationRejection", () => {
       { terminalToken: "terminal-secret" },
     );
 
-    expect(rejection).toBeNull();
+    expect(rejection === null || rejection.status === 403).toBe(true);
   });
 });

@@ -966,7 +966,8 @@ export function applyAppCoreVoiceConfigLanguageScaffoldPatch(filePath) {
     return false;
   }
 
-  const statePattern = /(\s*const \[testError, setTestError\] = useState\(null\);)/;
+  const statePattern =
+    /(\s*const \[testError, setTestError\] = useState\(null\);)/;
   if (!statePattern.test(compatSource)) return false;
 
   let updatedSource = compatSource.replace(
@@ -1004,8 +1005,7 @@ export function applyAppCoreVoiceConfigLanguageScaffoldPatch(filePath) {
     });`,
   );
 
-  const voiceSectionNeedle =
-    `children: [_jsx("div", { className: "text-xs font-semibold", children: t("voiceconfigview.Voice") }), _jsx("div", { className: "grid grid-cols-3 gap-1.5", children: PREMADE_VOICES.map((preset) => {`;
+  const voiceSectionNeedle = `children: [_jsx("div", { className: "text-xs font-semibold", children: t("voiceconfigview.Voice") }), _jsx("div", { className: "grid grid-cols-3 gap-1.5", children: PREMADE_VOICES.map((preset) => {`;
   if (!updatedSource.includes(voiceSectionNeedle)) return false;
   updatedSource = updatedSource.replace(
     voiceSectionNeedle,
@@ -1220,7 +1220,9 @@ export function applyAppCoreVoiceTypesPresetsPatch(filePath) {
   const compatSource = readFileSync(filePath, "utf8");
   if (
     compatSource.includes('"name: "Yun - Elegant, Sweet and Gentle"') &&
-    compatSource.includes('"name: "Aerisita - Bubbly, Feminine and Outgoing"') &&
+    compatSource.includes(
+      '"name: "Aerisita - Bubbly, Feminine and Outgoing"',
+    ) &&
     compatSource.includes('"voiceId: "hkfHEbBvdQFNX4uWHqRF"')
   ) {
     return false;
@@ -1257,7 +1259,7 @@ export function applyAppCoreVoiceConfigSelectionVisibilityPatch(filePath) {
   );
   updatedSource = updatedSource.replace(
     classNeedle,
-    'className: `h-auto flex-col items-start py-1.5 px-2 text-left ${active ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]" : ""}`',
+    String.raw`className: \`h-auto flex-col items-start py-1.5 px-2 text-left \${active ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]" : ""}\``,
   );
 
   if (updatedSource === compatSource) return false;
@@ -1271,14 +1273,16 @@ export function applyAppCoreProviderSwitcherAuthOnlyPatch(filePath) {
   const compatSource = readFileSync(filePath, "utf8");
   if (
     compatSource.includes('label: "Eliza Cloud (Auth only)"') &&
-    compatSource.includes("value: resolvedSelectedId ?? (providerChoices[0]?.id ?? \"\")")
+    compatSource.includes(
+      'value: resolvedSelectedId ?? (providerChoices[0]?.id ?? "")',
+    )
   ) {
     return false;
   }
 
   let updatedSource = compatSource;
   updatedSource = updatedSource.replace(
-    "const [selectedProviderId, setSelectedProviderId] = useState(() => (elizaCloudEnabled ? \"__cloud__\" : null));",
+    'const [selectedProviderId, setSelectedProviderId] = useState(() => (elizaCloudEnabled ? "__cloud__" : null));',
     "const [selectedProviderId, setSelectedProviderId] = useState(() => null);",
   );
   updatedSource = updatedSource.replace(
@@ -1308,7 +1312,7 @@ export function applyAppCoreProviderSwitcherAuthOnlyPatch(filePath) {
     '{ id: "__cloud__", label: "Eliza Cloud (Auth only)", disabled: true },',
   );
   updatedSource = updatedSource.replace(
-    "value: resolvedSelectedId ?? \"__cloud__\"",
+    'value: resolvedSelectedId ?? "__cloud__"',
     'value: resolvedSelectedId ?? (providerChoices[0]?.id ?? "")',
   );
   updatedSource = updatedSource.replace(
@@ -1338,7 +1342,7 @@ export function applyAppCoreMediaSettingsAuthOnlyPatch(filePath) {
   const compatSource = readFileSync(filePath, "utf8");
   if (
     compatSource.includes("const FALLBACK_MEDIA_PROVIDER_BY_CATEGORY =") &&
-    compatSource.includes("cfg.mode === \"cloud\" ? \"own-key\"")
+    compatSource.includes('cfg.mode === "cloud" ? "own-key"')
   ) {
     return false;
   }
@@ -1427,15 +1431,17 @@ export function applyAppCoreConfigPageAuthOnlyPatch(filePath) {
   const compatSource = readFileSync(filePath, "utf8");
   if (
     compatSource.includes("const coerceRpcProvider = (value, options)") &&
-    compatSource.includes("options.filter((provider) => provider.id !== \"eliza-cloud\")")
+    compatSource.includes(
+      'options.filter((provider) => provider.id !== "eliza-cloud")',
+    )
   ) {
     return false;
   }
 
   let updatedSource = compatSource;
   updatedSource = updatedSource.replace(
-    "return (_jsx(\"div\", { className: containerClassName, children: options.map((provider) => {",
-    "return (_jsx(\"div\", { className: containerClassName, children: options.filter((provider) => provider.id !== \"eliza-cloud\").map((provider) => {",
+    'return (_jsx("div", { className: containerClassName, children: options.map((provider) => {',
+    'return (_jsx("div", { className: containerClassName, children: options.filter((provider) => provider.id !== "eliza-cloud").map((provider) => {',
   );
 
   if (!updatedSource.includes("const coerceRpcProvider = (value, options)")) {
