@@ -10,6 +10,7 @@ import {
   VALID_BRANCH,
   VALID_GIT_URL,
 } from "./plugin-installer";
+import { createSerialise } from "../utils/serialise";
 import { getPluginInfo } from "./registry-client";
 
 const execFileAsync = promisify(execFile);
@@ -25,16 +26,7 @@ function isSupportedUpstreamSchema(value: string): boolean {
   return value === UPSTREAM_SCHEMA;
 }
 
-let ejectLock: Promise<void> = Promise.resolve();
-
-function serialise<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = ejectLock;
-  let resolve: () => void;
-  ejectLock = new Promise<void>((r) => {
-    resolve = r;
-  });
-  return prev.then(fn).finally(() => resolve?.());
-}
+const serialise = createSerialise();
 
 export interface UpstreamMetadata {
   $schema: typeof UPSTREAM_SCHEMA;

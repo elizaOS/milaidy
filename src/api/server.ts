@@ -23,7 +23,7 @@ import {
   startApiServer as upstreamStartApiServer,
 } from "@elizaos/autonomous/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
-import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
+import { ensureRuntimeSqlCompatibility, executeRawSql, quoteIdent, sanitizeIdentifier, sqlLiteral } from "../utils/sql-compat";
 import { handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
 import {
@@ -36,19 +36,7 @@ const hardenedGuard = createHardenedExportGuard(
 );
 const require = createRequire(import.meta.url);
 
-const BRAND_ENV_ALIASES = [
-  ["MILADY_API_TOKEN", "ELIZA_API_TOKEN"],
-  ["MILADY_API_BIND", "ELIZA_API_BIND"],
-  ["MILADY_PAIRING_DISABLED", "ELIZA_PAIRING_DISABLED"],
-  ["MILADY_ALLOWED_ORIGINS", "ELIZA_ALLOWED_ORIGINS"],
-  ["MILADY_ALLOW_NULL_ORIGIN", "ELIZA_ALLOW_NULL_ORIGIN"],
-  ["MILADY_ALLOW_WS_QUERY_TOKEN", "ELIZA_ALLOW_WS_QUERY_TOKEN"],
-  ["MILADY_WALLET_EXPORT_TOKEN", "ELIZA_WALLET_EXPORT_TOKEN"],
-  ["MILADY_TERMINAL_RUN_TOKEN", "ELIZA_TERMINAL_RUN_TOKEN"],
-  ["MILADY_USE_PI_AI", "ELIZA_USE_PI_AI"],
-  ["MILADY_STATE_DIR", "ELIZA_STATE_DIR"],
-  ["MILADY_CONFIG_PATH", "ELIZA_CONFIG_PATH"],
-] as const;
+import { syncMiladyEnvToEliza, syncElizaEnvToMilady } from "../config/brand-env.js";
 
 const HEADER_ALIASES = [
   ["x-milady-token", "x-eliza-token"],
@@ -66,8 +54,6 @@ const PACKAGE_ROOT_NAMES = new Set([
   "elizaai",
   "elizaos",
 ]);
-const miladyMirroredEnvKeys = new Set<string>();
-const elizaMirroredEnvKeys = new Set<string>();
 
 type PluginCategory =
   | "ai-provider"
@@ -159,31 +145,7 @@ const CAPABILITY_FEATURE_IDS = new Set([
   "coding-agent",
 ]);
 
-function syncMiladyEnvToEliza(): void {
-  for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
-    const value = process.env[miladyKey];
-    if (typeof value === "string") {
-      process.env[elizaKey] = value;
-      elizaMirroredEnvKeys.add(elizaKey);
-    } else if (elizaMirroredEnvKeys.has(elizaKey)) {
-      delete process.env[elizaKey];
-      elizaMirroredEnvKeys.delete(elizaKey);
-    }
-  }
-}
 
-function syncElizaEnvToMilady(): void {
-  for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
-    const value = process.env[elizaKey];
-    if (typeof value === "string") {
-      process.env[miladyKey] = value;
-      miladyMirroredEnvKeys.add(miladyKey);
-    } else if (miladyMirroredEnvKeys.has(miladyKey)) {
-      delete process.env[miladyKey];
-      miladyMirroredEnvKeys.delete(miladyKey);
-    }
-  }
-}
 
 function mirrorCompatHeaders(req: Pick<http.IncomingMessage, "headers">): void {
   for (const [miladyHeader, elizaHeader] of HEADER_ALIASES) {
@@ -292,15 +254,24 @@ function ensureCompatApiAuthorized(
   return false;
 }
 
+const MAX_BODY_BYTES = 1_048_576; // 1 MB
 async function readCompatJsonBody(
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ): Promise<Record<string, unknown> | null> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
 
   try {
     for await (const chunk of req) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      totalBytes += buf.length;
+      if (totalBytes > MAX_BODY_BYTES) {
+        req.destroy();
+        sendJsonErrorResponse(res, 413, "Request body too large");
+        return null;
+      }
+      chunks.push(buf);
     }
   } catch {
     sendJsonErrorResponse(res, 400, "Invalid request body");
@@ -373,21 +344,6 @@ function maskValue(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-function sanitizeIdentifier(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const sanitized = trimmed.replace(/[^a-zA-Z0-9_]/g, "");
-  return sanitized.length > 0 ? sanitized : null;
-}
-
-function sqlLiteral(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
 
 function sendJsonResponse(
   res: http.ServerResponse,
@@ -808,34 +764,6 @@ async function handleTaskBackedWorkbenchTodoRoute(
   return false;
 }
 
-async function executeRawSql(
-  runtime: AgentRuntime,
-  sqlText: string,
-): Promise<{
-  rows: Record<string, unknown>[];
-  columns: string[];
-}> {
-  const db = runtime.adapter?.db as
-    | {
-        execute: (query: { queryChunks: unknown[] }) => Promise<{
-          rows: Record<string, unknown>[];
-          fields?: Array<{ name: string }>;
-        }>;
-      }
-    | undefined;
-  if (!db?.execute) {
-    throw new Error("Database adapter not available");
-  }
-
-  const { sql } = await import("drizzle-orm");
-  const result = await db.execute(sql.raw(sqlText));
-  const rows = Array.isArray(result.rows) ? result.rows : [];
-  const columns = Array.isArray(result.fields)
-    ? result.fields.map((field) => field.name)
-    : Object.keys(rows[0] ?? {});
-
-  return { rows, columns };
-}
 
 async function _getTableColumnNames(
   runtime: AgentRuntime,
@@ -917,6 +845,7 @@ function titleCasePluginId(id: string): string {
 
 function buildPluginParamDefs(
   parameters: Record<string, ManifestPluginParameter> | undefined,
+  savedValues?: Record<string, string>,
 ): Array<{
   key: string;
   type: string;
@@ -933,8 +862,10 @@ function buildPluginParamDefs(
   }
 
   return Object.entries(parameters).map(([key, definition]) => {
-    const rawValue = process.env[key];
-    const isSet = Boolean(rawValue?.trim());
+    const envValue = process.env[key]?.trim() || undefined;
+    const savedValue = savedValues?.[key];
+    const effectiveValue = envValue ?? (savedValue ? savedValue.trim() || undefined : undefined);
+    const isSet = Boolean(effectiveValue);
     const sensitive = Boolean(definition.sensitive);
 
     return {
@@ -952,8 +883,8 @@ function buildPluginParamDefs(
         : undefined,
       currentValue: isSet
         ? sensitive
-          ? maskValue(rawValue ?? "")
-          : (rawValue ?? "")
+          ? maskValue(effectiveValue!)
+          : effectiveValue!
         : null,
       isSet,
     };
@@ -1307,9 +1238,16 @@ function persistCompatPluginMutation(
 
     config.env ??= {};
     for (const [key, value] of Object.entries(values)) {
-      process.env[key] = value;
-      config.env[key] = value;
-      nextConfig[key] = value;
+      if (value.trim()) {
+        process.env[key] = value;
+        config.env[key] = value;
+        nextConfig[key] = value;
+      } else {
+        // Empty string = clear the saved value
+        delete process.env[key];
+        delete config.env[key];
+        delete nextConfig[key];
+      }
     }
 
     pluginEntry.config = nextConfig;
@@ -1430,7 +1368,11 @@ async function handleDatabaseRowsCompatRoute(
 
   const filters: string[] = [];
   if (search) {
-    const escapedSearch = search.replace(/'/g, "''");
+    const escapedSearch = search
+      .replace(/\\/g, "\\\\")
+      .replace(/%/g, "\\%")
+      .replace(/_/g, "\\_")
+      .replace(/'/g, "''");
     filters.push(
       `(${columns
         .map(
@@ -1579,6 +1521,56 @@ async function handleMiladyCompatRoute(
 
     const result = persistCompatPluginMutation(pluginId, body, plugin);
     sendJsonResponse(res, result.status, result.payload);
+    return true;
+  }
+
+  // ── POST /api/plugins/:id/test — Test connector connectivity
+  const testMatch = method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/test$/);
+  if (testMatch) {
+    if (!ensureCompatApiAuthorized(req, res)) return true;
+    const testPluginId = normalizePluginId(decodeURIComponent(testMatch[1]));
+    const startMs = Date.now();
+
+    if (testPluginId === "telegram") {
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      if (!token) {
+        sendJsonResponse(res, 200, { success: false, pluginId: testPluginId, error: "No bot token configured", durationMs: Date.now() - startMs });
+        return true;
+      }
+      try {
+        const apiRoot = process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
+        const tgResp = await fetch(`${apiRoot}/bot${token}/getMe`);
+        const tgData = (await tgResp.json()) as { ok: boolean; result?: { username?: string }; description?: string };
+        sendJsonResponse(res, 200, {
+          success: tgData.ok,
+          pluginId: testPluginId,
+          message: tgData.ok ? `Connected as @${tgData.result?.username}` : `Telegram API error: ${tgData.description}`,
+          durationMs: Date.now() - startMs,
+        });
+      } catch (err) {
+        sendJsonResponse(res, 200, { success: false, pluginId: testPluginId, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs });
+      }
+      return true;
+    }
+
+    sendJsonResponse(res, 200, { success: true, pluginId: testPluginId, message: "Plugin is loaded (no custom test available)", durationMs: Date.now() - startMs });
+    return true;
+  }
+
+  // ── POST /api/plugins/:id/reveal — Return unmasked secret value
+  const revealMatch = method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/reveal$/);
+  if (revealMatch) {
+    if (!ensureCompatApiAuthorized(req, res)) return true;
+    const revealBody = await readCompatJsonBody(req, res);
+    if (revealBody == null) return true;
+    const key = (revealBody.key as string)?.trim();
+    if (!key) {
+      sendJsonErrorResponse(res, 400, "Missing key parameter");
+      return true;
+    }
+    const config = loadElizaConfig();
+    const value = process.env[key] ?? (config.env as Record<string, string> | undefined)?.[key] ?? null;
+    sendJsonResponse(res, 200, { ok: true, value });
     return true;
   }
 

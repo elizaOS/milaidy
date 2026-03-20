@@ -1,17 +1,11 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import signalPlugin, {
+  signalPlugin as namedSignalPlugin,
+} from "@elizaos/plugin-signal";
+import { SignalNativeService } from "@elizaos/plugin-signal/service";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const signalPluginModule = await import("@elizaos/plugin-signal").catch(
-  () => null,
-);
-const signalPlugin = signalPluginModule?.default;
-const namedSignalPlugin = signalPluginModule?.signalPlugin;
-const signalServiceModule = await import(
-  "@elizaos/plugin-signal/service"
-).catch(() => null);
-const SignalNativeService = signalServiceModule?.SignalNativeService;
 
 function createRuntime(overrides: Record<string, unknown> = {}) {
   return {

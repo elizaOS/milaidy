@@ -2,7 +2,6 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { EMOTE_CATALOG } from "../../../../src/emotes/catalog";
 import { MILADY_CHARACTER_ASSETS } from "../../src/character-catalog";
 
 const TEST_DIR = fileURLToPath(new URL(".", import.meta.url));
@@ -54,6 +53,9 @@ describe("app public bundle assets", () => {
     // Build expected set from all known asset sources, then intersect with
     // files that actually exist on disk.  Some character VRMs/previews are
     // generated at build time and may not be present in CI (git-tracked only).
+    // Collect all animation files (emotes + mixamo + idle) dynamically
+    const animationFiles = actualFiles.filter((f) => f.startsWith("animations/"));
+
     const allExpected = new Set<string>([
       "android-chrome-192x192.png",
       "android-chrome-512x512.png",
@@ -63,14 +65,13 @@ describe("app public bundle assets", () => {
       "favicon.ico",
       "og-image.png",
       "site.webmanifest",
-      "animations/idle.glb.gz",
+      ...animationFiles,
       "vrm-decoders/draco/draco_decoder.js",
       "vrm-decoders/draco/draco_decoder.wasm",
       "vrm-decoders/draco/draco_wasm_wrapper.js",
       "worlds/companion-day.spz",
       "worlds/companion-night.spz",
       ...PROVIDER_LOGOS,
-      ...EMOTE_CATALOG.map((emote) => emote.path.replace(/^\//, "")),
       ...MILADY_CHARACTER_ASSETS.map((asset) =>
         asset.previewPath.replace(/^\//, ""),
       ),

@@ -36,9 +36,7 @@
     "apps/*",
     "apps/*/plugins/*",
     "apps/app/electrobun",
-    "deploy/cloud-agent-template",
-    "packages/*",
-    "plugins/plugin-*"
+    "deploy/cloud-agent-template"
   ],
   "type": "module",
   "main": "build/src/index.js",
@@ -170,16 +168,8 @@
     "@mariozechner/pi-tui": "0.54.0",
     "@noble/curves": "^2.0.1",
     "@opinion-labs/opinion-clob-sdk": "0.5.2",
-    "@tensorflow-models/coco-ssd": "^2.2.3",
-    "@tensorflow-models/mobilenet": "^2.1.1",
-    "@tensorflow-models/pose-detection": "^2.1.3",
-    "@tensorflow/tfjs-core": "^4.22.0",
-    "@tensorflow/tfjs-node": "^4.22.0",
-    "@vitest/utils": "4.1.0",
     "@whiskeysockets/baileys": "7.0.0-rc.9",
     "ai": "6.0.30",
-    "bonjour-service": "^1.3.0",
-    "canvas": "^3.2.1",
     "chalk": "^5.6.2",
     "chokidar": "~3.5.3",
     "cli-highlight": "^2.1.11",
@@ -202,7 +192,6 @@
     "sharp": "^0.34.5",
     "tar": "^6.2.1",
     "telegraf": "^4.16.3",
-    "tesseract.js": "^6.0.1",
     "uuid": "^13.0.0",
     "whisper-node": "^1.1.1",
     "ws": "^8.19.0",
@@ -222,7 +211,8 @@
     "tsdown": "^0.20.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "@vitest/utils": "4.1.0"
   },
   "overrides": {
     "drizzle-orm": "0.45.1",

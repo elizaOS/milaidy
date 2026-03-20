@@ -64,7 +64,7 @@ async function startAction() {
     console.log(`│  Connect at: http://localhost:${port.padEnd(13)}│`);
     if (connectionKey) {
       console.log(
-        `│  Connection key: ${connectionKey.slice(0, 20).padEnd(22)}│`,
+        `│  Connection key: ${("*".repeat(Math.max(0, connectionKey.length - 4)) + connectionKey.slice(-4)).padEnd(22)}│`,
       );
     }
     console.log("╰──────────────────────────────────────────╯");

@@ -1,3 +1,5 @@
+import { computeStreamingDelta } from "../api/streaming-text.js";
+
 export interface SseEventBreak {
   index: number;
   length: number;
@@ -84,34 +86,22 @@ export function mergeStreamingText(existing: string, incoming: string): string {
     return existing;
   }
 
-  const maxOverlap = Math.min(existing.length, incoming.length);
-  const existingLength = existing.length;
-  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
-    const existingStart = existingLength - overlap;
-    let match = true;
-    for (let index = 0; index < overlap; index += 1) {
-      if (
-        existing.charCodeAt(existingStart + index) !==
-        incoming.charCodeAt(index)
-      ) {
-        match = false;
-        break;
-      }
-    }
-    if (!match) continue;
+  // Use computeStreamingDelta for overlap detection, then concatenate
+  const delta = computeStreamingDelta(existing, incoming);
 
-    if (overlap === incoming.length) {
-      return incoming.length === 1 ? `${existing}${incoming}` : existing;
-    }
-
-    return `${existing}${incoming.slice(overlap)}`;
+  if (!delta) {
+    return existing;
   }
 
-  if (isLikelySnapshotReplacement(existing, incoming)) {
-    return incoming;
+  // If delta equals incoming, no overlap was found
+  if (delta === incoming) {
+    if (isLikelySnapshotReplacement(existing, incoming)) {
+      return incoming;
+    }
+    return `${existing}${incoming}`;
   }
 
-  return `${existing}${incoming}`;
+  return `${existing}${delta}`;
 }
 
 /**

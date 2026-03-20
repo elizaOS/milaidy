@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveElizaPackageRootSync } from "../../utils/eliza-root.js";
 
 export type PluginCatalogParam = {
   sensitive?: boolean;
@@ -56,36 +57,12 @@ export function inferRequiredKey(key: string, sensitive: boolean): boolean {
   );
 }
 
-function findPackageRoot(startDir: string): string {
-  let dir = startDir;
-  for (let i = 0; i < 10; i++) {
-    const pkgPath = path.join(dir, "package.json");
-    if (fs.existsSync(pkgPath)) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as Record<
-          string,
-          unknown
-        >;
-        if (pkg.name === "eliza") {
-          return dir;
-        }
-      } catch {
-        // keep searching
-      }
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return startDir;
-}
-
 export function buildPluginCatalogIndex(): Map<string, PluginCatalogEntry> {
   if (pluginCatalogCache) return pluginCatalogCache;
 
   const thisDir =
     import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
-  const packageRoot = findPackageRoot(thisDir);
+  const packageRoot = resolveElizaPackageRootSync({ moduleUrl: import.meta.url, cwd: thisDir }) ?? thisDir;
   const manifestPath = path.join(packageRoot, "plugins.json");
   const map = new Map<string, PluginCatalogEntry>();
 

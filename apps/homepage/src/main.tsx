@@ -6,6 +6,7 @@ import { Nav } from "./components/Nav";
 import { setToken } from "./lib/auth";
 import { getSpaFallbackRedirectTarget } from "./lib/spa-fallback";
 import { AppRoutes } from "./router";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 const spaRedirectTarget = getSpaFallbackRedirectTarget(window.location);
 if (spaRedirectTarget) {
@@ -29,10 +30,12 @@ const root = document.getElementById("root");
 if (!root) throw new Error("No root element");
 
 createRoot(root).render(
-  <StrictMode>
-    <BrowserRouter>
-      <Nav />
-      <AppRoutes />
-    </BrowserRouter>
-  </StrictMode>,
+  <ErrorBoundary>
+    <StrictMode>
+      <BrowserRouter>
+        <Nav />
+        <AppRoutes />
+      </BrowserRouter>
+    </StrictMode>
+  </ErrorBoundary>,
 );

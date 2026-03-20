@@ -113,7 +113,10 @@ async function neynarPostCast(
     body: JSON.stringify(body),
   });
   if (res.status === 402 || res.status === 429) return null;
-  const data = (await res.json()) as { success?: boolean; cast?: { hash: string } };
+  const data = (await res.json()) as {
+    success?: boolean;
+    cast?: { hash: string };
+  };
   return data.cast?.hash ?? null;
 }
 
@@ -454,9 +457,7 @@ describeIfLiveWrite("Farcaster Connector - Cast Handling", () => {
         parent: parentHash,
       });
       if (replyHash === null) {
-        logger.warn(
-          "[farcaster-connector] Paid/rate-limited — skipping reply",
-        );
+        logger.warn("[farcaster-connector] Paid/rate-limited — skipping reply");
         return;
       }
       castsToCleanup.push(replyHash);
@@ -519,18 +520,23 @@ describeIfLiveWrite("Farcaster Connector - Cast Handling", () => {
 
 describeIfLiveWrite("Farcaster Connector - Farcaster-Specific Features", () => {
   const castsToCleanup: string[] = [];
-  const reactionsToCleanup: Array<{ hash: string; type: "like" | "recast" }> = [];
+  const reactionsToCleanup: Array<{ hash: string; type: "like" | "recast" }> =
+    [];
 
   afterAll(async () => {
     for (const r of reactionsToCleanup) {
       try {
         await neynarDeleteReaction(r.hash, r.type);
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
     for (const hash of castsToCleanup) {
       try {
         await neynarDeleteCast(hash);
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
   }, LIVE_WRITE_TIMEOUT);
 
@@ -655,7 +661,9 @@ describeIfLiveWrite("Farcaster Connector - Farcaster-Specific Features", () => {
       // Recast
       const recastResult = await neynarPostReaction(hash, "recast");
       if (recastResult === null) {
-        logger.warn("[farcaster-connector] Paid/rate-limited — skipping recast");
+        logger.warn(
+          "[farcaster-connector] Paid/rate-limited — skipping recast",
+        );
         return;
       }
       expect(recastResult).toBe(true);
@@ -676,7 +684,9 @@ describeIfLiveWrite("Farcaster Connector - Media & Attachments", () => {
     for (const hash of castsToCleanup) {
       try {
         await neynarDeleteCast(hash);
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
   }, LIVE_WRITE_TIMEOUT);
 
@@ -731,9 +741,7 @@ describeIfLiveWrite("Farcaster Connector - Media & Attachments", () => {
         body: JSON.stringify({
           signer_uuid: SIGNER_UUID,
           text,
-          embeds: [
-            { url: "https://placehold.co/400x300.png" },
-          ],
+          embeds: [{ url: "https://placehold.co/400x300.png" }],
         }),
       });
       if (res.status === 402 || res.status === 429) {
@@ -802,7 +810,12 @@ describeIfLive("Farcaster Connector - Error Handling", () => {
       await sleep(RATE_LIMIT_DELAY_MS);
       const res = await fetch(
         "https://api.neynar.com/v2/farcaster/cast?identifier=0xinvalid&type=hash",
-        { headers: { "Content-Type": "application/json", "x-api-key": "INVALID_KEY" } },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": "INVALID_KEY",
+          },
+        },
       );
       // API returns an error status, not a crash
       expect(res.ok).toBe(false);
@@ -880,7 +893,10 @@ describe("Farcaster Connector - Integration", () => {
 
   it("Farcaster auto-enables when apiKey is present in config", async () => {
     const mod = await tryWorkspaceImport<{
-      isConnectorConfigured: (name: string, config: Record<string, unknown>) => boolean;
+      isConnectorConfigured: (
+        name: string,
+        config: Record<string, unknown>,
+      ) => boolean;
     }>("../src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[farcaster-connector] Workspace not built — skipping");
@@ -896,7 +912,10 @@ describe("Farcaster Connector - Integration", () => {
 
   it("Farcaster respects enabled: false", async () => {
     const mod = await tryWorkspaceImport<{
-      isConnectorConfigured: (name: string, config: Record<string, unknown>) => boolean;
+      isConnectorConfigured: (
+        name: string,
+        config: Record<string, unknown>,
+      ) => boolean;
     }>("../src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[farcaster-connector] Workspace not built — skipping");

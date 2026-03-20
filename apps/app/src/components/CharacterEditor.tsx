@@ -39,12 +39,6 @@ const Icon = ({ className, d }: { className?: string; d: string }) => (
     <path d={d} />
   </svg>
 );
-const _Lock = ({ className }: { className?: string }) => (
-  <svg {...svgBase} className={className} aria-hidden="true">
-    <rect width="18" x="3" y="11" height="11" rx="2" ry="2" />
-    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-  </svg>
-);
 
 const RotateCcw = ({ className }: { className?: string }) => (
   <Icon className={className} d="M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />

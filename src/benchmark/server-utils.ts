@@ -57,8 +57,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function envFlag(name: string): boolean {
-  const raw = process.env[name]?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
+  return parseBooleanValue(process.env[name]);
 }
 
 export function hasCuaConfig(): boolean {

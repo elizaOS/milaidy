@@ -18,7 +18,7 @@ export function CreateAgent() {
 
 function CreateAgentInner() {
   const navigate = useNavigate();
-  const { createAgent } = useAgents();
+  const { cloudClient } = useAgents();
   const [step, setStep] = useState<OnboardingStep>("select");
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [agentName, setAgentName] = useState("");
@@ -43,7 +43,12 @@ function CreateAgentInner() {
     setError(null);
     setStep("deploying");
     try {
-      await createAgent({
+      if (!cloudClient) {
+        setError("Not signed in to Eliza Cloud.");
+        setStep("customize");
+        return;
+      }
+      await cloudClient.createAgent({
         name: agentName.trim(),
         config: {
           preset: selectedPreset,
@@ -55,7 +60,7 @@ function CreateAgentInner() {
       setError(`Failed to create agent: ${err}`);
       setStep("customize");
     }
-  }, [agentName, bio, selectedPreset, createAgent]);
+  }, [agentName, bio, selectedPreset, cloudClient]);
 
   return (
     <div className="min-h-screen bg-dark text-text-light">

@@ -21,6 +21,7 @@ import {
 } from "@elizaos/autonomous/runtime/eliza";
 import { CHARACTER_PRESET_META, STYLE_PRESETS } from "../onboarding-presets.js";
 import { normalizeCharacterMessageExamples } from "../utils/character-message-examples";
+import { HISTORY_KNOWLEDGE } from "./history-knowledge";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import type { EmbeddingProgressCallback } from "./embedding-manager-support.js";
 import {
@@ -29,17 +30,7 @@ import {
 } from "./embedding-manager-support.js";
 import { detectEmbeddingPreset } from "./embedding-presets.js";
 
-const BRAND_ENV_ALIASES = [
-  ["MILADY_USE_PI_AI", "ELIZA_USE_PI_AI"],
-  ["MILADY_CLOUD_TTS_DISABLED", "ELIZA_CLOUD_TTS_DISABLED"],
-  ["MILADY_CLOUD_MEDIA_DISABLED", "ELIZA_CLOUD_MEDIA_DISABLED"],
-  ["MILADY_CLOUD_EMBEDDINGS_DISABLED", "ELIZA_CLOUD_EMBEDDINGS_DISABLED"],
-  ["MILADY_CLOUD_RPC_DISABLED", "ELIZA_CLOUD_RPC_DISABLED"],
-  ["MILADY_DISABLE_LOCAL_EMBEDDINGS", "ELIZA_DISABLE_LOCAL_EMBEDDINGS"],
-] as const;
-
-const miladyMirroredEnvKeys = new Set<string>();
-const elizaMirroredEnvKeys = new Set<string>();
+import { syncMiladyEnvToEliza, syncElizaEnvToMilady } from "../config/brand-env.js";
 const AUTONOMY_WORLD_ID = stringToUuid("00000000-0000-0000-0000-000000000001");
 const AUTONOMY_ENTITY_ID = stringToUuid("00000000-0000-0000-0000-000000000002");
 const AUTONOMY_MESSAGE_SERVER_ID = stringToUuid(
@@ -60,6 +51,9 @@ export const CHANNEL_PLUGIN_MAP = {
   ...upstreamChannelPluginMap,
   ...INTERNAL_CHANNEL_PLUGIN_OVERRIDES,
 };
+
+/** Guards against registering signal handlers more than once. */
+let signalHandlersRegistered = false;
 
 interface EntityLike {
   id: string;
@@ -110,35 +104,6 @@ interface RuntimeAdapterAutonomyCompat {
   ) => Promise<unknown>;
 }
 
-function syncMiladyEnvToEliza(): void {
-  for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
-    const value = process.env[miladyKey];
-    if (typeof value === "string") {
-      if (typeof process.env[elizaKey] !== "string") {
-        process.env[elizaKey] = value;
-        elizaMirroredEnvKeys.add(elizaKey);
-      }
-    } else if (elizaMirroredEnvKeys.has(elizaKey)) {
-      delete process.env[elizaKey];
-      elizaMirroredEnvKeys.delete(elizaKey);
-    }
-  }
-}
-
-function syncElizaEnvToMilady(): void {
-  for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
-    const value = process.env[elizaKey];
-    if (typeof value === "string") {
-      if (typeof process.env[miladyKey] !== "string") {
-        process.env[miladyKey] = value;
-        miladyMirroredEnvKeys.add(miladyKey);
-      }
-    } else if (miladyMirroredEnvKeys.has(miladyKey)) {
-      delete process.env[miladyKey];
-      miladyMirroredEnvKeys.delete(miladyKey);
-    }
-  }
-}
 
 function syncBrandEnvAliases(): void {
   syncElizaEnvToMilady();
@@ -329,7 +294,110 @@ async function repairRuntimeAfterBoot(
     }
   }
 
+  // Ensure Telegram bot is polling. The upstream plugin's bot.launch() is
+  // not awaited and silently fails on bun/Windows. We create a standalone
+  // Telegraf instance with proper lifecycle management.
+  await ensureTelegramBotPolling(runtime);
+
   return runtime;
+}
+
+// Module-level Telegraf bot reference for lifecycle management across restarts.
+let _miladyTelegramBot: { stop: (reason?: string) => void } | null = null;
+
+async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
+  // Stop any previous bot instance
+  if (_miladyTelegramBot) {
+    try { _miladyTelegramBot.stop("restart"); } catch { /* ignore */ }
+    _miladyTelegramBot = null;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return;
+
+  try {
+    const { Telegraf } = await import("telegraf");
+    const apiRoot = process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
+    const bot = new Telegraf(botToken, { telegram: { apiRoot } });
+
+    // Build character context for personality
+    const char = runtime.character;
+    const bioText = Array.isArray(char.bio) ? char.bio.join(" ") : (char.bio ?? "");
+    const loreText = Array.isArray((char as Record<string, unknown>).lore)
+      ? ((char as Record<string, unknown>).lore as string[]).join(" ") : "";
+    const styleText = (() => {
+      const s = (char as Record<string, unknown>).style as Record<string, string[]> | undefined;
+      if (!s) return "";
+      const parts: string[] = [];
+      if (s.all?.length) parts.push(s.all.join(" "));
+      if (s.chat?.length) parts.push(s.chat.join(" "));
+      return parts.join(" ");
+    })();
+    const systemPrompt = [
+      `You are ${char.name}.`,
+      char.system ?? "",
+      bioText ? `Bio: ${bioText}` : "",
+      loreText ? `Lore: ${loreText}` : "",
+      styleText ? `Style: ${styleText}` : "",
+      "Respond in character. Keep responses concise for chat.",
+    ].filter(Boolean).join("\n");
+
+    const chatHistories = new Map<number, Array<{ role: string; content: string }>>();
+
+    bot.on("message", async (ctx: { message: { text?: string; from?: { username?: string; first_name?: string }; chat?: { id: number } }; reply: (t: string) => Promise<unknown> }) => {
+      const text = ctx.message?.text;
+      if (!text) return;
+      const chatId = ctx.message.chat?.id ?? 0;
+
+      // Check allowed chats (reads live from process.env — no restart needed)
+      const allowedChats = process.env.TELEGRAM_ALLOWED_CHATS;
+      if (allowedChats && allowedChats.trim() !== "" && allowedChats.trim() !== "[]") {
+        try {
+          if (!(JSON.parse(allowedChats) as string[]).includes(String(chatId))) return;
+        } catch { return; }
+      }
+
+      const username = ctx.message.from?.username ?? ctx.message.from?.first_name ?? "Unknown";
+      logger.info(`[milady] Telegram message from @${username}: ${text.substring(0, 80)}`);
+
+      if (!chatHistories.has(chatId)) chatHistories.set(chatId, []);
+      const history = chatHistories.get(chatId)!;
+      history.push({ role: "user", content: `@${username}: ${text}` });
+      if (history.length > 20) history.splice(0, history.length - 20);
+
+      try {
+        const conv = history.map((m) => `${m.role === "user" ? "User" : char.name}: ${m.content}`).join("\n");
+        const response = await runtime.useModel("TEXT_LARGE" as import("@elizaos/core").ModelType, {
+          prompt: `${systemPrompt}\n\nConversation:\n${conv}\n\n${char.name}:`,
+        });
+        const responseText = typeof response === "string" ? response : (response as { text?: string })?.text ?? "";
+        if (responseText) {
+          history.push({ role: "assistant", content: responseText });
+          await ctx.reply(responseText);
+          logger.info(`[milady] Telegram replied to @${username}`);
+        }
+      } catch (err) {
+        logger.warn(`[milady] Telegram response error: ${err instanceof Error ? err.message : String(err)}`);
+        await ctx.reply("Sorry, I encountered an error processing your message.").catch(() => {});
+      }
+    });
+
+    bot.catch((err: Error) => logger.warn(`[milady] Telegram bot error: ${err.message}`));
+
+    // Fire-and-forget — bot.launch() only resolves on stop()
+    bot.launch({ dropPendingUpdates: true, allowedUpdates: ["message", "message_reaction"] })
+      .catch((err: Error) => logger.warn(`[milady] Telegram bot launch error: ${err.message}`));
+
+    _miladyTelegramBot = bot;
+    process.once("SIGINT", () => bot.stop("SIGINT"));
+    process.once("SIGTERM", () => bot.stop("SIGTERM"));
+
+    await new Promise((r) => setTimeout(r, 500));
+    logger.info("[milady] Telegram bot polling started");
+  } catch (err) {
+    logger.warn(`[milady] Telegram bot setup failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /**
@@ -475,14 +543,23 @@ export async function startEliza(
       const keepAlive = setInterval(() => {}, 1 << 30);
       const cleanup = async () => {
         clearInterval(keepAlive);
+        // Force exit if graceful shutdown hangs for more than 10 seconds.
+        const forceExitTimer = setTimeout(() => {
+          logger.warn("[milady] Shutdown timed out after 10s — forcing exit");
+          process.exit(1);
+        }, 10_000);
+        forceExitTimer.unref?.();
         if (currentRuntime) {
           await upstreamShutdownRuntime(currentRuntime, "server-only shutdown");
         }
         process.exit(0);
       };
 
-      process.on("SIGINT", () => void cleanup());
-      process.on("SIGTERM", () => void cleanup());
+      if (!signalHandlersRegistered) {
+        signalHandlersRegistered = true;
+        process.on("SIGINT", () => void cleanup());
+        process.on("SIGTERM", () => void cleanup());
+      }
       return currentRuntime;
     }
 

@@ -10,9 +10,31 @@ export function Footer() {
         </h1>
       </div>
 
+      {/* Foreground content — overlays the background text */}
       <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center gap-8 sm:gap-10">
         {/* Brand */}
-        <div className="text-center">
+        <div className="relative text-center px-2">
+          {/* Hidden characters — only visible on hover */}
+          <div className="absolute inset-0 w-full h-full">
+            <img
+              src="/black-asset-1.png"
+              alt=""
+              draggable={false}
+              className="absolute left-4 bottom-0 w-28 h-36 object-contain object-bottom opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-auto select-none"
+            />
+            <img
+              src="/black-asset-2.png"
+              alt=""
+              draggable={false}
+              className="absolute left-1/2 -translate-x-1/2 bottom-0 w-28 h-36 object-contain object-bottom opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-auto select-none"
+            />
+            <img
+              src="/black-asset-3.png"
+              alt=""
+              draggable={false}
+              className="absolute right-4 bottom-0 w-28 h-36 object-contain object-bottom opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-auto select-none"
+            />
+          </div>
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-sm overflow-hidden flex items-center justify-center">
               <img src="/logo.png" alt="Milady" className="w-full h-full object-cover" />

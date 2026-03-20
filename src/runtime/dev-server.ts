@@ -2,6 +2,7 @@
 const SCRIPT_START = Date.now();
 
 import { getLogPrefix } from "../utils/log-prefix";
+import { getErrorMessage } from "./embedding-manager-support.js";
 
 console.log(`${getLogPrefix()} Script starting...`);
 
@@ -76,9 +77,7 @@ let runtimeBootFirstFailureAt: number | null = null;
 const RUNTIME_BOOT_ERROR_ATTEMPT_THRESHOLD = 3;
 const RUNTIME_BOOT_ERROR_DURATION_MS = 2 * 60_000;
 
-function formatError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+
 
 function nextRetryDelayMs(attempt: number): number {
   // 1s, 2s, 4s, 8s, 16s, then cap at 30s.
@@ -165,13 +164,13 @@ async function bootstrapRuntime(reason: string): Promise<void> {
     apiUpdateStartup?.({
       phase: shouldMarkError ? "runtime-error" : "runtime-retry",
       attempt: runtimeBootAttempt,
-      lastError: formatError(err),
+      lastError: getErrorMessage(err),
       lastErrorAt: now,
       nextRetryAt: now + delayMs,
       state: shouldMarkError ? "error" : "starting",
     });
     logger.error(
-      `${getLogPrefix()} Runtime bootstrap failed (${formatError(err)}). Retrying in ${Math.round(delayMs / 1000)}s${shouldMarkError ? " (UI state set to error)" : ""}`,
+      `${getLogPrefix()} Runtime bootstrap failed (${getErrorMessage(err)}). Retrying in ${Math.round(delayMs / 1000)}s${shouldMarkError ? " (UI state set to error)" : ""}`,
     );
     scheduleRuntimeBootstrap(delayMs, "retry");
   } finally {
@@ -269,6 +268,13 @@ async function shutdown(): Promise<void> {
   isShuttingDown = true;
   clearRuntimeBootTimer();
 
+  // Force exit if graceful shutdown hangs for more than 10 seconds.
+  const forceExitTimer = setTimeout(() => {
+    logger.warn(`${getLogPrefix()} Shutdown timed out after 10s — forcing exit`);
+    process.exit(1);
+  }, 10_000);
+  forceExitTimer.unref?.();
+
   logger.info(`${getLogPrefix()} Dev server shutting down…`);
   if (currentRuntime) {
     try {
@@ -337,7 +343,7 @@ async function main() {
   );
   if (apiToken) {
     console.log(
-      `${getLogPrefix()} │  Connection key: ${apiToken.slice(0, 20).padEnd(22)}│`,
+      `${getLogPrefix()} │  Connection key: ${("*".repeat(Math.max(0, apiToken.length - 4)) + apiToken.slice(-4)).padEnd(22)}│`,
     );
   }
   console.log(`${getLogPrefix()} ╰──────────────────────────────────────────╯`);

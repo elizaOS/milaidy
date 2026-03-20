@@ -32,6 +32,7 @@ import { logger } from "@elizaos/core";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { requestRestart } from "../runtime/restart";
 import { getPluginInfo, type RegistryPluginInfo } from "./registry-client";
+import { createSerialise } from "../utils/serialise";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -79,16 +80,7 @@ export function assertValidGitUrl(url: string): void {
 // Serialisation lock — prevents concurrent installs from corrupting config
 // ---------------------------------------------------------------------------
 
-let installLock: Promise<void> = Promise.resolve();
-
-function serialise<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = installLock;
-  let resolve: () => void;
-  installLock = new Promise<void>((r) => {
-    resolve = r;
-  });
-  return prev.then(fn).finally(() => resolve?.());
-}
+const serialise = createSerialise();
 
 // ---------------------------------------------------------------------------
 // Types

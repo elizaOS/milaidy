@@ -16,7 +16,9 @@
     "useDefineForClassFields": false,
     "baseUrl": ".",
     "paths": {
-      "@elizaos/autonomous/*": ["./node_modules/@elizaos/autonomous/packages/autonomous/src/*"]
+      "@elizaos/autonomous/*": [
+        "./node_modules/@elizaos/autonomous/packages/autonomous/src/*"
+      ]
     }
   },
   "include": ["src/**/*"],

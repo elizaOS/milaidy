@@ -6,9 +6,8 @@ import { startApiServer } from "../src/api/server";
 
 let trajectoryLoggerPlugin: { name: string; actions?: unknown[] } | null = null;
 try {
-  trajectoryLoggerPlugin = (
-    await import("@elizaos/plugin-trajectory-logger")
-  ).default;
+  trajectoryLoggerPlugin = (await import("@elizaos/plugin-trajectory-logger"))
+    .default;
 } catch {
   // plugin not installed — tests will be skipped
 }
@@ -662,150 +661,150 @@ function req(
 describe.skipIf(!trajectoryLoggerPlugin)(
   "trajectory collection bridge e2e",
   () => {
-  it("collects trajectories and exposes them in both trajectories and fine-tuning APIs", async () => {
-    const store = new InMemoryTrajectoryStore();
-    const trajectoryLogger = new FakeTrajectoryLoggerService(store);
-    const db = new FakeSqlDb(store);
+    it("collects trajectories and exposes them in both trajectories and fine-tuning APIs", async () => {
+      const store = new InMemoryTrajectoryStore();
+      const trajectoryLogger = new FakeTrajectoryLoggerService(store);
+      const db = new FakeSqlDb(store);
 
-    const runtimeSubset = {
-      agentId: "00000000-0000-0000-0000-000000000001",
-      character: { name: "TrajectoryBridgeE2E" },
-      adapter: { db },
-      logger: {
-        debug: () => {},
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-      },
-      getService: (serviceType: string) => {
-        if (serviceType === "trajectory_logger") {
-          return trajectoryLogger;
-        }
-        return null;
-      },
-      getServicesByType: (serviceType: string) => {
-        if (serviceType === "trajectory_logger") {
-          return [trajectoryLogger];
-        }
-        return [];
-      },
-      getRoom: async (roomId: string) => ({
-        id: roomId,
+      const runtimeSubset = {
+        agentId: "00000000-0000-0000-0000-000000000001",
+        character: { name: "TrajectoryBridgeE2E" },
+        adapter: { db },
+        logger: {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+        },
+        getService: (serviceType: string) => {
+          if (serviceType === "trajectory_logger") {
+            return trajectoryLogger;
+          }
+          return null;
+        },
+        getServicesByType: (serviceType: string) => {
+          if (serviceType === "trajectory_logger") {
+            return [trajectoryLogger];
+          }
+          return [];
+        },
+        getRoom: async (roomId: string) => ({
+          id: roomId,
+          source: "chat",
+          type: "DM",
+          channelId: roomId,
+        }),
+        getRoomsByWorld: async () => [],
+        getMemories: async () => [],
+        getCache: async () => null,
+        setCache: async () => {},
+      };
+      const runtime = runtimeSubset as unknown as AgentRuntime;
+
+      const plugin = trajectoryLoggerPlugin;
+      const onMessageReceived = plugin.events?.MESSAGE_RECEIVED?.[0];
+      const onMessageSent = plugin.events?.MESSAGE_SENT?.[0];
+      expect(onMessageReceived).toBeTypeOf("function");
+      expect(onMessageSent).toBeTypeOf("function");
+
+      const incoming = {
+        id: "incoming-message-1",
+        roomId: "room-1",
+        entityId: "entity-1",
+        content: {
+          text: "hello",
+          source: "chat",
+        },
+        metadata: {
+          type: "message",
+        },
+      } as Partial<Memory> as Memory;
+
+      await onMessageReceived?.({
+        runtime,
         source: "chat",
-        type: "DM",
-        channelId: roomId,
-      }),
-      getRoomsByWorld: async () => [],
-      getMemories: async () => [],
-      getCache: async () => null,
-      setCache: async () => {},
-    };
-    const runtime = runtimeSubset as unknown as AgentRuntime;
+        message: incoming,
+      } as MessagePayload);
 
-    const plugin = trajectoryLoggerPlugin;
-    const onMessageReceived = plugin.events?.MESSAGE_RECEIVED?.[0];
-    const onMessageSent = plugin.events?.MESSAGE_SENT?.[0];
-    expect(onMessageReceived).toBeTypeOf("function");
-    expect(onMessageSent).toBeTypeOf("function");
+      const metadata = incoming.metadata as Record<string, unknown>;
+      const stepId = metadata.trajectoryStepId;
+      expect(typeof stepId).toBe("string");
 
-    const incoming = {
-      id: "incoming-message-1",
-      roomId: "room-1",
-      entityId: "entity-1",
-      content: {
-        text: "hello",
+      trajectoryLogger.logLlmCall({
+        stepId: String(stepId),
+        model: "test-model",
+        systemPrompt: "You are helpful.",
+        userPrompt: "hello from user",
+        response: "hi there",
+        temperature: 0,
+        maxTokens: 64,
+        purpose: "action",
+        actionType: "runtime.useModel",
+        promptTokens: 12,
+        completionTokens: 4,
+        latencyMs: 9,
+      });
+
+      const outgoing = {
+        id: "outgoing-message-1",
+        roomId: "room-1",
+        entityId: "entity-agent",
+        content: {
+          text: "hi there",
+          inReplyTo: createUniqueUuid(runtime, incoming.id),
+        },
+        metadata: {
+          type: "message",
+        },
+      } as Partial<Memory> as Memory;
+
+      await onMessageSent?.({
+        runtime,
         source: "chat",
-      },
-      metadata: {
-        type: "message",
-      },
-    } as Partial<Memory> as Memory;
+        message: outgoing,
+      } as MessagePayload);
 
-    await onMessageReceived?.({
-      runtime,
-      source: "chat",
-      message: incoming,
-    } as MessagePayload);
-
-    const metadata = incoming.metadata as Record<string, unknown>;
-    const stepId = metadata.trajectoryStepId;
-    expect(typeof stepId).toBe("string");
-
-    trajectoryLogger.logLlmCall({
-      stepId: String(stepId),
-      model: "test-model",
-      systemPrompt: "You are helpful.",
-      userPrompt: "hello from user",
-      response: "hi there",
-      temperature: 0,
-      maxTokens: 64,
-      purpose: "action",
-      actionType: "runtime.useModel",
-      promptTokens: 12,
-      completionTokens: 4,
-      latencyMs: 9,
-    });
-
-    const outgoing = {
-      id: "outgoing-message-1",
-      roomId: "room-1",
-      entityId: "entity-agent",
-      content: {
-        text: "hi there",
-        inReplyTo: createUniqueUuid(runtime, incoming.id),
-      },
-      metadata: {
-        type: "message",
-      },
-    } as Partial<Memory> as Memory;
-
-    await onMessageSent?.({
-      runtime,
-      source: "chat",
-      message: outgoing,
-    } as MessagePayload);
-
-    const server = await startApiServer({ port: 0, runtime });
-    try {
-      const trajectories = await req(server.port, "GET", "/api/trajectories");
-      expect(trajectories.status).toBe(200);
-      const trajectoryRows = trajectories.data.trajectories as Array<
-        Record<string, unknown>
-      >;
-      expect(Array.isArray(trajectoryRows)).toBe(true);
-      expect(trajectoryRows.length).toBeGreaterThan(0);
-      const firstTrajectory = trajectoryRows[0];
-      expect(firstTrajectory.llmCallCount).toBe(1);
-
-      const training = await req(
-        server.port,
-        "GET",
-        "/api/training/trajectories?limit=20&offset=0",
-      );
-      expect(training.status).toBe(200);
-      // Training service may not be available in CI (plugin-training submodule)
-      if (training.data.available) {
-        const trainingRows = training.data.trajectories as Array<
+      const server = await startApiServer({ port: 0, runtime });
+      try {
+        const trajectories = await req(server.port, "GET", "/api/trajectories");
+        expect(trajectories.status).toBe(200);
+        const trajectoryRows = trajectories.data.trajectories as Array<
           Record<string, unknown>
         >;
-        expect(Array.isArray(trainingRows)).toBe(true);
-        expect(trainingRows.length).toBeGreaterThan(0);
-        expect(trainingRows[0].llmCallCount).toBe(1);
-        expect(trainingRows[0].hasLlmCalls).toBe(true);
-        expect(trainingRows[0].trajectoryId).toBe(firstTrajectory.id);
+        expect(Array.isArray(trajectoryRows)).toBe(true);
+        expect(trajectoryRows.length).toBeGreaterThan(0);
+        const firstTrajectory = trajectoryRows[0];
+        expect(firstTrajectory.llmCallCount).toBe(1);
 
-        const detail = await req(
+        const training = await req(
           server.port,
           "GET",
-          `/api/training/trajectories/${encodeURIComponent(String(firstTrajectory.id))}`,
+          "/api/training/trajectories?limit=20&offset=0",
         );
-        expect(detail.status).toBe(200);
-        const trajectory = detail.data.trajectory as Record<string, unknown>;
-        expect(String(trajectory.stepsJson)).toContain("hi there");
+        expect(training.status).toBe(200);
+        // Training service may not be available in CI (plugin-training submodule)
+        if (training.data.available) {
+          const trainingRows = training.data.trajectories as Array<
+            Record<string, unknown>
+          >;
+          expect(Array.isArray(trainingRows)).toBe(true);
+          expect(trainingRows.length).toBeGreaterThan(0);
+          expect(trainingRows[0].llmCallCount).toBe(1);
+          expect(trainingRows[0].hasLlmCalls).toBe(true);
+          expect(trainingRows[0].trajectoryId).toBe(firstTrajectory.id);
+
+          const detail = await req(
+            server.port,
+            "GET",
+            `/api/training/trajectories/${encodeURIComponent(String(firstTrajectory.id))}`,
+          );
+          expect(detail.status).toBe(200);
+          const trajectory = detail.data.trajectory as Record<string, unknown>;
+          expect(String(trajectory.stepsJson)).toContain("hi there");
+        }
+      } finally {
+        await server.close();
       }
-    } finally {
-      await server.close();
-    }
-  });
+    });
   },
 );

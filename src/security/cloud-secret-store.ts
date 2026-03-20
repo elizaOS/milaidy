@@ -68,5 +68,6 @@ export function isStoreNonEnumerable(): boolean {
 
 /** @internal — test-only reset */
 export function __resetCloudSecretStoreForTests(): void {
+  if (process.env.NODE_ENV === "production") return;
   (_store as { _secret: string | undefined })._secret = undefined;
 }

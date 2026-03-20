@@ -103,6 +103,7 @@ export function getWalletExportAuditLog(): ReadonlyArray<WalletExportAuditEntry>
 
 /** Reset all internal state (rate limits, nonces, audit log). Test-only. */
 export function _resetForTesting(): void {
+  if (process.env.NODE_ENV === "production") return;
   rateLimitMap.clear();
   pendingExportNonces.clear();
   auditLog.length = 0;

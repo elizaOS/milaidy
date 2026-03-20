@@ -225,7 +225,9 @@ describe("Agent Orchestrator Plugin Loading", () => {
     );
     if (!fs.existsSync(distPath)) {
       // bun may hoist bundled deps into .bun cache rather than node_modules
-      console.warn("[agent-orchestration] dist not at expected path — skipping");
+      console.warn(
+        "[agent-orchestration] dist not at expected path — skipping",
+      );
       return;
     }
     const dist = fs.readFileSync(distPath, "utf-8");
@@ -242,7 +244,9 @@ describe("Agent Orchestrator Plugin Loading", () => {
     );
     if (!fs.existsSync(pkgPath)) {
       // bun may hoist bundled deps into .bun cache rather than node_modules
-      console.warn("[agent-orchestration] package.json not at expected path — skipping");
+      console.warn(
+        "[agent-orchestration] package.json not at expected path — skipping",
+      );
       return;
     }
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
