@@ -2,16 +2,16 @@
 
 ## Overview
 
-The `milady/agent:cloud-full-ui` Docker image bundles the full Milaidy runtime (agent + UI + bridge) into a single container. It's used by Milady Cloud to run agent instances on Docker nodes.
+The `milady/agent:cloud-agent` Docker image bundles the Milady runtime (agent + bridge) into a single container. It's used by Milady Cloud to run agent instances on Docker nodes.
 
 ### Image Architecture
 
 ```
 ┌─────────────────────────────────────────┐
-│  milady/agent:cloud-full-ui             │
+│  milady/agent:cloud-agent             │
 │                                         │
 │  ┌──────────────────────────────────┐   │
-│  │  cloud-full-ui-entrypoint.sh     │   │
+│  │  cloud-agent-entrypoint.ts     │   │
 │  │                                  │   │
 │  │  ├─ node milady.mjs start    :2138/2139  (UI + API)
 │  │  └─ tsx cloud-agent-entrypoint.ts        │
@@ -31,7 +31,7 @@ The `milady/agent:cloud-full-ui` Docker image bundles the full Milaidy runtime (
 | 2138  | Milady API (`MILADY_PORT`)  |
 | 2139  | UI Server (`PORT`)          |
 | 31337 | Dev API + WebSocket (`MILADY_API_PORT`) |
-| 18790 | Compat bridge (`BRIDGE_COMPAT_PORT`) |
+| 18790 | Compat bridge (`BRIDGE_PORT`) |
 
 ---
 
@@ -40,17 +40,14 @@ The `milady/agent:cloud-full-ui` Docker image bundles the full Milaidy runtime (
 ### Build a new image
 
 ```bash
-# Build with latest git tag
-./deploy/build-cloud-image.sh
+# Build the cloud agent image
+docker build -f deploy/Dockerfile.cloud-agent -t milady/agent:cloud-agent .
 
-# Build specific version
-./deploy/build-cloud-image.sh v2.0.0-alpha.81
-
-# Build and push to all nodes
-./deploy/build-cloud-image.sh --push
+# Build with a specific version tag
+docker build -f deploy/Dockerfile.cloud-agent -t milady/agent:cloud-agent-2.0.0-alpha.92 .
 
 # Build without cache
-./deploy/build-cloud-image.sh --no-cache --push v2.0.0-alpha.81
+docker build --no-cache -f deploy/Dockerfile.cloud-agent -t milady/agent:cloud-agent .
 ```
 
 ### Deploy to nodes
@@ -91,7 +88,7 @@ The `milady/agent:cloud-full-ui` Docker image bundles the full Milaidy runtime (
 
 ### Dockerfile
 
-The build uses `deploy/Dockerfile.cloud-full-ui`. Key points:
+The build uses `deploy/Dockerfile.cloud-agent`. Key points:
 
 - **Full repo copy** — the entire Milaidy monorepo is copied in
 - **Production build** — runs `bun run build` to compile everything
@@ -175,7 +172,7 @@ $SSH "docker stop -t 30 $CONTAINER && docker rm $CONTAINER"
 ### Version relationship
 
 - Milaidy releases create git tags like `v2.0.0-alpha.81`
-- Cloud images are tagged: `cloud-full-ui` (latest) + `cloud-full-ui-2.0.0-alpha.81` (versioned)
+- Cloud images are tagged: `cloud-agent` (latest) + `cloud-agent-2.0.0-alpha.81` (versioned)
 - Not every Milaidy release needs a new cloud image
 - Cloud images are rebuilt when there are relevant changes to the runtime/UI/bridge
 
@@ -190,10 +187,10 @@ The `build-cloud-image.yml` workflow:
 To use the CI-built image on nodes:
 ```bash
 # Pull from GHCR (requires login)
-docker pull ghcr.io/milady-ai/milaidy/agent:cloud-full-ui
+docker pull ghcr.io/milady-ai/milaidy/agent:cloud-agent
 
-# Or continue using the local build + SSH transfer method
-./deploy/build-cloud-image.sh --push
+# Or build locally and transfer via SSH
+docker build -f deploy/Dockerfile.cloud-agent -t milady/agent:cloud-agent .
 ```
 
 ### Typical update flow
@@ -202,7 +199,7 @@ docker pull ghcr.io/milady-ai/milaidy/agent:cloud-full-ui
 git tag v2.0.0-alpha.82
 git push origin v2.0.0-alpha.82
   → CI builds and pushes to GHCR (automatic)
-  → OR: ./deploy/build-cloud-image.sh --push v2.0.0-alpha.82 (manual)
+  → OR: docker build -f deploy/Dockerfile.cloud-agent -t milady/agent:cloud-agent . (manual)
 ./deploy/deploy-to-nodes.sh --restart --rolling
 ```
 
@@ -235,7 +232,7 @@ The image is ~14 GB because it includes the full monorepo build. To reduce:
 For large images over slow connections:
 ```bash
 # Compress during transfer
-docker save milady/agent:cloud-full-ui | gzip | \
+docker save milady/agent:cloud-agent | gzip | \
   ssh -i ~/.ssh/clawdnet_nodes root@37.27.190.196 "gunzip | docker load"
 ```
 
@@ -245,9 +242,7 @@ docker save milady/agent:cloud-full-ui | gzip | \
 
 | File | Description |
 |------|-------------|
-| `Dockerfile.cloud-full-ui` | Docker build file for the cloud image |
-| `cloud-full-ui-entrypoint.sh` | Container entrypoint (starts UI + bridge) |
-| `cloud-agent-entrypoint.ts` | Bridge server TypeScript entrypoint |
-| `build-cloud-image.sh` | Build script (local Docker build) |
+| `Dockerfile.cloud-agent` | Docker build file for the cloud image |
+| `cloud-agent-entrypoint.ts` | Cloud agent entrypoint (bridge server + runtime) |
 | `deploy-to-nodes.sh` | Deploy script (push to nodes, restart containers) |
 | `.github/workflows/build-cloud-image.yml` | CI workflow for automated builds |

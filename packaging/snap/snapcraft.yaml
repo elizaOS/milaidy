@@ -1,5 +1,5 @@
 name: milady
-version: '2.0.0-alpha.82'
+version: '2.0.0-alpha.92'
 summary: Personal AI assistant built on elizaOS
 description: |
   Milady is a personal AI assistant you run on your own devices, built on
@@ -18,7 +18,7 @@ description: |
   Quick start: sudo snap install milady && milady setup
 
 grade: devel
-confinement: strict
+confinement: classic
 base: core22
 license: MIT
 website: https://milady.ai
