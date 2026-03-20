@@ -3,6 +3,7 @@ import process from "node:process";
 
 /** Maximum accumulated streamed text before truncation (1MB). */
 const MAX_STREAMED_LENGTH = 1_000_000;
+
 import {
   type ActionEventPayload,
   type AgentRuntime,

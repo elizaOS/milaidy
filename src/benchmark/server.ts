@@ -857,7 +857,10 @@ export async function startBenchmarkServer() {
     }
   };
 
-  const sweepInterval = setInterval(evictStaleSessions, SESSION_SWEEP_INTERVAL_MS);
+  const sweepInterval = setInterval(
+    evictStaleSessions,
+    SESSION_SWEEP_INTERVAL_MS,
+  );
   sweepInterval.unref();
 
   const registerSessionRefs = (session: BenchmarkSession): void => {

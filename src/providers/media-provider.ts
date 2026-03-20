@@ -154,19 +154,22 @@ class ElizaCloudImageProvider implements ImageGenerationProvider {
   async generate(
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
-    const response = await fetchWithTimeout(`${this.baseUrl}/media/image/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/media/image/generate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          prompt: options.prompt,
+          size: options.size,
+          quality: options.quality,
+          style: options.style,
+        }),
       },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        size: options.size,
-        quality: options.quality,
-        style: options.style,
-      }),
-    });
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -202,19 +205,22 @@ class ElizaCloudVideoProvider implements VideoGenerationProvider {
   async generate(
     options: VideoGenerationOptions,
   ): Promise<MediaProviderResult<VideoGenerationResult>> {
-    const response = await fetchWithTimeout(`${this.baseUrl}/media/video/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/media/video/generate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          prompt: options.prompt,
+          duration: options.duration,
+          aspectRatio: options.aspectRatio,
+          imageUrl: options.imageUrl,
+        }),
       },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        duration: options.duration,
-        aspectRatio: options.aspectRatio,
-        imageUrl: options.imageUrl,
-      }),
-    });
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -250,19 +256,22 @@ class ElizaCloudAudioProvider implements AudioGenerationProvider {
   async generate(
     options: AudioGenerationOptions,
   ): Promise<MediaProviderResult<AudioGenerationResult>> {
-    const response = await fetchWithTimeout(`${this.baseUrl}/media/audio/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/media/audio/generate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          prompt: options.prompt,
+          duration: options.duration,
+          instrumental: options.instrumental,
+          genre: options.genre,
+        }),
       },
-      body: JSON.stringify({
-        prompt: options.prompt,
-        duration: options.duration,
-        instrumental: options.instrumental,
-        genre: options.genre,
-      }),
-    });
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -298,19 +307,22 @@ class ElizaCloudVisionProvider implements VisionAnalysisProvider {
   async analyze(
     options: VisionAnalysisOptions,
   ): Promise<MediaProviderResult<VisionAnalysisResult>> {
-    const response = await fetchWithTimeout(`${this.baseUrl}/media/vision/analyze`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/media/vision/analyze`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          imageUrl: options.imageUrl,
+          imageBase64: options.imageBase64,
+          prompt: options.prompt,
+          maxTokens: options.maxTokens,
+        }),
       },
-      body: JSON.stringify({
-        imageUrl: options.imageUrl,
-        imageBase64: options.imageBase64,
-        prompt: options.prompt,
-        maxTokens: options.maxTokens,
-      }),
-    });
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -599,29 +611,32 @@ export class OpenAIVisionProvider implements VisionAnalysisProvider {
           image_url: { url: options.imageUrl ?? "" },
         };
 
-    const response = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
+    const response = await fetchWithTimeout(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: options.maxTokens ?? this.maxTokens,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: options.prompt ?? "Describe this image in detail.",
+                },
+                imageContent,
+              ],
+            },
+          ],
+        }),
       },
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: options.maxTokens ?? this.maxTokens,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: options.prompt ?? "Describe this image in detail.",
-              },
-              imageContent,
-            ],
-          },
-        ],
-      }),
-    });
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -867,20 +882,23 @@ export class XAIImageProvider implements ImageGenerationProvider {
     options: ImageGenerationOptions,
   ): Promise<MediaProviderResult<ImageGenerationResult>> {
     // xAI uses OpenAI-compatible API format for image generation
-    const response = await fetchWithTimeout("https://api.x.ai/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
+    const response = await fetchWithTimeout(
+      "https://api.x.ai/v1/images/generations",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          prompt: options.prompt,
+          n: 1,
+          size: options.size ?? "1024x1024",
+          response_format: "url",
+        }),
       },
-      body: JSON.stringify({
-        model: this.model,
-        prompt: options.prompt,
-        n: 1,
-        size: options.size ?? "1024x1024",
-        response_format: "url",
-      }),
-    });
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -932,29 +950,32 @@ export class XAIVisionProvider implements VisionAnalysisProvider {
           image_url: { url: options.imageUrl ?? "" },
         };
 
-    const response = await fetchWithTimeout("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
+    const response = await fetchWithTimeout(
+      "https://api.x.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: options.maxTokens ?? 1024,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: options.prompt ?? "Describe this image in detail.",
+                },
+                imageContent,
+              ],
+            },
+          ],
+        }),
       },
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: options.maxTokens ?? 1024,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: options.prompt ?? "Describe this image in detail.",
-              },
-              imageContent,
-            ],
-          },
-        ],
-      }),
-    });
+    );
 
     if (!response.ok) {
       const text = await response.text();
@@ -1004,7 +1025,11 @@ class OllamaVisionProvider implements VisionAnalysisProvider {
 
     try {
       // Check if model exists
-      const response = await fetchWithTimeout(`${this.baseUrl}/api/tags`, {}, 120_000);
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}/api/tags`,
+        {},
+        120_000,
+      );
       if (!response.ok) {
         throw new Error(`Ollama server not reachable: ${response.statusText}`);
       }
@@ -1080,7 +1105,11 @@ class OllamaVisionProvider implements VisionAnalysisProvider {
     if (!imageData && options.imageUrl) {
       // Fetch the image and convert to base64
       try {
-        const imageResponse = await fetchWithTimeout(options.imageUrl, {}, 120_000);
+        const imageResponse = await fetchWithTimeout(
+          options.imageUrl,
+          {},
+          120_000,
+        );
         if (!imageResponse.ok) {
           return {
             success: false,
@@ -1175,30 +1204,33 @@ export class AnthropicVisionProvider implements VisionAnalysisProvider {
         }
       : { type: "url" as const, url: options.imageUrl ?? "" };
 
-    const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": this.apiKey,
-        "anthropic-version": "2023-06-01",
+    const response = await fetchWithTimeout(
+      "https://api.anthropic.com/v1/messages",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: options.maxTokens ?? 1024,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "image", source: imageSource },
+                {
+                  type: "text",
+                  text: options.prompt ?? "Describe this image in detail.",
+                },
+              ],
+            },
+          ],
+        }),
       },
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: options.maxTokens ?? 1024,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: imageSource },
-              {
-                type: "text",
-                text: options.prompt ?? "Describe this image in detail.",
-              },
-            ],
-          },
-        ],
-      }),
-    });
+    );
 
     if (!response.ok) {
       const text = await response.text();
