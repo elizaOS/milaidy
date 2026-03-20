@@ -40,7 +40,12 @@ async function fetchPairingRedirectUrl(
     throw new Error("No redirectUrl in pairing-token response");
   }
 
-  return rewriteAgentUiUrl(redirectUrl);
+  // Do NOT rewrite the redirect URL here. The pairing token's expected_origin
+  // is validated against the Origin header of the pair.html request. If we
+  // rewrite waifu.fun → milady.ai, the origin mismatch will cause token
+  // validation to fail. The URL rewriting should only happen for user-facing
+  // URLs after authentication has completed.
+  return redirectUrl;
 }
 
 /**
@@ -97,6 +102,11 @@ export async function openWebUIWithPairingToken(
   }
 
   try {
+    // IMPORTANT: Do NOT rewrite the redirect URL here.
+    // The pairing token's expected_origin is stored against the raw domain
+    // (e.g. waifu.fun). Rewriting to milady.ai would cause an origin mismatch
+    // when pair.html validates the token. The domain rewrite only matters for
+    // the final user-facing URL after authentication completes.
     const redirectUrl = await fetchPairingRedirectUrl(agentUuid, cloudApiKey);
     if (popup.closed) return;
     popup.location.href = redirectUrl;

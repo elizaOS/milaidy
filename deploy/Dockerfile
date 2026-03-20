@@ -14,18 +14,32 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 COPY apps/app/package.json ./apps/app/package.json
 COPY apps/app/electrobun/package.json ./apps/app/electrobun/package.json
+COPY apps/homepage/package.json ./apps/homepage/package.json
+COPY apps/app/plugins/agent/package.json ./apps/app/plugins/agent/package.json
+COPY apps/app/plugins/camera/package.json ./apps/app/plugins/camera/package.json
+COPY apps/app/plugins/canvas/package.json ./apps/app/plugins/canvas/package.json
+COPY apps/app/plugins/desktop/package.json ./apps/app/plugins/desktop/package.json
+COPY apps/app/plugins/gateway/package.json ./apps/app/plugins/gateway/package.json
+COPY apps/app/plugins/location/package.json ./apps/app/plugins/location/package.json
+COPY apps/app/plugins/screencapture/package.json ./apps/app/plugins/screencapture/package.json
+COPY apps/app/plugins/swabble/package.json ./apps/app/plugins/swabble/package.json
+COPY apps/app/plugins/talkmode/package.json ./apps/app/plugins/talkmode/package.json
 COPY deploy/cloud-agent-template/package.json ./deploy/cloud-agent-template/package.json
+COPY patches ./patches
 COPY scripts ./scripts
 
 # Install ALL dependencies (dev + prod) for the build step.
-RUN bun install --frozen-lockfile
+# Skip postinstall (repo setup needs full source, which comes next).
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # Copy source and build (includes apps/app/dist UI bundle)
 COPY . .
+# Run postinstall now that source is available, then build.
+RUN node scripts/run-repo-setup.mjs || true
 RUN bun run build
 
 # Re-install with production-only dependencies for the runtime image.
-RUN rm -rf node_modules && bun install --frozen-lockfile --production
+RUN rm -rf node_modules && bun install --frozen-lockfile --production --ignore-scripts
 
 # ==============================================================================
 # Stage 2: Runtime — lean production image without dev deps or source
