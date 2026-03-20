@@ -175,7 +175,9 @@ if [[ "$SKIP_SIGNATURE_CHECK" != "1" && -n "${ELECTROBUN_APPLEID:-}" && -n "${EL
     --team-id "$ELECTROBUN_TEAMID" \
     --wait \
     "$TEMP_DMG_PATH"
-  retry_command 5 15 xcrun stapler staple "$TEMP_DMG_PATH"
+  # Apple can lag several minutes before the notarization ticket becomes
+  # visible to stapler, especially on Intel runners.
+  retry_command 8 20 xcrun stapler staple "$TEMP_DMG_PATH"
 fi
 
 mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"

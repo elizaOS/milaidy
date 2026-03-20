@@ -535,7 +535,7 @@ function assertMacArtifactStagerLooksCorrect() {
     'codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"',
     "hdiutil create \\",
     "retry_command 3 20 xcrun notarytool submit \\",
-    'retry_command 5 15 xcrun stapler staple "$TEMP_DMG_PATH"',
+    'retry_command 8 20 xcrun stapler staple "$TEMP_DMG_PATH"',
     'mv "$TEMP_DMG_PATH" "$FINAL_DMG_PATH"',
   ];
   const missing = requiredSnippets.filter(
