@@ -108,8 +108,10 @@ export function Comparison() {
                 </div>
 
                 {/* Competitor — muted */}
-                <div className="border border-border bg-surface/50 p-4 sm:p-5 lg:p-6 
-                  opacity-80 transition-opacity duration-300 group-hover:opacity-100">
+                <div
+                  className="border border-border bg-surface/50 p-4 sm:p-5 lg:p-6 
+                  opacity-80 transition-opacity duration-300 group-hover:opacity-100"
+                >
                   <div className="flex items-center gap-3 mb-3 sm:mb-4">
                     <div className="w-2 h-2 bg-text-subtle" />
                     <span className="font-medium text-base sm:text-lg lg:text-xl uppercase tracking-tighter text-text-muted line-through decoration-brand/50">

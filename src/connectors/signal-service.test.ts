@@ -1,11 +1,47 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import signalPlugin, {
-  signalPlugin as namedSignalPlugin,
-} from "@elizaos/plugin-signal";
-import { SignalNativeService } from "@elizaos/plugin-signal/service";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { tryOptionalDynamicImport } from "../test-support/test-helpers";
+
+type SignalPluginLike = {
+  name?: string;
+  description?: string;
+  actions?: Array<{ name: string }>;
+  services?: unknown[];
+  init?: unknown;
+};
+
+type SignalNativeServiceInstance = {
+  connected?: boolean;
+  initialize: () => Promise<void>;
+  handleSendMessage: (
+    runtime: unknown,
+    target: unknown,
+    content: unknown,
+  ) => Promise<void>;
+};
+
+type SignalNativeServiceClass = {
+  new (runtime: unknown): SignalNativeServiceInstance;
+  registerSendHandlers: (
+    runtime: unknown,
+    service: SignalNativeServiceInstance,
+  ) => void;
+  stopRuntime: (runtime: unknown) => Promise<void>;
+};
+
+const signalPluginModule = await tryOptionalDynamicImport<{
+  default?: SignalPluginLike;
+  signalPlugin?: SignalPluginLike;
+}>("@elizaos/plugin-signal");
+const signalServiceModule = await tryOptionalDynamicImport<{
+  SignalNativeService?: SignalNativeServiceClass;
+}>("@elizaos/plugin-signal/service");
+
+const signalPlugin = signalPluginModule?.default ?? null;
+const namedSignalPlugin = signalPluginModule?.signalPlugin ?? null;
+const SignalNativeService = signalServiceModule?.SignalNativeService ?? null;
 
 function createRuntime(overrides: Record<string, unknown> = {}) {
   return {

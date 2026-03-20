@@ -156,7 +156,7 @@ bun install
 Or use the setup script:
 
 ```bash
-node scripts/setup-local-eliza.mjs --skip-eliza
+node scripts/setup-eliza-workspace.mjs
 ```
 
 ## Self-Modification Workflow

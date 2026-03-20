@@ -31,7 +31,9 @@ function get(
         res.on("end", () => {
           let data: Record<string, unknown> = {};
           try {
-            data = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as Record<string, unknown>;
+            data = JSON.parse(
+              Buffer.concat(chunks).toString("utf-8"),
+            ) as Record<string, unknown>;
           } catch {
             data = {};
           }
@@ -67,7 +69,10 @@ describe("GET /api/database/tables/:name/rows — auth gate", () => {
   });
 
   it("rejects unauthenticated request with 401", async () => {
-    const { status, data } = await get(port, "/api/database/tables/accounts/rows");
+    const { status, data } = await get(
+      port,
+      "/api/database/tables/accounts/rows",
+    );
     expect(status).toBe(401);
     expect(data.error).toMatch(/unauthorized/i);
   });

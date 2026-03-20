@@ -1,9 +1,10 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AgentRuntime } from "@elizaos/core";
+import { type AgentRuntime, stringToUuid } from "@elizaos/core";
 
 // Re-export the full upstream server API.
 export * from "@elizaos/autonomous/api/server";
@@ -23,7 +24,13 @@ import {
   startApiServer as upstreamStartApiServer,
 } from "@elizaos/autonomous/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
-import { ensureRuntimeSqlCompatibility, executeRawSql, quoteIdent, sanitizeIdentifier, sqlLiteral } from "../utils/sql-compat";
+import {
+  ensureRuntimeSqlCompatibility,
+  executeRawSql,
+  quoteIdent,
+  sanitizeIdentifier,
+  sqlLiteral,
+} from "../utils/sql-compat";
 import { handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
 import {
@@ -36,7 +43,10 @@ const hardenedGuard = createHardenedExportGuard(
 );
 const require = createRequire(import.meta.url);
 
-import { syncMiladyEnvToEliza, syncElizaEnvToMilady } from "../config/brand-env.js";
+import {
+  syncElizaEnvToMilady,
+  syncMiladyEnvToEliza,
+} from "../config/brand-env.js";
 
 const HEADER_ALIASES = [
   ["x-milady-token", "x-eliza-token"],
@@ -65,6 +75,7 @@ type PluginCategory =
 
 interface CompatRuntimeState {
   current: AgentRuntime | null;
+  pendingAgentName: string | null;
 }
 
 interface ManifestPluginParameter {
@@ -145,8 +156,6 @@ const CAPABILITY_FEATURE_IDS = new Set([
   "coding-agent",
 ]);
 
-
-
 function mirrorCompatHeaders(req: Pick<http.IncomingMessage, "headers">): void {
   for (const [miladyHeader, elizaHeader] of HEADER_ALIASES) {
     const miladyValue = req.headers[miladyHeader];
@@ -218,23 +227,106 @@ function extractHeaderValue(
 }
 
 function getCompatApiToken(): string | null {
+  // Milady-first priority matches BRAND_ENV_ALIASES ordering in brand-env.ts
+  // where MILADY_API_TOKEN is the primary (index 0) key.
   const token =
-    process.env.ELIZA_API_TOKEN?.trim() ?? process.env.MILADY_API_TOKEN?.trim();
+    process.env.MILADY_API_TOKEN?.trim() ?? process.env.ELIZA_API_TOKEN?.trim();
   return token ? token : null;
+}
+
+const PAIRING_TTL_MS = 10 * 60 * 1000;
+const PAIRING_WINDOW_MS = 10 * 60 * 1000;
+const PAIRING_MAX_ATTEMPTS = 5;
+const PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+let pairingCode: string | null = null;
+let pairingExpiresAt = 0;
+const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function tokenMatches(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(provided, "utf8");
+  if (a.length !== b.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(a, b);
+}
+
+function pairingEnabled(): boolean {
+  return (
+    Boolean(getCompatApiToken()) &&
+    process.env.MILADY_PAIRING_DISABLED !== "1" &&
+    process.env.ELIZA_PAIRING_DISABLED !== "1"
+  );
+}
+
+function normalizePairingCode(code: string): string {
+  return code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+}
+
+function generatePairingCode(): string {
+  const bytes = crypto.randomBytes(8);
+  let raw = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    raw += PAIRING_ALPHABET[bytes[i] % PAIRING_ALPHABET.length];
+  }
+  return `${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
+}
+
+function ensurePairingCode(): string | null {
+  if (!pairingEnabled()) {
+    return null;
+  }
+
+  const now = Date.now();
+  if (!pairingCode || now > pairingExpiresAt) {
+    pairingCode = generatePairingCode();
+    pairingExpiresAt = now + PAIRING_TTL_MS;
+    console.warn(
+      `[milady-api] Pairing code: ${pairingCode} (valid for 10 minutes)`,
+    );
+  }
+
+  return pairingCode;
+}
+
+function rateLimitPairing(ip: string | null): boolean {
+  const key = ip ?? "unknown";
+  const now = Date.now();
+  const current = pairingAttempts.get(key);
+
+  if (!current || now > current.resetAt) {
+    pairingAttempts.set(key, { count: 1, resetAt: now + PAIRING_WINDOW_MS });
+    return true;
+  }
+
+  if (current.count >= PAIRING_MAX_ATTEMPTS) {
+    return false;
+  }
+
+  current.count += 1;
+  return true;
 }
 
 function getProvidedApiToken(
   req: Pick<http.IncomingMessage, "headers">,
 ): string | null {
-  const authHeader = extractHeaderValue(req.headers.authorization);
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice("Bearer ".length).trim();
+  const authHeader = extractHeaderValue(req.headers.authorization)?.trim();
+  if (authHeader) {
+    const match = /^Bearer\s+(.+)$/i.exec(authHeader);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
   }
 
-  return (
+  const headerToken =
     extractHeaderValue(req.headers["x-eliza-token"]) ??
-    extractHeaderValue(req.headers["x-milady-token"])
-  );
+    extractHeaderValue(req.headers["x-milady-token"]) ??
+    extractHeaderValue(req.headers["x-milaidy-token"]) ??
+    extractHeaderValue(req.headers["x-api-key"]) ??
+    extractHeaderValue(req.headers["x-api-token"]);
+
+  return headerToken?.trim() || null;
 }
 
 function ensureCompatApiAuthorized(
@@ -246,7 +338,8 @@ function ensureCompatApiAuthorized(
     return true;
   }
 
-  if (getProvidedApiToken(req) === expectedToken) {
+  const providedToken = getProvidedApiToken(req);
+  if (providedToken && tokenMatches(expectedToken, providedToken)) {
     return true;
   }
 
@@ -380,9 +473,7 @@ export function filterConfigEnvForResponse(
   if (!env || typeof env !== "object" || Array.isArray(env)) return config;
 
   const filteredEnv: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(
-    env as Record<string, unknown>,
-  )) {
+  for (const [key, value] of Object.entries(env as Record<string, unknown>)) {
     if (SENSITIVE_ENV_RESPONSE_KEYS.has(key.toUpperCase())) continue;
     filteredEnv[key] = value;
   }
@@ -406,6 +497,110 @@ function sendJsonErrorResponse(
   message: string,
 ): void {
   sendJsonResponse(res, status, { error: message });
+}
+
+function getConfiguredCompatAgentName(): string | null {
+  const config = loadElizaConfig();
+  const listAgent = config.agents?.list?.[0];
+  const listAgentName =
+    typeof listAgent?.name === "string" ? listAgent.name.trim() : "";
+  if (listAgentName) {
+    return listAgentName;
+  }
+
+  const assistantName =
+    typeof config.ui?.assistant?.name === "string"
+      ? config.ui.assistant.name.trim()
+      : "";
+  return assistantName || null;
+}
+
+function resolveCompatStatusAgentName(
+  state: CompatRuntimeState,
+): string | null {
+  if (state.pendingAgentName) {
+    return state.pendingAgentName;
+  }
+
+  if (state.current) {
+    return null;
+  }
+
+  return getConfiguredCompatAgentName();
+}
+
+function rewriteCompatStatusBody(
+  bodyText: string,
+  state: CompatRuntimeState,
+): string {
+  const agentName = resolveCompatStatusAgentName(state);
+  if (!agentName) {
+    return bodyText;
+  }
+
+  try {
+    const parsed = JSON.parse(bodyText) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return bodyText;
+    }
+
+    const payload = parsed as Record<string, unknown>;
+    if (payload.agentName === agentName) {
+      return bodyText;
+    }
+
+    return JSON.stringify({
+      ...payload,
+      agentName,
+    });
+  } catch {
+    return bodyText;
+  }
+}
+
+function patchCompatStatusResponse(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  state: CompatRuntimeState,
+): void {
+  const method = (req.method ?? "GET").toUpperCase();
+  const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+  if (method !== "GET" || pathname !== "/api/status") {
+    return;
+  }
+
+  const originalEnd = res.end.bind(res);
+
+  res.end = ((
+    chunk?: string | Uint8Array,
+    encoding?: unknown,
+    cb?: unknown,
+  ) => {
+    let resolvedEncoding: BufferEncoding | undefined;
+    let resolvedCallback: (() => void) | undefined;
+
+    if (typeof encoding === "function") {
+      resolvedCallback = encoding as () => void;
+    } else {
+      resolvedEncoding = encoding as BufferEncoding | undefined;
+      resolvedCallback = cb as (() => void) | undefined;
+    }
+
+    if (chunk == null) {
+      return resolvedCallback ? originalEnd(resolvedCallback) : originalEnd();
+    }
+
+    const bodyText =
+      typeof chunk === "string"
+        ? chunk
+        : Buffer.from(chunk).toString(resolvedEncoding ?? "utf8");
+
+    return originalEnd(
+      rewriteCompatStatusBody(bodyText, state),
+      "utf8",
+      resolvedCallback,
+    );
+  }) as typeof res.end;
 }
 
 const WORKBENCH_TODO_TAG = "workbench-todo";
@@ -808,7 +1003,6 @@ async function handleTaskBackedWorkbenchTodoRoute(
   return false;
 }
 
-
 async function _getTableColumnNames(
   runtime: AgentRuntime,
   tableName: string,
@@ -908,9 +1102,16 @@ function buildPluginParamDefs(
   return Object.entries(parameters).map(([key, definition]) => {
     const envValue = process.env[key]?.trim() || undefined;
     const savedValue = savedValues?.[key];
-    const effectiveValue = envValue ?? (savedValue ? savedValue.trim() || undefined : undefined);
+    const effectiveValue =
+      envValue ?? (savedValue ? savedValue.trim() || undefined : undefined);
     const isSet = Boolean(effectiveValue);
     const sensitive = Boolean(definition.sensitive);
+    const currentValue =
+      !isSet || !effectiveValue
+        ? null
+        : sensitive
+          ? maskValue(effectiveValue)
+          : effectiveValue;
 
     return {
       key,
@@ -925,11 +1126,7 @@ function buildPluginParamDefs(
       options: Array.isArray(definition.options)
         ? definition.options
         : undefined,
-      currentValue: isSet
-        ? sensitive
-          ? maskValue(effectiveValue!)
-          : effectiveValue!
-        : null,
+      currentValue,
       isSet,
     };
   });
@@ -956,6 +1153,89 @@ function findNearestFile(
 
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Onboarding API key persistence
+// ---------------------------------------------------------------------------
+
+const ONBOARDING_PROVIDER_ENV_KEYS: Record<string, string> = {
+  // Provider IDs match the upstream onboarding catalog in
+  // @elizaos/autonomous/contracts/onboarding.ts
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+  groq: "GROQ_API_KEY",
+  grok: "XAI_API_KEY",
+  xai: "XAI_API_KEY", // alias — catalog uses "grok", keep both
+  gemini: "GOOGLE_GENERATIVE_AI_API_KEY",
+  "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY", // alias — keep both
+  openrouter: "OPENROUTER_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  together: "TOGETHER_API_KEY",
+  zai: "ZAI_API_KEY",
+};
+
+/**
+ * Extract `connection.apiKey` from an onboarding request body and persist it
+ * to eliza.json + process.env. Returns the env key name if persisted, or null.
+ */
+export function extractAndPersistOnboardingApiKey(
+  body: Record<string, unknown>,
+): string | null {
+  const connection = body.connection as Record<string, unknown> | undefined;
+  if (
+    !connection ||
+    typeof connection.provider !== "string" ||
+    typeof connection.apiKey !== "string" ||
+    connection.apiKey.trim().length === 0
+  ) {
+    return null;
+  }
+
+  const envKey = ONBOARDING_PROVIDER_ENV_KEYS[connection.provider];
+  if (!envKey) {
+    return null;
+  }
+
+  const config = loadElizaConfig();
+  if (!config.env || typeof config.env !== "object") {
+    (config as Record<string, unknown>).env = {};
+  }
+  (config.env as Record<string, string>)[envKey] = connection.apiKey as string;
+  (config as Record<string, unknown>).subscriptionProvider =
+    connection.provider;
+  saveElizaConfig(config);
+  process.env[envKey] = connection.apiKey as string;
+  console.log(`[onboarding] Persisted ${envKey} from connection.apiKey`);
+  return envKey;
+}
+
+function persistCompatOnboardingDefaults(
+  body: Record<string, unknown>,
+): string | null {
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  if (!name) {
+    return null;
+  }
+
+  const config = loadElizaConfig();
+  if (!config.agents || typeof config.agents !== "object") {
+    (config as Record<string, unknown>).agents = {};
+  }
+  const agents = config.agents as NonNullable<typeof config.agents>;
+  if (!agents.defaults || typeof agents.defaults !== "object") {
+    agents.defaults = {};
+  }
+
+  const adminEntityId = stringToUuid(`${name}-admin-entity`);
+  agents.defaults.adminEntityId = adminEntityId;
+  saveElizaConfig(config);
+  return adminEntityId;
+}
+
+// ---------------------------------------------------------------------------
+// Plugin manifest
+// ---------------------------------------------------------------------------
 
 function resolvePluginManifestPath(): string | null {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -1052,10 +1332,15 @@ function buildPluginListResponse(runtime: AgentRuntime | null): {
   for (const entry of manifest?.plugins ?? []) {
     const pluginId = normalizePluginId(entry.id);
     const parameters = buildPluginParamDefs(entry.pluginParameters);
+    const active = isPluginLoaded(pluginId, entry.npmName, loadedNames);
+    // If the plugin is actively loaded at runtime it must be reported as
+    // enabled regardless of what the static config says — otherwise the
+    // frontend can show a plugin as "disabled" while it is actually running.
     const enabled =
-      typeof configEntries[pluginId]?.enabled === "boolean"
+      active ||
+      (typeof configEntries[pluginId]?.enabled === "boolean"
         ? Boolean(configEntries[pluginId]?.enabled)
-        : isPluginLoaded(pluginId, entry.npmName, loadedNames);
+        : false);
     const validationErrors = parameters
       .filter((parameter) => parameter.required && !parameter.isSet)
       .map((parameter) => ({
@@ -1082,7 +1367,7 @@ function buildPluginListResponse(runtime: AgentRuntime | null): {
         entry.version ??
         undefined,
       pluginDeps: entry.pluginDeps,
-      isActive: isPluginLoaded(pluginId, entry.npmName, loadedNames),
+      isActive: active,
       configUiHints: entry.configUiHints,
       icon: entry.logoUrl ?? entry.icon ?? null,
       homepage: entry.homepage,
@@ -1283,21 +1568,30 @@ function persistCompatPluginMutation(
     config.env ??= {};
     for (const [key, value] of Object.entries(values)) {
       if (value.trim()) {
-        process.env[key] = value;
         config.env[key] = value;
         nextConfig[key] = value;
       } else {
         // Empty string = clear the saved value
-        delete process.env[key];
         delete config.env[key];
         delete nextConfig[key];
       }
     }
 
     pluginEntry.config = nextConfig;
-  }
 
-  saveElizaConfig(config);
+    saveElizaConfig(config);
+
+    // Only mutate process.env after config is persisted successfully
+    for (const [key, value] of Object.entries(values)) {
+      if (value.trim()) {
+        process.env[key] = value;
+      } else {
+        delete process.env[key];
+      }
+    }
+  } else {
+    saveElizaConfig(config);
+  }
 
   const refreshed = (
     buildPluginListResponse(null).plugins as unknown as CompatPluginRecord[]
@@ -1416,16 +1710,18 @@ async function handleDatabaseRowsCompatRoute(
 
   const filters: string[] = [];
   if (search) {
-    const escapedSearch = search
+    // Escape LIKE-special characters, then wrap with % wildcards via sqlLiteral
+    // to avoid SQL injection through string interpolation.
+    const likeEscaped = search
       .replace(/\\/g, "\\\\")
       .replace(/%/g, "\\%")
-      .replace(/_/g, "\\_")
-      .replace(/'/g, "''");
+      .replace(/_/g, "\\_");
+    const searchLiteral = sqlLiteral(`%${likeEscaped}%`);
     filters.push(
       `(${columns
         .map(
           (columnName) =>
-            `CAST(${quoteIdent(columnName)} AS TEXT) ILIKE '%${escapedSearch}%'`,
+            `CAST(${quoteIdent(columnName)} AS TEXT) ILIKE ${searchLiteral}`,
         )
         .join(" OR ")})`,
     );
@@ -1477,8 +1773,73 @@ async function handleMiladyCompatRoute(
   const method = (req.method ?? "GET").toUpperCase();
   const url = new URL(req.url ?? "/", "http://localhost");
 
+  if (method === "GET" && url.pathname === "/api/auth/status") {
+    const required = Boolean(getCompatApiToken());
+    const enabled = pairingEnabled();
+    if (enabled) {
+      ensurePairingCode();
+    }
+    sendJsonResponse(res, 200, {
+      required,
+      pairingEnabled: enabled,
+      expiresAt: enabled ? pairingExpiresAt : null,
+    });
+    return true;
+  }
+
+  if (method === "POST" && url.pathname === "/api/auth/pair") {
+    const body = await readCompatJsonBody(req, res);
+    if (body == null) {
+      return true;
+    }
+
+    const token = getCompatApiToken();
+    if (!token) {
+      sendJsonErrorResponse(res, 400, "Pairing not enabled");
+      return true;
+    }
+    if (!pairingEnabled()) {
+      sendJsonErrorResponse(res, 403, "Pairing disabled");
+      return true;
+    }
+    if (!rateLimitPairing(req.socket.remoteAddress ?? null)) {
+      sendJsonErrorResponse(res, 429, "Too many attempts. Try again later.");
+      return true;
+    }
+
+    const provided = normalizePairingCode(
+      typeof body.code === "string" ? body.code : "",
+    );
+    const current = ensurePairingCode();
+    if (!current || Date.now() > pairingExpiresAt) {
+      ensurePairingCode();
+      sendJsonErrorResponse(
+        res,
+        410,
+        "Pairing code expired. Check server logs for a new code.",
+      );
+      return true;
+    }
+
+    if (!tokenMatches(normalizePairingCode(current), provided)) {
+      sendJsonErrorResponse(res, 403, "Invalid pairing code");
+      return true;
+    }
+
+    pairingCode = null;
+    pairingExpiresAt = 0;
+    sendJsonResponse(res, 200, { token });
+    return true;
+  }
+
+  // The task-backed compat handler is only used as a fallback when the
+  // runtime has no native todo database.  When runtime.db is present the
+  // upstream handler serves /api/workbench/todos instead.  Both handlers
+  // MUST return the same response shape — callers cannot distinguish which
+  // path served the response.
   if (
     !runtimeHasTodoDatabase(state.current) &&
+    url.pathname.startsWith("/api/workbench/todos") &&
     (await handleTaskBackedWorkbenchTodoRoute(
       req,
       res,
@@ -1531,8 +1892,66 @@ async function handleMiladyCompatRoute(
       return true;
     }
 
-    sendJsonResponse(res, 200, buildPluginListResponse(state.current));
+    const pluginResponse = buildPluginListResponse(state.current);
+    const manifestPath = resolvePluginManifestPath();
+    console.log(
+      `[api/plugins] manifest=${manifestPath ?? "NOT_FOUND"} total=${pluginResponse.plugins.length} runtime=${state.current ? "active" : "null"}`,
+    );
+    sendJsonResponse(res, 200, pluginResponse);
     return true;
+  }
+
+  // ── POST /api/onboarding — Persist connection.apiKey ───────────────
+  // The frontend sends provider and API key nested inside `body.connection`
+  // but the upstream handler reads `body.provider` and `body.providerApiKey`
+  // (top-level). Bridge the gap by persisting the key from `connection` here
+  // before upstream processes the request.
+  if (method === "POST" && url.pathname === "/api/onboarding") {
+    if (!ensureCompatApiAuthorized(req, res)) {
+      return true;
+    }
+
+    // Read the body, persist the key, then push bytes back so upstream
+    // can re-read the same body from the request stream.
+    const chunks: Buffer[] = [];
+    try {
+      for await (const chunk of req) {
+        chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+      }
+    } catch {
+      // Stream error — signal end-of-stream and bail out
+      req.push(null);
+      return false;
+    }
+    const rawBody = Buffer.concat(chunks);
+
+    try {
+      const body = JSON.parse(rawBody.toString("utf8")) as Record<
+        string,
+        unknown
+      >;
+      extractAndPersistOnboardingApiKey(body);
+      persistCompatOnboardingDefaults(body);
+      if (typeof body.name === "string" && body.name.trim()) {
+        state.pendingAgentName = body.name.trim();
+      }
+    } catch {
+      // JSON parse failed — let upstream handle the error
+    }
+
+    // Send the response early so the 10-second client timeout doesn't
+    // fire — the upstream handler triggers an agent restart which can
+    // block much longer than the client allows. The upstream handler
+    // will still receive the body and process the onboarding config,
+    // but won't be able to write headers (headersSent check in
+    // sendJsonResponse prevents double-write).
+    sendJsonResponse(res, 200, { ok: true });
+
+    // Push the raw bytes back into the request stream so the upstream
+    // can still consume the body for processing.
+    req.push(rawBody);
+    req.push(null);
+    return false;
   }
 
   if (method === "GET" && url.pathname === "/api/config") {
@@ -1543,9 +1962,7 @@ async function handleMiladyCompatRoute(
     sendJsonResponse(
       res,
       200,
-      filterConfigEnvForResponse(
-        loadElizaConfig() as Record<string, unknown>,
-      ),
+      filterConfigEnvForResponse(loadElizaConfig() as Record<string, unknown>),
     );
     return true;
   }
@@ -1579,7 +1996,8 @@ async function handleMiladyCompatRoute(
   }
 
   // ── POST /api/plugins/:id/test — Test connector connectivity
-  const testMatch = method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/test$/);
+  const testMatch =
+    method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/test$/);
   if (testMatch) {
     if (!ensureCompatApiAuthorized(req, res)) return true;
     const testPluginId = normalizePluginId(decodeURIComponent(testMatch[1]));
@@ -1588,31 +2006,100 @@ async function handleMiladyCompatRoute(
     if (testPluginId === "telegram") {
       const token = process.env.TELEGRAM_BOT_TOKEN;
       if (!token) {
-        sendJsonResponse(res, 422, { success: false, pluginId: testPluginId, error: "No bot token configured", durationMs: Date.now() - startMs });
+        sendJsonResponse(res, 422, {
+          success: false,
+          pluginId: testPluginId,
+          error: "No bot token configured",
+          durationMs: Date.now() - startMs,
+        });
         return true;
       }
       try {
-        const apiRoot = process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
+        const apiRoot =
+          process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
         const tgResp = await fetch(`${apiRoot}/bot${token}/getMe`);
-        const tgData = (await tgResp.json()) as { ok: boolean; result?: { username?: string }; description?: string };
+        const tgData = (await tgResp.json()) as {
+          ok: boolean;
+          result?: { username?: string };
+          description?: string;
+        };
         sendJsonResponse(res, tgData.ok ? 200 : 422, {
           success: tgData.ok,
           pluginId: testPluginId,
-          message: tgData.ok ? `Connected as @${tgData.result?.username}` : `Telegram API error: ${tgData.description}`,
+          message: tgData.ok
+            ? `Connected as @${tgData.result?.username}`
+            : `Telegram API error: ${tgData.description}`,
           durationMs: Date.now() - startMs,
         });
       } catch (err) {
-        sendJsonResponse(res, 422, { success: false, pluginId: testPluginId, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs });
+        sendJsonResponse(res, 422, {
+          success: false,
+          pluginId: testPluginId,
+          error: err instanceof Error ? err.message : String(err),
+          durationMs: Date.now() - startMs,
+        });
       }
       return true;
     }
 
-    sendJsonResponse(res, 200, { success: true, pluginId: testPluginId, message: "Plugin is loaded (no custom test available)", durationMs: Date.now() - startMs });
+    sendJsonResponse(res, 200, {
+      success: true,
+      pluginId: testPluginId,
+      message: "Plugin is loaded (no custom test available)",
+      durationMs: Date.now() - startMs,
+    });
     return true;
   }
 
   // ── POST /api/plugins/:id/reveal — Return unmasked secret value
-  const revealMatch = method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/reveal$/);
+  // Only allow revealing plugin-related config keys, not arbitrary env vars.
+  const REVEALABLE_KEY_PREFIXES = [
+    "OPENAI_",
+    "ANTHROPIC_",
+    "GOOGLE_",
+    "GROQ_",
+    "MISTRAL_",
+    "PERPLEXITY_",
+    "COHERE_",
+    "TOGETHER_",
+    "FIREWORKS_",
+    "REPLICATE_",
+    "HUGGINGFACE_",
+    "ELEVENLABS_",
+    "DISCORD_",
+    "TELEGRAM_",
+    "TWITTER_",
+    "SLACK_",
+    "GITHUB_",
+    "REDIS_",
+    "POSTGRES_",
+    "DATABASE_",
+    "SUPABASE_",
+    "PINECONE_",
+    "QDRANT_",
+    "WEAVIATE_",
+    "CHROMADB_",
+    "AWS_",
+    "AZURE_",
+    "CLOUDFLARE_",
+    "SOLANA_",
+    "ETHEREUM_",
+    "EVM_",
+    "WALLET_",
+    "ELIZA_",
+    "MILADY_",
+    "PLUGIN_",
+    "XAI_",
+    "DEEPSEEK_",
+    "OLLAMA_",
+    "FAL_",
+    "LETZAI_",
+    "GAIANET_",
+    "LIVEPEER_",
+  ];
+  const revealMatch =
+    method === "POST" &&
+    url.pathname.match(/^\/api\/plugins\/([^/]+)\/reveal$/);
   if (revealMatch) {
     if (!ensureCompatApiAuthorized(req, res)) return true;
     const revealBody = await readCompatJsonBody(req, res);
@@ -1622,12 +2109,27 @@ async function handleMiladyCompatRoute(
       sendJsonErrorResponse(res, 400, "Missing key parameter");
       return true;
     }
+    const upperKey = key.toUpperCase();
+    if (
+      !REVEALABLE_KEY_PREFIXES.some((prefix) => upperKey.startsWith(prefix))
+    ) {
+      sendJsonErrorResponse(
+        res,
+        403,
+        "Key is not in the allowlist of revealable plugin config keys",
+      );
+      return true;
+    }
     const config = loadElizaConfig();
-    const value = process.env[key] ?? (config.env as Record<string, string> | undefined)?.[key] ?? null;
+    const value =
+      process.env[key] ??
+      (config.env as Record<string, string> | undefined)?.[key] ??
+      null;
     sendJsonResponse(res, 200, { ok: true, value });
     return true;
   }
 
+  if (!ensureCompatApiAuthorized(req, res)) return true;
   return handleDatabaseRowsCompatRoute(req, res, state.current, url.pathname);
 }
 
@@ -1653,6 +2155,31 @@ function patchHttpCreateServerForMiladyCompat(
       syncMiladyEnvToEliza();
       syncElizaEnvToMilady();
       mirrorCompatHeaders(req);
+      if (state) {
+        patchCompatStatusResponse(req, res, state);
+      }
+
+      // CORS: allow cross-origin requests from local renderer servers
+      // (Electrobun static server, Vite dev, or any localhost origin).
+      const origin = req.headers.origin ?? "";
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PUT, DELETE, OPTIONS",
+        );
+        res.setHeader(
+          "Access-Control-Allow-Headers",
+          "Content-Type, Authorization, X-API-Token, X-Api-Key, X-Milady-Client-Id, X-Milady-UI-Language, X-Milady-Token, X-Milady-Export-Token, X-Milady-Terminal-Token",
+        );
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+      }
+
+      if (req.method === "OPTIONS") {
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
 
       res.on("finish", () => {
         syncElizaEnvToMilady();
@@ -1668,7 +2195,20 @@ function patchHttpCreateServerForMiladyCompat(
           await ensureRuntimeSqlCompatibility(state.current);
         }
 
-        if (await handleMiladyCompatRoute(req, res, state)) {
+        try {
+          if (await handleMiladyCompatRoute(req, res, state)) {
+            return;
+          }
+        } catch (err) {
+          console.error(
+            "[milady-compat] unhandled error in route handler",
+            err,
+          );
+          if (!res.headersSent) {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(JSON.stringify({ error: "Internal server error" }));
+          }
           return;
         }
       }
@@ -1697,7 +2237,10 @@ function patchHttpCreateServerForMiladyCompat(
 export function resolveWalletExportRejection(
   ...args: Parameters<typeof upstreamResolveWalletExportRejection>
 ): CompatWalletExportRejection | null {
-  return hardenedGuard(...args);
+  const [req] = args;
+  return runWithCompatAuthContext(req, () =>
+    normalizeCompatRejection(hardenedGuard(...args)),
+  );
 }
 
 export function resolveMcpTerminalAuthorizationRejection(
@@ -1856,6 +2399,7 @@ export async function startApiServer(
   syncElizaEnvToMilady();
   const compatState: CompatRuntimeState = {
     current: (args[0]?.runtime as AgentRuntime | null) ?? null,
+    pendingAgentName: null,
   };
   const restoreCreateServer = patchHttpCreateServerForMiladyCompat(compatState);
 

@@ -525,7 +525,9 @@ export class CloudApiClient {
     return fallback.json();
   }
 
-  async getAgentStatus(options?: { signal?: AbortSignal }): Promise<AgentStatus> {
+  async getAgentStatus(options?: {
+    signal?: AbortSignal;
+  }): Promise<AgentStatus> {
     // Our self-hosted agents expose /api/status (not /api/agent/status).
     // Try /api/status first (returns agentName, state, uptime directly),
     // then fall back to /api/agent/status for compatibility with older or

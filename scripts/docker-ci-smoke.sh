@@ -135,7 +135,7 @@ log "Starting container smoke boot"
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 docker run -d \
   --name "$CONTAINER_NAME" \
-  -p "${SMOKE_PORT}:2138" \
+  -p "${SMOKE_PORT}:${MILADY_PORT:-2138}" \
   "$DOCKER_IMAGE" >/dev/null
 
 status_url="http://127.0.0.1:${SMOKE_PORT}/api/status"

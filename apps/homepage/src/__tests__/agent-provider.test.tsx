@@ -1,11 +1,7 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentProvider, useAgents } from "../lib/AgentProvider";
-import {
-  clearToken,
-  CLOUD_AUTH_CHANGED_EVENT,
-  setToken,
-} from "../lib/auth";
+import { CLOUD_AUTH_CHANGED_EVENT, clearToken, setToken } from "../lib/auth";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -30,8 +26,12 @@ function TestConsumer() {
       <span data-testid="refreshing">{String(isRefreshing)}</span>
       <span data-testid="error">{error ?? ""}</span>
       <span data-testid="count">{agents.length}</span>
-      <button data-testid="refresh" onClick={() => refresh()} />
-      <button data-testid="clear-error" onClick={() => clearError()} />
+      <button type="button" data-testid="refresh" onClick={() => refresh()} />
+      <button
+        type="button"
+        data-testid="clear-error"
+        onClick={() => clearError()}
+      />
       {agents.map((a) => (
         <span key={a.id} data-testid={`agent-${a.id}`}>
           {a.name}|{a.source}|{a.status}
@@ -546,9 +546,9 @@ describe("AgentProvider", () => {
     });
 
     expect(result?.getByTestId("count").textContent).toBe("1");
-    expect(result?.getByTestId("agent-cloud-event-agent").textContent).toContain(
-      "Event Agent|cloud|running",
-    );
+    expect(
+      result?.getByTestId("agent-cloud-event-agent").textContent,
+    ).toContain("Event Agent|cloud|running");
   });
 
   it("sets isRefreshing during fetch and clears it after", async () => {

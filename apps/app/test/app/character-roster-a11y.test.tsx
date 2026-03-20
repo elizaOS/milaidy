@@ -7,7 +7,6 @@
  * See issue #1172 — UX Persona Audit.
  */
 
-import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 
@@ -88,7 +87,10 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
     for (const button of buttons) {
       const label = button.props["aria-label"] as string | undefined;
       expect(typeof label).toBe("string");
-      expect(label!.length).toBeGreaterThan(0);
+      if (typeof label !== "string") {
+        throw new Error("expected aria-label to be a string");
+      }
+      expect(label.length).toBeGreaterThan(0);
     }
 
     const labels = buttons.map((b) => b.props["aria-label"] as string);
@@ -113,7 +115,10 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
       (b.props["aria-label"] as string).includes("Chen"),
     );
     expect(chenButton).toBeDefined();
-    expect(chenButton!.props["aria-label"]).toContain("chaotic");
+    if (!chenButton) {
+      throw new Error("expected Chen button to exist");
+    }
+    expect(chenButton.props["aria-label"]).toContain("chaotic");
   });
 
   it("unselected buttons have aria-pressed=false", () => {
@@ -154,8 +159,14 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
       (b.props["aria-label"] as string).includes("Luna"),
     );
 
-    expect(chenButton!.props["aria-pressed"]).toBe(true);
-    expect(lunaButton!.props["aria-pressed"]).toBe(false);
+    expect(chenButton).toBeDefined();
+    expect(lunaButton).toBeDefined();
+    if (!chenButton || !lunaButton) {
+      throw new Error("expected both Chen and Luna buttons to exist");
+    }
+
+    expect(chenButton.props["aria-pressed"]).toBe(true);
+    expect(lunaButton.props["aria-pressed"]).toBe(false);
   });
 
   it("button without catchphrase still has a valid aria-label", () => {

@@ -11,26 +11,26 @@
   --color-dark: #08080a;
   --color-dark-secondary: #0e0e11;
   --color-light: #f4f4f6;
-  
+
   /* Brand gold - confident, luxurious */
   --color-brand: #f0b90b;
   --color-brand-hover: #ffc61a;
   --color-brand-muted: #c99a09;
   --color-accent: #fcd535;
-  
+
   /* Text hierarchy */
   --color-text-light: #e8e8ec;
   --color-text-dark: #08080a;
   --color-text-muted: #6b6b78;
   --color-text-subtle: #4a4a55;
-  
+
   /* Surfaces - layered depth */
   --color-surface: #131316;
   --color-surface-elevated: #1a1a1f;
   --color-surface-hover: #1e1e24;
   --color-border: #252530;
   --color-border-subtle: #1c1c24;
-  
+
   /* Status colors - refined */
   --color-status-running: #22c55e;
   --color-status-paused: #eab308;
@@ -556,8 +556,14 @@ body {
 
 /* Terminal cursor blink */
 @keyframes cursor-blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .cursor-blink {

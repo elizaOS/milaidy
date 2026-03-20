@@ -17,13 +17,19 @@ interface DeployStep {
   status: "pending" | "active" | "done" | "error";
 }
 
+interface EnvVarRow {
+  id: string;
+  key: string;
+  value: string;
+}
+
 export function CreateAgentForm({
   onAuthenticated,
   onCreated,
   onCancel,
 }: CreateAgentFormProps) {
   const [name, setName] = useState("");
-  const [envVars, setEnvVars] = useState<{ key: string; value: string }[]>([]);
+  const [envVars, setEnvVars] = useState<EnvVarRow[]>([]);
   const [showEnvVars, setShowEnvVars] = useState(false);
   const [step, setStep] = useState<CreateStep>("form");
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +149,8 @@ export function CreateAgentForm({
     }
   }, [authenticated, name, envVars, onCreated, pollJob]);
 
-  const addEnvVar = () => setEnvVars([...envVars, { key: "", value: "" }]);
+  const addEnvVar = () =>
+    setEnvVars([...envVars, { id: crypto.randomUUID(), key: "", value: "" }]);
   const removeEnvVar = (i: number) =>
     setEnvVars(envVars.filter((_, idx) => idx !== i));
   const updateEnvVar = (i: number, field: "key" | "value", val: string) => {
@@ -179,7 +186,11 @@ export function CreateAgentForm({
       {
         id: "runtime",
         label: "Starting runtime",
-        status: isDone ? "done" : isProvisioning && jobInProgress ? "active" : "pending",
+        status: isDone
+          ? "done"
+          : isProvisioning && jobInProgress
+            ? "active"
+            : "pending",
       },
     ];
   };
@@ -193,7 +204,9 @@ export function CreateAgentForm({
         {/* Terminal header bar */}
         <div className="flex items-center gap-3 px-4 py-2.5 bg-dark-secondary border-b border-border">
           <div className="flex items-center gap-1.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${step === "done" ? "bg-emerald-500" : "bg-brand status-pulse"}`} />
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${step === "done" ? "bg-emerald-500" : "bg-brand status-pulse"}`}
+            />
           </div>
           <span className="font-mono text-xs text-text-muted">
             {step === "done" ? "deploy complete" : "deploying..."}
@@ -203,7 +216,8 @@ export function CreateAgentForm({
         {/* Deploy log output */}
         <div className="p-5 font-mono text-sm">
           <div className="text-text-muted mb-4">
-            <span className="text-brand">$</span> milady deploy --name {createdName || name}
+            <span className="text-brand">$</span> milady deploy --name{" "}
+            {createdName || name}
           </div>
 
           <div className="space-y-2.5">
@@ -213,7 +227,9 @@ export function CreateAgentForm({
                   <span className="text-emerald-400 w-4 text-center">✓</span>
                 )}
                 {s.status === "active" && (
-                  <span className="text-brand w-4 text-center animate-pulse">◌</span>
+                  <span className="text-brand w-4 text-center animate-pulse">
+                    ◌
+                  </span>
                 )}
                 {s.status === "pending" && (
                   <span className="text-text-subtle w-4 text-center">○</span>
@@ -259,13 +275,16 @@ export function CreateAgentForm({
         {/* Terminal header bar */}
         <div className="flex items-center gap-3 px-4 py-2.5 bg-dark-secondary border-b border-border">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-          <span className="font-mono text-xs text-text-muted">deploy failed</span>
+          <span className="font-mono text-xs text-text-muted">
+            deploy failed
+          </span>
         </div>
 
         {/* Error output */}
         <div className="p-5 font-mono text-sm">
           <div className="text-text-muted mb-4">
-            <span className="text-brand">$</span> milady deploy --name {createdName || name}
+            <span className="text-brand">$</span> milady deploy --name{" "}
+            {createdName || name}
           </div>
 
           <div className="text-red-400 mb-6">
@@ -325,7 +344,9 @@ export function CreateAgentForm({
               Sign in to Eliza Cloud to deploy agents.
             </p>
             {loginError && (
-              <p className="font-mono text-xs text-red-400 mt-2">{loginError}</p>
+              <p className="font-mono text-xs text-red-400 mt-2">
+                {loginError}
+              </p>
             )}
           </div>
 
@@ -334,7 +355,9 @@ export function CreateAgentForm({
             {loginState === "polling" ? (
               <div className="flex items-center gap-3 font-mono text-sm">
                 <span className="text-brand animate-pulse">◌</span>
-                <span className="text-text-muted">Waiting for browser auth...</span>
+                <span className="text-text-muted">
+                  Waiting for browser auth...
+                </span>
                 {manualLoginUrl && (
                   <a
                     href={manualLoginUrl}
@@ -411,7 +434,6 @@ export function CreateAgentForm({
               e.key === "Enter" && !showEnvVars && name.trim() && handleCreate()
             }
             placeholder="agent-name"
-            autoFocus
             className="w-full px-4 py-3 bg-dark border border-border font-mono text-sm
               text-text-light placeholder:text-text-subtle
               focus:border-brand/50 focus:outline-none
@@ -427,7 +449,9 @@ export function CreateAgentForm({
             className="flex items-center gap-2 font-mono text-[10px] tracking-wider text-text-subtle 
               hover:text-text-muted transition-colors"
           >
-            <span className={`transition-transform ${showEnvVars ? "rotate-90" : ""}`}>
+            <span
+              className={`transition-transform ${showEnvVars ? "rotate-90" : ""}`}
+            >
               ▸
             </span>
             ENV
@@ -442,7 +466,9 @@ export function CreateAgentForm({
             <div className="mt-3 border border-border-subtle bg-dark">
               {/* Config file header */}
               <div className="px-3 py-2 border-b border-border-subtle bg-dark-secondary">
-                <span className="font-mono text-[10px] text-text-subtle"># environment variables</span>
+                <span className="font-mono text-[10px] text-text-subtle">
+                  # environment variables
+                </span>
               </div>
 
               <div className="p-3 space-y-2">
@@ -452,8 +478,10 @@ export function CreateAgentForm({
                   </p>
                 )}
                 {envVars.map((ev, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: env vars have no stable ID
-                  <div key={i} className="flex items-center gap-1 font-mono text-sm">
+                  <div
+                    key={ev.id}
+                    className="flex items-center gap-1 font-mono text-sm"
+                  >
                     <input
                       type="text"
                       value={ev.key}

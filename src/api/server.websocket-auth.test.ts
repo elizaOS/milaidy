@@ -1,6 +1,9 @@
 import type http from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
-import { createMockHeadersRequest } from "./../test-support/test-helpers";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  createEnvSandbox,
+  createMockHeadersRequest,
+} from "./../test-support/test-helpers";
 import { resolveWebSocketUpgradeRejection } from "./server";
 
 function req(
@@ -13,35 +16,23 @@ function req(
 }
 
 describe("resolveWebSocketUpgradeRejection", () => {
-  const prevToken = process.env.ELIZA_API_TOKEN;
-  const prevAllowQueryToken = process.env.ELIZA_ALLOW_WS_QUERY_TOKEN;
-  const prevAllowedOrigins = process.env.ELIZA_ALLOWED_ORIGINS;
-  const prevAllowNullOrigin = process.env.ELIZA_ALLOW_NULL_ORIGIN;
+  const env = createEnvSandbox([
+    "ELIZA_API_TOKEN",
+    "MILADY_API_TOKEN",
+    "ELIZA_ALLOW_WS_QUERY_TOKEN",
+    "MILADY_ALLOW_WS_QUERY_TOKEN",
+    "ELIZA_ALLOWED_ORIGINS",
+    "MILADY_ALLOWED_ORIGINS",
+    "ELIZA_ALLOW_NULL_ORIGIN",
+    "MILADY_ALLOW_NULL_ORIGIN",
+  ]);
+
+  beforeEach(() => {
+    env.clear();
+  });
 
   afterEach(() => {
-    if (prevToken === undefined) {
-      delete process.env.ELIZA_API_TOKEN;
-    } else {
-      process.env.ELIZA_API_TOKEN = prevToken;
-    }
-
-    if (prevAllowQueryToken === undefined) {
-      delete process.env.ELIZA_ALLOW_WS_QUERY_TOKEN;
-    } else {
-      process.env.ELIZA_ALLOW_WS_QUERY_TOKEN = prevAllowQueryToken;
-    }
-
-    if (prevAllowedOrigins === undefined) {
-      delete process.env.ELIZA_ALLOWED_ORIGINS;
-    } else {
-      process.env.ELIZA_ALLOWED_ORIGINS = prevAllowedOrigins;
-    }
-
-    if (prevAllowNullOrigin === undefined) {
-      delete process.env.ELIZA_ALLOW_NULL_ORIGIN;
-    } else {
-      process.env.ELIZA_ALLOW_NULL_ORIGIN = prevAllowNullOrigin;
-    }
+    env.restore();
   });
 
   it("rejects non-/ws paths", () => {

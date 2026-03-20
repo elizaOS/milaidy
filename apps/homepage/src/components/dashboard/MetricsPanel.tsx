@@ -1,3 +1,30 @@
+const SPARKLINE_BARS = [
+  { id: "bar-1", height: 22 },
+  { id: "bar-2", height: 28 },
+  { id: "bar-3", height: 24 },
+  { id: "bar-4", height: 31 },
+  { id: "bar-5", height: 26 },
+  { id: "bar-6", height: 34 },
+  { id: "bar-7", height: 29 },
+  { id: "bar-8", height: 37 },
+  { id: "bar-9", height: 25 },
+  { id: "bar-10", height: 33 },
+  { id: "bar-11", height: 27 },
+  { id: "bar-12", height: 35 },
+  { id: "bar-13", height: 23 },
+  { id: "bar-14", height: 30 },
+  { id: "bar-15", height: 26 },
+  { id: "bar-16", height: 36 },
+  { id: "bar-17", height: 24 },
+  { id: "bar-18", height: 32 },
+  { id: "bar-19", height: 28 },
+  { id: "bar-20", height: 34 },
+  { id: "bar-21", height: 25 },
+  { id: "bar-22", height: 31 },
+  { id: "bar-23", height: 27 },
+  { id: "bar-24", height: 33 },
+] as const;
+
 export function MetricsPanel() {
   return (
     <div className="animate-fade-up">
@@ -8,7 +35,7 @@ export function MetricsPanel() {
             $ metrics --watch
           </span>
         </div>
-        
+
         <div className="p-8 text-center">
           {/* Decorative metric preview */}
           <div className="max-w-md mx-auto mb-8">
@@ -31,14 +58,14 @@ export function MetricsPanel() {
                 </div>
               ))}
             </div>
-            
+
             {/* Sparkline placeholder */}
             <div className="h-16 border border-border-subtle bg-dark-secondary/50 flex items-end justify-center gap-1 px-4 pb-3">
-              {Array.from({ length: 24 }).map((_, i) => (
+              {SPARKLINE_BARS.map((bar) => (
                 <div
-                  key={i}
+                  key={bar.id}
                   className="w-1.5 bg-text-muted/10 rounded-sm"
-                  style={{ height: `${20 + Math.random() * 30}%` }}
+                  style={{ height: `${bar.height}%` }}
                 />
               ))}
             </div>

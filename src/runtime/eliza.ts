@@ -3,6 +3,7 @@ import {
   AutonomyService,
   ChannelType,
   logger,
+  ModelType,
   stringToUuid,
 } from "@elizaos/core";
 
@@ -19,9 +20,12 @@ import {
   shutdownRuntime as upstreamShutdownRuntime,
   startEliza as upstreamStartEliza,
 } from "@elizaos/autonomous/runtime/eliza";
+import {
+  syncElizaEnvToMilady,
+  syncMiladyEnvToEliza,
+} from "../config/brand-env.js";
 import { CHARACTER_PRESET_META, STYLE_PRESETS } from "../onboarding-presets.js";
 import { normalizeCharacterMessageExamples } from "../utils/character-message-examples";
-import { HISTORY_KNOWLEDGE } from "./history-knowledge";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import type { EmbeddingProgressCallback } from "./embedding-manager-support.js";
 import {
@@ -30,7 +34,6 @@ import {
 } from "./embedding-manager-support.js";
 import { detectEmbeddingPreset } from "./embedding-presets.js";
 
-import { syncMiladyEnvToEliza, syncElizaEnvToMilady } from "../config/brand-env.js";
 const AUTONOMY_WORLD_ID = stringToUuid("00000000-0000-0000-0000-000000000001");
 const AUTONOMY_ENTITY_ID = stringToUuid("00000000-0000-0000-0000-000000000002");
 const AUTONOMY_MESSAGE_SERVER_ID = stringToUuid(
@@ -103,7 +106,6 @@ interface RuntimeAdapterAutonomyCompat {
     }>,
   ) => Promise<unknown>;
 }
-
 
 function syncBrandEnvAliases(): void {
   syncElizaEnvToMilady();
@@ -308,7 +310,11 @@ let _miladyTelegramBot: { stop: (reason?: string) => void } | null = null;
 async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
   // Stop any previous bot instance
   if (_miladyTelegramBot) {
-    try { _miladyTelegramBot.stop("restart"); } catch { /* ignore */ }
+    try {
+      _miladyTelegramBot.stop("restart");
+    } catch {
+      /* ignore */
+    }
     _miladyTelegramBot = null;
     await new Promise((r) => setTimeout(r, 1000));
   }
@@ -323,11 +329,16 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
 
     // Build character context for personality
     const char = runtime.character;
-    const bioText = Array.isArray(char.bio) ? char.bio.join(" ") : (char.bio ?? "");
+    const bioText = Array.isArray(char.bio)
+      ? char.bio.join(" ")
+      : (char.bio ?? "");
     const loreText = Array.isArray((char as Record<string, unknown>).lore)
-      ? ((char as Record<string, unknown>).lore as string[]).join(" ") : "";
+      ? ((char as Record<string, unknown>).lore as string[]).join(" ")
+      : "";
     const styleText = (() => {
-      const s = (char as Record<string, unknown>).style as Record<string, string[]> | undefined;
+      const s = (char as Record<string, unknown>).style as
+        | Record<string, string[]>
+        | undefined;
       if (!s) return "";
       const parts: string[] = [];
       if (s.all?.length) parts.push(s.all.join(" "));
@@ -341,62 +352,119 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
       loreText ? `Lore: ${loreText}` : "",
       styleText ? `Style: ${styleText}` : "",
       "Respond in character. Keep responses concise for chat.",
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-    const chatHistories = new Map<number, Array<{ role: string; content: string }>>();
+    const chatHistories = new Map<
+      number,
+      Array<{ role: string; content: string }>
+    >();
 
-    bot.on("message", async (ctx: { message: { text?: string; from?: { username?: string; first_name?: string }; chat?: { id: number } }; reply: (t: string) => Promise<unknown> }) => {
-      const text = ctx.message?.text;
-      if (!text) return;
-      const chatId = ctx.message.chat?.id ?? 0;
+    bot.on(
+      "message",
+      async (ctx: {
+        message: {
+          text?: string;
+          from?: { username?: string; first_name?: string };
+          chat?: { id: number };
+        };
+        reply: (t: string) => Promise<unknown>;
+      }) => {
+        const text = ctx.message?.text;
+        if (!text) return;
+        const chatId = ctx.message.chat?.id ?? 0;
 
-      // Check allowed chats (reads live from process.env — no restart needed)
-      const allowedChats = process.env.TELEGRAM_ALLOWED_CHATS;
-      if (allowedChats && allowedChats.trim() !== "" && allowedChats.trim() !== "[]") {
-        try {
-          if (!(JSON.parse(allowedChats) as string[]).includes(String(chatId))) return;
-        } catch { return; }
-      }
-
-      const username = ctx.message.from?.username ?? ctx.message.from?.first_name ?? "Unknown";
-      logger.info(`[milady] Telegram message from @${username}: ${text.substring(0, 80)}`);
-
-      if (!chatHistories.has(chatId)) chatHistories.set(chatId, []);
-      const history = chatHistories.get(chatId)!;
-      history.push({ role: "user", content: `@${username}: ${text}` });
-      if (history.length > 20) history.splice(0, history.length - 20);
-
-      try {
-        const conv = history.map((m) => `${m.role === "user" ? "User" : char.name}: ${m.content}`).join("\n");
-        const response = await runtime.useModel("TEXT_LARGE" as import("@elizaos/core").ModelType, {
-          prompt: `${systemPrompt}\n\nConversation:\n${conv}\n\n${char.name}:`,
-        });
-        const responseText = typeof response === "string" ? response : (response as { text?: string })?.text ?? "";
-        if (responseText) {
-          history.push({ role: "assistant", content: responseText });
-          await ctx.reply(responseText);
-          logger.info(`[milady] Telegram replied to @${username}`);
+        // Check allowed chats (reads live from process.env — no restart needed)
+        const allowedChats = process.env.TELEGRAM_ALLOWED_CHATS;
+        if (
+          allowedChats &&
+          allowedChats.trim() !== "" &&
+          allowedChats.trim() !== "[]"
+        ) {
+          try {
+            if (
+              !(JSON.parse(allowedChats) as string[]).includes(String(chatId))
+            )
+              return;
+          } catch {
+            return;
+          }
         }
-      } catch (err) {
-        logger.warn(`[milady] Telegram response error: ${err instanceof Error ? err.message : String(err)}`);
-        await ctx.reply("Sorry, I encountered an error processing your message.").catch(() => {});
-      }
-    });
 
-    bot.catch((err: Error) => logger.warn(`[milady] Telegram bot error: ${err.message}`));
+        const username =
+          ctx.message.from?.username ??
+          ctx.message.from?.first_name ??
+          "Unknown";
+        logger.info(
+          `[milady] Telegram message from @${username}: ${text.substring(0, 80)}`,
+        );
+
+        let history = chatHistories.get(chatId);
+        if (!history) {
+          history = [];
+          chatHistories.set(chatId, history);
+        }
+        history.push({ role: "user", content: `@${username}: ${text}` });
+        if (history.length > 20) history.splice(0, history.length - 20);
+
+        try {
+          const conv = history
+            .map(
+              (m) => `${m.role === "user" ? "User" : char.name}: ${m.content}`,
+            )
+            .join("\n");
+          const response = await runtime.useModel(ModelType.TEXT_LARGE, {
+            prompt: `${systemPrompt}\n\nConversation:\n${conv}\n\n${char.name}:`,
+          });
+          const responseText =
+            typeof response === "string"
+              ? response
+              : ((response as { text?: string })?.text ?? "");
+          if (responseText) {
+            history.push({ role: "assistant", content: responseText });
+            await ctx.reply(responseText);
+            logger.info(`[milady] Telegram replied to @${username}`);
+          }
+        } catch (err) {
+          logger.warn(
+            `[milady] Telegram response error: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          await ctx
+            .reply("Sorry, I encountered an error processing your message.")
+            .catch(() => {});
+        }
+      },
+    );
+
+    bot.catch((err: unknown) =>
+      logger.warn(
+        `[milady] Telegram bot error: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
 
     // Fire-and-forget — bot.launch() only resolves on stop()
-    bot.launch({ dropPendingUpdates: true, allowedUpdates: ["message", "message_reaction"] })
-      .catch((err: Error) => logger.warn(`[milady] Telegram bot launch error: ${err.message}`));
+    bot
+      .launch({
+        dropPendingUpdates: true,
+        allowedUpdates: ["message", "message_reaction"],
+      })
+      .catch((err) =>
+        logger.warn(
+          `[milady] Telegram bot launch error: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
 
     _miladyTelegramBot = bot;
-    process.once("SIGINT", () => bot.stop("SIGINT"));
-    process.once("SIGTERM", () => bot.stop("SIGTERM"));
+    // Telegram bot cleanup is handled by the unified signal handler in
+    // startEliza() via _miladyTelegramBot — no separate registration needed.
 
     await new Promise((r) => setTimeout(r, 500));
     logger.info("[milady] Telegram bot polling started");
   } catch (err) {
-    logger.warn(`[milady] Telegram bot setup failed: ${err instanceof Error ? err.message : String(err)}`);
+    logger.warn(
+      `[milady] Telegram bot setup failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 
@@ -505,7 +573,8 @@ export async function startEliza(
       }
 
       const { startApiServer } = await import("../api/server");
-      const apiPort = Number(process.env.ELIZA_PORT) || 2138;
+      const apiPort =
+        Number(process.env.MILADY_PORT || process.env.ELIZA_PORT) || 2138;
       const { port: actualApiPort } = await startApiServer({
         port: apiPort,
         runtime: currentRuntime,
@@ -549,6 +618,14 @@ export async function startEliza(
           process.exit(1);
         }, 10_000);
         forceExitTimer.unref?.();
+        // Stop Telegram bot if running (previously registered via separate process.once handlers)
+        if (_miladyTelegramBot) {
+          try {
+            _miladyTelegramBot.stop("SIGINT");
+          } catch {
+            /* ignore */
+          }
+        }
         if (currentRuntime) {
           await upstreamShutdownRuntime(currentRuntime, "server-only shutdown");
         }

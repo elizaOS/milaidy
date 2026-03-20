@@ -137,10 +137,15 @@ export function AgentCard({
   return (
     <article
       onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
       className={`group relative cursor-pointer transition-all duration-200 
-        ${selected 
-          ? "ring-1 ring-brand/50" 
-          : "hover:ring-1 hover:ring-border"
+        ${
+          selected ? "ring-1 ring-brand/50" : "hover:ring-1 hover:ring-border"
         }`}
     >
       {/* Status accent bar - left edge */}
@@ -150,7 +155,9 @@ export function AgentCard({
       />
 
       {/* Card body */}
-      <div className={`bg-surface border border-border ${selected ? "border-brand/30" : ""}`}>
+      <div
+        className={`bg-surface border border-border ${selected ? "border-brand/30" : ""}`}
+      >
         {/* Header row */}
         <div className="flex items-start gap-4 p-4 pb-0">
           {/* Agent avatar - prominent */}
@@ -158,7 +165,9 @@ export function AgentCard({
             className={`w-12 h-12 flex items-center justify-center flex-shrink-0
               ${stateConfig.bgLight} ${stateConfig.border} border`}
           >
-            <span className={`font-mono text-sm font-semibold ${stateConfig.color}`}>
+            <span
+              className={`font-mono text-sm font-semibold ${stateConfig.color}`}
+            >
               {initials}
             </span>
           </div>
@@ -189,7 +198,9 @@ export function AgentCard({
               className={`w-2 h-2 rounded-full ${stateConfig.bg}
                 ${isLive || isProvisioning ? "status-pulse" : ""}`}
             />
-            <span className={`font-mono text-[11px] font-medium tracking-wide ${stateConfig.color}`}>
+            <span
+              className={`font-mono text-[11px] font-medium tracking-wide ${stateConfig.color}`}
+            >
               {stateConfig.label}
             </span>
           </div>
@@ -198,17 +209,21 @@ export function AgentCard({
         {/* Stats grid - data-dense Bloomberg style */}
         <div className="grid grid-cols-4 gap-px mt-4 bg-border-subtle">
           <StatCell label="UPTIME" value={formatUptime(agent.uptime)} />
-          <StatCell 
-            label="MEMORY" 
-            value={agent.memories !== undefined ? String(agent.memories) : "—"} 
+          <StatCell
+            label="MEMORY"
+            value={agent.memories !== undefined ? String(agent.memories) : "—"}
           />
-          <StatCell 
-            label="HEARTBEAT" 
+          <StatCell
+            label="HEARTBEAT"
             value={formatRelativeTime(lastHeartbeat) || "—"}
           />
-          <StatCell 
-            label="COST" 
-            value={billing?.costPerHour !== undefined ? `$${billing.costPerHour.toFixed(2)}` : "—"}
+          <StatCell
+            label="COST"
+            value={
+              billing?.costPerHour !== undefined
+                ? `$${billing.costPerHour.toFixed(2)}`
+                : "—"
+            }
             accent
           />
         </div>
@@ -218,17 +233,39 @@ export function AgentCard({
           {/* Control actions */}
           <div className="flex items-center gap-1">
             {agent.state === "stopped" && (
-              <ActionBtn onClick={stopProp(onPlay)} variant="success" icon="▶" label="Start" />
+              <ActionBtn
+                onClick={stopProp(onPlay)}
+                variant="success"
+                icon="▶"
+                label="Start"
+              />
             )}
             {agent.state === "paused" && (
-              <ActionBtn onClick={stopProp(onResume)} variant="success" icon="▶" label="Resume" />
+              <ActionBtn
+                onClick={stopProp(onResume)}
+                variant="success"
+                icon="▶"
+                label="Resume"
+              />
             )}
             {agent.state === "running" && (
-              <ActionBtn onClick={stopProp(onPause)} variant="warn" icon="⏸" label="Pause" />
+              <ActionBtn
+                onClick={stopProp(onPause)}
+                variant="warn"
+                icon="⏸"
+                label="Pause"
+              />
             )}
-            {agent.state !== "stopped" && agent.state !== "provisioning" && agent.state !== "unknown" && (
-              <ActionBtn onClick={stopProp(onStop)} variant="danger" icon="■" label="Stop" />
-            )}
+            {agent.state !== "stopped" &&
+              agent.state !== "provisioning" &&
+              agent.state !== "unknown" && (
+                <ActionBtn
+                  onClick={stopProp(onStop)}
+                  variant="danger"
+                  icon="■"
+                  label="Stop"
+                />
+              )}
             {agent.state === "provisioning" && (
               <span className="text-[11px] font-mono text-brand animate-pulse px-2">
                 Starting…
@@ -260,7 +297,11 @@ export function AgentCard({
                 stroke="currentColor"
                 strokeWidth={2.5}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
+                />
               </svg>
             </button>
           )}
@@ -272,7 +313,9 @@ export function AgentCard({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-mono text-text-subtle">
               {nodeId && <span>NODE: {nodeId}</span>}
               {region && <span>REGION: {region.toUpperCase()}</span>}
-              {createdAt && <span>CREATED: {formatRelativeTime(createdAt)}</span>}
+              {createdAt && (
+                <span>CREATED: {formatRelativeTime(createdAt)}</span>
+              )}
             </div>
           </div>
         )}
@@ -281,13 +324,13 @@ export function AgentCard({
   );
 }
 
-function StatCell({ 
-  label, 
-  value, 
-  accent 
-}: { 
-  label: string; 
-  value: string; 
+function StatCell({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
   accent?: boolean;
 }) {
   return (
@@ -295,8 +338,10 @@ function StatCell({
       <p className="text-[9px] font-mono font-medium text-text-subtle tracking-wider mb-0.5">
         {label}
       </p>
-      <p className={`text-sm font-mono font-medium tabular-nums
-        ${accent ? "text-brand" : "text-text-light"}`}>
+      <p
+        className={`text-sm font-mono font-medium tabular-nums
+        ${accent ? "text-brand" : "text-text-light"}`}
+      >
         {value}
       </p>
     </div>

@@ -91,18 +91,19 @@ export function SourceBar() {
         >
           + CONNECT
         </button>
-        
+
         <button
           type="button"
           onClick={handleRefresh}
           disabled={isRefreshing}
           className={`flex items-center gap-1.5 px-3 py-1.5 
             font-mono text-[10px] tracking-wider transition-all duration-150
-            ${isRefreshing 
-              ? "text-text-subtle cursor-not-allowed" 
-              : showSuccess 
-                ? "text-emerald-400" 
-                : "text-text-subtle hover:text-text-light hover:bg-surface"
+            ${
+              isRefreshing
+                ? "text-text-subtle cursor-not-allowed"
+                : showSuccess
+                  ? "text-emerald-400"
+                  : "text-text-subtle hover:text-text-light hover:bg-surface"
             }`}
         >
           {isRefreshing ? (
@@ -135,7 +136,11 @@ export function SourceBar() {
               stroke="currentColor"
               strokeWidth={2.5}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           ) : (
             <svg
@@ -195,9 +200,10 @@ function FilterTab({
       onClick={onClick}
       className={`flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-wider
         transition-all duration-150
-        ${active
-          ? "bg-surface text-text-light"
-          : "bg-surface/30 text-text-muted hover:text-text-light hover:bg-surface/50"
+        ${
+          active
+            ? "bg-surface text-text-light"
+            : "bg-surface/30 text-text-muted hover:text-text-light hover:bg-surface/50"
         }`}
     >
       {status && (
@@ -205,7 +211,9 @@ function FilterTab({
       )}
       <span>{label}</span>
       {count > 0 && (
-        <span className={`tabular-nums ${active ? "text-brand" : "text-text-subtle"}`}>
+        <span
+          className={`tabular-nums ${active ? "text-brand" : "text-text-subtle"}`}
+        >
           {count}
         </span>
       )}

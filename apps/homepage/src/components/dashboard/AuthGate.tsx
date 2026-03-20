@@ -32,7 +32,9 @@ export function CloudLoginBanner({
                 <span className="text-brand animate-pulse">◌</span>
                 <span className="text-text-muted">Authenticating</span>
                 <span className="text-text-subtle">—</span>
-                <span className="text-text-light">complete login in browser</span>
+                <span className="text-text-light">
+                  complete login in browser
+                </span>
                 {manualLoginUrl && (
                   <a
                     href={manualLoginUrl}
@@ -49,9 +51,10 @@ export function CloudLoginBanner({
               <div className="flex items-center gap-3 font-mono text-sm truncate">
                 <span className="text-text-subtle flex-shrink-0">$</span>
                 <span className="text-text-muted truncate">
-                  <span className="text-text-light">milady cloud</span>
-                  {" "}—{" "}
-                  <span className="hidden sm:inline">deploy and manage hosted agents</span>
+                  <span className="text-text-light">milady cloud</span> —{" "}
+                  <span className="hidden sm:inline">
+                    deploy and manage hosted agents
+                  </span>
                   <span className="sm:hidden">cloud agents</span>
                 </span>
               </div>

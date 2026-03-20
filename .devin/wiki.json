@@ -1,7 +1,7 @@
 {
   "repo_notes": [
     {
-      "content": "Milady AI is a personal AI assistant powered by elizaOS. It runs locally on the user's machine (privacy-first) with optional cloud sync. It supports multiple platforms: Electron desktop app (macOS/Windows/Linux), Capacitor mobile app (iOS/Android), Chrome extension, web dashboard, terminal UI, and CLI. The core architecture wraps elizaOS AgentRuntime with a rich plugin system, multi-provider LLM support (Anthropic, OpenAI, Groq, Ollama, xAI, DeepSeek, Google, OpenRouter), wallet management (EVM + Solana), knowledge imports, autonomous behavior, and social platform connectors (Discord, Telegram, Signal). The API server runs on port 18789 with WebSocket support. The web UI runs on port 2138."
+      "content": "Milady AI is a personal AI assistant powered by elizaOS. It runs locally on the user's machine (privacy-first) with optional cloud sync. It supports multiple platforms: Electron desktop app (macOS/Windows/Linux), Capacitor mobile app (iOS/Android), Chrome extension, web dashboard, terminal UI, and CLI. The core architecture wraps elizaOS AgentRuntime with a rich plugin system, multi-provider LLM support (Anthropic, OpenAI, Groq, Ollama, xAI, DeepSeek, Google, OpenRouter), wallet management (EVM + Solana), knowledge imports, autonomous behavior, and social platform connectors (Discord, Telegram, Signal). The API server runs on port 2138 with WebSocket support."
     }
   ],
   "pages": [
@@ -10,7 +10,7 @@
       "purpose": "Introduce Milady AI, its purpose as a personal AI assistant powered by elizaOS, and provide a high-level overview of the system architecture, supported platforms, and core capabilities",
       "page_notes": [
         {
-          "content": "Cover: what Milady is (elizaOS-powered personal AI), privacy-first local execution, supported platforms (Desktop, Mobile, Chrome Extension, Web, TUI, CLI), key capabilities (chat, plugins, wallet, knowledge, autonomy, connectors). Include a system architecture diagram showing: CLI/Desktop/Web → API Server (port 18789) → elizaOS AgentRuntime → Plugins/Providers/Connectors. Mention the tech stack: TypeScript, Bun, Electron, Capacitor, React/Vite for UI."
+          "content": "Cover: what Milady is (elizaOS-powered personal AI), privacy-first local execution, supported platforms (Desktop, Mobile, Chrome Extension, Web, TUI, CLI), key capabilities (chat, plugins, wallet, knowledge, autonomy, connectors). Include a system architecture diagram showing: CLI/Desktop/Web → API Server (port 2138) → elizaOS AgentRuntime → Plugins/Providers/Connectors. Mention the tech stack: TypeScript, Bun, Electron, Capacitor, React/Vite for UI."
         }
       ]
     },
@@ -223,10 +223,10 @@
     },
     {
       "title": "API Documentation",
-      "purpose": "Complete reference for all HTTP and WebSocket API endpoints served on port 18789",
+      "purpose": "Complete reference for all HTTP and WebSocket API endpoints served on port 2138",
       "page_notes": [
         {
-          "content": "Hub page listing all API endpoint groups. API server runs on port 18789, WebSocket at /ws. Authentication required for most endpoints. All routes defined in `src/api/` directory."
+          "content": "Hub page listing all API endpoint groups. API server runs on port 2138, WebSocket at /ws. Authentication required for most endpoints. All routes defined in `src/api/` directory."
         }
       ]
     },

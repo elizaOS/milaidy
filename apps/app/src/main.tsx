@@ -116,27 +116,28 @@ const windowShellRoute = resolveWindowShellRoute();
 // persisted state and temporarily suppressing stale backend resume config.
 if (shouldInstallMainWindowOnboardingPatches(windowShellRoute)) {
   applyForceFreshOnboardingReset();
-  installForceFreshOnboardingClientPatch(client);
+  installForceFreshOnboardingClientPatch(client as never);
 }
-installLocalProviderCloudPreferencePatch(client);
-installDesktopPermissionsClientPatch(client);
+installLocalProviderCloudPreferencePatch(client as never);
+installDesktopPermissionsClientPatch(client as never);
 
 // Register custom character editor for app-core's ViewRouter to pick up
 window.__MILADY_CHARACTER_EDITOR__ = CharacterEditor;
 
 // Point Eliza Cloud API to the correct base URL.
-(window as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ =
+(window as unknown as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ =
   import.meta.env.VITE_CLOUD_BASE ?? "https://www.elizacloud.ai";
 
 // Inject onboarding style presets so the frontend-only onboarding flow
 // can populate character data without an API call.
 import { STYLE_PRESETS } from "../../../src/onboarding-presets";
 
-(window as Record<string, unknown>).__APP_ONBOARDING_STYLES__ = STYLE_PRESETS;
+(window as unknown as Record<string, unknown>).__APP_ONBOARDING_STYLES__ =
+  STYLE_PRESETS;
 
 // Override the VRM asset roster with Milady characters so avatar URLs
 // resolve to milady-*.vrm.gz instead of the upstream eliza-*.vrm.gz.
-window.__APP_VRM_ASSETS__ = [
+(window as unknown as Record<string, unknown>).__APP_VRM_ASSETS__ = [
   { title: "Chen", slug: "milady-1" },
   { title: "Jin", slug: "milady-2" },
   { title: "Kei", slug: "milady-3" },
@@ -529,7 +530,41 @@ function injectPopoutApiBase(): void {
 function injectDetachedShellApiBase(): void {
   const apiBase = new URLSearchParams(window.location.search).get("apiBase");
   if (apiBase) {
-    window.__MILADY_API_BASE__ = apiBase;
+    // Validate apiBase the same way as injectPopoutApiBase() to prevent
+    // open-redirect / SSRF via crafted detached-shell URLs.
+    try {
+      const parsed = new URL(apiBase);
+      const host = parsed.hostname;
+      const allowPrivateHttp =
+        /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+        /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+        /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host) ||
+        /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}$/.test(
+          host,
+        ) ||
+        host.endsWith(".local") ||
+        host.endsWith(".internal") ||
+        host.endsWith(".ts.net");
+      if (
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host === "::1" ||
+        host === window.location.hostname ||
+        parsed.protocol === "https:" ||
+        (parsed.protocol === "http:" && allowPrivateHttp)
+      ) {
+        window.__MILADY_API_BASE__ = apiBase;
+      } else {
+        console.warn("[Milady] Rejected non-local apiBase:", host);
+      }
+    } catch {
+      // Relative URL — only allow paths starting with "/" but not "//" (protocol-relative)
+      if (apiBase.startsWith("/") && !apiBase.startsWith("//")) {
+        window.__MILADY_API_BASE__ = apiBase;
+      } else {
+        console.warn("[Milady] Rejected invalid relative apiBase:", apiBase);
+      }
+    }
   }
 }
 

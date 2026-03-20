@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearToken, CLOUD_AUTH_CHANGED_EVENT, setToken } from "../lib/auth";
+import { CLOUD_AUTH_CHANGED_EVENT, clearToken, setToken } from "../lib/auth";
 import { getCloudTokenStorageKey } from "../lib/runtime-config";
 import { useAuth } from "../lib/useAuth";
 

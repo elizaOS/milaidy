@@ -73,9 +73,10 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                 onClick={() => onChange(s.id)}
                 className={`group w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 
                   font-mono text-xs tracking-wide transition-all duration-150 relative
-                  ${active === s.id
-                    ? "text-text-light bg-surface"
-                    : "text-text-muted hover:text-text-light hover:bg-surface/50"
+                  ${
+                    active === s.id
+                      ? "text-text-light bg-surface"
+                      : "text-text-muted hover:text-text-light hover:bg-surface/50"
                   }`}
               >
                 {/* Active indicator */}
@@ -83,7 +84,9 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                   <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-brand" />
                 )}
                 <span>{s.label.toUpperCase()}</span>
-                <span className={`text-[10px] ${active === s.id ? "text-brand" : "text-text-subtle"}`}>
+                <span
+                  className={`text-[10px] ${active === s.id ? "text-brand" : "text-text-subtle"}`}
+                >
                   {s.shortcut}
                 </span>
               </button>
@@ -117,7 +120,11 @@ export function Sidebar({ active, onChange }: SidebarProps) {
                 stroke="currentColor"
                 strokeWidth={2}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </button>
           )}
@@ -160,9 +167,10 @@ export function Sidebar({ active, onChange }: SidebarProps) {
               key={s.id}
               onClick={() => onChange(s.id)}
               className={`flex-shrink-0 px-3 py-2 font-mono text-[11px] tracking-wide transition-all duration-150
-                ${active === s.id
-                  ? "text-brand"
-                  : "text-text-muted hover:text-text-light"
+                ${
+                  active === s.id
+                    ? "text-brand"
+                    : "text-text-muted hover:text-text-light"
                 }`}
             >
               {s.label.toUpperCase()}

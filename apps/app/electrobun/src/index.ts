@@ -74,7 +74,6 @@ const CONFIG_EXPORT_FILE_NAME = "milady-config.json";
 // is hardened across the supported desktop release targets.
 const BROWSER_SURFACE_ENABLED =
   process.env.MILADY_ENABLE_BROWSER_SURFACE === "1";
-const FORCE_AUTOSTART_AGENT = process.env.MILADY_FORCE_AUTOSTART_AGENT === "1";
 let heartbeatMenuSnapshot: HeartbeatMenuSnapshot =
   EMPTY_HEARTBEAT_MENU_SNAPSHOT;
 let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -83,6 +82,13 @@ let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
 // App Menu
 // ============================================================================
 
+import {
+  isAgentReady,
+  onAgentReadyChange,
+  setAgentReady,
+} from "./agent-ready-state";
+import { DEFAULT_PORT } from "./constants";
+
 function setupApplicationMenu(): void {
   const isMac = process.platform === "darwin";
   const menu = buildApplicationMenu({
@@ -90,11 +96,15 @@ function setupApplicationMenu(): void {
     browserEnabled: BROWSER_SURFACE_ENABLED,
     heartbeatSnapshot: heartbeatMenuSnapshot,
     detachedWindows: surfaceWindowManager?.listWindows() ?? [],
+    agentReady: isAgentReady(),
   });
   ApplicationMenu.setApplicationMenu(
     menu as unknown as Parameters<typeof ApplicationMenu.setApplicationMenu>[0],
   );
 }
+
+// Refresh the application menu whenever agent readiness changes.
+onAgentReadyChange(() => setupApplicationMenu());
 
 function summarizeDesktopActionError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : fallback;
@@ -348,6 +358,8 @@ let lastFocusedWindow: ManagedWindowLike | null = null;
 
 function sendToActiveRenderer(message: string, payload?: unknown): void {
   currentSendToWebview?.(message, payload);
+  if (!currentSendToWebview)
+    console.debug("[Main] Dropped renderer message (no window):", message);
 }
 
 // ============================================================================
@@ -515,7 +527,13 @@ async function createMainWindow(): Promise<BrowserWindow> {
   // Read the pre-built webview bridge preload (built by `bun run build:preload`).
   // The preload runs in the webview context after Electrobun's built-in preload,
   // setting up Milady's direct Electrobun RPC bridge on the window.
-  const preload = readBuiltPreloadScript(import.meta.dir);
+  let preload: string;
+  try {
+    preload = readBuiltPreloadScript(import.meta.dir);
+  } catch (err) {
+    console.error("[Main] Failed to read preload script:", err);
+    preload = "// preload unavailable";
+  }
 
   const win = new BrowserWindow({
     title: "Milady",
@@ -899,12 +917,15 @@ function injectApiBase(win: BrowserWindow): void {
       runtimeResolution.externalApi.base,
       process.env.MILADY_API_TOKEN,
     );
+    setAgentReady(true);
     return;
   }
 
   const agent = getAgentManager();
-  const port = agent.getPort() ?? (Number(process.env.MILADY_PORT) || 2138);
+  const port =
+    agent.getPort() ?? (Number(process.env.MILADY_PORT) || DEFAULT_PORT);
   pushApiBaseToRenderer(win, `http://127.0.0.1:${port}`);
+  setAgentReady(true);
 }
 
 // ============================================================================
@@ -951,6 +972,7 @@ async function _startAgent(win: BrowserWindow): Promise<void> {
 
     if (status.state === "running" && status.port) {
       pushApiBaseToRenderer(win, `http://127.0.0.1:${status.port}`);
+      setAgentReady(true);
       // Sync real OS permission states to the REST API so the renderer
       // can display them and capability toggles can unlock.
       // Pass startup=true so the backend skips scheduling a restart for
@@ -1283,15 +1305,14 @@ async function main(): Promise<void> {
     console.warn("[Main] Tray creation failed:", err);
   }
 
-  // Agent startup is now deferred until after onboarding completes.
-  // The renderer triggers agent start via the `agentStart` RPC handler
-  // when the user selects local mode and finishes onboarding.
-  // For sandbox/remote modes, no embedded agent is needed — the renderer
-  // connects directly to the cloud or remote API base.
+  // Agent startup: in local mode, start the embedded agent immediately.
+  // The renderer's deferred RPC start path doesn't work reliably because
+  // injectApiBaseIntoHtml sets window.__MILADY_API_BASE__ before React
+  // mounts, causing the renderer to skip the agentStart RPC call and
+  // poll a port where nothing is listening.
   //
-  // However, if an external API base is configured via env vars (e.g.
-  // MILADY_DESKTOP_API_BASE), inject it immediately so the renderer can
-  // connect without onboarding a local agent.
+  // In external mode (env vars like MILADY_DESKTOP_API_BASE), inject the
+  // API base immediately — the agent is already running externally.
   if (currentWindow) {
     const rt = resolveDesktopRuntimeMode(
       process.env as Record<string, string | undefined>,
@@ -1302,9 +1323,16 @@ async function main(): Promise<void> {
         rt.externalApi.base,
         process.env.MILADY_API_TOKEN,
       );
-    } else if (FORCE_AUTOSTART_AGENT) {
-      console.log("[Main] Forcing embedded agent startup on boot.");
-      void _startAgent(currentWindow);
+    } else if (rt.mode === "local") {
+      // In local mode the embedded agent must be started by the main process.
+      // The renderer's deferred-start RPC path is skipped when
+      // window.__MILADY_API_BASE__ is already injected (which it always is
+      // in local mode via injectApiBaseIntoHtml), so the main process must
+      // ensure the agent is running before the renderer starts polling.
+      console.log("[Main] Starting embedded agent (local mode).");
+      _startAgent(currentWindow).catch((err) => {
+        console.error("[Main] Agent auto-start failed:", err);
+      });
     }
   }
 

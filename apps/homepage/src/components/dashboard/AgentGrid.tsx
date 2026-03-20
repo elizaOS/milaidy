@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
-import { useAuth } from "../../lib/useAuth";
 import { openWebUI } from "../../lib/open-web-ui";
+import { useAuth } from "../../lib/useAuth";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 import { CreateAgentForm } from "./CreateAgentForm";
@@ -24,7 +24,11 @@ export function AgentGrid() {
       const agent = agents.find((a) => a.id === agentId);
       if (!agent) return;
       try {
-        if (agent.source === "cloud" && agent.cloudClient && agent.cloudAgentId) {
+        if (
+          agent.source === "cloud" &&
+          agent.cloudClient &&
+          agent.cloudAgentId
+        ) {
           if (action === "play" || action === "resume") {
             await agent.cloudClient.resumeAgent(agent.cloudAgentId);
           } else if (action === "pause" || action === "stop") {
@@ -101,8 +105,10 @@ export function AgentGrid() {
 
       {/* Error banner */}
       {error && (
-        <div className="flex items-center justify-between gap-4 px-4 py-3 
-          border border-red-500/30 bg-red-500/5 animate-fade-up">
+        <div
+          className="flex items-center justify-between gap-4 px-4 py-3 
+          border border-red-500/30 bg-red-500/5 animate-fade-up"
+        >
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-red-500" />
             <span className="font-mono text-xs text-red-400">{error}</span>
@@ -120,7 +126,11 @@ export function AgentGrid() {
               stroke="currentColor"
               strokeWidth={2}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -135,8 +145,19 @@ export function AgentGrid() {
             fill="none"
             viewBox="0 0 24 24"
           >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
           </svg>
           {isCreating ? "CREATING AGENT..." : "SYNCING..."}
         </div>
@@ -187,7 +208,9 @@ export function AgentGrid() {
                 onResume={() => handleAction(agent.id, "resume")}
                 onPause={() => handleAction(agent.id, "pause")}
                 onStop={() => handleAction(agent.id, "stop")}
-                onSelect={() => setSelectedId(selectedId === agent.id ? null : agent.id)}
+                onSelect={() =>
+                  setSelectedId(selectedId === agent.id ? null : agent.id)
+                }
                 onOpenUI={() => {
                   const url = getWebUIUrl(agent);
                   if (!url) return;
@@ -302,8 +325,8 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
         <p className="font-mono text-xs text-text-muted max-w-sm mx-auto leading-relaxed mb-6">
           Start Milady locally to see your agents here.
           <br />
-          {authed 
-            ? "Or create a cloud agent for hosted infrastructure." 
+          {authed
+            ? "Or create a cloud agent for hosted infrastructure."
             : "Sign in to Eliza Cloud for hosted options."}
         </p>
 

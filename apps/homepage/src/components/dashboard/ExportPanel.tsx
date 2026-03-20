@@ -58,7 +58,9 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
   if (!connectionId) {
     return (
       <div className="text-center py-12">
-        <p className="font-mono text-xs text-text-subtle mb-2">NO AGENT SELECTED</p>
+        <p className="font-mono text-xs text-text-subtle mb-2">
+          NO AGENT SELECTED
+        </p>
         <p className="font-mono text-xs text-text-muted">
           Select an agent from the Agents panel to manage snapshots.
         </p>
@@ -97,11 +99,13 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
 
       {/* Status message */}
       {status && (
-        <div className={`px-4 py-2 border font-mono text-xs ${
-          status.startsWith("Error") || status.startsWith("Restore failed")
-            ? "border-red-500/30 bg-red-500/5 text-red-400"
-            : "border-brand/30 bg-brand/5 text-brand"
-        }`}>
+        <div
+          className={`px-4 py-2 border font-mono text-xs ${
+            status.startsWith("Error") || status.startsWith("Restore failed")
+              ? "border-red-500/30 bg-red-500/5 text-red-400"
+              : "border-brand/30 bg-brand/5 text-brand"
+          }`}
+        >
           {status}
         </div>
       )}
@@ -110,15 +114,21 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
       {backupsLoading ? (
         <div className="flex items-center gap-2 py-8 justify-center">
           <div className="w-4 h-4 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
-          <span className="font-mono text-xs text-text-muted">Loading backups...</span>
+          <span className="font-mono text-xs text-text-muted">
+            Loading backups...
+          </span>
         </div>
       ) : backups.length === 0 ? (
         <div className="border border-border bg-surface">
           <div className="px-4 py-2 bg-dark-secondary border-b border-border">
-            <span className="font-mono text-[10px] tracking-wider text-text-subtle">BACKUP HISTORY</span>
+            <span className="font-mono text-[10px] tracking-wider text-text-subtle">
+              BACKUP HISTORY
+            </span>
           </div>
           <div className="p-8 text-center">
-            <p className="font-mono text-xs text-text-muted mb-2">No snapshots yet</p>
+            <p className="font-mono text-xs text-text-muted mb-2">
+              No snapshots yet
+            </p>
             <p className="font-mono text-[10px] text-text-subtle">
               Snapshots capture agent state, memories, and configuration.
               <br />
@@ -129,12 +139,19 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
       ) : (
         <div className="border border-border bg-surface">
           <div className="px-4 py-2 bg-dark-secondary border-b border-border flex items-center justify-between">
-            <span className="font-mono text-[10px] tracking-wider text-text-subtle">BACKUP HISTORY</span>
-            <span className="font-mono text-[10px] text-text-subtle">{backups.length} snapshot{backups.length !== 1 ? "s" : ""}</span>
+            <span className="font-mono text-[10px] tracking-wider text-text-subtle">
+              BACKUP HISTORY
+            </span>
+            <span className="font-mono text-[10px] text-text-subtle">
+              {backups.length} snapshot{backups.length !== 1 ? "s" : ""}
+            </span>
           </div>
           <div className="divide-y divide-border-subtle">
             {backups.map((b) => (
-              <div key={b.id} className="flex items-center justify-between px-4 py-3 hover:bg-surface-hover transition-colors">
+              <div
+                key={b.id}
+                className="flex items-center justify-between px-4 py-3 hover:bg-surface-hover transition-colors"
+              >
                 <div>
                   <p className="font-mono text-xs text-text-light tabular-nums">
                     {b.id.slice(0, 12)}

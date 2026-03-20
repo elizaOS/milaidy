@@ -144,24 +144,32 @@ export function Privacy() {
                 style={feature.imageStyle}
                 draggable={false}
               />
-              
+
               {/* Card number */}
-              <span className="absolute top-4 right-4 font-mono text-[10px] text-text-subtle 
-                group-hover:text-dark/40 transition-colors duration-500">
+              <span
+                className="absolute top-4 right-4 font-mono text-[10px] text-text-subtle 
+                group-hover:text-dark/40 transition-colors duration-500"
+              >
                 {String(i + 1).padStart(2, "0")}
               </span>
 
               <div className="relative z-10 p-6 sm:p-8 lg:p-10">
-                <div className="text-text-muted group-hover:text-dark mb-6 sm:mb-8 lg:mb-10 
-                  transition-colors duration-500">
+                <div
+                  className="text-text-muted group-hover:text-dark mb-6 sm:mb-8 lg:mb-10 
+                  transition-colors duration-500"
+                >
                   {feature.icon}
                 </div>
-                <h3 className="text-xl sm:text-2xl lg:text-3xl font-black mb-3 sm:mb-4 
-                  uppercase tracking-tighter leading-none">
+                <h3
+                  className="text-xl sm:text-2xl lg:text-3xl font-black mb-3 sm:mb-4 
+                  uppercase tracking-tighter leading-none"
+                >
                   {feature.title}
                 </h3>
-                <p className="font-mono text-xs sm:text-sm leading-relaxed text-text-muted 
-                  group-hover:text-dark/70 transition-colors duration-500 max-w-sm">
+                <p
+                  className="font-mono text-xs sm:text-sm leading-relaxed text-text-muted 
+                  group-hover:text-dark/70 transition-colors duration-500 max-w-sm"
+                >
                   {feature.description}
                 </p>
               </div>

@@ -7,8 +7,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(appDir, "..", "..");
-const rtScript = path.join(repoRoot, "scripts", "rt.mjs");
 const repoSetupScript = path.join(repoRoot, "scripts", "run-repo-setup.mjs");
+const bunExecutable = path
+  .basename(process.execPath)
+  .toLowerCase()
+  .includes("bun")
+  ? process.execPath
+  : "bun";
 
 function run(command, args, cwd) {
   return new Promise((resolve, reject) => {
@@ -31,12 +36,8 @@ function run(command, args, cwd) {
   });
 }
 
-await run(
-  process.execPath,
-  [rtScript, "install", "--ignore-scripts"],
-  repoRoot,
-);
+await run(bunExecutable, ["install", "--ignore-scripts"], repoRoot);
 await run(process.execPath, [repoSetupScript], repoRoot);
 await run(process.execPath, [path.join(__dirname, "plugin-build.mjs")], appDir);
-await run(process.execPath, [rtScript, "install", "--ignore-scripts"], appDir);
-await run(process.execPath, [rtScript, "run", "build:web"], appDir);
+await run(bunExecutable, ["install", "--ignore-scripts"], appDir);
+await run(bunExecutable, ["run", "build:web"], appDir);

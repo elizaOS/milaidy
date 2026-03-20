@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
-import { useAuth } from "../../lib/useAuth";
 import { CloudClient } from "../../lib/cloud-api";
+import { useAuth } from "../../lib/useAuth";
 
 interface BillingSettingsResponse {
   success?: boolean;

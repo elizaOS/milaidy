@@ -10,8 +10,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  SENSITIVE_ENV_RESPONSE_KEYS,
   filterConfigEnvForResponse,
+  SENSITIVE_ENV_RESPONSE_KEYS,
 } from "./server";
 
 describe("SENSITIVE_ENV_RESPONSE_KEYS", () => {
@@ -32,11 +32,15 @@ describe("SENSITIVE_ENV_RESPONSE_KEYS", () => {
   });
 
   it("blocks ELIZA_WALLET_EXPORT_TOKEN", () => {
-    expect(SENSITIVE_ENV_RESPONSE_KEYS.has("ELIZA_WALLET_EXPORT_TOKEN")).toBe(true);
+    expect(SENSITIVE_ENV_RESPONSE_KEYS.has("ELIZA_WALLET_EXPORT_TOKEN")).toBe(
+      true,
+    );
   });
 
   it("blocks ELIZA_TERMINAL_RUN_TOKEN", () => {
-    expect(SENSITIVE_ENV_RESPONSE_KEYS.has("ELIZA_TERMINAL_RUN_TOKEN")).toBe(true);
+    expect(SENSITIVE_ENV_RESPONSE_KEYS.has("ELIZA_TERMINAL_RUN_TOKEN")).toBe(
+      true,
+    );
   });
 
   it("blocks HYPERSCAPE_AUTH_TOKEN", () => {
@@ -79,8 +83,12 @@ describe("filterConfigEnvForResponse", () => {
       },
     };
     const filtered = filterConfigEnvForResponse(config);
-    expect((filtered.env as Record<string, unknown>).EVM_PRIVATE_KEY).toBeUndefined();
-    expect((filtered.env as Record<string, unknown>).AGENT_NAME).toBe("TestAgent");
+    expect(
+      (filtered.env as Record<string, unknown>).EVM_PRIVATE_KEY,
+    ).toBeUndefined();
+    expect((filtered.env as Record<string, unknown>).AGENT_NAME).toBe(
+      "TestAgent",
+    );
   });
 
   it("strips SOLANA_PRIVATE_KEY from env block", () => {
@@ -91,7 +99,9 @@ describe("filterConfigEnvForResponse", () => {
       },
     };
     const filtered = filterConfigEnvForResponse(config);
-    expect((filtered.env as Record<string, unknown>).SOLANA_PRIVATE_KEY).toBeUndefined();
+    expect(
+      (filtered.env as Record<string, unknown>).SOLANA_PRIVATE_KEY,
+    ).toBeUndefined();
     expect((filtered.env as Record<string, unknown>).LOG_LEVEL).toBe("debug");
   });
 

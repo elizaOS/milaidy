@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import {
-  clearToken,
   CLOUD_AUTH_CHANGED_EVENT,
+  clearToken,
   getToken,
   isAuthenticated,
 } from "./auth";

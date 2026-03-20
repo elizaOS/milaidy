@@ -37,14 +37,19 @@ export function Footer() {
           </div>
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-sm overflow-hidden flex items-center justify-center">
-              <img src="/logo.png" alt="Milady" className="w-full h-full object-cover" />
+              <img
+                src="/logo.png"
+                alt="Milady"
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="text-lg sm:text-xl font-black tracking-[0.08em] uppercase text-white">
               MILADY
             </span>
           </div>
           <p className="font-mono text-xs text-text-muted max-w-md mx-auto leading-relaxed">
-            Local-first agent runtime with desktop releases, CLI install scripts, and public GitHub artifacts.
+            Local-first agent runtime with desktop releases, CLI install
+            scripts, and public GitHub artifacts.
           </p>
         </div>
 

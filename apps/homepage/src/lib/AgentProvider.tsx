@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type CloudAgent, CLOUD_AUTH_CHANGED_EVENT, getToken } from "./auth";
+import { CLOUD_AUTH_CHANGED_EVENT, type CloudAgent, getToken } from "./auth";
 import { CloudApiClient, CloudClient } from "./cloud-api";
 import { addConnection, getConnections, removeConnection } from "./connections";
 import {
@@ -357,7 +357,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       url: LOCAL_AGENT_BASE,
       type: "local",
     });
-    const localAgentIndex = results.length;
+    const _localAgentIndex = results.length;
     // We'll add local agent placeholder only if probe succeeds (handled in parallel probes)
 
     // 4. Manually-added remote agents (via ConnectionModal)

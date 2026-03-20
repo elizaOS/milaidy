@@ -47,7 +47,11 @@ export function Nav() {
           className="group flex items-center gap-3 transition-opacity hover:opacity-80"
         >
           <div className="w-10 h-10 rounded-sm overflow-hidden bg-surface flex items-center justify-center">
-            <img src="/logo.png" alt="Milady" className="w-full h-full object-cover" />
+            <img
+              src="/logo.png"
+              alt="Milady"
+              className="w-full h-full object-cover"
+            />
           </div>
           <span className="text-lg sm:text-xl font-black tracking-tighter uppercase text-white">
             MILADY

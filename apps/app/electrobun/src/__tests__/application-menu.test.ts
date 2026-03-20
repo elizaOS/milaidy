@@ -200,6 +200,89 @@ describe("buildApplicationMenu", () => {
     expect(windowLabels).toContain("Milady Browser");
   });
 
+  it("hides surface menus and new-window items when agentReady is false", () => {
+    const menu = buildApplicationMenu({
+      isMac: true,
+      browserEnabled: false,
+      heartbeatSnapshot: EMPTY_HEARTBEAT_MENU_SNAPSHOT,
+      detachedWindows: [],
+      agentReady: false,
+    });
+
+    const topLabels = menu.map((item) => item.label);
+    expect(topLabels).toEqual(["Milady", "File", "Edit", "View", "Window"]);
+    expect(topLabels).not.toContain("Cloud");
+    expect(topLabels).not.toContain("Plugins");
+    expect(topLabels).not.toContain("Connectors");
+    expect(topLabels).not.toContain("Heartbeats");
+  });
+
+  it("hides new-window items from Window menu when agentReady is false", () => {
+    const menu = buildApplicationMenu({
+      isMac: true,
+      browserEnabled: false,
+      heartbeatSnapshot: EMPTY_HEARTBEAT_MENU_SNAPSHOT,
+      detachedWindows: [],
+      agentReady: false,
+    });
+
+    const windowMenu = menu.find((item) => item.label === "Window");
+    const windowLabels = (windowMenu?.submenu ?? []).map(
+      (item) => item.label ?? item.role ?? item.type ?? "",
+    );
+
+    expect(windowLabels).toContain("Show Milady");
+    expect(windowLabels).not.toContain("New Chat Window");
+    expect(windowLabels).not.toContain("New Heartbeats Window");
+    expect(windowLabels).not.toContain("New Plugins Window");
+    expect(windowLabels).not.toContain("New Connectors Window");
+    expect(windowLabels).not.toContain("New Cloud Window");
+    expect(windowLabels).not.toContain("Settings Window");
+  });
+
+  it("defaults agentReady to true when omitted (backward compat)", () => {
+    const withDefault = buildApplicationMenu({
+      isMac: true,
+      browserEnabled: false,
+      heartbeatSnapshot: EMPTY_HEARTBEAT_MENU_SNAPSHOT,
+      detachedWindows: [],
+    });
+    const withExplicit = buildApplicationMenu({
+      isMac: true,
+      browserEnabled: false,
+      heartbeatSnapshot: EMPTY_HEARTBEAT_MENU_SNAPSHOT,
+      detachedWindows: [],
+      agentReady: true,
+    });
+
+    expect(withDefault.map((i) => i.label)).toEqual(
+      withExplicit.map((i) => i.label),
+    );
+  });
+
+  it("restores full menus when agentReady switches to true", () => {
+    const notReady = buildApplicationMenu({
+      isMac: true,
+      browserEnabled: false,
+      heartbeatSnapshot: EMPTY_HEARTBEAT_MENU_SNAPSHOT,
+      detachedWindows: [],
+      agentReady: false,
+    });
+    const ready = buildApplicationMenu({
+      isMac: true,
+      browserEnabled: false,
+      heartbeatSnapshot: EMPTY_HEARTBEAT_MENU_SNAPSHOT,
+      detachedWindows: [],
+      agentReady: true,
+    });
+
+    expect(notReady.map((i) => i.label)).not.toContain("Cloud");
+    expect(ready.map((i) => i.label)).toContain("Cloud");
+    expect(ready.map((i) => i.label)).toContain("Plugins");
+    expect(ready.map((i) => i.label)).toContain("Connectors");
+    expect(ready.map((i) => i.label)).toContain("Heartbeats");
+  });
+
   it("surfaces heartbeat load failures without removing the menu", () => {
     const labels = (
       buildApplicationMenu({

@@ -174,10 +174,11 @@ export function BrowserSurfaceWindow() {
       </div>
 
       <div className="browser-surface__viewport">
+        {/* @ts-expect-error — electrobun-webview is an Electrobun custom element */}
         <electrobun-webview
           className="browser-surface__webview"
           partition="milady-browser"
-          ref={(node) => {
+          ref={(node: HTMLElement | null) => {
             webviewRef.current = node as WebviewTagElement | null;
           }}
           sandbox=""
