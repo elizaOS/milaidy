@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milady — Full Codebase Conflict Audit</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d10;color:#e8e6f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;min-height:100vh}
+a{color:#6ec6ff;text-decoration:none}
+
+/* Stats Bar */
+.stats-bar{position:sticky;top:0;z-index:100;background:#13131a;border-bottom:1px solid #2a2a3a;padding:14px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.stats-bar h1{font-size:18px;font-weight:600;margin-right:auto;white-space:nowrap}
+.stat{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;padding:4px 12px;border-radius:6px;background:#1a1a24}
+.stat.total{color:#e8e6f0}
+.stat.high{color:#ff5e5e;background:#1e0f0f;border:1px solid #3a1414}
+.stat.medium{color:#ffb86e;background:#1e150a;border:1px solid #3a2810}
+.stat.low{color:#ffe066;background:#1a1800;border:1px solid #332e00}
+.stat.fixed{color:#6effa5;background:#0e1e14;border:1px solid #183028}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;padding:0 24px;background:#0d0d10;border-bottom:1px solid #2a2a3a;overflow-x:auto}
+.tab{padding:10px 18px;cursor:pointer;font-size:13px;font-weight:500;color:#7a788a;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.tab:hover{color:#e8e6f0}
+.tab.active{color:#e8e6f0;border-bottom-color:#6ec6ff}
+.tab .tab-count{font-size:11px;margin-left:4px;padding:1px 6px;border-radius:8px;background:#1a1a24}
+
+/* Filters */
+.filters{display:flex;gap:8px;padding:12px 24px;background:#0d0d10}
+.filter-btn{padding:5px 14px;font-size:12px;font-weight:600;border:1px solid #2a2a3a;border-radius:6px;cursor:pointer;background:#1a1a24;color:#e8e6f0;transition:all .2s}
+.filter-btn:hover{border-color:#4a4a5a}
+.filter-btn.active-high{background:#1e0f0f;border-color:#3a1414;color:#ff5e5e}
+.filter-btn.active-medium{background:#1e150a;border-color:#3a2810;color:#ffb86e}
+.filter-btn.active-low{background:#1a1800;border-color:#332e00;color:#ffe066}
+.filter-btn.inactive{opacity:.3}
+
+/* Content */
+.content{padding:16px 24px;max-width:1100px;margin:0 auto}
+.domain-panel{display:none}
+.domain-panel.active{display:block}
+
+/* Cards */
+.card{background:#13131a;border:1px solid #2a2a3a;border-radius:10px;margin-bottom:12px;overflow:hidden;transition:opacity .3s}
+.card.checked{opacity:.4}
+.card.checked .card-title{text-decoration:line-through}
+.card.severity-HIGH{border-left:4px solid #ff5e5e}
+.card.severity-MEDIUM{border-left:4px solid #ffb86e}
+.card.severity-LOW{border-left:4px solid #ffe066}
+.card-header{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;cursor:default}
+.card-header input[type=checkbox]{margin-top:4px;accent-color:#6effa5;width:16px;height:16px;cursor:pointer;flex-shrink:0}
+.card-badges{display:flex;gap:6px;flex-shrink:0}
+.badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px}
+.badge-HIGH{color:#ff5e5e;background:#1e0f0f;border:1px solid #3a1414}
+.badge-MEDIUM{color:#ffb86e;background:#1e150a;border:1px solid #3a2810}
+.badge-LOW{color:#ffe066;background:#1a1800;border:1px solid #332e00}
+.badge-GAP{color:#b89aff;background:#17122a;border:1px solid #2e2050}
+.badge-UX{color:#6effa5;background:#0e1e14;border:1px solid #183028}
+.badge-SECURITY{color:#ff6eb0;background:#1e0e18;border:1px solid #3a1430}
+.badge-FINANCIAL{color:#ffb86e;background:#1e150a;border:1px solid #3a2810}
+.badge-LOGIC{color:#6ec6ff;background:#0e1a24;border:1px solid #183040}
+.badge-ERROR{color:#ff5e5e;background:#1e0f0f;border:1px solid #3a1414}
+.card-title{font-size:14px;font-weight:600;flex:1}
+.card-body{padding:0 16px 14px 42px}
+.card-desc{color:#b0aec0;font-size:13px;margin-bottom:8px}
+.card-file{font-family:'SF Mono',Consolas,monospace;font-size:12px;color:#7a788a;margin-bottom:10px;word-break:break-all}
+
+/* Fix Prompt */
+.fix-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#6ec6ff;font-weight:500;user-select:none;margin-bottom:4px}
+.fix-toggle .arrow{transition:transform .2s;display:inline-block}
+.fix-toggle.open .arrow{transform:rotate(90deg)}
+.fix-content{display:none;position:relative}
+.fix-content.open{display:block}
+.fix-content pre{background:#0d0d10;border:1px solid #2a2a3a;border-radius:6px;padding:12px;font-size:12px;line-height:1.5;overflow-x:auto;white-space:pre-wrap;word-break:break-word;color:#c8c6d0;font-family:'SF Mono',Consolas,monospace}
+.copy-btn{position:absolute;top:8px;right:8px;padding:4px 10px;font-size:11px;background:#1a1a24;border:1px solid #2a2a3a;border-radius:4px;color:#e8e6f0;cursor:pointer;transition:all .2s}
+.copy-btn:hover{background:#2a2a3a}
+.copy-btn.copied{background:#0e1e14;border-color:#183028;color:#6effa5}
+
+/* Responsive */
+@media(max-width:768px){.stats-bar{padding:10px 12px;gap:10px}.stats-bar h1{font-size:15px;width:100%}.content{padding:12px}.card-body{padding:0 12px 12px 32px}}
+</style>
+</head>
+<body>
+
+<div class="stats-bar">
+  <h1>Milady — Codebase Conflict Audit</h1>
+  <div class="stat total" id="stat-total"></div>
+  <div class="stat high" id="stat-high"></div>
+  <div class="stat medium" id="stat-medium"></div>
+  <div class="stat low" id="stat-low"></div>
+  <div class="stat fixed" id="stat-fixed">0 fixed</div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="filters" id="filters">
+  <button class="filter-btn active-high" data-severity="HIGH" onclick="toggleFilter('HIGH',this)">HIGH</button>
+  <button class="filter-btn active-medium" data-severity="MEDIUM" onclick="toggleFilter('MEDIUM',this)">MEDIUM</button>
+  <button class="filter-btn active-low" data-severity="LOW" onclick="toggleFilter('LOW',this)">LOW</button>
+</div>
+
+<div class="content" id="content"></div>
+
+<script>
+const ISSUES = [
+  // ─── DOMAIN: Server & API ───
+  {domain:"Server & API",type:"SECURITY",severity:"HIGH",title:"Revealed secret values sent unmasked in /api/plugins/:id/reveal response",description:"POST /api/plugins/:id/reveal returns the raw secret value from process.env or config.env without any restrictions. An attacker with an auth token can call this endpoint repeatedly to extract all configured API keys, database passwords, and other secrets.",file:"src/api/server.ts:1630-1645",fix:"Remove the /reveal endpoint or restrict it to read-only display of env var presence (true/false) without returning actual values. Add audit logging for any secret reveal attempts.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, Hono/custom HTTP server, TypeScript.\n\nFile: src/api/server.ts:1630-1645\nIssue type: SECURITY\nSeverity: HIGH\n\nProblem:\nPOST /api/plugins/:id/reveal returns raw process.env[key] values to any client with a valid API token. There is no allowlist restricting which env vars can be revealed. An attacker who obtains the API token (or a legitimate user) can enumerate and exfiltrate all secrets.\n\nFix:\nEither (1) remove the /reveal endpoint entirely, or (2) add a strict allowlist of revealable keys (e.g., only plugin-specific non-secret config), and mask any value not on the list. Add audit logging for all reveal requests.\n\nAcceptance criteria:\n- No raw secret values (API keys, DB passwords) are returned by any endpoint\n- If allowlist approach: only keys matching the allowlist are returned; all others return 403\n- Audit log entry created for every /reveal request"},
+  {domain:"Server & API",type:"SECURITY",severity:"HIGH",title:"/api/database/tables/*/rows endpoint missing authorization check",description:"The GET /api/database/tables/{table}/rows endpoint is called at the end of handleMiladyCompatRoute without checking ensureCompatApiAuthorized. This allows unauthenticated clients to query any database table when an API token is configured. Other sensitive endpoints require auth, but this one does not.",file:"src/api/server.ts:1271-1422 (definition), 1647 (invocation)",fix:"Add ensureCompatApiAuthorized(req, res) check in handleDatabaseRowsCompatRoute before executing any SQL queries.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, custom HTTP server, TypeScript.\n\nFile: src/api/server.ts:1271-1422 (definition), line 1647 (invocation)\nIssue type: SECURITY\nSeverity: HIGH\n\nProblem:\nhandleDatabaseRowsCompatRoute is called from handleMiladyCompatRoute at line 1647 without calling ensureCompatApiAuthorized first. Other endpoints (e.g., /api/config at line 1560) check auth. This allows unauthenticated database reads when API_TOKEN is set.\n\nFix:\nAdd ensureCompatApiAuthorized(req, res) at the start of handleDatabaseRowsCompatRoute. Return early (401) if authorization fails.\n\nAcceptance criteria:\n- Requesting /api/database/tables/*/rows without a valid API token returns 401\n- Requesting with a valid token returns normal results\n- No regression in other database query routes"},
+  {domain:"Server & API",type:"ERROR",severity:"HIGH",title:"Missing error handling in onboarding body read stream",description:"POST /api/onboarding at lines 1513-1556 reads request chunks asynchronously but doesn't catch stream read errors. Only JSON parse errors are caught. If the network stream fails during chunk reading, the promise chain breaks without proper error response to the client.",file:"src/api/server.ts:1513-1556",fix:"Wrap the entire for-await loop in try/catch, not just JSON.parse. Return error response if any read fails.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, custom HTTP server, TypeScript.\n\nFile: src/api/server.ts:1513-1556\nIssue type: ERROR\nSeverity: HIGH\n\nProblem:\nThe onboarding POST handler reads request body chunks in a for-await loop, but only wraps JSON.parse in try/catch. If the readable stream itself errors (network timeout, client disconnect), the error is unhandled and may crash the request handler.\n\nFix:\nWrap the entire for-await-of body reading loop in try/catch. On stream error, respond with 400 or 500 and log the error.\n\nAcceptance criteria:\n- Network interruption during body read returns a proper error response (not crash)\n- JSON parse errors still return 400 with descriptive message\n- No unhandled promise rejections from this handler"},
+  {domain:"Server & API",type:"ERROR",severity:"HIGH",title:"Unhandled async error in main route handler (handleMiladyCompatRoute)",description:"Line 1703 calls await handleMiladyCompatRoute without a try/catch wrapper. If this async function throws from nested runtime calls, the error propagates uncaught to the HTTP listener, potentially crashing the server or leaving the request hanging.",file:"src/api/server.ts:1694-1709",fix:"Wrap the handleMiladyCompatRoute call in try/catch and send a 500 error response if an exception occurs.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, custom HTTP server, TypeScript.\n\nFile: src/api/server.ts:1694-1709\nIssue type: ERROR\nSeverity: HIGH\n\nProblem:\nThe main request handler at line 1703 calls `await handleMiladyCompatRoute(req, res, state)` without try/catch. If this function throws (e.g., runtime is null, database error), the error is unhandled and may crash the server or leave the HTTP connection hanging.\n\nFix:\nWrap the call in try/catch { res.writeHead(500); res.end(JSON.stringify({error:'Internal server error'})) }.\n\nAcceptance criteria:\n- Any throw inside handleMiladyCompatRoute returns HTTP 500 to the client\n- Server does not crash from unhandled rejections in this code path\n- Error is logged with stack trace"},
+  {domain:"Server & API",type:"LOGIC",severity:"HIGH",title:"Race condition in nonce issuance for wallet exports",description:"The issueExportNonce function iterates over pendingExportNonces to count per-IP nonces, but concurrent calls can create race conditions. Two simultaneous requests could both pass the count check and issue nonces when the second should be rejected. This affects financial security of wallet export operations.",file:"src/api/wallet-export-guard.ts:124-147",fix:"Use a Set or atomic counter per IP. Store a count instead of iterating, or use a lock-like mechanism to prevent concurrent nonce issuance.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript, in-memory Maps for rate limiting.\n\nFile: src/api/wallet-export-guard.ts:124-147\nIssue type: LOGIC (FINANCIAL risk)\nSeverity: HIGH\n\nProblem:\nissueExportNonce iterates pendingExportNonces Map to count entries for a given IP, then conditionally adds a new entry. Between the count check and the Map.set, another concurrent request can also pass the count check, resulting in more nonces issued than the limit allows.\n\nFix:\nUse a separate Map<string, number> for per-IP counters. Increment atomically (check-and-set in a single synchronous block). Since Node.js is single-threaded, ensure no await between the count check and the set.\n\nAcceptance criteria:\n- Concurrent nonce requests from the same IP never exceed the configured limit\n- Rate limiting works correctly under parallel request load\n- Existing nonce validation logic is not affected"},
+  {domain:"Server & API",type:"ERROR",severity:"HIGH",title:"/api/cloud/disconnect missing error handling for async disconnection",description:"The POST /api/cloud/disconnect handler calls await disconnectUnifiedCloudConnection without try-catch wrapping. If this async function throws, the exception propagates unhandled and crashes the request handler.",file:"src/api/cloud-routes.ts:177-188",fix:"Wrap the disconnectUnifiedCloudConnection call in a try-catch block and return appropriate error response (400/500) if the operation fails.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript.\n\nFile: src/api/cloud-routes.ts:177-188\nIssue type: ERROR\nSeverity: HIGH\n\nProblem:\nPOST /api/cloud/disconnect calls `await disconnectUnifiedCloudConnection()` without try-catch. If the cloud disconnect operation fails (network error, invalid state), the error crashes the handler.\n\nFix:\nWrap in try-catch, return {ok: false, error: message} with HTTP 500 on failure.\n\nAcceptance criteria:\n- Cloud disconnect errors return HTTP 500 with error message\n- Server does not crash on cloud disconnect failure\n- Successful disconnect still returns 200"},
+  {domain:"Server & API",type:"SECURITY",severity:"MEDIUM",title:"Manual SQL injection escape in search filter is fragile",description:"Lines 1367-1383 manually escape the search parameter for ILIKE but the escaping logic is incomplete. It doesn't handle all SQL special characters and relies on string concatenation rather than parameterized queries, creating injection risk.",file:"src/api/server.ts:1369-1383",fix:"Use parameterized SQL queries with placeholders ($1) instead of string concatenation and manual escaping for the search value.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript, PostgreSQL.\n\nFile: src/api/server.ts:1369-1383\nIssue type: SECURITY\nSeverity: MEDIUM\n\nProblem:\nThe database rows search filter uses manual string escaping for ILIKE patterns instead of parameterized queries. Manual escaping is error-prone and may miss edge cases.\n\nFix:\nReplace string concatenation with parameterized query: `WHERE column ILIKE $1` with `['%' + searchTerm + '%']` as parameter.\n\nAcceptance criteria:\n- All SQL queries use parameterized placeholders, not string concatenation\n- Search functionality still works with special characters (%, _, \\)\n- No SQL injection possible via the search parameter"},
+  {domain:"Server & API",type:"LOGIC",severity:"MEDIUM",title:"POST /api/plugins/:id/test returns HTTP 200 on error conditions",description:"When the Telegram connector test fails, the endpoint returns HTTP 200 OK with a success: false field instead of an appropriate error status code. Clients that check HTTP status cannot distinguish success from failure.",file:"src/api/server.ts:1598-1628",fix:"Return HTTP 500 or 400 status code when the plugin test fails, while keeping the JSON response body structure.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript.\n\nFile: src/api/server.ts:1598-1628\nIssue type: LOGIC\nSeverity: MEDIUM\n\nProblem:\nPOST /api/plugins/:id/test returns HTTP 200 even when `success: false` in the body. HTTP clients that check status codes cannot detect failures.\n\nFix:\nReturn HTTP 500 when `success: false`, keeping the same JSON body structure.\n\nAcceptance criteria:\n- Failed plugin tests return HTTP 4xx or 5xx status code\n- Successful tests still return HTTP 200\n- Response body structure is unchanged"},
+  {domain:"Server & API",type:"ERROR",severity:"MEDIUM",title:"Unguarded process.env mutation without rollback on config save failure",description:"Lines 1240-1250 mutate process.env then call saveElizaConfig. If saveElizaConfig throws, process.env is left modified but the config file is not persisted, causing an inconsistency between runtime state and persisted config.",file:"src/api/server.ts:1240-1256",fix:"Save to disk first, then mutate process.env on success. Or catch save errors and revert env vars.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript.\n\nFile: src/api/server.ts:1240-1256\nIssue type: ERROR\nSeverity: MEDIUM\n\nProblem:\nConfig update handler mutates process.env before calling saveElizaConfig(). If save fails, env vars are modified but config file is stale. Next restart will revert to old config while current process uses new values.\n\nFix:\nCall saveElizaConfig() first. Only mutate process.env on successful save. Wrap in try/catch with rollback.\n\nAcceptance criteria:\n- Failed config save does not leave process.env in a modified state\n- Successful save updates both file and env consistently\n- Error is returned to client on save failure"},
+
+  // ─── DOMAIN: Electrobun Desktop App ───
+  {domain:"Electrobun Desktop App",type:"ERROR",severity:"HIGH",title:"Agent startup errors silently swallowed — app left in broken state",description:"In index.ts line 1320, `void _startAgent(currentWindow)` discards all errors without logging or handling. If the agent fails to start, the main window is left waiting for an API server that never starts. The renderer polls an unresponsive port indefinitely with no user feedback.",file:"apps/app/electrobun/src/index.ts:1320, 943-972",fix:"Chain the _startAgent promise with .catch() to log critical failures and show a platform notification or error UI to the user.",prompt:"Context: Milady — local-first AI assistant with Electrobun desktop app. Stack: TypeScript, Electrobun, Bun.\n\nFile: apps/app/electrobun/src/index.ts:1320 and 943-972\nIssue type: ERROR\nSeverity: HIGH\n\nProblem:\n`void _startAgent(currentWindow)` at line 1320 discards the promise and any errors. If agent.start() fails, _startAgent's catch block only logs to console, but the caller never knows. The renderer spins on a dead port.\n\nFix:\nReplace `void _startAgent(...)` with `_startAgent(...).catch(err => { log.error('Agent start failed', err); showNativeDialog('Agent failed to start: ' + err.message) })`. Ensure the user sees a dialog or error screen.\n\nAcceptance criteria:\n- Agent startup failure shows a user-visible error (dialog or error page)\n- Error is logged with full stack trace\n- App does not hang indefinitely polling a dead port"},
+  {domain:"Electrobun Desktop App",type:"SECURITY",severity:"HIGH",title:"Browser webview sandbox=\"\" disables all sandbox restrictions",description:"BrowserSurfaceWindow.tsx sets sandbox=\"\" on the electrobun-webview element, which effectively disables all sandboxing protections. Any content loaded in the browser surface can execute arbitrary JavaScript with full access to the webview API, defeating content isolation.",file:"apps/app/src/BrowserSurfaceWindow.tsx:184",fix:"Remove sandbox=\"\" or set explicit restrictions like sandbox=\"allow-same-origin allow-scripts allow-forms\" to maintain security boundaries.",prompt:"Context: Milady — local-first AI assistant with Electrobun desktop app. Stack: React, Electrobun WebView.\n\nFile: apps/app/src/BrowserSurfaceWindow.tsx:184\nIssue type: SECURITY\nSeverity: HIGH\n\nProblem:\nThe `sandbox=\"\"` attribute on the electrobun-webview element is equivalent to no sandboxing — it disables all restrictions. Any web content loaded in the browser surface has unrestricted access.\n\nFix:\nSet sandbox=\"allow-same-origin allow-scripts allow-forms\" or remove the attribute entirely to use default (most restrictive) sandboxing.\n\nAcceptance criteria:\n- WebView content cannot navigate top-level frame\n- WebView content cannot access parent window APIs unless explicitly allowed\n- Browsing functionality still works for intended use cases"},
+  {domain:"Electrobun Desktop App",type:"SECURITY",severity:"MEDIUM",title:"API token exposed in renderer window globals via __MILADY_API_TOKEN__",description:"electrobun-bridge.ts line 320 sets window.__MILADY_API_TOKEN__ from incoming messages. This token is accessible to any renderer JS code and could be leaked if a malicious script gains execution in the webview. There is no protection against enumeration or console logging of the token.",file:"apps/app/electrobun/src/bridge/electrobun-bridge.ts:320, apps/app/electrobun/src/index.ts:909-910",fix:"Never set window.__MILADY_API_TOKEN__ globally. Instead, only inject it into HTTP Authorization headers server-side, or mark it as non-enumerable using Object.defineProperty.",prompt:"Context: Milady — local-first AI assistant with Electrobun desktop app. Stack: TypeScript, Electrobun.\n\nFile: apps/app/electrobun/src/bridge/electrobun-bridge.ts:320\nIssue type: SECURITY\nSeverity: MEDIUM\n\nProblem:\nwindow.__MILADY_API_TOKEN__ is set as a regular global property accessible to any JS in the renderer. A malicious script or XSS could read it.\n\nFix:\nUse Object.defineProperty with enumerable:false, configurable:false, or better yet handle auth in the main process and inject Authorization headers into fetch requests via a preload script.\n\nAcceptance criteria:\n- API token is not readable by arbitrary renderer JS\n- API requests still include valid auth\n- Token cannot be enumerated via Object.keys(window) or JSON.stringify(window)"},
+  {domain:"Electrobun Desktop App",type:"LOGIC",severity:"MEDIUM",title:"Race condition between API base injection and agent startup",description:"The sequence at lines 1297-1321 injects window.__MILADY_API_BASE__ into HTML before React mounts, then starts the agent asynchronously without awaiting it. If the renderer mounts and begins fetching /api/auth/status before the agent becomes healthy, those initial requests fail and may cache null status.",file:"apps/app/electrobun/src/index.ts:417-429, 1296-1320",fix:"Either await _startAgent before rendering content, or ensure the renderer's API client handles initial ECONNREFUSED with retry logic.",prompt:"Context: Milady — local-first AI assistant with Electrobun desktop app. Stack: TypeScript, Electrobun.\n\nFile: apps/app/electrobun/src/index.ts:417-429, 1296-1320\nIssue type: LOGIC\nSeverity: MEDIUM\n\nProblem:\nThe agent starts asynchronously (void _startAgent) while the renderer is already mounting and trying to reach /api/auth/status. Early requests fail, and the renderer may cache null/error state.\n\nFix:\nEither await _startAgent before loading the renderer, or add retry logic with exponential backoff in the renderer's API client for initial health checks.\n\nAcceptance criteria:\n- Renderer never displays stale auth state from pre-agent requests\n- App shows loading state until agent health check passes\n- No race between agent startup and first API call"},
+  {domain:"Electrobun Desktop App",type:"LOGIC",severity:"MEDIUM",title:"Preload script validation throws during window creation, blocking UI",description:"readBuiltPreloadScript in preload-validation.ts:39-65 throws errors if preload.js is missing, stale, or empty. This is called during BrowserWindow creation, so any validation failure crashes the entire main process before any window appears. Users see no error UI.",file:"apps/app/electrobun/src/preload-validation.ts:39-65",fix:"Catch preload validation errors in createMainWindow and log them, then proceed with a stubbed preload or show a platform notification.",prompt:"Context: Milady — local-first AI assistant with Electrobun desktop app. Stack: TypeScript, Electrobun.\n\nFile: apps/app/electrobun/src/preload-validation.ts:39-65\nIssue type: LOGIC\nSeverity: MEDIUM\n\nProblem:\nreadBuiltPreloadScript throws if preload.js is missing/stale/empty. Called during window creation, it crashes the main process with no user-visible error.\n\nFix:\nCatch errors in createMainWindow. On failure, either use a stub preload script or show a native dialog explaining the build is corrupted.\n\nAcceptance criteria:\n- Missing/corrupt preload.js does not crash the app silently\n- User sees an actionable error message\n- App can still launch in a degraded state or offer retry"},
+  {domain:"Electrobun Desktop App",type:"GAP",severity:"MEDIUM",title:"Port constant duplicated without shared source between agent.ts and api-base.ts",description:"agent.ts defines DEFAULT_PORT = 2138 and api-base.ts resolves initial API base with hardcoded 2138, but neither imports from a shared constant. Future port changes require updating multiple files, creating divergence risk.",file:"apps/app/electrobun/src/native/agent.ts:47, apps/app/electrobun/src/api-base.ts:99",fix:"Export DEFAULT_PORT from a shared constants module and import it in both agent.ts and api-base.ts.",prompt:"Context: Milady — local-first AI assistant with Electrobun desktop app. Stack: TypeScript.\n\nFile: apps/app/electrobun/src/native/agent.ts:47 and apps/app/electrobun/src/api-base.ts:99\nIssue type: GAP\nSeverity: MEDIUM\n\nProblem:\nDEFAULT_PORT = 2138 is defined in agent.ts but hardcoded separately in api-base.ts. The two will diverge if only one is updated.\n\nFix:\nCreate apps/app/electrobun/src/constants.ts exporting DEFAULT_PORT. Import in both files.\n\nAcceptance criteria:\n- Only one definition of DEFAULT_PORT exists\n- Both agent.ts and api-base.ts import from the shared constant\n- Changing the port requires editing one file only"},
+  {domain:"Electrobun Desktop App",type:"UX",severity:"MEDIUM",title:"sendToActiveRenderer silently drops messages when no window is open",description:"sendToActiveRenderer at line 358-360 uses optional chaining to call the webview sender, silently discarding messages if the window is closed. Menu actions and agent status updates are lost without any logging or queuing.",file:"apps/app/electrobun/src/index.ts:358-360",fix:"Log a warning when messages are dropped, or queue them and replay when a new window opens.",prompt:"Context: Milady — local-first AI assistant with Electrobun desktop app. Stack: TypeScript, Electrobun.\n\nFile: apps/app/electrobun/src/index.ts:358-360\nIssue type: UX\nSeverity: MEDIUM\n\nProblem:\nsendToActiveRenderer uses optional chaining, silently dropping messages when no window is open. Agent status changes and menu actions are lost.\n\nFix:\nLog dropped messages and optionally queue critical ones (like agent status) for replay when a window reopens.\n\nAcceptance criteria:\n- Dropped messages are logged at debug level\n- Critical messages (agent status) are queued and replayed on window open\n- No console spam for expected drops (e.g., during app quit)"},
+  {domain:"Electrobun Desktop App",type:"SECURITY",severity:"MEDIUM",title:"Chrome Extension WebSocket lacks authentication for relay server",description:"The Chrome extension connects to the relay server at ws://127.0.0.1:{port}/extension without any authentication token or session verification. Any local process listening on the relay port can intercept and manipulate debugger commands.",file:"apps/chrome-extension/background.js:88",fix:"Add a shared secret or token-based authentication handshake during WebSocket connect.",prompt:"Context: Milady — local-first AI assistant with Chrome extension. Stack: JavaScript, Chrome Extension APIs.\n\nFile: apps/chrome-extension/background.js:88\nIssue type: SECURITY\nSeverity: MEDIUM\n\nProblem:\nWebSocket connection to ws://127.0.0.1:{port}/extension has no auth. Any local process on the same port can impersonate the relay server.\n\nFix:\nGenerate a shared secret at extension install time, pass it as a query param or first message, and validate it server-side before accepting commands.\n\nAcceptance criteria:\n- WebSocket connection includes authentication token\n- Server rejects connections without valid token\n- Token is not exposed in browser storage accessible to other extensions"},
+
+  // ─── DOMAIN: Main Web App ───
+  {domain:"Main Web App",type:"SECURITY",severity:"HIGH",title:"Detached shell API base accepts arbitrary URLs without validation",description:"injectDetachedShellApiBase() at main.tsx:530-535 accepts any apiBase URL parameter from the query string without validation. Unlike injectPopoutApiBase() which validates hostnames and protocols, an attacker could redirect API calls to a malicious server via a crafted URL like ?apiBase=https://attacker.com.",file:"apps/app/src/main.tsx:530-535",fix:"Apply the same URL validation logic from injectPopoutApiBase() — check protocol and hostname allowlists before setting window.__MILADY_API_BASE__.",prompt:"Context: Milady — local-first AI assistant web app. Stack: React, Vite, TypeScript.\n\nFile: apps/app/src/main.tsx:530-535\nIssue type: SECURITY\nSeverity: HIGH\n\nProblem:\ninjectDetachedShellApiBase() reads apiBase from URL params and sets window.__MILADY_API_BASE__ without any validation. injectPopoutApiBase() validates protocol and hostname, but this function does not. A crafted URL can redirect all API calls to an attacker's server.\n\nFix:\nCopy the validation logic from injectPopoutApiBase() into injectDetachedShellApiBase(): check that the URL uses http/https protocol and hostname is localhost/127.0.0.1.\n\nAcceptance criteria:\n- Non-local apiBase values are rejected with a console warning\n- Detached shell still works with valid local API base\n- No XSS or SSRF possible via the apiBase parameter"},
+  {domain:"Main Web App",type:"LOGIC",severity:"HIGH",title:"Missing exhaustive switch case for 'cloud' tab in DetachedShellContent",description:"DetachedSurfaceTab type includes 'cloud' but the switch statement in DetachedShellContent (line 84-105) does not have a case for 'cloud'. If the cloud tab value reaches the switch, it returns undefined JSX, causing a blank screen with no error.",file:"apps/app/src/DetachedShellRoot.tsx:84-105",fix:"Add a case for 'cloud' in the switch that renders CloudDashboard, or add a default case with an error boundary fallback.",prompt:"Context: Milady — local-first AI assistant web app. Stack: React, TypeScript.\n\nFile: apps/app/src/DetachedShellRoot.tsx:84-105\nIssue type: LOGIC\nSeverity: HIGH\n\nProblem:\nThe switch statement handling DetachedSurfaceTab values is missing the 'cloud' case. The type system allows 'cloud' but the runtime doesn't handle it, producing a blank screen.\n\nFix:\nAdd `case 'cloud': return <CloudDashboard />;` and add a `default:` case that renders an error message.\n\nAcceptance criteria:\n- Navigating to the cloud tab renders the CloudDashboard component\n- Unknown tab values render an error message instead of blank screen\n- TypeScript compiler enforces exhaustive switch (use satisfies never in default)"},
+  {domain:"Main Web App",type:"ERROR",severity:"MEDIUM",title:"ErrorBoundary has no recovery mechanism — users stuck on error page",description:"The ErrorBoundary component sets hasError state but provides no mechanism to reset it. Users are stuck on the error page even if the underlying issue is transient. There is no 'try again' button or automatic retry.",file:"apps/app/src/ErrorBoundary.tsx:12-69",fix:"Add a 'try again' button that calls this.setState({hasError: false}) to re-render children, or add a key-based reset mechanism.",prompt:"Context: Milady — local-first AI assistant web app. Stack: React, TypeScript.\n\nFile: apps/app/src/ErrorBoundary.tsx:12-69\nIssue type: ERROR\nSeverity: MEDIUM\n\nProblem:\nErrorBoundary catches errors but provides no recovery path. Users must reload the entire page to recover from transient component errors.\n\nFix:\nAdd a 'Try Again' button that calls `this.setState({ hasError: false, error: null })` to retry rendering. Also store the error message for display.\n\nAcceptance criteria:\n- Error page shows a 'Try Again' button\n- Clicking it re-renders the child tree\n- If the error recurs, the error page shows again with the new error"},
+
+  // ─── DOMAIN: CLI & Runtime ───
+  {domain:"CLI & Runtime",type:"LOGIC",severity:"HIGH",title:"Conflicting SIGINT/SIGTERM handlers — cleanup never runs",description:"In startEliza() when serverOnly=true, ensureTelegramBotPolling() registers process.once('SIGINT') and process.once('SIGTERM'). Later, startEliza() registers process.on('SIGINT') and process.on('SIGTERM') for cleanup. When SIGINT fires, the bot's once() handler executes first and may prevent the cleanup handler from running, causing resource leaks on shutdown.",file:"src/runtime/eliza.ts:393-394, 560-561",fix:"Use process.on() for Telegram bot handlers instead of process.once(), or unify into a single signal handler that runs both bot shutdown and cleanup.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript, Node.js process signals.\n\nFile: src/runtime/eliza.ts:393-394 and 560-561\nIssue type: LOGIC\nSeverity: HIGH\n\nProblem:\nTwo separate signal handlers are registered: process.once() for Telegram bot (line 393-394) and process.on() for cleanup (line 560-561). The once() handler fires first and may call process.exit() before the on() handler runs, skipping cleanup.\n\nFix:\nUnify into a single cleanup function that handles both bot shutdown and resource cleanup. Register it once with process.on().\n\nAcceptance criteria:\n- Both bot shutdown and resource cleanup run on SIGINT/SIGTERM\n- No duplicate handler registration\n- Clean shutdown with proper resource release"},
+  {domain:"CLI & Runtime",type:"LOGIC",severity:"HIGH",title:"ELIZA_PORT defaults to different values in dev-server vs startEliza",description:"dev-server.ts defaults ELIZA_PORT to 31337 (API dev server), while startEliza() in serverOnly mode defaults it to 2138 (production runtime). The same env var produces different behavior depending on which code path runs, causing port confusion.",file:"src/runtime/dev-server.ts:30, src/runtime/eliza.ts:537",fix:"Unify the port defaults or use separate env vars (MILADY_API_PORT vs MILADY_PORT) with brand-env syncing.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript.\n\nFile: src/runtime/dev-server.ts:30 and src/runtime/eliza.ts:537\nIssue type: LOGIC\nSeverity: HIGH\n\nProblem:\nELIZA_PORT defaults to 31337 in dev-server.ts but 2138 in eliza.ts. Developers switching between `bun run dev` and `milady start` see different ports without warning.\n\nFix:\nStandardize: API server always on 31337, UI server always on 2138. Use distinct env vars (MILADY_API_PORT, MILADY_PORT) and document the difference.\n\nAcceptance criteria:\n- Setting MILADY_PORT affects both dev and prod consistently\n- Port table in CLAUDE.md matches actual defaults\n- No silent port switching between dev and prod modes"},
+  {domain:"CLI & Runtime",type:"LOGIC",severity:"MEDIUM",title:"MILADY_PORT and MILADY_API_PORT not synced via BRAND_ENV_ALIASES",description:"CLAUDE.md documents MILADY_API_PORT and MILADY_PORT as env overrides, but brand-env.ts only syncs MILADY_API_BIND/ELIZA_API_BIND. Setting MILADY_PORT won't affect the runtime that checks ELIZA_PORT.",file:"src/config/brand-env.ts:7-23",fix:"Add ['MILADY_API_PORT', 'ELIZA_API_PORT'] and ['MILADY_PORT', 'ELIZA_PORT'] to BRAND_ENV_ALIASES.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript.\n\nFile: src/config/brand-env.ts:7-23\nIssue type: LOGIC\nSeverity: MEDIUM\n\nProblem:\nBRAND_ENV_ALIASES maps MILADY_API_BIND→ELIZA_API_BIND but not MILADY_PORT→ELIZA_PORT or MILADY_API_PORT→ELIZA_API_PORT. Setting the MILADY_* variants has no effect.\n\nFix:\nAdd the port aliases to BRAND_ENV_ALIASES array.\n\nAcceptance criteria:\n- Setting MILADY_PORT or MILADY_API_PORT correctly updates the corresponding ELIZA_* variable\n- All documented env vars in CLAUDE.md actually work"},
+
+  // ─── DOMAIN: Environment & Ports ───
+  {domain:"Environment & Ports",type:"GAP",severity:"HIGH",title:"API_PORT and SERVER_PORT are undocumented fallback env vars",description:"src/actions/wallet-action-shared.ts and src/actions/install-plugin.ts read process.env.API_PORT and process.env.SERVER_PORT as fallback variables, but these are never defined in .env.example, never mentioned in documentation, and not synced via brand-env mapping. Operators cannot discover or properly set these.",file:"src/actions/wallet-action-shared.ts:9-10, src/actions/install-plugin.ts:16",fix:"Either remove the fallback to API_PORT/SERVER_PORT (prefer explicit MILADY_PORT), or document them in .env.example and add to BRAND_ENV_ALIASES.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript.\n\nFile: src/actions/wallet-action-shared.ts:9-10 and src/actions/install-plugin.ts:16\nIssue type: GAP\nSeverity: HIGH\n\nProblem:\nAPI_PORT and SERVER_PORT are read as env var fallbacks but never documented in .env.example or CLAUDE.md. Operators don't know these exist and can't configure them properly.\n\nFix:\nRemove API_PORT/SERVER_PORT fallbacks and use MILADY_PORT consistently. Or add them to .env.example with comments and BRAND_ENV_ALIASES.\n\nAcceptance criteria:\n- All env vars used in code are documented in .env.example\n- Port configuration uses a single canonical var name\n- No hidden fallback vars that operators can't discover"},
+  {domain:"Environment & Ports",type:"ERROR",severity:"HIGH",title:"Hardcoded gateway port 18789 in docker-compose command ignores env override",description:"deploy/docker-compose.yml line 28 hardcodes port '18789' in the gateway command argument, while line 16 correctly uses ${MILADY_GATEWAY_PORT:-18789} for port mapping. If an operator sets MILADY_GATEWAY_PORT to a different value, the port mapping works but the process listens on hardcoded 18789, causing a silent binding mismatch.",file:"deploy/docker-compose.yml:16-17, 26-28",fix:"Replace hardcoded '18789' on line 28 with ${MILADY_GATEWAY_PORT:-18789} to honor the environment variable.",prompt:"Context: Milady — local-first AI assistant. Stack: Docker, docker-compose.\n\nFile: deploy/docker-compose.yml:16-17 and 26-28\nIssue type: ERROR\nSeverity: HIGH\n\nProblem:\ndocker-compose.yml maps port via ${MILADY_GATEWAY_PORT:-18789} (correct) but hardcodes 18789 in the command argument (incorrect). Setting MILADY_GATEWAY_PORT=19000 maps host:19000→container:18789, and the process listens on 18789 in container, so it works by accident. But if the process internally checks its own port for health checks or registration, it gets the wrong value.\n\nFix:\nReplace the hardcoded command port with ${MILADY_GATEWAY_PORT:-18789}.\n\nAcceptance criteria:\n- Gateway process listens on the configured port, not hardcoded\n- Port mapping and process port are always consistent\n- Health checks use the correct port"},
+  {domain:"Environment & Ports",type:"ERROR",severity:"HIGH",title:"Conflicting MILADY_PORT defaults across Dockerfiles (2138 vs 3000)",description:"Dockerfile uses MILADY_PORT=2138, Dockerfile.slim hardcodes MILADY_PORT=3000, and Dockerfile.ci uses MILADY_PORT=2138. This causes different port bindings across three nearly-identical images, breaking orchestration and deployment consistency.",file:"Dockerfile:183, Dockerfile.slim:339, Dockerfile.ci:56",fix:"Standardize all three Dockerfiles to MILADY_PORT=2138, or document the intentional difference.",prompt:"Context: Milady — local-first AI assistant. Stack: Docker.\n\nFile: Dockerfile:183, Dockerfile.slim:339, Dockerfile.ci:56\nIssue type: ERROR\nSeverity: HIGH\n\nProblem:\nThree Dockerfiles use different MILADY_PORT defaults: main=2138, slim=3000, CI=2138. Deploying the slim image on the same infrastructure as main image silently serves on a different port.\n\nFix:\nSet MILADY_PORT=2138 in all three Dockerfiles. If slim intentionally uses 3000, add a comment explaining why.\n\nAcceptance criteria:\n- All Dockerfiles use the same default port or have documented rationale\n- Docker Compose and Kubernetes manifests reference the correct port\n- No silent port mismatch between image variants"},
+  {domain:"Environment & Ports",type:"ERROR",severity:"HIGH",title:"Conflicting API bind env var names across Dockerfiles",description:"Dockerfile uses MILADY_API_BIND='0.0.0.0' while Dockerfile.slim and Dockerfile.ci use ELIZA_API_BIND=0.0.0.0. The brand-env.ts alias system should sync these, but if brand-env is loaded after the bind check, the wrong name may not be translated.",file:"Dockerfile:173, Dockerfile.slim:340, Dockerfile.ci:58",fix:"Standardize all Dockerfiles to use MILADY_API_BIND='0.0.0.0', or ensure brand-env aliasing runs before any bind address resolution.",prompt:"Context: Milady — local-first AI assistant. Stack: Docker, TypeScript.\n\nFile: Dockerfile:173, Dockerfile.slim:340, Dockerfile.ci:58\nIssue type: ERROR\nSeverity: HIGH\n\nProblem:\nDockerfile sets MILADY_API_BIND but slim/CI set ELIZA_API_BIND. If brand-env aliasing doesn't run early enough, the slim/CI images may not bind correctly.\n\nFix:\nUse MILADY_API_BIND in all Dockerfiles. Ensure brand-env.ts is loaded before any bind address check.\n\nAcceptance criteria:\n- All Dockerfiles use MILADY_API_BIND consistently\n- API binds to 0.0.0.0 in all Docker variants\n- No silent binding failures in slim or CI images"},
+  {domain:"Environment & Ports",type:"LOGIC",severity:"MEDIUM",title:"BRIDGE_PORT env var not synced between MILADY and ELIZA namespaces",description:"deploy/cloud-agent-shared.ts reads process.env.BRIDGE_PORT directly without checking for MILADY_BRIDGE_PORT first. Unlike other config vars, BRIDGE_PORT is not in BRAND_ENV_ALIASES, so namespace-prefixed vars are ignored.",file:"src/config/brand-env.ts:6-20, deploy/cloud-agent-shared.ts:62",fix:"Add ['MILADY_BRIDGE_PORT', 'ELIZA_BRIDGE_PORT'] to BRAND_ENV_ALIASES.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript.\n\nFile: src/config/brand-env.ts:6-20 and deploy/cloud-agent-shared.ts:62\nIssue type: LOGIC\nSeverity: MEDIUM\n\nProblem:\nBRIDGE_PORT is read directly in cloud-agent-shared.ts but not aliased in brand-env.ts. Setting MILADY_BRIDGE_PORT has no effect.\n\nFix:\nAdd ['MILADY_BRIDGE_PORT', 'ELIZA_BRIDGE_PORT'] to BRAND_ENV_ALIASES.\n\nAcceptance criteria:\n- MILADY_BRIDGE_PORT and ELIZA_BRIDGE_PORT are interchangeable\n- cloud-agent-shared.ts picks up either variant"},
+  {domain:"Environment & Ports",type:"GAP",severity:"MEDIUM",title:"Home app UI port (2142) hardcoded without env var override",description:"scripts/dev-ui.mjs hardcodes APP_UI_PORTS = { app: 2138, home: 2142 } with no environment variable fallback. The main app port is documented and configurable, but the home app port is not, making it impossible to change in non-standard dev environments.",file:"scripts/dev-ui.mjs:40-41",fix:"Add MILADY_HOME_PORT environment variable support with default 2142.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, Vite, TypeScript.\n\nFile: scripts/dev-ui.mjs:40-41\nIssue type: GAP\nSeverity: MEDIUM\n\nProblem:\nHome app dev port 2142 is hardcoded with no env var override. Developers running on systems where 2142 is occupied cannot configure an alternative.\n\nFix:\nRead from MILADY_HOME_PORT env var with 2142 as default. Add to .env.example.\n\nAcceptance criteria:\n- MILADY_HOME_PORT=3000 starts the home app on port 3000\n- Default behavior is unchanged (2142)\n- Port is documented in .env.example"},
+
+  // ─── DOMAIN: Build & Config ───
+  {domain:"Build & Config",type:"LOGIC",severity:"MEDIUM",title:"Dockerfile.slim skips critical patch steps that main Dockerfile runs",description:"Main Dockerfile runs link-browser-server.mjs and patch-deps.mjs before building, but Dockerfile.slim skips these patches and runs tsdown directly. The slim image may have unpatched bun exports or missing browser server links, causing runtime failures.",file:"Dockerfile:127-128, Dockerfile.slim:61-62",fix:"Add the same patch steps to Dockerfile.slim between the install and build stages.",prompt:"Context: Milady — local-first AI assistant. Stack: Docker, Bun.\n\nFile: Dockerfile:127-128 and Dockerfile.slim:61-62\nIssue type: LOGIC\nSeverity: MEDIUM\n\nProblem:\nDockerfile.slim skips link-browser-server.mjs and patch-deps.mjs that the main Dockerfile runs. The bun exports patch is documented as critical in CLAUDE.md — without it, Bun fails to resolve plugins at runtime.\n\nFix:\nAdd `RUN node ./scripts/link-browser-server.mjs && node ./scripts/patch-deps.mjs` to Dockerfile.slim before the tsdown build step.\n\nAcceptance criteria:\n- Slim image runs patch-deps.mjs before building\n- Plugin resolution works in slim Docker image\n- No runtime errors from missing bun export patches"},
+  {domain:"Build & Config",type:"LOGIC",severity:"MEDIUM",title:"Inconsistent build commands between 'build' and 'build:node' scripts",description:"package.json 'build' script uses 'bun run build' for apps/app, while 'build:node' uses 'npm run build' for the same target. Two different build paths may produce different outputs or fail differently.",file:"package.json:61-62",fix:"Standardize to one package manager (bun) for both build scripts.",prompt:"Context: Milady — local-first AI assistant. Stack: Bun, npm.\n\nFile: package.json:61-62\nIssue type: LOGIC\nSeverity: MEDIUM\n\nProblem:\n'build' uses bun while 'build:node' uses npm for the same target (apps/app). Different package managers resolve dependencies differently and may produce inconsistent builds.\n\nFix:\nUse 'bun run build' in both, or document why npm is needed for build:node.\n\nAcceptance criteria:\n- Both build scripts produce identical output\n- CI uses the same build command as local dev"},
+
+  // ─── DOMAIN: Plugins & Services ───
+  {domain:"Plugins & Services",type:"LOGIC",severity:"HIGH",title:"Race condition in SandboxManager between state check and container use",description:"The exec() method checks this.containerId at line 341 but uses it at line 367. Between the check and use, concurrent calls to stop() or recover() can set containerId to null, causing a null-pointer error. This is a classic TOCTOU (time-of-check time-of-use) race condition.",file:"src/services/sandbox-manager.ts:341-367",fix:"Store containerId in a local variable after the check, or implement a lock to prevent concurrent exec/stop/recover.",prompt:"Context: Milady — local-first AI assistant built on elizaOS. Stack: Bun, TypeScript, Docker containers.\n\nFile: src/services/sandbox-manager.ts:341-367\nIssue type: LOGIC\nSeverity: HIGH\n\nProblem:\nexec() checks this.containerId (line 341) then awaits an async operation before using this.containerId (line 367). Between check and use, stop() or recover() can null it out.\n\nFix:\nCapture `const id = this.containerId` immediately after the null check and use `id` throughout the method.\n\nAcceptance criteria:\n- No null reference errors when exec() and stop() run concurrently\n- Container ID is captured atomically at check time\n- Existing exec behavior is unchanged for non-concurrent paths"}
+];
+
+// ─── State ───
+let activeTab = "Overview";
+let filters = {HIGH: true, MEDIUM: true, LOW: true};
+let checked = {};
+try { checked = JSON.parse(localStorage.getItem("milady-audit-checked") || "{}"); } catch(e){}
+
+function saveChecked(){ try { localStorage.setItem("milady-audit-checked", JSON.stringify(checked)); } catch(e){} }
+
+const domains = ["Overview", ...Array.from(new Set(ISSUES.map(i => i.domain)))];
+
+function updateStats(){
+  const visible = ISSUES.filter(i => filters[i.severity]);
+  const total = ISSUES.length;
+  const high = ISSUES.filter(i => i.severity === "HIGH").length;
+  const med = ISSUES.filter(i => i.severity === "MEDIUM").length;
+  const low = ISSUES.filter(i => i.severity === "LOW").length;
+  const fixedCount = Object.values(checked).filter(Boolean).length;
+  document.getElementById("stat-total").textContent = total + " issues";
+  document.getElementById("stat-high").textContent = high + " HIGH";
+  document.getElementById("stat-medium").textContent = med + " MED";
+  document.getElementById("stat-low").textContent = low + " LOW";
+  document.getElementById("stat-fixed").textContent = fixedCount + " / " + total + " fixed";
+}
+
+function renderTabs(){
+  const el = document.getElementById("tabs");
+  el.innerHTML = domains.map(d => {
+    const count = d === "Overview"
+      ? ISSUES.filter(i => i.severity === "HIGH").length
+      : ISSUES.filter(i => i.domain === d).length;
+    return `<div class="tab ${d===activeTab?'active':''}" onclick="switchTab('${d.replace(/'/g,"\\'")}')">${d}<span class="tab-count">${count}</span></div>`;
+  }).join("");
+}
+
+function switchTab(tab){ activeTab = tab; renderTabs(); renderCards(); }
+
+function toggleFilter(sev, btn){
+  filters[sev] = !filters[sev];
+  btn.className = filters[sev]
+    ? `filter-btn active-${sev.toLowerCase()}`
+    : "filter-btn inactive";
+  renderCards();
+  updateStats();
+}
+
+function renderCards(){
+  let issues;
+  if(activeTab === "Overview"){
+    issues = ISSUES.filter(i => i.severity === "HIGH")
+      .concat(ISSUES.filter(i => i.severity === "MEDIUM").slice(0, 10));
+  } else {
+    issues = ISSUES.filter(i => i.domain === activeTab);
+  }
+  issues = issues.filter(i => filters[i.severity]);
+
+  const el = document.getElementById("content");
+  if(!issues.length){ el.innerHTML = '<p style="color:#7a788a;padding:40px 0;text-align:center">No issues match current filters.</p>'; return; }
+
+  el.innerHTML = issues.map((issue, idx) => {
+    const gid = activeTab + "-" + idx;
+    const isChecked = checked[issue.title] || false;
+    return `<div class="card severity-${issue.severity} ${isChecked?'checked':''}" id="card-${gid}">
+      <div class="card-header">
+        <input type="checkbox" ${isChecked?'checked':''} onchange="toggleCheck('${issue.title.replace(/'/g,"\\'")}', this)">
+        <div class="card-badges">
+          <span class="badge badge-${issue.severity}">${issue.severity}</span>
+          <span class="badge badge-${issue.type}">${issue.type}</span>
+        </div>
+        <div class="card-title">${issue.title}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-desc">${issue.description}</div>
+        <div class="card-file">${issue.file}</div>
+        <div class="fix-toggle" onclick="toggleFix(this)">
+          <span class="arrow">▶</span> Fix Prompt for Cursor / Claude Code
+        </div>
+        <div class="fix-content">
+          <pre>${escHtml(issue.prompt)}</pre>
+          <button class="copy-btn" onclick="copyPrompt(this, event)">Copy</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function toggleCheck(title, cb){
+  checked[title] = cb.checked;
+  saveChecked();
+  const card = cb.closest(".card");
+  card.classList.toggle("checked", cb.checked);
+  updateStats();
+}
+
+function toggleFix(el){
+  el.classList.toggle("open");
+  const content = el.nextElementSibling;
+  content.classList.toggle("open");
+}
+
+function copyPrompt(btn, e){
+  e.stopPropagation();
+  const pre = btn.previousElementSibling;
+  navigator.clipboard.writeText(pre.textContent).then(() => {
+    btn.textContent = "Copied ✓";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
+  });
+}
+
+// Init
+renderTabs();
+renderCards();
+updateStats();
+</script>
+</body>
+</html>
