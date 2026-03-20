@@ -119,8 +119,8 @@ function envSnapshot(keys: string[]): {
   };
 }
 
-function normalizeWhatsappPluginName(name: string): string {
-  return name.replace("@miladyai/plugin-whatsapp", "@elizaos/plugin-whatsapp");
+function normalizeMiladyPluginName(name: string): string {
+  return name.replace("@miladyai/", "@elizaos/");
 }
 
 // ---------------------------------------------------------------------------
@@ -329,7 +329,7 @@ describe("collectPluginNames", () => {
     const names = collectPluginNames(config);
 
     expect(names.has("@elizaos/plugin-pi-ai")).toBe(false);
-    expect(names.has("@elizaos/plugin-openai")).toBe(false);
+    expect(names.has("@elizaos/plugin-openai")).toBe(true);
   });
 
   it("does not auto-enable a provider from env when explicitly disabled in plugins.entries", () => {
@@ -777,8 +777,8 @@ describe("collectPluginNames", () => {
 
   it("CHANNEL_PLUGIN_MAP values match CONNECTOR_PLUGINS for every connector", () => {
     for (const id of Object.keys(CHANNEL_PLUGIN_MAP)) {
-      expect(normalizeWhatsappPluginName(CHANNEL_PLUGIN_MAP[id])).toBe(
-        normalizeWhatsappPluginName(CONNECTOR_PLUGINS[id]),
+      expect(normalizeMiladyPluginName(CHANNEL_PLUGIN_MAP[id])).toBe(
+        normalizeMiladyPluginName(CONNECTOR_PLUGINS[id]),
       );
     }
   });

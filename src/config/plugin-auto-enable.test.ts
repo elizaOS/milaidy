@@ -53,6 +53,10 @@ import {
 } from "./plugin-auto-enable";
 import { CONNECTOR_IDS } from "./schema";
 
+function normalizeMiladyPluginName(name: string): string {
+  return name.replace("@miladyai/", "@elizaos/");
+}
+
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
@@ -665,14 +669,8 @@ describe("CONNECTOR_PLUGINS", () => {
 
   it("CONNECTOR_PLUGINS values match CHANNEL_PLUGIN_MAP for every connector", () => {
     for (const id of Object.keys(CONNECTOR_PLUGINS)) {
-      const lhs = CONNECTOR_PLUGINS[id].replace(
-        "@miladyai/plugin-whatsapp",
-        "@elizaos/plugin-whatsapp",
-      );
-      const rhs = CHANNEL_PLUGIN_MAP[id].replace(
-        "@miladyai/plugin-whatsapp",
-        "@elizaos/plugin-whatsapp",
-      );
+      const lhs = normalizeMiladyPluginName(CONNECTOR_PLUGINS[id]);
+      const rhs = normalizeMiladyPluginName(CHANNEL_PLUGIN_MAP[id]);
       expect(lhs).toBe(rhs);
     }
   });

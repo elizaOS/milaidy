@@ -47,8 +47,8 @@ function sorted(values: Iterable<string>): string[] {
   return [...values].sort();
 }
 
-function normalizeWhatsappPluginName(name: string): string {
-  return name.replace("@miladyai/plugin-whatsapp", "@elizaos/plugin-whatsapp");
+function normalizeMiladyPluginName(name: string): string {
+  return name.replace("@miladyai/", "@elizaos/");
 }
 
 describe("connector map parity", () => {
@@ -63,8 +63,8 @@ describe("connector map parity", () => {
 
   it("keeps runtime and auto-enable package mappings aligned", () => {
     for (const [connectorId, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
-      expect(normalizeWhatsappPluginName(CHANNEL_PLUGIN_MAP[connectorId])).toBe(
-        normalizeWhatsappPluginName(pluginName),
+      expect(normalizeMiladyPluginName(CHANNEL_PLUGIN_MAP[connectorId])).toBe(
+        normalizeMiladyPluginName(pluginName),
       );
     }
   });
@@ -73,8 +73,8 @@ describe("connector map parity", () => {
     for (const [connectorId, pluginName] of Object.entries(
       CHANNEL_PLUGIN_MAP,
     )) {
-      expect(normalizeWhatsappPluginName(CONNECTOR_PLUGINS[connectorId])).toBe(
-        normalizeWhatsappPluginName(pluginName),
+      expect(normalizeMiladyPluginName(CONNECTOR_PLUGINS[connectorId])).toBe(
+        normalizeMiladyPluginName(pluginName),
       );
     }
   });

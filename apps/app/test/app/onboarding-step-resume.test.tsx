@@ -11,7 +11,8 @@ import { client, type MiladyClient } from "@elizaos/app-core/api/client";
 // We use vi.spyOn against the real client singleton instead of a module mock,
 // because AppContext imports client via a relative path that vi.mock might not intercept.
 vi.mock("@elizaos/app-core/api/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@elizaos/app-core/api/client")>();
+  const actual =
+    await importOriginal<typeof import("@elizaos/app-core/api/client")>();
   return {
     ...actual,
     SkillScanReportSummary: {},
@@ -64,9 +65,6 @@ async function flushEffects() {
 }
 
 describe("AppProvider onboarding step resume", () => {
-  let getAuthStatusSpy: any;
-  let getOnboardingStatusSpy: any;
-
   beforeEach(() => {
     Object.assign(window, {
       clearInterval: globalThis.clearInterval,
@@ -90,12 +88,12 @@ describe("AppProvider onboarding step resume", () => {
 
     vi.spyOn(client, "hasToken").mockReturnValue(false);
     vi.spyOn(client, "setToken").mockImplementation(() => {});
-    getAuthStatusSpy = vi.spyOn(client, "getAuthStatus").mockResolvedValue({
+    vi.spyOn(client, "getAuthStatus").mockResolvedValue({
       required: false,
       pairingEnabled: false,
       expiresAt: null,
     });
-    getOnboardingStatusSpy = vi.spyOn(client, "getOnboardingStatus").mockResolvedValue({
+    vi.spyOn(client, "getOnboardingStatus").mockResolvedValue({
       complete: false,
     });
     vi.spyOn(client, "getOnboardingOptions").mockResolvedValue({
@@ -163,7 +161,7 @@ describe("AppProvider onboarding step resume", () => {
       startedAt: undefined,
       uptime: undefined,
     });
-    vi.spyOn(client, "getWalletAddresses").mockResolvedValue(null as any);
+    vi.spyOn(client, "getWalletAddresses").mockResolvedValue(null);
     vi.spyOn(client, "getConfig").mockResolvedValue({});
     vi.spyOn(client, "submitOnboarding").mockResolvedValue(undefined);
     vi.spyOn(client, "getCloudStatus").mockResolvedValue({
@@ -179,7 +177,7 @@ describe("AppProvider onboarding step resume", () => {
   });
 
   it("reopens on senses when partial onboarding connection config already exists", async () => {
-    const getConfigSpy = vi.spyOn(client, "getConfig").mockResolvedValue({
+    const _getConfigSpy = vi.spyOn(client, "getConfig").mockResolvedValue({
       cloud: { enabled: true, apiKey: "sk-test" },
     });
 
@@ -278,7 +276,9 @@ describe("AppProvider onboarding step resume", () => {
 
   it("clears the stored onboarding step once onboarding is complete", async () => {
     localStorage.setItem(ONBOARDING_STEP_STORAGE_KEY, "senses");
-    vi.spyOn(client, "getOnboardingStatus").mockResolvedValue({ complete: true });
+    vi.spyOn(client, "getOnboardingStatus").mockResolvedValue({
+      complete: true,
+    });
 
     let tree: TestRenderer.ReactTestRenderer | null = null;
 
@@ -339,7 +339,7 @@ describe("AppProvider onboarding step resume", () => {
     await flushEffects();
     await flushEffects();
 
-    expect(api!.getSnapshot().onboardingStep).toBe("senses");
+    expect(api?.getSnapshot().onboardingStep).toBe("senses");
 
     await act(async () => {
       await api?.next({ allowPermissionBypass: true });
