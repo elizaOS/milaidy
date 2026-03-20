@@ -15,7 +15,7 @@ The `milady/agent:cloud-full-ui` Docker image bundles the full Milaidy runtime (
 │  │                                  │   │
 │  │  ├─ node milady.mjs start    :2138/2139  (UI + API)
 │  │  └─ tsx cloud-agent-entrypoint.ts        │
-│  │     ├─ Bridge HTTP           :31337      │
+│  │     ├─ Dev API + WebSocket   :31337      │
 │  │     └─ Compat listener       :18790      │
 │  └──────────────────────────────────┘   │
 │                                         │
@@ -30,7 +30,7 @@ The `milady/agent:cloud-full-ui` Docker image bundles the full Milaidy runtime (
 |-------|-----------------------------|
 | 2138  | Milady API (`MILADY_PORT`)  |
 | 2139  | UI Server (`PORT`)          |
-| 31337 | Bridge HTTP (`BRIDGE_PORT`) |
+| 31337 | Dev API + WebSocket (`MILADY_API_PORT`) |
 | 18790 | Compat bridge (`BRIDGE_COMPAT_PORT`) |
 
 ---

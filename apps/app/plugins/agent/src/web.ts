@@ -18,7 +18,7 @@ export class AgentWeb extends WebPlugin implements AgentPlugin {
     if (typeof window === "undefined") return "";
     const proto = window.location.protocol;
     if (proto === "electrobun:" || proto === "file:") {
-      return "http://localhost:2138";
+      return (window as any).__MILADY_API_BASE__ || "http://localhost:2138";
     }
     return "";
   }

@@ -67,7 +67,7 @@ Milady is a personal AI assistant you run on your own devices. It provides:
 
 - Zero-config onboarding with interactive setup
 - Support for multiple AI providers (Anthropic, OpenAI, Google, Ollama, etc.)
-- Web dashboard at `http://localhost:18789`
+- Web dashboard at `http://localhost:2138`
 - Plugin system for extensibility
 - Web3 wallet integration (EVM + Solana)
 - Desktop apps for macOS, Windows, and Linux

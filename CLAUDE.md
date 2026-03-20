@@ -58,15 +58,15 @@ packages/               Internal packages
 Dynamic plugin imports (`import("@elizaos/plugin-foo")`) need NODE_PATH set to the repo root's `node_modules`. This is set in three places — all three are required:
 1. `src/runtime/eliza.ts` — module-level, before dynamic imports
 2. `scripts/run-node.mjs` — child process env
-3. `apps/app/electron/src/native/agent.ts` — Electron main process
+3. `apps/app/electrobun/src/native/agent.ts` — Electrobun main process
 
 See `docs/plugin-resolution-and-node-path.md`.
 
 ### Bun exports patch (do not remove)
 `scripts/patch-deps.mjs` removes dead `exports["."].bun` entries from `@elizaos` packages that point to missing `src/` paths. Without this, Bun fails to resolve plugins at runtime.
 
-### Electron startup guards (do not remove)
-The try/catch blocks in `apps/app/electron/src/native/agent.ts` keep the desktop window usable when the runtime fails. See `docs/electron-startup.md`.
+### Electrobun startup guards (do not remove)
+The try/catch blocks in `apps/app/electrobun/src/native/agent.ts` keep the desktop window usable when the runtime fails.
 
 ## Config
 
@@ -95,6 +95,7 @@ All `@elizaos/*` packages use the `alpha` dist-tag. When developing locally, `bu
 | API + WebSocket | 31337 | `MILADY_API_PORT` |
 | Dashboard UI | 2138 | `MILADY_PORT` |
 | Gateway | 18789 | `MILADY_GATEWAY_PORT` |
+| Home Dashboard | 2142 | `MILADY_HOME_PORT` |
 
 ## Common Pitfalls
 

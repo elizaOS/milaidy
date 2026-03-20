@@ -505,7 +505,7 @@ export async function startEliza(
       }
 
       const { startApiServer } = await import("../api/server");
-      const apiPort = Number(process.env.ELIZA_PORT) || 2138;
+      const apiPort = Number(process.env.MILADY_PORT || process.env.ELIZA_PORT) || 2138;
       const { port: actualApiPort } = await startApiServer({
         port: apiPort,
         runtime: currentRuntime,

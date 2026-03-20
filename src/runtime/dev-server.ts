@@ -37,7 +37,7 @@ try {
 
 console.log(`${getLogPrefix()} dotenv loaded (${Date.now() - SCRIPT_START}ms)`);
 
-const port = Number(process.env.ELIZA_PORT) || 31337;
+const port = Number(process.env.MILADY_API_PORT || process.env.MILADY_PORT || process.env.ELIZA_PORT) || 31337;
 
 /** The currently active runtime — swapped on restart. */
 let currentRuntime: AgentRuntime | null = null;

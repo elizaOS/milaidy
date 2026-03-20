@@ -4,7 +4,7 @@ import path from "node:path";
 
 function parseArgs(argv) {
   const args = {
-    apiBaseUrl: "http://127.0.0.1:31337",
+    apiBaseUrl: process.env.MILADY_API_BASE || "http://127.0.0.1:31337",
     promptsPath: "docs/guides/chat-prompts-v1.md",
     promptIds: [],
     runsPerPrompt: 5,
