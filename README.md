@@ -327,7 +327,7 @@ Don't want the TUI? Run headless:
 milady start --headless
 ```
 
-Logs go to `~/.milady/logs/`. Daemonize with your favorite process manager.
+Logs go to `stdout/stderr (or configure LOG_FILE)`. Daemonize with your favorite process manager.
 
 ---
 
@@ -351,8 +351,10 @@ Logs go to `~/.milady/logs/`. Daemonize with your favorite process manager.
 
 | Service | Default | Env Override |
 |---------|---------|--------------|
+| API + WebSocket | `31337` | `MILADY_API_PORT` |
 | Gateway (API + WebSocket) | `18789` | `MILADY_GATEWAY_PORT` |
 | Dashboard (Web UI) | `2138` | `MILADY_PORT` |
+| Home Dashboard | `2142` | `MILADY_HOME_PORT` |
 
 ```bash
 # custom ports
@@ -407,7 +409,7 @@ ollama pull gemma3:4b
 
 > **⚠️ Known issue:** The `@elizaos/plugin-ollama` has an SDK version incompatibility with the current AI SDK. Use Ollama's **OpenAI-compatible endpoint** as a workaround:
 
-Edit `~/.milady/milady.json`:
+Edit `~/.eliza/eliza.json`:
 
 ```json5
 {
@@ -493,9 +495,9 @@ Read [CONTRIBUTING.md](./CONTRIBUTING.md) for the full details.
 
 ## License
 
-**Viral Public License**
+**MIT License**
 
-free to use, free to modify, free to distribute. if you build on this, keep it open. that's the deal.
+free to use, free to modify, free to distribute. see [LICENSE](LICENSE) for details.
 
 ---
 

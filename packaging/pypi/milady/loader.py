@@ -21,7 +21,7 @@ from typing import Optional, Sequence, Tuple
 # ── Constants ────────────────────────────────────────────────────────────────
 
 REQUIRED_NODE_VERSION: Tuple[int, int, int] = (22, 12, 0)
-NPM_PACKAGE = "milady"
+NPM_PACKAGE = "miladyai"
 _VERSION_RE = re.compile(r"v?(\d+)\.(\d+)\.(\d+)")
 
 

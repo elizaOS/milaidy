@@ -400,8 +400,9 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
           `[milady] Telegram message from @${username}: ${text.substring(0, 80)}`,
         );
 
-        const history = chatHistories.get(chatId) ?? [];
-        if (!chatHistories.has(chatId)) {
+        let history = chatHistories.get(chatId);
+        if (!history) {
+          history = [];
           chatHistories.set(chatId, history);
         }
         history.push({ role: "user", content: `@${username}: ${text}` });
@@ -436,7 +437,7 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
       },
     );
 
-    bot.catch((err) =>
+    bot.catch((err: unknown) =>
       logger.warn(
         `[milady] Telegram bot error: ${err instanceof Error ? err.message : String(err)}`,
       ),
@@ -455,8 +456,8 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
       );
 
     _miladyTelegramBot = bot;
-    process.once("SIGINT", () => bot.stop("SIGINT"));
-    process.once("SIGTERM", () => bot.stop("SIGTERM"));
+    // Telegram bot cleanup is handled by the unified signal handler in
+    // startEliza() via _miladyTelegramBot — no separate registration needed.
 
     await new Promise((r) => setTimeout(r, 500));
     logger.info("[milady] Telegram bot polling started");
@@ -572,7 +573,8 @@ export async function startEliza(
       }
 
       const { startApiServer } = await import("../api/server");
-      const apiPort = Number(process.env.ELIZA_PORT) || 2138;
+      const apiPort =
+        Number(process.env.MILADY_PORT || process.env.ELIZA_PORT) || 2138;
       const { port: actualApiPort } = await startApiServer({
         port: apiPort,
         runtime: currentRuntime,
@@ -616,6 +618,14 @@ export async function startEliza(
           process.exit(1);
         }, 10_000);
         forceExitTimer.unref?.();
+        // Stop Telegram bot if running (previously registered via separate process.once handlers)
+        if (_miladyTelegramBot) {
+          try {
+            _miladyTelegramBot.stop("SIGINT");
+          } catch {
+            /* ignore */
+          }
+        }
         if (currentRuntime) {
           await upstreamShutdownRuntime(currentRuntime, "server-only shutdown");
         }

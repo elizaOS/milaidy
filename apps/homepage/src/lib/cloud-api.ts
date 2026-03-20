@@ -42,14 +42,31 @@ export interface JobStatus {
   error?: string;
 }
 
+/**
+ * Check if a response indicates an authentication failure.
+ *
+ * Note: 500 errors with generic messages ("Internal Server Error") are NOT treated
+ * as auth failures — only when the backend explicitly returns auth-related text.
+ * This prevents missing or unimplemented endpoints from triggering logout.
+ */
 function isCloudAuthFailure(status: number, message: string): boolean {
-  return (
-    status === 401 ||
-    ((status === 500 || status === 403) &&
-      /Unauthorized|Authentication required|Forbidden|Invalid or expired API key|API key is inactive|API key has expired|Invalid or expired token/i.test(
-        message,
-      ))
-  );
+  // 401 is always an auth failure
+  if (status === 401) return true;
+
+  // 403/500 are only auth failures if they contain specific auth-related text
+  // (not generic server errors)
+  if (status === 403 || status === 500) {
+    // Skip generic error messages that don't indicate auth problems
+    if (/^Internal Server Error$/i.test(message.trim())) {
+      return false;
+    }
+    // Check for explicit auth-related messages
+    return /Invalid or expired API key|API key is inactive|API key has expired|Invalid or expired token/i.test(
+      message,
+    );
+  }
+
+  return false;
 }
 
 async function readErrorMessage(res: Response): Promise<string> {
@@ -78,7 +95,21 @@ export class CloudClient {
     return this.apiKey;
   }
 
-  private async request<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  /**
+   * Make an authenticated request to the Cloud API.
+   *
+   * @param path - API endpoint path
+   * @param opts - Fetch options
+   * @param clearAuthOnFailure - If true, clear the stored token on auth failure.
+   *   Only the primary auth-checking endpoint (listAgents) should set this to true.
+   *   Secondary endpoints like credits/billing should fail gracefully without
+   *   nuking auth state, since they may not be implemented on the backend yet.
+   */
+  private async request<T>(
+    path: string,
+    opts: RequestInit = {},
+    clearAuthOnFailure = false,
+  ): Promise<T> {
     const headers = new Headers(opts.headers);
     headers.set("X-Api-Key", this.apiKey);
     if (opts.body && typeof opts.body === "string") {
@@ -87,7 +118,9 @@ export class CloudClient {
     const res = await fetch(`${CLOUD_BASE}${path}`, { ...opts, headers });
     if (!res.ok) {
       const errorMessage = await readErrorMessage(res);
-      if (isCloudAuthFailure(res.status, errorMessage)) {
+      // Only clear the token if this is a primary auth-checking endpoint
+      // AND the response indicates an actual auth failure
+      if (clearAuthOnFailure && isCloudAuthFailure(res.status, errorMessage)) {
         clearToken();
       }
       throw new Error(
@@ -101,12 +134,18 @@ export class CloudClient {
 
   // Agent management
   async listAgents(): Promise<CloudAgentDetail[]> {
+    // listAgents is the canonical auth-checking endpoint: if this fails with
+    // an auth error, the token is definitely invalid and should be cleared.
     const data = await this.request<
       | CloudAgentDetail[]
       | { agents?: CloudAgentDetail[]; data?: CloudAgentDetail[] }
-    >("/api/v1/milady/agents", {
-      method: "GET",
-    });
+    >(
+      "/api/v1/milady/agents",
+      {
+        method: "GET",
+      },
+      true, // clearAuthOnFailure: this is the primary auth check
+    );
     const raw = Array.isArray(data)
       ? data
       : ((data as { agents?: CloudAgentDetail[]; data?: CloudAgentDetail[] })
@@ -368,15 +407,24 @@ export interface LogEntry {
   agentName: string;
 }
 
+/**
+ * Synthetic health response returned when an agent is auth-gated but alive.
+ * The `_synthetic` flag signals to callers that no real data was retrieved,
+ * so they can skip further probes (like getAgentStatus).
+ */
 function makeUnauthenticatedHealthResponse() {
   return {
     status: "ok",
     ready: true,
     uptime: 0,
     agentState: "running",
+    _synthetic: true as const,
   };
 }
 
+/**
+ * Synthetic status returned when an agent is auth-gated but alive.
+ */
 function makeUnauthenticatedAgentStatus(): AgentStatus {
   return {
     state: "running",
@@ -384,6 +432,14 @@ function makeUnauthenticatedAgentStatus(): AgentStatus {
     model: "—",
     uptime: 0,
   };
+}
+
+/**
+ * Check if this is a Milady-hosted agent URL (milady.ai or waifu.fun).
+ * These agents have known endpoint structures and don't need legacy fallbacks.
+ */
+function isMiladyAgent(url: string): boolean {
+  return /milady\.ai|waifu\.fun/i.test(url);
 }
 
 export class CloudApiClient {
@@ -423,29 +479,32 @@ export class CloudApiClient {
     return res.json();
   }
 
-  async health(): Promise<{
+  async health(options?: { signal?: AbortSignal }): Promise<{
     status?: string;
     ready?: boolean;
     uptime: number;
     memoryUsage?: object;
     agentState?: string;
+    /** True if this is a synthetic response (agent is auth-gated but alive). */
+    _synthetic?: boolean;
   }> {
-    const primary = await this.rawFetch("/api/health", { method: "GET" });
+    const fetchOpts: RequestInit = { method: "GET" };
+    if (options?.signal) fetchOpts.signal = options.signal;
+
+    const primary = await this.rawFetch("/api/health", fetchOpts);
     if (primary.ok) {
       return primary.json();
     }
 
-    // If auth is required (401/403), try /api/auth/status as a lightweight
-    // probe — it doesn't require a token and confirms the agent is alive.
+    // If auth is required (401/403) and we don't have a token, the agent is
+    // alive but auth-gated. Return a synthetic "running" response immediately.
+    // No need to probe additional endpoints — a 401 proves the agent is up.
     if (primary.status === 401 || primary.status === 403) {
       if (!this.authToken) {
-        const authProbe = await this.rawFetch("/api/auth/status", {
-          method: "GET",
-        });
-        if (authProbe.ok) {
-          return makeUnauthenticatedHealthResponse();
-        }
+        // Agent is alive (returned 401), just auth-protected.
+        return makeUnauthenticatedHealthResponse();
       }
+      // We have a token but it was rejected — that's a real auth failure.
       throw new Error(`API ${primary.status}: /api/health`);
     }
 
@@ -453,20 +512,30 @@ export class CloudApiClient {
       throw new Error(`API ${primary.status}: /api/health`);
     }
 
-    const fallback = await this.rawFetch("/health", { method: "GET" });
+    // Only try legacy /health fallback for non-Milady agents.
+    // Milady agents always have /api/health, so 404 means something is wrong.
+    if (isMiladyAgent(this.baseUrl)) {
+      throw new Error(`API ${primary.status}: /api/health`);
+    }
+
+    const fallback = await this.rawFetch("/health", fetchOpts);
     if (!fallback.ok) {
       throw new Error(`API ${fallback.status}: /health`);
     }
     return fallback.json();
   }
 
-  async getAgentStatus(): Promise<AgentStatus> {
+  async getAgentStatus(options?: {
+    signal?: AbortSignal;
+  }): Promise<AgentStatus> {
     // Our self-hosted agents expose /api/status (not /api/agent/status).
     // Try /api/status first (returns agentName, state, uptime directly),
     // then fall back to /api/agent/status for compatibility with older or
     // partially implemented backends.
-    let primaryFailure: Error | null = null;
-    const primary = await this.rawFetch("/api/status", { method: "GET" });
+    const fetchOpts: RequestInit = { method: "GET" };
+    if (options?.signal) fetchOpts.signal = options.signal;
+
+    const primary = await this.rawFetch("/api/status", fetchOpts);
     if (primary.ok) {
       try {
         const data = (await primary.json()) as {
@@ -486,32 +555,37 @@ export class CloudApiClient {
           };
         }
       } catch {
-        primaryFailure = new Error("Invalid JSON: /api/status");
+        // Invalid JSON, fall through to legacy endpoint
       }
     } else if (primary.status === 401 || primary.status === 403) {
-      // If /api/status is auth-gated, keep the legacy endpoint fallback first.
-      // Only synthesize a "running" state when BOTH status endpoints reject an
-      // unauthenticated request, which is the current milady sandbox case.
-      primaryFailure = new Error(`API ${primary.status}: /api/status`);
+      // If /api/status is auth-gated and we don't have a token, the agent is
+      // alive but protected. Return a synthetic "running" response immediately.
+      if (!this.authToken) {
+        return makeUnauthenticatedAgentStatus();
+      }
+      // We have a token but it was rejected — that's a real auth failure.
+      throw new Error(`API ${primary.status}: /api/status`);
     } else if (primary.status !== 404) {
-      primaryFailure = new Error(`API ${primary.status}: /api/status`);
+      throw new Error(`API ${primary.status}: /api/status`);
     }
 
-    const legacy = await this.rawFetch("/api/agent/status", { method: "GET" });
+    // Only try legacy /api/agent/status fallback for non-Milady agents.
+    // Milady agents always have /api/status, so 404/error means something is wrong.
+    if (isMiladyAgent(this.baseUrl)) {
+      throw new Error(`API ${primary.status}: /api/status`);
+    }
+
+    const legacy = await this.rawFetch("/api/agent/status", fetchOpts);
     if (legacy.ok) {
       return legacy.json();
     }
     if (legacy.status === 401 || legacy.status === 403) {
-      if (!this.authToken && [401, 403].includes(primary.status)) {
+      if (!this.authToken) {
         return makeUnauthenticatedAgentStatus();
       }
-      throw (
-        primaryFailure ?? new Error(`API ${legacy.status}: /api/agent/status`)
-      );
+      throw new Error(`API ${legacy.status}: /api/agent/status`);
     }
-    throw (
-      primaryFailure ?? new Error(`API ${legacy.status}: /api/agent/status`)
-    );
+    throw new Error(`API ${legacy.status}: /api/agent/status`);
   }
 
   async startAgent(): Promise<{ ok: boolean; status: { state: string } }> {

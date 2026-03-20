@@ -23,12 +23,10 @@ describe("deferred agent startup (desktop)", () => {
       'console.error("[Main] Agent auto-start failed:", err);',
     );
   });
-
   it("still injects external API base immediately when configured", () => {
     expect(source).toContain('rt.mode === "external"');
     expect(source).toContain("pushApiBaseToRenderer");
   });
-
   it("preserves the agentStart RPC handler for renderer-triggered startup", () => {
     const handlersPath = path.resolve(__dirname, "rpc-handlers.ts");
     const handlers = fs.readFileSync(handlersPath, "utf8");

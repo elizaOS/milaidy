@@ -1063,11 +1063,12 @@ function buildPluginParamDefs(
       envValue ?? (savedValue ? savedValue.trim() || undefined : undefined);
     const isSet = Boolean(effectiveValue);
     const sensitive = Boolean(definition.sensitive);
-    const currentValue = !effectiveValue
-      ? null
-      : sensitive
-        ? maskValue(effectiveValue)
-        : effectiveValue;
+    const currentValue =
+      !isSet || !effectiveValue
+        ? null
+        : sensitive
+          ? maskValue(effectiveValue)
+          : effectiveValue;
 
     return {
       key,
@@ -1121,9 +1122,9 @@ const ONBOARDING_PROVIDER_ENV_KEYS: Record<string, string> = {
   openai: "OPENAI_API_KEY",
   groq: "GROQ_API_KEY",
   grok: "XAI_API_KEY",
-  xai: "XAI_API_KEY",
+  xai: "XAI_API_KEY", // alias — catalog uses "grok", keep both
   gemini: "GOOGLE_GENERATIVE_AI_API_KEY",
-  "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY",
+  "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY", // alias — keep both
   openrouter: "OPENROUTER_API_KEY",
   deepseek: "DEEPSEEK_API_KEY",
   mistral: "MISTRAL_API_KEY",
@@ -1524,21 +1525,30 @@ function persistCompatPluginMutation(
     config.env ??= {};
     for (const [key, value] of Object.entries(values)) {
       if (value.trim()) {
-        process.env[key] = value;
         config.env[key] = value;
         nextConfig[key] = value;
       } else {
         // Empty string = clear the saved value
-        delete process.env[key];
         delete config.env[key];
         delete nextConfig[key];
       }
     }
 
     pluginEntry.config = nextConfig;
-  }
 
-  saveElizaConfig(config);
+    saveElizaConfig(config);
+
+    // Only mutate process.env after config is persisted successfully
+    for (const [key, value] of Object.entries(values)) {
+      if (value.trim()) {
+        process.env[key] = value;
+      } else {
+        delete process.env[key];
+      }
+    }
+  } else {
+    saveElizaConfig(config);
+  }
 
   const refreshed = (
     buildPluginListResponse(null).plugins as unknown as CompatPluginRecord[]
@@ -1653,16 +1663,18 @@ async function handleDatabaseRowsCompatRoute(
 
   const filters: string[] = [];
   if (search) {
-    const escapedSearch = search
+    // Escape LIKE-special characters, then wrap with % wildcards via sqlLiteral
+    // to avoid SQL injection through string interpolation.
+    const likeEscaped = search
       .replace(/\\/g, "\\\\")
       .replace(/%/g, "\\%")
-      .replace(/_/g, "\\_")
-      .replace(/'/g, "''");
+      .replace(/_/g, "\\_");
+    const searchLiteral = sqlLiteral(`%${likeEscaped}%`);
     filters.push(
       `(${columns
         .map(
           (columnName) =>
-            `CAST(${quoteIdent(columnName)} AS TEXT) ILIKE '%${escapedSearch}%'`,
+            `CAST(${quoteIdent(columnName)} AS TEXT) ILIKE ${searchLiteral}`,
         )
         .join(" OR ")})`,
     );
@@ -1943,7 +1955,7 @@ async function handleMiladyCompatRoute(
     if (testPluginId === "telegram") {
       const token = process.env.TELEGRAM_BOT_TOKEN;
       if (!token) {
-        sendJsonResponse(res, 200, {
+        sendJsonResponse(res, 502, {
           success: false,
           pluginId: testPluginId,
           error: "No bot token configured",
@@ -1960,7 +1972,7 @@ async function handleMiladyCompatRoute(
           result?: { username?: string };
           description?: string;
         };
-        sendJsonResponse(res, 200, {
+        sendJsonResponse(res, tgData.ok ? 200 : 502, {
           success: tgData.ok,
           pluginId: testPluginId,
           message: tgData.ok
@@ -1969,7 +1981,7 @@ async function handleMiladyCompatRoute(
           durationMs: Date.now() - startMs,
         });
       } catch (err) {
-        sendJsonResponse(res, 200, {
+        sendJsonResponse(res, 502, {
           success: false,
           pluginId: testPluginId,
           error: err instanceof Error ? err.message : String(err),

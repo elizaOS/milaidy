@@ -23,6 +23,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { BrowserWindow } from "electrobun/bun";
+import { DEFAULT_PORT } from "../constants";
 
 /**
  * Allow-list for game-capture URLs.
@@ -381,7 +382,7 @@ $bmp.Dispose()`;
 
     const fps = options?.fps ?? 10;
     const quality = options?.quality ?? 70;
-    const apiBase = options?.apiBase ?? "http://127.0.0.1:2138";
+    const apiBase = options?.apiBase ?? `http://127.0.0.1:${DEFAULT_PORT}`;
     const endpointPath = options?.endpoint ?? "/api/stream/frame";
     const endpoint = `${apiBase}${endpointPath}`;
     const interval = Math.round(1000 / fps);

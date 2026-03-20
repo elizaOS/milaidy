@@ -22,6 +22,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { resolveDesktopRuntimeMode } from "../api-base";
+import { DEFAULT_PORT } from "../constants";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,7 +45,6 @@ type BunSubprocess = ReturnType<typeof Bun.spawn>;
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_PORT = 2138;
 const HEALTH_POLL_INTERVAL_MS = 500;
 const SIGTERM_GRACE_MS = 5_000;
 const WINDOWS_ABS_PATH_RE = /^[A-Za-z]:[\\/]/;
