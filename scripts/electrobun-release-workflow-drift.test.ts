@@ -255,6 +255,7 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain('$extractDir = "C:\\m"');
     expect(workflow).toContain("milady-dist/entry.js found");
     expect(workflow).toContain('-BuildDir "C:\\m"');
+    expect(workflow).toContain("MILADY_TEST_WINDOWS_INSTALL_DIR: C:\\mi");
     expect(workflow).toContain(
       "name: Verify Windows public installer looks complete",
     );
@@ -440,10 +441,7 @@ describe("Electrobun release workflow drift", () => {
     // the workflow also sets it so the entire process tree inherits it.
     expect(workflow).toContain('MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"');
     expect(workflow).toContain('MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"');
-    expect(workflow).toContain(
-      "MILADY_TEST_WINDOWS_INSTALL_DIR: $" +
-        "{{ runner.temp }}\\milady-windows-installed",
-    );
+    expect(workflow).toContain("MILADY_TEST_WINDOWS_INSTALL_DIR: C:\\mi");
     expect(workflow).toContain(
       'Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"',
     );

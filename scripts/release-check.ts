@@ -97,6 +97,7 @@ const requiredWorkflowSnippets = [
   "MILADY_ELECTROBUN_NOTARIZE: 0",
   'MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"',
   'MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"',
+  "MILADY_TEST_WINDOWS_INSTALL_DIR: C:\\mi",
   "ANTHROPIC_API_KEY: $" + "{{ secrets.ANTHROPIC_API_KEY }}",
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
   "if ($null -eq $resolvedRceditPackageJson)",
