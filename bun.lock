@@ -16,7 +16,7 @@
         "@elizaos/app-hyperscape": "1.0.0",
         "@elizaos/autonomous": "2.0.0-alpha.77",
         "@elizaos/core": "2.0.0-alpha.77",
-        "@elizaos/plugin-agent-orchestrator": "alpha",
+        "@elizaos/plugin-agent-orchestrator": "0.3.14",
         "@elizaos/plugin-agent-skills": "alpha",
         "@elizaos/plugin-anthropic": "alpha",
         "@elizaos/plugin-cron": "alpha",

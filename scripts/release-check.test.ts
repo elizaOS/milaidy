@@ -6,7 +6,9 @@ import {
   hasLifecycleScriptReferencingMissingFile,
   isExactVersion,
   isExactVersionSpecifier,
+  isNpmOverrideConflictError,
   isPackPathCoveredByFilesList,
+  parseBunPackDryRunOutput,
   shouldSkipExactPackDryRun,
 } from "./release-check";
 
@@ -156,5 +158,49 @@ describe("release-check package guards", () => {
         () => true,
       ),
     ).toBe(false);
+  });
+
+  it("parses Bun dry-run pack output into publish file entries", () => {
+    const results = parseBunPackDryRunOutput(`bun pack v1.3.10
+
+packed 9.97KB package.json
+packed 1.51KB dist/entry.js
+packed 4.70KB scripts/run-repo-setup.mjs
+bundled @elizaos/plugin-agent-orchestrator
+
+miladyai-2.0.0-alpha.92.tgz
+`);
+
+    expect(results).toEqual([
+      {
+        files: [
+          { path: "package.json" },
+          { path: "dist/entry.js" },
+          { path: "scripts/run-repo-setup.mjs" },
+        ],
+      },
+    ]);
+  });
+
+  it("detects npm override conflicts for pack fallback", () => {
+    expect(
+      isNpmOverrideConflictError({
+        name: "Error",
+        message: "pack failed",
+        stdout: '{"error":{"code":"EOVERRIDE"}}',
+        stderr:
+          "npm error code EOVERRIDE\nnpm error Override for @elizaos/core conflicts with direct dependency",
+      }),
+    ).toBe(false);
+
+    const error = new Error("pack failed") as Error & {
+      stdout?: string;
+      stderr?: string;
+    };
+    error.stdout = '{"error":{"code":"EOVERRIDE"}}';
+    error.stderr =
+      "npm error code EOVERRIDE\nnpm error Override for @elizaos/core conflicts with direct dependency";
+
+    expect(isNpmOverrideConflictError(error)).toBe(true);
   });
 });

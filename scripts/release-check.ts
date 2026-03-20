@@ -21,6 +21,14 @@ const requiredPaths = [
 const forbiddenPrefixes = ["dist/Milady.app/"];
 const orchestratorPackageName = "@elizaos/plugin-agent-orchestrator";
 const orchestratorBrokenLifecycleTarget = "./scripts/ensure-node-pty.mjs";
+const autonomousServerPathCandidates = [
+  "node_modules/@elizaos/autonomous/packages/autonomous/src/api/server.js",
+  "packages/autonomous/src/api/server.ts",
+] as const;
+const autonomousElizaPathCandidates = [
+  "node_modules/@elizaos/autonomous/packages/autonomous/src/runtime/eliza.js",
+  "packages/autonomous/src/runtime/eliza.ts",
+] as const;
 const requiredWorkflowSnippets = [
   'BUN_VERSION: "1.3.9"',
   "name: Validate Release Inputs",
@@ -130,13 +138,49 @@ type DependencyPackageJson = {
   scripts?: Record<string, string>;
 };
 
+export function parseBunPackDryRunOutput(raw: string): PackResult[] {
+  const files = raw
+    .split("\n")
+    .map((line) => line.match(/^packed\s+\S+\s+(.+)$/)?.[1]?.trim())
+    .filter((path): path is string => Boolean(path))
+    .map((path) => ({ path }));
+
+  return [{ files }];
+}
+
+export function isNpmOverrideConflictError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const execError = error as Error & {
+    stdout?: string;
+    stderr?: string;
+  };
+  const combinedOutput = `${execError.stdout ?? ""}\n${execError.stderr ?? ""}`;
+  return combinedOutput.includes("EOVERRIDE");
+}
+
 function runPackDry(): PackResult[] {
-  const raw = execSync("npm pack --dry-run --json --ignore-scripts", {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    maxBuffer: 1024 * 1024 * 100,
-  });
-  return JSON.parse(raw) as PackResult[];
+  try {
+    const raw = execSync("npm pack --dry-run --json --ignore-scripts", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      maxBuffer: 1024 * 1024 * 100,
+    });
+    return JSON.parse(raw) as PackResult[];
+  } catch (error) {
+    if (!isNpmOverrideConflictError(error)) {
+      throw error;
+    }
+
+    const raw = execSync("bun pm pack --dry-run --ignore-scripts", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      maxBuffer: 1024 * 1024 * 100,
+    });
+    return parseBunPackDryRunOutput(raw);
+  }
 }
 
 export function findLocalPackHotspots(
@@ -219,6 +263,24 @@ export function hasLifecycleScriptReferencingMissingFile(
 
   return !pathExists(resolve(packageDir, relativeTarget));
 }
+
+function readExistingReleaseCheckFile(
+  label: string,
+  candidates: readonly string[],
+): string {
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return readFileSync(candidate, "utf8");
+    }
+  }
+
+  console.error(`release-check: could not find ${label}. Checked:`);
+  for (const candidate of candidates) {
+    console.error(`  - ${candidate}`);
+  }
+  process.exit(1);
+}
+
 function runFastLocalPackCheck(hotspots: string[]) {
   console.warn(
     "release-check: skipping exact npm pack --dry-run because local desktop build artifacts are present and package.json whitelists broad build directories:",
@@ -559,9 +621,9 @@ function assertMacSmokeScriptLaunchesPackagedLauncherDirectly() {
 }
 
 function assertServerDynamicHyperscapeImport() {
-  const serverSource = readFileSync(
-    "packages/autonomous/src/api/server.ts",
-    "utf8",
+  const serverSource = readExistingReleaseCheckFile(
+    "autonomous API server source",
+    autonomousServerPathCandidates,
   );
 
   // @elizaos/app-hyperscape/routes must be a dynamic import (lazy) so the
@@ -591,9 +653,9 @@ function assertServerDynamicHyperscapeImport() {
 }
 
 function assertStartApiServerCatchBlockSafety() {
-  const elizaSource = readFileSync(
-    "packages/autonomous/src/runtime/eliza.ts",
-    "utf8",
+  const elizaSource = readExistingReleaseCheckFile(
+    "autonomous runtime source",
+    autonomousElizaPathCandidates,
   );
 
   // The catch block around startApiServer must use console.error so errors
@@ -606,7 +668,7 @@ function assertStartApiServerCatchBlockSafety() {
   }
 
   // In server-only mode, a failed API server must be fatal.
-  const catchIndex = elizaSource.indexOf("} catch (apiErr)");
+  const catchIndex = elizaSource.indexOf("catch (apiErr)");
   if (catchIndex === -1) {
     console.error(
       "release-check: eliza.ts must have a catch (apiErr) block around startApiServer.",
