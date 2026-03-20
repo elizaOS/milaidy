@@ -234,12 +234,19 @@ describe("POST /api/agent/reset", () => {
     }
   });
 
-  it("clears onboarding, agent list, and cloud state when auth succeeds", async () => {
+  it("clears onboarding signals, agent list, and cloud state when auth succeeds", async () => {
     await fs.writeFile(
       path.join(tempDir, "eliza.json"),
       JSON.stringify({
         meta: { onboardingComplete: true },
-        agents: { list: [{ name: "Chen" }] },
+        agents: {
+          list: [{ name: "Chen" }],
+          defaults: {
+            adminEntityId: "admin-entity-id",
+            workspace: "/tmp/workspace",
+            model: { primary: "openai/gpt-4.1" },
+          },
+        },
         cloud: { enabled: true, apiKey: "cloud-key" },
         logging: { level: "error" },
       }),
@@ -264,7 +271,10 @@ describe("POST /api/agent/reset", () => {
         await fs.readFile(path.join(tempDir, "eliza.json"), "utf8"),
       ) as Record<string, unknown>;
       expect(savedConfig.meta).toEqual({});
-      expect(savedConfig.agents).toEqual({ list: [] });
+      expect(savedConfig.agents).toEqual({
+        list: [],
+        defaults: { model: { primary: "openai/gpt-4.1" } },
+      });
       expect(savedConfig.cloud).toEqual({});
     } finally {
       await server.close();
