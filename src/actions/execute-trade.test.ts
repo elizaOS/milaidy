@@ -96,6 +96,21 @@ describe("EXECUTE_TRADE action", () => {
     expect(result).toBe(true);
   });
 
+  it("validates true when managed wallet address is set", async () => {
+    const runtime = {
+      getSetting: (key: string) =>
+        key === "MILADY_MANAGED_EVM_ADDRESS"
+          ? "0x1234567890abcdef1234567890abcdef12345678"
+          : undefined,
+    };
+    const result = await executeTradeAction.validate(
+      runtime as never,
+      {} as never,
+      {} as never,
+    );
+    expect(result).toBe(true);
+  });
+
   it("validates false when no wallet is configured", async () => {
     const runtime = {
       getSetting: (_key: string) => undefined,

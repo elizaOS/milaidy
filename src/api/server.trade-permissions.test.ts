@@ -10,7 +10,7 @@ import type { MiladyConfig } from "../config/config";
 import {
   canUseLocalTradeExecution,
   resolveTradePermissionMode,
-} from "./server";
+} from "./trade-permissions";
 
 function makeConfig(tradePermissionMode: unknown): MiladyConfig {
   return {

@@ -17,6 +17,7 @@ import type {
 } from "@elizaos/core";
 import { AgentEventService } from "@elizaos/core";
 import { emoteAction } from "../actions/emote";
+import { executeTradeAction } from "../actions/execute-trade";
 import { restartAction } from "../actions/restart";
 import { sendMessageAction } from "../actions/send-message";
 import {
@@ -28,6 +29,7 @@ import {
 } from "../actions/stream-control";
 import { switchStreamSourceAction } from "../actions/switch-stream-source";
 import { terminalAction } from "../actions/terminal";
+import { transferTokenAction } from "../actions/transfer-token";
 import { AGENT_EMOTE_CATALOG } from "../emotes/catalog";
 import { adminTrustProvider } from "../providers/admin-trust";
 
@@ -174,6 +176,8 @@ export function createMiladyPlugin(config?: MiladyPluginConfig): Plugin {
       setStreamDestinationAction,
       speakOnStreamAction,
       manageOverlayWidgetAction,
+      executeTradeAction,
+      transferTokenAction,
       ...loadCustomActions(),
     ],
   };

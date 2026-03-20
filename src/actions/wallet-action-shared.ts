@@ -5,6 +5,8 @@
  * @module actions/wallet-action-shared
  */
 
+import type { IAgentRuntime } from "@elizaos/core";
+
 /** API port for loopback wallet API calls. Shared across all wallet actions. */
 export const WALLET_ACTION_API_PORT =
   process.env.API_PORT || process.env.SERVER_PORT || "2138";
@@ -20,4 +22,33 @@ export function buildAuthHeaders(): Record<string, string> {
   return {
     Authorization: /^Bearer\s+/i.test(token) ? token : `Bearer ${token}`,
   };
+}
+
+function hasValue(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * Returns true when the runtime has any wallet capability that can support
+ * trade/transfer actions in local or cloud-managed flows.
+ */
+export function hasWalletExecutionAccess(runtime: IAgentRuntime): boolean {
+  const runtimeGet = (key: string): unknown => {
+    try {
+      return runtime.getSetting(key);
+    } catch {
+      return undefined;
+    }
+  };
+
+  return (
+    hasValue(runtimeGet("EVM_PRIVATE_KEY")) ||
+    hasValue(runtimeGet("PRIVY_APP_ID")) ||
+    hasValue(runtimeGet("BABYLON_PRIVY_APP_ID")) ||
+    hasValue(runtimeGet("MILADY_MANAGED_EVM_ADDRESS")) ||
+    hasValue(process.env.EVM_PRIVATE_KEY) ||
+    hasValue(process.env.PRIVY_APP_ID) ||
+    hasValue(process.env.BABYLON_PRIVY_APP_ID) ||
+    hasValue(process.env.MILADY_MANAGED_EVM_ADDRESS)
+  );
 }

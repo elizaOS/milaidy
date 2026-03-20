@@ -96,6 +96,21 @@ describe("TRANSFER_TOKEN action", () => {
     expect(result).toBe(true);
   });
 
+  it("validate returns true when managed wallet address is set", async () => {
+    const mockRuntime = {
+      getSetting: (key: string) =>
+        key === "MILADY_MANAGED_EVM_ADDRESS"
+          ? "0x1234567890abcdef1234567890abcdef12345678"
+          : undefined,
+    };
+    const result = await transferTokenAction.validate(
+      mockRuntime as never,
+      {} as never,
+      {} as never,
+    );
+    expect(result).toBe(true);
+  });
+
   it("validate returns false when no wallet is configured", async () => {
     const mockRuntime = { getSetting: () => undefined };
     const result = await transferTokenAction.validate(
