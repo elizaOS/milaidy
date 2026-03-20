@@ -136,7 +136,9 @@ function characterOverridePlugin(): Plugin {
         return;
       if (source === "./CharacterRoster") return miladyRoster;
       if (source === "./CharacterView") return miladyEditor;
-      if (source === "./VoiceConfigView") return miladyVoiceConfig;
+      if (source === "./VoiceConfigView" || source === "./VoiceConfigView.js") {
+        return miladyVoiceConfig;
+      }
     },
   };
 }
