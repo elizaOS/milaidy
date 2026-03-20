@@ -86,7 +86,9 @@ let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
 import {
   isAgentReady,
   onAgentReadyChange,
+  setAgentReady,
 } from "./agent-ready-state";
+import { DEFAULT_PORT } from "./constants";
 
 function setupApplicationMenu(): void {
   const isMac = process.platform === "darwin";
@@ -915,12 +917,14 @@ function injectApiBase(win: BrowserWindow): void {
       runtimeResolution.externalApi.base,
       process.env.MILADY_API_TOKEN,
     );
+    setAgentReady(true);
     return;
   }
 
   const agent = getAgentManager();
-  const port = agent.getPort() ?? (Number(process.env.MILADY_PORT) || 2138);
+  const port = agent.getPort() ?? (Number(process.env.MILADY_PORT) || DEFAULT_PORT);
   pushApiBaseToRenderer(win, `http://127.0.0.1:${port}`);
+  setAgentReady(true);
 }
 
 // ============================================================================
@@ -967,6 +971,7 @@ async function _startAgent(win: BrowserWindow): Promise<void> {
 
     if (status.state === "running" && status.port) {
       pushApiBaseToRenderer(win, `http://127.0.0.1:${status.port}`);
+      setAgentReady(true);
       // Sync real OS permission states to the REST API so the renderer
       // can display them and capability toggles can unlock.
       // Pass startup=true so the backend skips scheduling a restart for
