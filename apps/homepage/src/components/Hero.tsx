@@ -82,7 +82,7 @@ export function HeroBackground() {
   };
 
   return (
-    <section className="absolute inset-x-0 top-0 bottom-[45%] sm:bottom-0 flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 pt-24 sm:pt-12 pointer-events-none overflow-hidden">
+    <section className="absolute inset-x-0 top-0 bottom-[45%] sm:bottom-0 flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 pt-24 sm:pt-0 pointer-events-none overflow-hidden">
       {/* Corner accents — sharp, terminal-like */}
       <div className="hidden sm:block absolute top-12 left-12 w-6 h-6 border-t border-l border-brand/30" />
       <div className="hidden sm:block absolute top-12 right-12 w-6 h-6 border-t border-r border-brand/30" />
@@ -102,7 +102,7 @@ export function HeroBackground() {
       >
         <motion.h1
           variants={itemVariants}
-          className="text-[16vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.76] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-4 sm:mt-4 max-w-[10ch] sm:max-w-none"
+          className="text-[16vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.76] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-4 sm:-mt-8 max-w-[10ch] sm:max-w-none"
         >
           <span>MILADY</span>
           <span className="text-white/90 drop-shadow-lg text-[13vw] sm:text-inherit break-words hyphens-none text-center w-full">
