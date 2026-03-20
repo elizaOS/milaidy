@@ -51,6 +51,14 @@ describe("createElizaPlugin", () => {
     expect(plugin.services).toContain(AgentEventService);
   });
 
+  it("registers wallet trading actions", () => {
+    const plugin = createElizaPlugin();
+    const actionNames = (plugin.actions ?? []).map((action) => action.name);
+
+    expect(actionNames).toContain("EXECUTE_TRADE");
+    expect(actionNames).toContain("TRANSFER_TOKEN");
+  });
+
   it("exposes emote IDs via the PLAY_EMOTE action parameter enum, not a provider", () => {
     const plugin = createElizaPlugin();
 
