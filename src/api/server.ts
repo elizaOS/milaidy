@@ -1483,8 +1483,78 @@ async function handleMiladyCompatRoute(
       return true;
     }
 
-    sendJsonResponse(res, 200, buildPluginListResponse(state.current));
+    const pluginResponse = buildPluginListResponse(state.current);
+    const manifestPath = resolvePluginManifestPath();
+    console.log(
+      `[api/plugins] manifest=${manifestPath ?? "NOT_FOUND"} total=${pluginResponse.plugins.length} runtime=${state.current ? "active" : "null"}`,
+    );
+    sendJsonResponse(res, 200, pluginResponse);
     return true;
+  }
+
+  // ── POST /api/onboarding — Persist connection.apiKey ───────────────
+  // The frontend sends provider and API key nested inside `body.connection`
+  // but the upstream handler reads `body.provider` and `body.providerApiKey`
+  // (top-level). Bridge the gap by persisting the key from `connection` here
+  // before upstream processes the request.
+  if (method === "POST" && url.pathname === "/api/onboarding") {
+    const PROVIDER_ENV_KEYS: Record<string, string> = {
+      anthropic: "ANTHROPIC_API_KEY",
+      openai: "OPENAI_API_KEY",
+      groq: "GROQ_API_KEY",
+      xai: "XAI_API_KEY",
+      openrouter: "OPENROUTER_API_KEY",
+      "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY",
+    };
+
+    // Read the body, persist the key, then push bytes back so upstream
+    // can re-read the same body from the request stream.
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    }
+    const rawBody = Buffer.concat(chunks);
+
+    try {
+      const body = JSON.parse(rawBody.toString("utf8")) as Record<
+        string,
+        unknown
+      >;
+      const connection = body.connection as
+        | Record<string, unknown>
+        | undefined;
+      if (
+        connection &&
+        typeof connection.provider === "string" &&
+        typeof connection.apiKey === "string" &&
+        connection.apiKey.trim().length > 0
+      ) {
+        const envKey = PROVIDER_ENV_KEYS[connection.provider];
+        if (envKey) {
+          const config = loadElizaConfig();
+          if (!config.env || typeof config.env !== "object") {
+            (config as Record<string, unknown>).env = {};
+          }
+          (config.env as Record<string, string>)[envKey] =
+            connection.apiKey as string;
+          (config as Record<string, unknown>).subscriptionProvider =
+            connection.provider;
+          saveElizaConfig(config);
+          process.env[envKey] = connection.apiKey as string;
+          console.log(
+            `[onboarding] Persisted ${envKey} from connection.apiKey`,
+          );
+        }
+      }
+    } catch {
+      // JSON parse failed — let upstream handle the error
+    }
+
+    // Push the raw bytes back into the request stream so the upstream
+    // handler can consume the body normally.
+    req.push(rawBody);
+    req.push(null);
+    return false;
   }
 
   if (method === "GET" && url.pathname === "/api/config") {
@@ -1599,6 +1669,22 @@ function patchHttpCreateServerForMiladyCompat(
       syncMiladyEnvToEliza();
       syncElizaEnvToMilady();
       mirrorCompatHeaders(req);
+
+      // CORS: allow cross-origin requests from local renderer servers
+      // (Electrobun static server, Vite dev, or any localhost origin).
+      const origin = req.headers.origin ?? "";
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Token, X-Api-Key, X-Milady-Client-Id, X-Milady-UI-Language, X-Milady-Token, X-Milady-Export-Token, X-Milady-Terminal-Token");
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+      }
+
+      if (req.method === "OPTIONS") {
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
 
       res.on("finish", () => {
         syncElizaEnvToMilady();

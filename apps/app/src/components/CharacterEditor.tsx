@@ -123,7 +123,7 @@ function replaceCharacterToken(value: string, name: string) {
 }
 
 function buildCharacterDraftFromPreset(entry: CharacterRosterEntry) {
-  const p = entry.preset as OnboardingPreset;
+  const p = entry.preset as unknown as OnboardingPreset;
   const name = entry.name;
   return {
     name,
@@ -282,7 +282,12 @@ export function CharacterEditor({
     // biome-ignore lint/suspicious/noExplicitAny: onboardingOptions is untyped API response
   }, [(onboardingOptions as any)?.styles]);
 
-  const characterRoster = resolveRosterEntries(rosterStyles);
+  const characterRoster = resolveRosterEntries(
+    rosterStyles as unknown as readonly {
+      [k: string]: unknown;
+      catchphrase: string;
+    }[],
+  );
 
   const d = characterDraft;
   const fallbackCharacterName =
@@ -388,10 +393,14 @@ export function CharacterEditor({
   const handleSelectPreset = useCallback(
     (preset: (typeof PREMADE_VOICES)[0]) => {
       setSelectedVoicePresetId(preset.id);
-      setVoiceConfig((prev) => ({
-        ...prev,
-        elevenlabs: { ...(prev.elevenlabs ?? {}), voiceId: preset.voiceId },
-      }));
+      setVoiceConfig((prev) => {
+        const existing =
+          typeof prev.elevenlabs === "object" ? prev.elevenlabs : {};
+        return {
+          ...prev,
+          elevenlabs: { ...existing, voiceId: preset.voiceId },
+        };
+      });
     },
     [],
   );

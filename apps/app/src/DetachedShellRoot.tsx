@@ -4,6 +4,7 @@ import {
   CodingAgentSettingsSection,
   ConfigPageView,
   ConnectorsPageView,
+  ConversationsSidebar,
   HeartbeatsView,
   MediaSettingsSection,
   PairingView,
@@ -51,12 +52,38 @@ function DetachedSettingsSectionView({
   }
 }
 
+function DetachedChatView(): JSX.Element {
+  return (
+    <div className="flex flex-1 min-h-0 relative">
+      <ConversationsSidebar />
+      <main className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden pt-3 px-3 xl:px-5">
+        <ChatView />
+      </main>
+    </div>
+  );
+}
+
+function OnboardingBlockedView(): JSX.Element {
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 min-h-0 gap-4 text-center px-6">
+      <div className="text-4xl">🎀</div>
+      <h2 className="text-lg font-semibold text-txt">
+        Setup in progress
+      </h2>
+      <p className="text-sm text-muted max-w-sm">
+        Complete onboarding in the main window first. This window will become
+        available once your agent is ready.
+      </p>
+    </div>
+  );
+}
+
 function DetachedShellContent({ route }: DetachedShellRootProps): JSX.Element {
   const target = resolveDetachedShellTarget(route);
 
   switch (target.tab) {
     case "chat":
-      return <ChatView />;
+      return <DetachedChatView />;
     case "browser":
       return <BrowserSurfaceWindow />;
     case "connectors":
@@ -81,7 +108,13 @@ function DetachedShellContent({ route }: DetachedShellRootProps): JSX.Element {
 export function DetachedShellRoot({
   route,
 }: DetachedShellRootProps): JSX.Element {
-  const { authRequired, retryStartup, startupError } = useApp();
+  const {
+    authRequired,
+    onboardingComplete,
+    onboardingLoading,
+    retryStartup,
+    startupError,
+  } = useApp();
   const isBrowserSurface = route.mode === "surface" && route.tab === "browser";
 
   if (!isBrowserSurface && startupError) {
@@ -92,9 +125,17 @@ export function DetachedShellRoot({
     return <PairingView />;
   }
 
+  if (!isBrowserSurface && !onboardingLoading && !onboardingComplete) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
+        <OnboardingBlockedView />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full font-body text-txt bg-bg">
-      <main className="flex-1 min-h-0 min-w-0 overflow-auto">
+      <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <DetachedShellContent route={route} />
       </main>
     </div>

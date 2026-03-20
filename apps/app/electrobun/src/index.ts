@@ -83,6 +83,11 @@ let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
 // App Menu
 // ============================================================================
 
+import {
+  isAgentReady,
+  onAgentReadyChange,
+} from "./agent-ready-state";
+
 function setupApplicationMenu(): void {
   const isMac = process.platform === "darwin";
   const menu = buildApplicationMenu({
@@ -90,11 +95,15 @@ function setupApplicationMenu(): void {
     browserEnabled: BROWSER_SURFACE_ENABLED,
     heartbeatSnapshot: heartbeatMenuSnapshot,
     detachedWindows: surfaceWindowManager?.listWindows() ?? [],
+    agentReady: isAgentReady(),
   });
   ApplicationMenu.setApplicationMenu(
     menu as unknown as Parameters<typeof ApplicationMenu.setApplicationMenu>[0],
   );
 }
+
+// Refresh the application menu whenever agent readiness changes.
+onAgentReadyChange(() => setupApplicationMenu());
 
 function summarizeDesktopActionError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : fallback;
@@ -1283,15 +1292,14 @@ async function main(): Promise<void> {
     console.warn("[Main] Tray creation failed:", err);
   }
 
-  // Agent startup is now deferred until after onboarding completes.
-  // The renderer triggers agent start via the `agentStart` RPC handler
-  // when the user selects local mode and finishes onboarding.
-  // For sandbox/remote modes, no embedded agent is needed — the renderer
-  // connects directly to the cloud or remote API base.
+  // Agent startup: in local mode, start the embedded agent immediately.
+  // The renderer's deferred RPC start path doesn't work reliably because
+  // injectApiBaseIntoHtml sets window.__MILADY_API_BASE__ before React
+  // mounts, causing the renderer to skip the agentStart RPC call and
+  // poll a port where nothing is listening.
   //
-  // However, if an external API base is configured via env vars (e.g.
-  // MILADY_DESKTOP_API_BASE), inject it immediately so the renderer can
-  // connect without onboarding a local agent.
+  // In external mode (env vars like MILADY_DESKTOP_API_BASE), inject the
+  // API base immediately — the agent is already running externally.
   if (currentWindow) {
     const rt = resolveDesktopRuntimeMode(
       process.env as Record<string, string | undefined>,
@@ -1302,8 +1310,13 @@ async function main(): Promise<void> {
         rt.externalApi.base,
         process.env.MILADY_API_TOKEN,
       );
-    } else if (FORCE_AUTOSTART_AGENT) {
-      console.log("[Main] Forcing embedded agent startup on boot.");
+    } else if (rt.mode === "local") {
+      // In local mode the embedded agent must be started by the main process.
+      // The renderer's deferred-start RPC path is skipped when
+      // window.__MILADY_API_BASE__ is already injected (which it always is
+      // in local mode via injectApiBaseIntoHtml), so the main process must
+      // ensure the agent is running before the renderer starts polling.
+      console.log("[Main] Starting embedded agent (local mode).");
       void _startAgent(currentWindow);
     }
   }

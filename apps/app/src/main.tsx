@@ -116,27 +116,28 @@ const windowShellRoute = resolveWindowShellRoute();
 // persisted state and temporarily suppressing stale backend resume config.
 if (shouldInstallMainWindowOnboardingPatches(windowShellRoute)) {
   applyForceFreshOnboardingReset();
-  installForceFreshOnboardingClientPatch(client);
+  installForceFreshOnboardingClientPatch(client as never);
 }
-installLocalProviderCloudPreferencePatch(client);
-installDesktopPermissionsClientPatch(client);
+installLocalProviderCloudPreferencePatch(client as never);
+installDesktopPermissionsClientPatch(client as never);
 
 // Register custom character editor for app-core's ViewRouter to pick up
 window.__MILADY_CHARACTER_EDITOR__ = CharacterEditor;
 
 // Point Eliza Cloud API to the correct base URL.
-(window as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ =
+(window as unknown as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ =
   import.meta.env.VITE_CLOUD_BASE ?? "https://www.elizacloud.ai";
 
 // Inject onboarding style presets so the frontend-only onboarding flow
 // can populate character data without an API call.
 import { STYLE_PRESETS } from "../../../src/onboarding-presets";
 
-(window as Record<string, unknown>).__APP_ONBOARDING_STYLES__ = STYLE_PRESETS;
+(window as unknown as Record<string, unknown>).__APP_ONBOARDING_STYLES__ =
+  STYLE_PRESETS;
 
 // Override the VRM asset roster with Milady characters so avatar URLs
 // resolve to milady-*.vrm.gz instead of the upstream eliza-*.vrm.gz.
-window.__APP_VRM_ASSETS__ = [
+(window as unknown as Record<string, unknown>).__APP_VRM_ASSETS__ = [
   { title: "Chen", slug: "milady-1" },
   { title: "Jin", slug: "milady-2" },
   { title: "Kei", slug: "milady-3" },
