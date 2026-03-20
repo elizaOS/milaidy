@@ -368,7 +368,7 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
 
       try {
         const conv = history.map((m) => `${m.role === "user" ? "User" : char.name}: ${m.content}`).join("\n");
-        const response = await runtime.useModel("TEXT_LARGE" as import("@elizaos/core").ModelType, {
+        const response = await (runtime as any).useModel("TEXT_LARGE", {
           prompt: `${systemPrompt}\n\nConversation:\n${conv}\n\n${char.name}:`,
         });
         const responseText = typeof response === "string" ? response : (response as { text?: string })?.text ?? "";
@@ -383,7 +383,7 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
       }
     });
 
-    bot.catch((err: Error) => logger.warn(`[milady] Telegram bot error: ${err.message}`));
+    bot.catch((err: unknown) => logger.warn(`[milady] Telegram bot error: ${err instanceof Error ? err.message : String(err)}`));
 
     // Fire-and-forget — bot.launch() only resolves on stop()
     bot.launch({ dropPendingUpdates: true, allowedUpdates: ["message", "message_reaction"] })

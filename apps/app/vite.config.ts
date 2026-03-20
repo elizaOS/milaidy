@@ -174,7 +174,7 @@ export default defineConfig({
     target: "es2022",
   },
   resolve: {
-    dedupe: ["react", "react-dom", "three", "@sparkjsdev/spark"],
+    dedupe: ["react", "react-dom", "three", "@sparkjsdev/spark", "@elizaos/app-core"],
     alias: [
       // Capacitor plugins — resolve to local plugin sources
       {
@@ -213,6 +213,27 @@ export default defineConfig({
         find: /^@miladyai\/capacitor-talkmode$/,
         replacement: path.resolve(here, "plugins/talkmode/src/index.ts"),
       },
+      // Force local @elizaos/app-core when workspace-linked (prevents stale
+      // bun cache copies from overriding the symlinked local source).
+      ...((() => {
+        const localAppCore = path.resolve(miladyRoot, "node_modules/@elizaos/app-core");
+        try {
+          const real = fs.realpathSync(localAppCore);
+          if (real.includes("/eliza/packages/app-core")) {
+            return [
+              { find: "@elizaos/app-core/api", replacement: path.join(real, "dist/api") },
+              { find: "@elizaos/app-core/state", replacement: path.join(real, "dist/state") },
+              { find: "@elizaos/app-core/bridge", replacement: path.join(real, "dist/bridge") },
+              { find: "@elizaos/app-core/config", replacement: path.join(real, "dist/config") },
+              { find: "@elizaos/app-core/events", replacement: path.join(real, "dist/events") },
+              { find: "@elizaos/app-core/platform", replacement: path.join(real, "dist/platform") },
+              { find: "@elizaos/app-core/styles/styles.css", replacement: path.join(real, "dist/styles/styles.css") },
+              { find: "@elizaos/app-core", replacement: path.join(real, "dist") },
+            ];
+          }
+        } catch {}
+        return [];
+      })()),
     ],
   },
   optimizeDeps: {
