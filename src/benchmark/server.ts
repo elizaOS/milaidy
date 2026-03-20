@@ -13,8 +13,6 @@ import dotenv from "dotenv";
 import { CORE_PLUGINS } from "../runtime/core-plugins";
 import { createElizaPlugin } from "../runtime/eliza-plugin";
 import {
-  type BenchmarkContext,
-  type CapturedAction,
   clearCapturedAction,
   createBenchmarkPlugin,
   getCapturedAction,
@@ -128,8 +126,6 @@ function checkBenchAuth(
   return true;
 }
 
-
-
 function disableManualCompactionAction(runtime: AgentRuntime): void {
   const runtimeWithActions = runtime as AgentRuntime & {
     actions?: Array<{ name?: string }>;
@@ -148,7 +144,6 @@ function disableManualCompactionAction(runtime: AgentRuntime): void {
     "[bench] Disabled manual COMPACT_SESSION action; auto-compaction remains enabled",
   );
 }
-
 
 async function collectSessionDiagnostics(
   runtime: AgentRuntime,

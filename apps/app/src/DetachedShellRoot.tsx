@@ -67,9 +67,7 @@ function OnboardingBlockedView(): JSX.Element {
   return (
     <div className="flex flex-col items-center justify-center flex-1 min-h-0 gap-4 text-center px-6">
       <div className="text-4xl">🎀</div>
-      <h2 className="text-lg font-semibold text-txt">
-        Setup in progress
-      </h2>
+      <h2 className="text-lg font-semibold text-txt">Setup in progress</h2>
       <p className="text-sm text-muted max-w-sm">
         Complete onboarding in the main window first. This window will become
         available once your agent is ready.

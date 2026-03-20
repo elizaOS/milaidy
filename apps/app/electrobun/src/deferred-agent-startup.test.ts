@@ -3,9 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Structural tests to verify the deferred agent startup pattern.
- * The agent must NOT start automatically on desktop boot — it should
- * only start after onboarding completes via the agentStart RPC handler.
+ * Structural tests to verify the desktop startup flow.
+ * The main process now starts the embedded agent in local mode because
+ * the renderer skips the deferred RPC path once an API base is injected.
  */
 
 const INDEX_PATH = path.resolve(__dirname, "index.ts");
@@ -13,37 +13,20 @@ const INDEX_PATH = path.resolve(__dirname, "index.ts");
 describe("deferred agent startup (desktop)", () => {
   const source = fs.readFileSync(INDEX_PATH, "utf8");
 
-  it("does NOT call startAgent unconditionally on boot", () => {
-    // The old pattern was: void startAgent(currentWindow);
-    // This should no longer appear as an unconditional call in main()
-    const lines = source.split("\n");
-    const mainFnStart = lines.findIndex((l) =>
-      l.includes("async function main()"),
-    );
-    const mainFnBody = lines.slice(mainFnStart).join("\n");
-
-    // Should NOT have void startAgent(currentWindow) in main()
-    expect(mainFnBody).not.toMatch(
-      /void\s+startAgent\s*\(\s*currentWindow\s*\)/,
-    );
-  });
-
-  it("has a comment explaining deferred startup", () => {
+  it("starts the embedded agent automatically in local mode", () => {
+    expect(source).toContain('else if (rt.mode === "local")');
     expect(source).toContain(
-      "Agent startup is now deferred until after onboarding completes",
+      'console.log("[Main] Starting embedded agent (local mode).");',
+    );
+    expect(source).toContain("_startAgent(currentWindow).catch((err) => {");
+    expect(source).toContain(
+      'console.error("[Main] Agent auto-start failed:", err);',
     );
   });
 
   it("still injects external API base immediately when configured", () => {
     expect(source).toContain('rt.mode === "external"');
     expect(source).toContain("pushApiBaseToRenderer");
-  });
-
-  it("allows smoke runs to opt into embedded agent startup on boot", () => {
-    expect(source).toContain(
-      'process.env.MILADY_FORCE_AUTOSTART_AGENT === "1"',
-    );
-    expect(source).toContain("void _startAgent(currentWindow);");
   });
 
   it("preserves the agentStart RPC handler for renderer-triggered startup", () => {

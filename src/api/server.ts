@@ -24,7 +24,13 @@ import {
   startApiServer as upstreamStartApiServer,
 } from "@elizaos/autonomous/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
-import { ensureRuntimeSqlCompatibility, executeRawSql, quoteIdent, sanitizeIdentifier, sqlLiteral } from "../utils/sql-compat";
+import {
+  ensureRuntimeSqlCompatibility,
+  executeRawSql,
+  quoteIdent,
+  sanitizeIdentifier,
+  sqlLiteral,
+} from "../utils/sql-compat";
 import { handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
 import {
@@ -37,7 +43,10 @@ const hardenedGuard = createHardenedExportGuard(
 );
 const require = createRequire(import.meta.url);
 
-import { syncMiladyEnvToEliza, syncElizaEnvToMilady } from "../config/brand-env.js";
+import {
+  syncElizaEnvToMilady,
+  syncMiladyEnvToEliza,
+} from "../config/brand-env.js";
 
 const HEADER_ALIASES = [
   ["x-milady-token", "x-eliza-token"],
@@ -66,6 +75,7 @@ type PluginCategory =
 
 interface CompatRuntimeState {
   current: AgentRuntime | null;
+  pendingAgentName: string | null;
 }
 
 interface ManifestPluginParameter {
@@ -145,8 +155,6 @@ const CAPABILITY_FEATURE_IDS = new Set([
   "computeruse",
   "coding-agent",
 ]);
-
-
 
 function mirrorCompatHeaders(req: Pick<http.IncomingMessage, "headers">): void {
   for (const [miladyHeader, elizaHeader] of HEADER_ALIASES) {
@@ -429,7 +437,6 @@ function maskValue(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-
 function sendJsonResponse(
   res: http.ServerResponse,
   status: number,
@@ -447,6 +454,110 @@ function sendJsonErrorResponse(
   message: string,
 ): void {
   sendJsonResponse(res, status, { error: message });
+}
+
+function getConfiguredCompatAgentName(): string | null {
+  const config = loadElizaConfig();
+  const listAgent = config.agents?.list?.[0];
+  const listAgentName =
+    typeof listAgent?.name === "string" ? listAgent.name.trim() : "";
+  if (listAgentName) {
+    return listAgentName;
+  }
+
+  const assistantName =
+    typeof config.ui?.assistant?.name === "string"
+      ? config.ui.assistant.name.trim()
+      : "";
+  return assistantName || null;
+}
+
+function resolveCompatStatusAgentName(
+  state: CompatRuntimeState,
+): string | null {
+  if (state.pendingAgentName) {
+    return state.pendingAgentName;
+  }
+
+  if (state.current) {
+    return null;
+  }
+
+  return getConfiguredCompatAgentName();
+}
+
+function rewriteCompatStatusBody(
+  bodyText: string,
+  state: CompatRuntimeState,
+): string {
+  const agentName = resolveCompatStatusAgentName(state);
+  if (!agentName) {
+    return bodyText;
+  }
+
+  try {
+    const parsed = JSON.parse(bodyText) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return bodyText;
+    }
+
+    const payload = parsed as Record<string, unknown>;
+    if (payload.agentName === agentName) {
+      return bodyText;
+    }
+
+    return JSON.stringify({
+      ...payload,
+      agentName,
+    });
+  } catch {
+    return bodyText;
+  }
+}
+
+function patchCompatStatusResponse(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  state: CompatRuntimeState,
+): void {
+  const method = (req.method ?? "GET").toUpperCase();
+  const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+  if (method !== "GET" || pathname !== "/api/status") {
+    return;
+  }
+
+  const originalEnd = res.end.bind(res);
+
+  res.end = ((
+    chunk?: string | Uint8Array,
+    encoding?: unknown,
+    cb?: unknown,
+  ) => {
+    let resolvedEncoding: BufferEncoding | undefined;
+    let resolvedCallback: (() => void) | undefined;
+
+    if (typeof encoding === "function") {
+      resolvedCallback = encoding as () => void;
+    } else {
+      resolvedEncoding = encoding as BufferEncoding | undefined;
+      resolvedCallback = cb as (() => void) | undefined;
+    }
+
+    if (chunk == null) {
+      return resolvedCallback ? originalEnd(resolvedCallback) : originalEnd();
+    }
+
+    const bodyText =
+      typeof chunk === "string"
+        ? chunk
+        : Buffer.from(chunk).toString(resolvedEncoding ?? "utf8");
+
+    return originalEnd(
+      rewriteCompatStatusBody(bodyText, state),
+      "utf8",
+      resolvedCallback,
+    );
+  }) as typeof res.end;
 }
 
 const WORKBENCH_TODO_TAG = "workbench-todo";
@@ -849,7 +960,6 @@ async function handleTaskBackedWorkbenchTodoRoute(
   return false;
 }
 
-
 async function _getTableColumnNames(
   runtime: AgentRuntime,
   tableName: string,
@@ -949,9 +1059,15 @@ function buildPluginParamDefs(
   return Object.entries(parameters).map(([key, definition]) => {
     const envValue = process.env[key]?.trim() || undefined;
     const savedValue = savedValues?.[key];
-    const effectiveValue = envValue ?? (savedValue ? savedValue.trim() || undefined : undefined);
+    const effectiveValue =
+      envValue ?? (savedValue ? savedValue.trim() || undefined : undefined);
     const isSet = Boolean(effectiveValue);
     const sensitive = Boolean(definition.sensitive);
+    const currentValue = !effectiveValue
+      ? null
+      : sensitive
+        ? maskValue(effectiveValue)
+        : effectiveValue;
 
     return {
       key,
@@ -966,11 +1082,7 @@ function buildPluginParamDefs(
       options: Array.isArray(definition.options)
         ? definition.options
         : undefined,
-      currentValue: isSet
-        ? sensitive
-          ? maskValue(effectiveValue!)
-          : effectiveValue!
-        : null,
+      currentValue,
       isSet,
     };
   });
@@ -1003,12 +1115,20 @@ function findNearestFile(
 // ---------------------------------------------------------------------------
 
 const ONBOARDING_PROVIDER_ENV_KEYS: Record<string, string> = {
+  // Provider IDs match the upstream onboarding catalog in
+  // @elizaos/autonomous/contracts/onboarding.ts
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
   groq: "GROQ_API_KEY",
+  grok: "XAI_API_KEY",
   xai: "XAI_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
+  gemini: "GOOGLE_GENERATIVE_AI_API_KEY",
   "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  together: "TOGETHER_API_KEY",
+  zai: "ZAI_API_KEY",
 };
 
 /**
@@ -1018,9 +1138,7 @@ const ONBOARDING_PROVIDER_ENV_KEYS: Record<string, string> = {
 export function extractAndPersistOnboardingApiKey(
   body: Record<string, unknown>,
 ): string | null {
-  const connection = body.connection as
-    | Record<string, unknown>
-    | undefined;
+  const connection = body.connection as Record<string, unknown> | undefined;
   if (
     !connection ||
     typeof connection.provider !== "string" ||
@@ -1039,8 +1157,7 @@ export function extractAndPersistOnboardingApiKey(
   if (!config.env || typeof config.env !== "object") {
     (config as Record<string, unknown>).env = {};
   }
-  (config.env as Record<string, string>)[envKey] =
-    connection.apiKey as string;
+  (config.env as Record<string, string>)[envKey] = connection.apiKey as string;
   (config as Record<string, unknown>).subscriptionProvider =
     connection.provider;
   saveElizaConfig(config);
@@ -1738,8 +1855,14 @@ async function handleMiladyCompatRoute(
     // Read the body, persist the key, then push bytes back so upstream
     // can re-read the same body from the request stream.
     const chunks: Buffer[] = [];
-    for await (const chunk of req) {
-      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    try {
+      for await (const chunk of req) {
+        chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+      }
+    } catch {
+      // Stream error — signal end-of-stream and bail out
+      req.push(null);
+      return false;
     }
     const rawBody = Buffer.concat(chunks);
 
@@ -1757,8 +1880,16 @@ async function handleMiladyCompatRoute(
       // JSON parse failed — let upstream handle the error
     }
 
+    // Send the response early so the 10-second client timeout doesn't
+    // fire — the upstream handler triggers an agent restart which can
+    // block much longer than the client allows. The upstream handler
+    // will still receive the body and process the onboarding config,
+    // but won't be able to write headers (headersSent check in
+    // sendJsonResponse prevents double-write).
+    sendJsonResponse(res, 200, { ok: true });
+
     // Push the raw bytes back into the request stream so the upstream
-    // handler can consume the body normally.
+    // can still consume the body for processing.
     req.push(rawBody);
     req.push(null);
     return false;
@@ -1802,7 +1933,8 @@ async function handleMiladyCompatRoute(
   }
 
   // ── POST /api/plugins/:id/test — Test connector connectivity
-  const testMatch = method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/test$/);
+  const testMatch =
+    method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/test$/);
   if (testMatch) {
     if (!ensureCompatApiAuthorized(req, res)) return true;
     const testPluginId = normalizePluginId(decodeURIComponent(testMatch[1]));
@@ -1811,31 +1943,100 @@ async function handleMiladyCompatRoute(
     if (testPluginId === "telegram") {
       const token = process.env.TELEGRAM_BOT_TOKEN;
       if (!token) {
-        sendJsonResponse(res, 200, { success: false, pluginId: testPluginId, error: "No bot token configured", durationMs: Date.now() - startMs });
+        sendJsonResponse(res, 200, {
+          success: false,
+          pluginId: testPluginId,
+          error: "No bot token configured",
+          durationMs: Date.now() - startMs,
+        });
         return true;
       }
       try {
-        const apiRoot = process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
+        const apiRoot =
+          process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
         const tgResp = await fetch(`${apiRoot}/bot${token}/getMe`);
-        const tgData = (await tgResp.json()) as { ok: boolean; result?: { username?: string }; description?: string };
+        const tgData = (await tgResp.json()) as {
+          ok: boolean;
+          result?: { username?: string };
+          description?: string;
+        };
         sendJsonResponse(res, 200, {
           success: tgData.ok,
           pluginId: testPluginId,
-          message: tgData.ok ? `Connected as @${tgData.result?.username}` : `Telegram API error: ${tgData.description}`,
+          message: tgData.ok
+            ? `Connected as @${tgData.result?.username}`
+            : `Telegram API error: ${tgData.description}`,
           durationMs: Date.now() - startMs,
         });
       } catch (err) {
-        sendJsonResponse(res, 200, { success: false, pluginId: testPluginId, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs });
+        sendJsonResponse(res, 200, {
+          success: false,
+          pluginId: testPluginId,
+          error: err instanceof Error ? err.message : String(err),
+          durationMs: Date.now() - startMs,
+        });
       }
       return true;
     }
 
-    sendJsonResponse(res, 200, { success: true, pluginId: testPluginId, message: "Plugin is loaded (no custom test available)", durationMs: Date.now() - startMs });
+    sendJsonResponse(res, 200, {
+      success: true,
+      pluginId: testPluginId,
+      message: "Plugin is loaded (no custom test available)",
+      durationMs: Date.now() - startMs,
+    });
     return true;
   }
 
   // ── POST /api/plugins/:id/reveal — Return unmasked secret value
-  const revealMatch = method === "POST" && url.pathname.match(/^\/api\/plugins\/([^/]+)\/reveal$/);
+  // Only allow revealing plugin-related config keys, not arbitrary env vars.
+  const REVEALABLE_KEY_PREFIXES = [
+    "OPENAI_",
+    "ANTHROPIC_",
+    "GOOGLE_",
+    "GROQ_",
+    "MISTRAL_",
+    "PERPLEXITY_",
+    "COHERE_",
+    "TOGETHER_",
+    "FIREWORKS_",
+    "REPLICATE_",
+    "HUGGINGFACE_",
+    "ELEVENLABS_",
+    "DISCORD_",
+    "TELEGRAM_",
+    "TWITTER_",
+    "SLACK_",
+    "GITHUB_",
+    "REDIS_",
+    "POSTGRES_",
+    "DATABASE_",
+    "SUPABASE_",
+    "PINECONE_",
+    "QDRANT_",
+    "WEAVIATE_",
+    "CHROMADB_",
+    "AWS_",
+    "AZURE_",
+    "CLOUDFLARE_",
+    "SOLANA_",
+    "ETHEREUM_",
+    "EVM_",
+    "WALLET_",
+    "ELIZA_",
+    "MILADY_",
+    "PLUGIN_",
+    "XAI_",
+    "DEEPSEEK_",
+    "OLLAMA_",
+    "FAL_",
+    "LETZAI_",
+    "GAIANET_",
+    "LIVEPEER_",
+  ];
+  const revealMatch =
+    method === "POST" &&
+    url.pathname.match(/^\/api\/plugins\/([^/]+)\/reveal$/);
   if (revealMatch) {
     if (!ensureCompatApiAuthorized(req, res)) return true;
     const revealBody = await readCompatJsonBody(req, res);
@@ -1845,12 +2046,27 @@ async function handleMiladyCompatRoute(
       sendJsonErrorResponse(res, 400, "Missing key parameter");
       return true;
     }
+    const upperKey = key.toUpperCase();
+    if (
+      !REVEALABLE_KEY_PREFIXES.some((prefix) => upperKey.startsWith(prefix))
+    ) {
+      sendJsonErrorResponse(
+        res,
+        403,
+        "Key is not in the allowlist of revealable plugin config keys",
+      );
+      return true;
+    }
     const config = loadElizaConfig();
-    const value = process.env[key] ?? (config.env as Record<string, string> | undefined)?.[key] ?? null;
+    const value =
+      process.env[key] ??
+      (config.env as Record<string, string> | undefined)?.[key] ??
+      null;
     sendJsonResponse(res, 200, { ok: true, value });
     return true;
   }
 
+  if (!ensureCompatApiAuthorized(req, res)) return true;
   return handleDatabaseRowsCompatRoute(req, res, state.current, url.pathname);
 }
 
@@ -1876,14 +2092,23 @@ function patchHttpCreateServerForMiladyCompat(
       syncMiladyEnvToEliza();
       syncElizaEnvToMilady();
       mirrorCompatHeaders(req);
+      if (state) {
+        patchCompatStatusResponse(req, res, state);
+      }
 
       // CORS: allow cross-origin requests from local renderer servers
       // (Electrobun static server, Vite dev, or any localhost origin).
       const origin = req.headers.origin ?? "";
       if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
         res.setHeader("Access-Control-Allow-Origin", origin);
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Token, X-Api-Key, X-Milady-Client-Id, X-Milady-UI-Language, X-Milady-Token, X-Milady-Export-Token, X-Milady-Terminal-Token");
+        res.setHeader(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PUT, DELETE, OPTIONS",
+        );
+        res.setHeader(
+          "Access-Control-Allow-Headers",
+          "Content-Type, Authorization, X-API-Token, X-Api-Key, X-Milady-Client-Id, X-Milady-UI-Language, X-Milady-Token, X-Milady-Export-Token, X-Milady-Terminal-Token",
+        );
         res.setHeader("Access-Control-Allow-Credentials", "true");
       }
 
@@ -1907,7 +2132,20 @@ function patchHttpCreateServerForMiladyCompat(
           await ensureRuntimeSqlCompatibility(state.current);
         }
 
-        if (await handleMiladyCompatRoute(req, res, state)) {
+        try {
+          if (await handleMiladyCompatRoute(req, res, state)) {
+            return;
+          }
+        } catch (err) {
+          console.error(
+            "[milady-compat] unhandled error in route handler",
+            err,
+          );
+          if (!res.headersSent) {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(JSON.stringify({ error: "Internal server error" }));
+          }
           return;
         }
       }
@@ -2098,6 +2336,7 @@ export async function startApiServer(
   syncElizaEnvToMilady();
   const compatState: CompatRuntimeState = {
     current: (args[0]?.runtime as AgentRuntime | null) ?? null,
+    pendingAgentName: null,
   };
   const restoreCreateServer = patchHttpCreateServerForMiladyCompat(compatState);
 

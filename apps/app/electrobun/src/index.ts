@@ -74,7 +74,6 @@ const CONFIG_EXPORT_FILE_NAME = "milady-config.json";
 // is hardened across the supported desktop release targets.
 const BROWSER_SURFACE_ENABLED =
   process.env.MILADY_ENABLE_BROWSER_SURFACE === "1";
-const FORCE_AUTOSTART_AGENT = process.env.MILADY_FORCE_AUTOSTART_AGENT === "1";
 let heartbeatMenuSnapshot: HeartbeatMenuSnapshot =
   EMPTY_HEARTBEAT_MENU_SNAPSHOT;
 let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -86,7 +85,9 @@ let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
 import {
   isAgentReady,
   onAgentReadyChange,
+  setAgentReady,
 } from "./agent-ready-state";
+import { DEFAULT_PORT } from "./constants";
 
 function setupApplicationMenu(): void {
   const isMac = process.platform === "darwin";
@@ -357,6 +358,8 @@ let lastFocusedWindow: ManagedWindowLike | null = null;
 
 function sendToActiveRenderer(message: string, payload?: unknown): void {
   currentSendToWebview?.(message, payload);
+  if (!currentSendToWebview)
+    console.debug("[Main] Dropped renderer message (no window):", message);
 }
 
 // ============================================================================
@@ -524,7 +527,13 @@ async function createMainWindow(): Promise<BrowserWindow> {
   // Read the pre-built webview bridge preload (built by `bun run build:preload`).
   // The preload runs in the webview context after Electrobun's built-in preload,
   // setting up Milady's direct Electrobun RPC bridge on the window.
-  const preload = readBuiltPreloadScript(import.meta.dir);
+  let preload: string;
+  try {
+    preload = readBuiltPreloadScript(import.meta.dir);
+  } catch (err) {
+    console.error("[Main] Failed to read preload script:", err);
+    preload = "// preload unavailable";
+  }
 
   const win = new BrowserWindow({
     title: "Milady",
@@ -908,12 +917,15 @@ function injectApiBase(win: BrowserWindow): void {
       runtimeResolution.externalApi.base,
       process.env.MILADY_API_TOKEN,
     );
+    setAgentReady(true);
     return;
   }
 
   const agent = getAgentManager();
-  const port = agent.getPort() ?? (Number(process.env.MILADY_PORT) || 2138);
+  const port =
+    agent.getPort() ?? (Number(process.env.MILADY_PORT) || DEFAULT_PORT);
   pushApiBaseToRenderer(win, `http://127.0.0.1:${port}`);
+  setAgentReady(true);
 }
 
 // ============================================================================
@@ -960,6 +972,7 @@ async function _startAgent(win: BrowserWindow): Promise<void> {
 
     if (status.state === "running" && status.port) {
       pushApiBaseToRenderer(win, `http://127.0.0.1:${status.port}`);
+      setAgentReady(true);
       // Sync real OS permission states to the REST API so the renderer
       // can display them and capability toggles can unlock.
       // Pass startup=true so the backend skips scheduling a restart for
@@ -1317,7 +1330,9 @@ async function main(): Promise<void> {
       // in local mode via injectApiBaseIntoHtml), so the main process must
       // ensure the agent is running before the renderer starts polling.
       console.log("[Main] Starting embedded agent (local mode).");
-      void _startAgent(currentWindow);
+      _startAgent(currentWindow).catch((err) => {
+        console.error("[Main] Agent auto-start failed:", err);
+      });
     }
   }
 

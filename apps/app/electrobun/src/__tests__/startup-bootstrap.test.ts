@@ -34,12 +34,15 @@ describe("Electrobun startup bootstrap", () => {
   it("validates the built preload before creating the BrowserWindow", () => {
     const source = fs.readFileSync(INDEX_PATH, "utf8");
     const validateIndex = source.indexOf(
-      "const preload = readBuiltPreloadScript(import.meta.dir);",
+      "preload = readBuiltPreloadScript(import.meta.dir);",
     );
     const browserWindowIndex = source.indexOf("const win = new BrowserWindow(");
 
     expect(validateIndex).toBeGreaterThan(-1);
     expect(browserWindowIndex).toBeGreaterThan(validateIndex);
+    expect(source).toContain(
+      'console.error("[Main] Failed to read preload script:", err);',
+    );
   });
 
   it("resolves the initial renderer API base from desktop runtime mode", () => {

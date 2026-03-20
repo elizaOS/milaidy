@@ -97,7 +97,7 @@ const { mockClient } = vi.hoisted(() => ({
   },
 }));
 
-import { client, type MiladyClient } from "@elizaos/app-core/api/client";
+import { client } from "@elizaos/app-core/api/client";
 
 // We use vi.spyOn against the real client singleton instead of a module mock,
 // because AppContext imports client via a relative path that vi.mock might not intercept.
@@ -175,8 +175,6 @@ async function flushEffects() {
 }
 
 describe("AppProvider onboarding step resume", () => {
-  let getOnboardingStatusSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
     Object.assign(window, {
       clearInterval: globalThis.clearInterval,
@@ -203,11 +201,9 @@ describe("AppProvider onboarding step resume", () => {
       pairingEnabled: false,
       expiresAt: null,
     });
-    getOnboardingStatusSpy = vi
-      .spyOn(client, "getOnboardingStatus")
-      .mockResolvedValue({
-        complete: false,
-      });
+    vi.spyOn(client, "getOnboardingStatus").mockResolvedValue({
+      complete: false,
+    });
     vi.spyOn(client, "getOnboardingOptions").mockResolvedValue({
       names: ["Milady"],
       styles: [
@@ -295,10 +291,8 @@ describe("AppProvider onboarding step resume", () => {
     });
 
     let api: ProbeApi | null = null;
-    let tree: TestRenderer.ReactTestRenderer | null = null;
-
     await act(async () => {
-      tree = TestRenderer.create(
+      TestRenderer.create(
         React.createElement(
           AppProvider,
           null,
@@ -311,7 +305,11 @@ describe("AppProvider onboarding step resume", () => {
       );
     });
     await flushEffects();
-    expect(api!.getSnapshot()).toEqual(
+    expect(api).not.toBeNull();
+    if (!api) {
+      throw new Error("Probe API was not initialized");
+    }
+    expect(api.getSnapshot()).toEqual(
       expect.objectContaining({
         onboardingStep: "senses",
         onboardingRunMode: "cloud",
