@@ -70,6 +70,10 @@ type HeartbeatMenuHealthResponse = {
 
 const HEARTBEAT_MENU_REFRESH_MS = 30_000;
 const CONFIG_EXPORT_FILE_NAME = "milady-config.json";
+// Browser surface stays off by default until the packaged WebGPU/browser path
+// is hardened across the supported desktop release targets.
+const BROWSER_SURFACE_ENABLED =
+  process.env.MILADY_ENABLE_BROWSER_SURFACE === "1";
 let heartbeatMenuSnapshot: HeartbeatMenuSnapshot =
   EMPTY_HEARTBEAT_MENU_SNAPSHOT;
 let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -82,6 +86,7 @@ function setupApplicationMenu(): void {
   const isMac = process.platform === "darwin";
   const menu = buildApplicationMenu({
     isMac,
+    browserEnabled: BROWSER_SURFACE_ENABLED,
     heartbeatSnapshot: heartbeatMenuSnapshot,
     detachedWindows: surfaceWindowManager?.listWindows() ?? [],
   });
@@ -1125,6 +1130,20 @@ function initializeBundledWebGPU(): void {
  * On Linux/Windows with CEF, upstream Electrobun support is needed.
  */
 function checkWebGpuBrowserSupport(): void {
+  if (!BROWSER_SURFACE_ENABLED) {
+    console.warn("[WebGPU Browser] Browser surface disabled in this build.");
+    setTimeout(() => {
+      sendToActiveRenderer("webgpu:browserStatus", {
+        available: false,
+        reason: "Browser surface disabled in this build.",
+        renderer: "unknown",
+        chromeBetaPath: null,
+        downloadUrl: null,
+      });
+    }, 2000);
+    return;
+  }
+
   const status = checkWebGpuSupport();
   if (status.available) {
     console.log(`[WebGPU Browser] ${status.reason}`);

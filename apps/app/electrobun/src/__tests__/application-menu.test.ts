@@ -6,6 +6,7 @@ import {
 
 function getMenu(
   label: string,
+  browserEnabled = false,
   detachedWindows: Array<{
     id: string;
     surface:
@@ -22,6 +23,7 @@ function getMenu(
 ) {
   const menu = buildApplicationMenu({
     isMac: true,
+    browserEnabled,
     heartbeatSnapshot: EMPTY_HEARTBEAT_MENU_SNAPSHOT,
     detachedWindows,
   });
@@ -32,6 +34,7 @@ describe("buildApplicationMenu", () => {
   it("renders surface-first top-level menus without the redundant agent menu", () => {
     const menu = buildApplicationMenu({
       isMac: true,
+      browserEnabled: false,
       heartbeatSnapshot: EMPTY_HEARTBEAT_MENU_SNAPSHOT,
       detachedWindows: [],
     });
@@ -42,7 +45,6 @@ describe("buildApplicationMenu", () => {
       "Edit",
       "View",
       "Cloud",
-      "Browser",
       "Plugins",
       "Connectors",
       "Heartbeats",
@@ -68,6 +70,7 @@ describe("buildApplicationMenu", () => {
   it("renders heartbeat monitoring summary in the native menu", () => {
     const heartbeatsMenu = buildApplicationMenu({
       isMac: false,
+      browserEnabled: false,
       heartbeatSnapshot: {
         ...EMPTY_HEARTBEAT_MENU_SNAPSHOT,
         loading: false,
@@ -142,47 +145,66 @@ describe("buildApplicationMenu", () => {
     ];
 
     const pluginsLabels = (
-      getMenu("Plugins", detachedWindows)?.submenu ?? []
+      getMenu("Plugins", false, detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
     const connectorsLabels = (
-      getMenu("Connectors", detachedWindows)?.submenu ?? []
+      getMenu("Connectors", false, detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
-    const cloudLabels = (getMenu("Cloud", detachedWindows)?.submenu ?? []).map(
-      (item) => item.label ?? item.type ?? "",
-    );
-    const browserLabels = (
-      getMenu("Browser", detachedWindows)?.submenu ?? []
+    const cloudLabels = (
+      getMenu("Cloud", false, detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
     const heartbeatsLabels = (
-      getMenu("Heartbeats", detachedWindows)?.submenu ?? []
+      getMenu("Heartbeats", false, detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
     const windowLabels = (
-      getMenu("Window", detachedWindows)?.submenu ?? []
+      getMenu("Window", false, detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
 
     expect(pluginsLabels).toContain("Open New Plugins Window");
     expect(pluginsLabels).toContain("Milady Plugins");
     expect(cloudLabels).toContain("Open Cloud Window");
     expect(cloudLabels).toContain("Eliza Cloud");
-    expect(browserLabels).toContain("Open Browser Window");
-    expect(browserLabels).toContain("Milady Browser");
     expect(connectorsLabels).toContain("Open New Connectors Window");
     expect(connectorsLabels).toContain("Milady Connectors");
     expect(heartbeatsLabels).toContain("Milady Heartbeats");
-    expect(windowLabels).toContain("New Browser Window");
     expect(windowLabels).toContain("New Chat Window");
     expect(windowLabels).toContain("New Plugins Window");
     expect(windowLabels).toContain("New Cloud Window");
-    expect(windowLabels).toContain("Milady Browser");
     expect(windowLabels).toContain("Milady Chat");
     expect(windowLabels).toContain("Eliza Cloud");
     expect(windowLabels).toContain("Milady Settings");
+    expect(windowLabels).not.toContain("New Browser Window");
+    expect(windowLabels).not.toContain("Milady Browser");
+  });
+
+  it("can re-enable browser menus when explicitly requested", () => {
+    const detachedWindows = [
+      {
+        id: "browser_1",
+        surface: "browser" as const,
+        title: "Milady Browser",
+        singleton: false,
+      },
+    ];
+
+    const browserLabels = (
+      getMenu("Browser", true, detachedWindows)?.submenu ?? []
+    ).map((item) => item.label ?? item.type ?? "");
+    const windowLabels = (
+      getMenu("Window", true, detachedWindows)?.submenu ?? []
+    ).map((item) => item.label ?? item.type ?? "");
+
+    expect(browserLabels).toContain("Open Browser Window");
+    expect(browserLabels).toContain("Milady Browser");
+    expect(windowLabels).toContain("New Browser Window");
+    expect(windowLabels).toContain("Milady Browser");
   });
 
   it("surfaces heartbeat load failures without removing the menu", () => {
     const labels = (
       buildApplicationMenu({
         isMac: true,
+        browserEnabled: false,
         heartbeatSnapshot: {
           ...EMPTY_HEARTBEAT_MENU_SNAPSHOT,
           loading: false,
