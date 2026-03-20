@@ -3,6 +3,32 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-04-16" description="Week of April 10–16" tags={["Feature", "Update", "Fix"]}>
+## Keyboard shortcuts overlay
+
+Press `Shift+?` from anywhere in the app to see all available keyboard shortcuts. The overlay groups shortcuts by category — agent, navigation, refresh, and utility — so you can discover commands without leaving the keyboard.
+
+## Training backend detection
+
+Before starting a fine-tuning job, Milady now automatically detects available compute backends (MLX, CUDA, CPU) and validates your selection. If you request a backend that isn't available, you get a clear error instead of a silent failure. The detected backends are also available via the [training API](/rest/training).
+
+## Orchestrator trajectory view
+
+LLM calls made by the swarm orchestrator are now tagged with source metadata and displayed with purple badges in the [trajectory view](/advanced/trajectories). You can see which decisions the orchestrator made, which session and task they relate to, and how they differ from individual agent calls.
+
+## Updates
+
+- **Stream interruption recovery** — If an LLM response stream breaks mid-message, the chat now marks it as "(Response interrupted)" and shows a Retry button so you can regenerate without retyping. Previously, broken streams left a partial message with no way to recover.
+- **Terminal session persistence** — Coding agent terminals now stay alive when you switch between tabs and automatically reconnect after a WebSocket drop. You no longer lose terminal context when navigating the dashboard.
+- **Voice rate limiting** — The voice speak endpoint now enforces a 2,000-character text cap and a per-session rate limit to prevent rapid-fire TTS abuse. Requests that exceed either limit receive a clear error response.
+- **Reconnection progress indicator** — When the dashboard loses its WebSocket connection, you now see an amber "Reconnecting (attempt X/15)..." banner with a spinner before the failure banner appears, giving you visibility into the retry process.
+
+## Bug fixes
+
+- Fixed the coding agent stop button not working — clicking stop now correctly terminates the active session
+- Fixed duplicate terminal output when opening a coding agent panel
+- Fixed VRM avatars and 3D assets silently failing to load when the server returned HTML instead of binary data
+- Fixed memory monitoring — a new debug panel is available for tracking heap usage during long-running sessions
 <Update label="2026-06-11" description="Week of June 5–11" tags={["Update", "Fix"]}>
 ## Unified provider configuration
 
