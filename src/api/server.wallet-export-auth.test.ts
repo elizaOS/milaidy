@@ -1,6 +1,9 @@
 import type http from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMockHeadersRequest } from "./../test-support/test-helpers";
+import {
+  createEnvSandbox,
+  createMockHeadersRequest,
+} from "./../test-support/test-helpers";
 import { resolveWalletExportRejection } from "./server";
 import { _resetForTesting } from "./wallet-export-guard";
 
@@ -28,18 +31,18 @@ function extractNonce(
 }
 
 describe("resolveWalletExportRejection", () => {
-  const prevExportToken = process.env.ELIZA_WALLET_EXPORT_TOKEN;
+  const env = createEnvSandbox([
+    "ELIZA_WALLET_EXPORT_TOKEN",
+    "MILADY_WALLET_EXPORT_TOKEN",
+  ]);
 
   beforeEach(() => {
+    env.clear();
     _resetForTesting();
   });
 
   afterEach(() => {
-    if (prevExportToken === undefined) {
-      delete process.env.ELIZA_WALLET_EXPORT_TOKEN;
-    } else {
-      process.env.ELIZA_WALLET_EXPORT_TOKEN = prevExportToken;
-    }
+    env.restore();
   });
 
   it("rejects when confirmation is missing", () => {
