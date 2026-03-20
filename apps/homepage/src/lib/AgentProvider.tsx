@@ -8,17 +8,54 @@ import {
   useRef,
   useState,
 } from "react";
-import { type CloudAgent, getToken } from "./auth";
+import { type CloudAgent, CLOUD_AUTH_CHANGED_EVENT, getToken } from "./auth";
 import { CloudApiClient, CloudClient } from "./cloud-api";
 import { addConnection, getConnections, removeConnection } from "./connections";
 import {
   AGENT_UI_BASE_DOMAIN,
   CLOUD_BASE,
+  getCloudTokenStorageKey,
   getSandboxDiscoveryUrls,
   LOCAL_AGENT_BASE,
   rewriteAgentUiUrl,
   shouldAllowPublicSandboxDiscoveryFallback,
 } from "./runtime-config";
+
+// Timeouts for health probes - shorter than before to avoid long waits
+const HEALTH_TIMEOUT_MS = 3000;
+const STATUS_TIMEOUT_MS = 2000;
+const DISCOVERY_TIMEOUT_MS = 5000;
+
+// Max concurrent health probes to avoid overwhelming the network
+const MAX_CONCURRENT_PROBES = 6;
+
+/**
+ * Simple semaphore for limiting concurrent async operations.
+ */
+function createSemaphore(maxConcurrent: number) {
+  let current = 0;
+  const queue: Array<() => void> = [];
+
+  return {
+    async acquire(): Promise<void> {
+      if (current < maxConcurrent) {
+        current++;
+        return;
+      }
+      return new Promise<void>((resolve) => {
+        queue.push(resolve);
+      });
+    },
+    release(): void {
+      current--;
+      const next = queue.shift();
+      if (next) {
+        current++;
+        next();
+      }
+    },
+  };
+}
 
 export type AgentSource = "cloud" | "local" | "remote";
 
@@ -55,7 +92,13 @@ export type SourceFilter = "all" | "local" | "cloud" | "remote";
 interface AgentContextValue {
   agents: ManagedAgent[];
   filteredAgents: ManagedAgent[];
+  /** True only during initial load (first fetch). */
   loading: boolean;
+  /** True when any refetch is in progress (interval, manual refresh, post-mutation). */
+  isRefreshing: boolean;
+  /** Last error from cloud API or agent discovery. Dismissible via clearError(). */
+  error: string | null;
+  clearError: () => void;
   cloudClient: CloudClient | null;
   sourceFilter: SourceFilter;
   setSourceFilter: (f: SourceFilter) => void;
@@ -95,10 +138,16 @@ function agentsEqual(a: ManagedAgent[], b: ManagedAgent[]): boolean {
 export function AgentProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<ManagedAgent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const cloudClientRef = useRef<CloudClient | null>(null);
   const cloudTokenRef = useRef<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  // Request sequencing: incremented on each fetchAll() call to prevent stale responses
+  const fetchSequenceRef = useRef(0);
+  // Track whether initial load has completed
+  const hasLoadedOnceRef = useRef(false);
 
   // Sort agents: local first, then remote, then cloud (memoized to avoid re-creating on every render)
   const sortedAgents = useMemo(
@@ -118,10 +167,30 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     [sortedAgents, sourceFilter],
   );
 
+  const clearError = useCallback(() => setError(null), []);
+
   const fetchAll = useCallback(async () => {
+    // Increment sequence to invalidate any in-flight requests
+    const currentSequence = ++fetchSequenceRef.current;
+
+    // Helper to check if this fetch is still current
+    const isStale = () => currentSequence !== fetchSequenceRef.current;
+
+    // Set refreshing state (but not loading if we've already loaded once)
+    setIsRefreshing(true);
+
     const results: ManagedAgent[] = [];
+    let fetchError: string | null = null;
+
+    // Track agents that need health probes (for parallel enrichment)
+    const probeTargets: Array<{
+      index: number;
+      client: CloudApiClient;
+      isCloudEnrich?: boolean;
+    }> = [];
 
     // 1. Cloud agents (if authenticated with Eliza Cloud)
+    //    Show immediately from API response, then enrich with health probes
     let cloudAuthOk = false;
     const token = getToken();
     if (token) {
@@ -152,8 +221,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
             uptime: ca.uptime,
           });
         }
-      } catch {
-        // Cloud API failed — skip cloud agents but continue with sandbox discovery
+      } catch (err) {
+        // Cloud API failed — capture error and continue with sandbox discovery
+        const errMsg =
+          err instanceof Error ? err.message : "Cloud API request failed";
+        fetchError = `Cloud API: ${errMsg}`;
       }
     } else {
       cloudClientRef.current = null;
@@ -181,7 +253,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       for (const url of getSandboxDiscoveryUrls()) {
         try {
           const sandboxRes = await fetch(url, {
-            signal: AbortSignal.timeout(5000),
+            signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
           });
           if (sandboxRes.ok) {
             sandboxes = await sandboxRes.json();
@@ -252,115 +324,41 @@ export function AgentProvider({ children }: { children: ReactNode }) {
           cloudEntry.apiToken = apiToken;
           // Set webUiUrl to the sandbox's public URL (https://{uuid}.milady.ai)
           cloudEntry.webUiUrl = url;
-          // Try to enrich with live status from the sandbox
-          try {
-            await client.health();
-            try {
-              const status = await client.getAgentStatus();
-              // Only override cloud fields if sandbox has real data
-              if (status.state && status.state !== "unknown")
-                cloudEntry.status = status.state;
-              if (status.model && status.model !== "—")
-                cloudEntry.model = status.model;
-              if (status.uptime) cloudEntry.uptime = status.uptime;
-              if (status.memories) cloudEntry.memories = status.memories;
-            } catch {
-              // Health OK but no detailed status — mark as running if cloud says unknown
-              if (cloudEntry.status === "unknown")
-                cloudEntry.status = "running";
-            }
-          } catch {
-            // Sandbox unreachable — keep cloud data as-is
-          }
+          // Queue for health probe enrichment (done in parallel later)
+          probeTargets.push({
+            index: matchingCloudIdx,
+            client,
+            isCloudEnrich: true,
+          });
           continue;
         }
 
-        // No matching cloud agent — add as standalone remote agent
-        try {
-          await client.health();
-          try {
-            const status = await client.getAgentStatus();
-            results.push({
-              id: `milady-${sb.id}`,
-              name: status.agentName || sb.agent_name || sb.id,
-              source: "remote",
-              status: status.state,
-              model: status.model,
-              uptime: status.uptime,
-              memories: status.memories,
-              sourceUrl: url,
-              webUiUrl: url,
-              client,
-              nodeId: sb.node_id,
-              lastHeartbeat: sb.last_heartbeat_at,
-              apiToken,
-            });
-          } catch {
-            results.push({
-              id: `milady-${sb.id}`,
-              name: sb.agent_name || sb.id,
-              source: "remote",
-              status: "running",
-              sourceUrl: url,
-              webUiUrl: url,
-              client,
-              nodeId: sb.node_id,
-              lastHeartbeat: sb.last_heartbeat_at,
-              apiToken,
-            });
-          }
-        } catch {
-          results.push({
-            id: `milady-${sb.id}`,
-            name: sb.agent_name || sb.id,
-            source: "remote",
-            status: "unknown",
-            sourceUrl: url,
-            webUiUrl: url,
-            client,
-            nodeId: sb.node_id,
-            lastHeartbeat: sb.last_heartbeat_at,
-            apiToken,
-          });
-        }
+        // No matching cloud agent — add as standalone remote agent with "checking..." status
+        const newIndex = results.length;
+        results.push({
+          id: `milady-${sb.id}`,
+          name: sb.agent_name || sb.id,
+          source: "remote",
+          status: "unknown", // Will be enriched by health probe
+          sourceUrl: url,
+          webUiUrl: url,
+          client,
+          nodeId: sb.node_id,
+          lastHeartbeat: sb.last_heartbeat_at,
+          apiToken,
+        });
+        // Queue for health probe
+        probeTargets.push({ index: newIndex, client });
       }
     }
 
-    // 3. Local agent (auto-probe configured local backend)
-    try {
-      const localClient = new CloudApiClient({
-        url: LOCAL_AGENT_BASE,
-        type: "local",
-      });
-      const health = await localClient.health();
-      if (health.ready || health.status) {
-        try {
-          const status = await localClient.getAgentStatus();
-          results.push({
-            id: "local-default",
-            name: status.agentName || "Local Agent",
-            source: "local",
-            status: status.state,
-            model: status.model,
-            uptime: status.uptime,
-            memories: status.memories,
-            sourceUrl: LOCAL_AGENT_BASE,
-            client: localClient,
-          });
-        } catch {
-          results.push({
-            id: "local-default",
-            name: "Local Agent",
-            source: "local",
-            status: "running",
-            sourceUrl: LOCAL_AGENT_BASE,
-            client: localClient,
-          });
-        }
-      }
-    } catch {
-      // Local backend not running — skip silently
-    }
+    // 3. Prepare local agent probe (will run in parallel)
+    const localClient = new CloudApiClient({
+      url: LOCAL_AGENT_BASE,
+      type: "local",
+    });
+    const localAgentIndex = results.length;
+    // We'll add local agent placeholder only if probe succeeds (handled in parallel probes)
 
     // 4. Manually-added remote agents (via ConnectionModal)
     //    Skip any that were already auto-discovered from milady sandboxes.
@@ -380,52 +378,207 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         type: "remote",
         authToken: remote.authToken,
       });
+      const newIndex = results.length;
+      results.push({
+        id: `remote-${remote.id}`,
+        name: remote.name,
+        source: "remote",
+        status: "unknown", // Will be enriched by health probe
+        sourceUrl: remote.url,
+        client,
+      });
+      // Queue for health probe
+      probeTargets.push({ index: newIndex, client });
+    }
+
+    // ===== PHASE 1: Show agents immediately (before health probes) =====
+    if (isStale()) return;
+    setAgents((prev) => (agentsEqual(prev, results) ? prev : [...results]));
+    // Mark initial load complete so UI shows something immediately
+    hasLoadedOnceRef.current = true;
+    setLoading(false);
+
+    // ===== PHASE 2: Parallel health probes with concurrency limit =====
+    const semaphore = createSemaphore(MAX_CONCURRENT_PROBES);
+
+    // Helper to probe a single agent
+    const probeAgent = async (target: {
+      index: number;
+      client: CloudApiClient;
+      isCloudEnrich?: boolean;
+    }): Promise<{
+      index: number;
+      status?: ManagedAgent["status"];
+      model?: string;
+      uptime?: number;
+      memories?: number;
+      agentName?: string;
+    } | null> => {
+      await semaphore.acquire();
       try {
-        await client.health();
+        const health = await target.client.health({
+          signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+        });
+        if (!health.ready && !health.status) {
+          return { index: target.index, status: "unknown" };
+        }
+        // If health returned a synthetic response (agent is auth-gated),
+        // skip the status probe — we already know it's running and won't
+        // get real data without auth. This reduces network requests.
+        if (health._synthetic) {
+          return { index: target.index, status: "running" };
+        }
         try {
-          const status = await client.getAgentStatus();
-          results.push({
-            id: `remote-${remote.id}`,
-            name: status.agentName || remote.name,
-            source: "remote",
+          const status = await target.client.getAgentStatus({
+            signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+          });
+          return {
+            index: target.index,
             status: status.state,
             model: status.model,
             uptime: status.uptime,
             memories: status.memories,
-            sourceUrl: remote.url,
-            client,
-          });
+            agentName: status.agentName,
+          };
         } catch {
-          results.push({
-            id: `remote-${remote.id}`,
-            name: remote.name,
-            source: "remote",
-            status: "unknown",
-            sourceUrl: remote.url,
-            client,
-          });
+          // Health OK but no detailed status
+          return { index: target.index, status: "running" };
         }
       } catch {
-        results.push({
-          id: `remote-${remote.id}`,
-          name: remote.name,
-          source: "remote",
-          status: "unknown",
-          sourceUrl: remote.url,
-          client,
+        // Health check failed
+        return target.isCloudEnrich
+          ? null // Keep cloud data as-is
+          : { index: target.index, status: "unknown" };
+      } finally {
+        semaphore.release();
+      }
+    };
+
+    // Probe local agent in parallel with everything else
+    const probeLocalAgent = async (): Promise<ManagedAgent | null> => {
+      await semaphore.acquire();
+      try {
+        const health = await localClient.health({
+          signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
         });
+        if (!health.ready && !health.status) return null;
+        // If health returned a synthetic response (agent is auth-gated),
+        // skip the status probe — we already know it's running.
+        if (health._synthetic) {
+          return {
+            id: "local-default",
+            name: "Local Agent",
+            source: "local",
+            status: "running",
+            sourceUrl: LOCAL_AGENT_BASE,
+            client: localClient,
+          };
+        }
+        try {
+          const status = await localClient.getAgentStatus({
+            signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+          });
+          return {
+            id: "local-default",
+            name: status.agentName || "Local Agent",
+            source: "local",
+            status: status.state,
+            model: status.model,
+            uptime: status.uptime,
+            memories: status.memories,
+            sourceUrl: LOCAL_AGENT_BASE,
+            client: localClient,
+          };
+        } catch {
+          return {
+            id: "local-default",
+            name: "Local Agent",
+            source: "local",
+            status: "running",
+            sourceUrl: LOCAL_AGENT_BASE,
+            client: localClient,
+          };
+        }
+      } catch {
+        return null; // Local backend not running
+      } finally {
+        semaphore.release();
+      }
+    };
+
+    // Run all probes in parallel
+    const [probeResults, localAgentResult] = await Promise.all([
+      Promise.allSettled(probeTargets.map(probeAgent)),
+      probeLocalAgent(),
+    ]);
+
+    if (isStale()) return;
+
+    // ===== PHASE 3: Merge probe results and update state =====
+    const enrichedResults = [...results];
+
+    // Apply probe results to their respective agents
+    for (const result of probeResults) {
+      if (result.status === "fulfilled" && result.value) {
+        const { index, status, model, uptime, memories, agentName } =
+          result.value;
+        if (index < enrichedResults.length) {
+          const agent = enrichedResults[index];
+          if (status) agent.status = status;
+          if (model && model !== "—") agent.model = model;
+          if (uptime) agent.uptime = uptime;
+          if (memories) agent.memories = memories;
+          if (agentName && !agent.name) agent.name = agentName;
+        }
       }
     }
 
+    // Add local agent if probe succeeded
+    if (localAgentResult) {
+      enrichedResults.push(localAgentResult);
+    }
+
+    // Only update state if this is still the latest request
+    if (isStale()) return;
+
     // Only update state if data actually changed (prevents unnecessary re-renders)
-    setAgents((prev) => (agentsEqual(prev, results) ? prev : results));
-    setLoading(false);
+    setAgents((prev) =>
+      agentsEqual(prev, enrichedResults) ? prev : enrichedResults,
+    );
+
+    // Update error state
+    setError(fetchError);
+    setIsRefreshing(false);
   }, []);
 
   useEffect(() => {
     fetchAll();
     intervalRef.current = setInterval(fetchAll, 30000);
     return () => clearInterval(intervalRef.current);
+  }, [fetchAll]);
+
+  // Listen for auth changes (sign-in/sign-out) and refresh immediately
+  useEffect(() => {
+    const handleAuthChange = () => {
+      fetchAll();
+    };
+
+    // Subscribe to custom auth changed event (same-tab)
+    window.addEventListener(CLOUD_AUTH_CHANGED_EVENT, handleAuthChange);
+
+    // Subscribe to storage events for cross-tab sync
+    const handleStorage = (event: StorageEvent) => {
+      const tokenKey = getCloudTokenStorageKey();
+      if (event.key === tokenKey || event.key === null) {
+        fetchAll();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(CLOUD_AUTH_CHANGED_EVENT, handleAuthChange);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, [fetchAll]);
 
   const addRemoteUrl = useCallback(
@@ -450,6 +603,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       agents: sortedAgents,
       filteredAgents,
       loading,
+      isRefreshing,
+      error,
+      clearError,
       cloudClient: cloudClientRef.current,
       sourceFilter,
       setSourceFilter,
@@ -461,6 +617,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       sortedAgents,
       filteredAgents,
       loading,
+      isRefreshing,
+      error,
+      clearError,
       sourceFilter,
       fetchAll,
       addRemoteUrl,

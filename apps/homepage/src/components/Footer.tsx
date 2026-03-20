@@ -2,30 +2,36 @@ import { releaseData } from "../generated/release-data";
 
 export function Footer() {
   return (
-    <footer className="relative pt-16 sm:pt-20 lg:pt-24 pb-10 sm:pb-12 px-4 sm:px-6 md:px-12 bg-dark border-t border-sharp overflow-hidden">
+    <footer className="relative pt-16 sm:pt-20 lg:pt-24 pb-10 sm:pb-12 px-4 sm:px-6 md:px-12 bg-dark border-t border-border overflow-hidden">
+      {/* Background watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
-        <h1 className="text-[24vw] sm:text-[18vw] font-black leading-none tracking-tighter text-white/[0.04] uppercase whitespace-nowrap">
+        <h1 className="text-[24vw] sm:text-[18vw] font-black leading-none tracking-tighter text-white/[0.02] uppercase whitespace-nowrap">
           MILADY APP
         </h1>
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center gap-8 sm:gap-10">
-        <div className="text-center px-2">
-          <span className="text-2xl sm:text-3xl font-black tracking-tighter uppercase inline-flex items-center gap-2">
-            <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-brand" />
-            MILADY
-          </span>
-          <p className="text-xs sm:text-sm text-text-muted mt-3 sm:mt-4 max-w-md font-mono mx-auto leading-relaxed">
-            Local-first agent runtime with desktop releases, CLI install
-            scripts, and public GitHub artifacts.
+        {/* Brand */}
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-sm overflow-hidden flex items-center justify-center">
+              <img src="/logo.png" alt="Milady" className="w-full h-full object-cover" />
+            </div>
+            <span className="text-lg sm:text-xl font-black tracking-[0.08em] uppercase text-white">
+              MILADY
+            </span>
+          </div>
+          <p className="font-mono text-xs text-text-muted max-w-md mx-auto leading-relaxed">
+            Local-first agent runtime with desktop releases, CLI install scripts, and public GitHub artifacts.
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-5 sm:gap-6">
+        {/* Social links */}
+        <div className="flex items-center gap-6 sm:gap-8">
           <SocialLink href="https://github.com/milady-ai/milady" label="GitHub">
             <svg
               aria-hidden="true"
-              className="w-5 h-5 sm:w-6 sm:h-6"
+              className="w-5 h-5"
               fill="currentColor"
               viewBox="0 0 24 24"
             >
@@ -36,7 +42,7 @@ export function Footer() {
           <SocialLink href={releaseData.release.url} label="Releases">
             <svg
               aria-hidden="true"
-              className="w-5 h-5 sm:w-6 sm:h-6"
+              className="w-5 h-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -53,7 +59,7 @@ export function Footer() {
           <SocialLink href="https://discord.gg/milady" label="Discord">
             <svg
               aria-hidden="true"
-              className="w-5 h-5 sm:w-6 sm:h-6"
+              className="w-5 h-5"
               fill="currentColor"
               viewBox="0 0 24 24"
             >
@@ -63,10 +69,18 @@ export function Footer() {
           </SocialLink>
         </div>
 
-        <p className="text-[10px] sm:text-xs font-mono text-text-muted uppercase tracking-[0.18em] text-center leading-relaxed px-2">
-          &copy; {new Date().getFullYear()} Milady. Latest surfaced release:{" "}
-          {releaseData.release.tagName}.
-        </p>
+        {/* Footer info */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-3 font-mono text-[10px] text-text-subtle">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand/50" />
+            <span className="tracking-wider uppercase">
+              {releaseData.release.tagName}
+            </span>
+          </div>
+          <p className="font-mono text-[10px] text-text-subtle tracking-wider uppercase">
+            &copy; {new Date().getFullYear()} Milady
+          </p>
+        </div>
       </div>
     </footer>
   );
@@ -87,7 +101,7 @@ function SocialLink({
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="text-text-muted hover:text-brand transition-colors duration-300 transform hover:scale-110"
+      className="text-text-subtle hover:text-brand transition-colors duration-200"
     >
       {children}
     </a>

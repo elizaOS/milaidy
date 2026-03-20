@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { releaseData } from "../generated/release-data";
 
 const REPO = "milady-ai/milady";
@@ -32,27 +32,29 @@ function WindowsIcon() {
 }
 
 function LinuxIcon() {
+  // Simplified Tux penguin silhouette
   return (
     <svg
       aria-hidden="true"
       className="w-5 h-5"
-      viewBox="0 0 24 24"
+      viewBox="0 0 448 512"
       fill="currentColor"
     >
-      <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2a3.4 3.4 0 00.114.333c.391.778 1.113 1.396 1.884 1.564.422.074.852-.002 1.278-.29.19-.13.363-.295.528-.525.39-.546.981-1.3 1.006-2.34.034-.46-.04-.87-.233-1.27a2 2 0 00-.13-.262c.009-.02.018-.042.027-.064.135-.327.191-.672.186-1.004-.01-.667-.311-1.321-.656-1.862-.388-.567-.852-1.079-1.186-1.625-.334-.546-.514-1.134-.394-1.893.202-1.283.545-2.57.353-3.822-.116-.752-.398-1.493-.876-2.104-.46-.588-1.093-1.037-1.86-1.211a4.1 4.1 0 00-1.464-.074c-.511.054-1.052.176-1.622.367z" />
+      <path d="M220.8 123.3c1 .5 1.8 1.7 3 1.7 1.1 0 2.8-.4 2.9-1.5.2-1.4-1.9-2.3-3.2-2.9-1.7-.7-3.9-1-5.5-.1-.4.2-.8.7-.6 1.1.3 1.3 2.3 1.1 3.4 1.7zm-21.9 1.7c1.2 0 2-1.2 3-1.7 1.1-.6 3.1-.4 3.5-1.6.2-.4-.2-.9-.6-1.1-1.6-.9-3.8-.6-5.5.1-1.3.6-3.4 1.5-3.2 2.9.1 1 1.8 1.5 2.8 1.4zM420 403.8c-3.6-4-5.3-11.6-7.2-19.7-1.8-8.1-3.9-16.8-10.5-22.4-1.3-1.1-2.6-2.1-4-2.9-1.3-.8-2.7-1.5-4.1-2 9.2-27.3 5.6-54.5-3.7-79.1-11.4-30.1-31.3-56.4-46.5-74.4-17.1-21.5-33.7-41.9-33.4-72C311.1 85.4 315.7 36.6 281.2 12c-7.1-5-15.1-8.2-23.7-9.6-7.4-1.2-15.4-1.2-22.8 0-8.6 1.5-16.6 4.6-23.7 9.6C176.7 36.6 181.3 85.4 181.1 131.3c.3 30.1-16.3 50.5-33.4 72-15.2 18-35.1 44.3-46.5 74.4-9.3 24.6-12.9 51.8-3.7 79.1-1.4.6-2.8 1.2-4.1 2-1.4.8-2.7 1.8-4 2.9-6.6 5.6-8.7 14.3-10.5 22.4-1.9 8.1-3.6 15.7-7.2 19.7-4.5 5-2 12.5 4.4 15.9 6.3 3.4 14.3 4.5 22.2 4.5 7.9 0 15.8-1.1 22.2-4.5 9.2-4.9 11-14.3 17.3-21.9 3.3-4 7.4-6.7 12.4-6.7h56.6c5 0 9.1 2.7 12.4 6.7 6.3 7.6 8.1 17 17.3 21.9 6.4 3.4 14.3 4.5 22.2 4.5s15.9-1.1 22.2-4.5c6.4-3.4 8.9-10.9 4.4-15.9zM223.4 244.7c-21.7 0-39.3-17.6-39.3-39.3s17.6-39.3 39.3-39.3 39.3 17.6 39.3 39.3-17.6 39.3-39.3 39.3z"/>
     </svg>
   );
 }
 
 function UbuntuIcon() {
+  // Ubuntu Circle of Friends logo
   return (
     <svg
       aria-hidden="true"
       className="w-5 h-5"
-      viewBox="0 0 24 24"
+      viewBox="0 0 496 512"
       fill="currentColor"
     >
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 2.5a2.5 2.5 0 110 5 2.5 2.5 0 010-5zM5.5 14a2 2 0 110-4 2 2 0 010 4zm13 0a2 2 0 110-4 2 2 0 010 4zM12 19.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
+      <path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm52.7 93c8.8-15.2 28.3-20.5 43.5-11.7 15.3 8.8 20.5 28.3 11.7 43.6-8.8 15.2-28.3 20.5-43.5 11.7-15.3-8.9-20.5-28.4-11.7-43.6zM87.4 287.9c-17.6 0-31.9-14.3-31.9-31.9 0-17.6 14.3-31.9 31.9-31.9 17.6 0 31.9 14.3 31.9 31.9 0 17.6-14.3 31.9-31.9 31.9zm28.1 3.1c22.3-17.9 22.4-51.9 0-69.9 8.6-32.8 29.1-60.7 56.5-79.1l23.7 39.6c-51.5 36.3-51.5 112.5 0 148.8L172 370c-27.4-18.3-47.8-46.3-56.5-79zm228.7 131.7c-15.3 8.8-34.7 3.6-43.5-11.7-8.8-15.3-3.6-34.8 11.7-43.6 15.2-8.8 34.7-3.6 43.5 11.7 8.8 15.3 3.6 34.8-11.7 43.6zm.3-69.5c-26.7-10.3-56.1 6.6-60.5 35-5.2 1.4-48.9 14.3-96.7-9.4l22.5-40.3c57 26.5 123.4-11.7 128.9-74.4l46.1.7c-2.3 34.5-17.3 65.5-40.3 88.4zm-5.9-105.3c-5.4-62-71.3-101.2-128.9-74.4l-22.5-40.3c47.9-23.7 91.5-10.8 96.7-9.4 4.4 28.3 33.8 45.3 60.5 35 23.1 22.9 38 53.9 40.2 88.5l-46 .6z"/>
     </svg>
   );
 }
@@ -131,6 +133,14 @@ const platformDefs = [
   { id: "github", label: "All", store: "Releases", assetId: "github" },
 ];
 
+type InstallMethod = "shell" | "powershell" | "brew";
+
+const installMethods: { id: InstallMethod; label: string; prefix: string }[] = [
+  { id: "shell", label: "Shell", prefix: "$" },
+  { id: "powershell", label: "PowerShell", prefix: "PS>" },
+  { id: "brew", label: "Brew", prefix: "$" },
+];
+
 export function matchAsset(name: string): string | null {
   const n = name.toLowerCase();
   if (/macos.*arm64.*\.dmg$/.test(n)) return "macos-arm64";
@@ -151,11 +161,48 @@ function buildStaticUrls(): Record<string, string> {
   return urls;
 }
 
+function CopyIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className ?? "w-4 h-4"}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className ?? "w-4 h-4"}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 export function DownloadIcons() {
   const [urls, setUrls] = useState<Record<string, string>>(buildStaticUrls);
   const [releasePageUrl, setReleasePageUrl] = useState<string>(
     releaseData.release.url,
   );
+  const [activeMethod, setActiveMethod] = useState<InstallMethod>("shell");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetch(`https://api.github.com/repos/${REPO}/releases?per_page=10`, {
@@ -196,8 +243,34 @@ export function DownloadIcons() {
     return urls[assetId] ?? releasePageUrl;
   }
 
+  function getCommand(method: InstallMethod): string {
+    switch (method) {
+      case "shell":
+        return releaseData.scripts.shell.command;
+      case "powershell":
+        return releaseData.scripts.powershell.command;
+      case "brew":
+        return "brew install milady-ai/tap/milady";
+      default:
+        return releaseData.scripts.shell.command;
+    }
+  }
+
+  function getPrefix(method: InstallMethod): string {
+    return installMethods.find((m) => m.id === method)?.prefix ?? "$";
+  }
+
+  const copyToClipboard = useCallback(() => {
+    const command = getCommand(activeMethod);
+    navigator.clipboard.writeText(command).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [activeMethod]);
+
   return (
     <div className="flex flex-col items-center gap-6">
+      {/* Platform download icons — white bg hover style */}
       <ul className="download-icons">
         {platformDefs.map((p) => {
           const url = getUrl(p.assetId);
@@ -222,13 +295,61 @@ export function DownloadIcons() {
         })}
       </ul>
 
-      <div className="flex w-full max-w-sm flex-col items-center gap-2 font-mono text-[9px] sm:max-w-none sm:text-[11px] text-brand">
-        <code className="w-full px-3 sm:px-3 py-2 border border-brand/30 bg-brand/5 select-all cursor-text whitespace-pre-wrap break-all rounded-md text-center leading-relaxed sm:w-auto sm:text-left sm:whitespace-normal sm:break-normal">
-          {releaseData.scripts.shell.command}
-        </code>
-        <code className="w-full px-3 sm:px-3 py-2 border border-brand/30 bg-brand/5 select-all cursor-text whitespace-pre-wrap break-all rounded-md text-center leading-relaxed sm:w-auto sm:text-left sm:whitespace-normal sm:break-normal">
-          {releaseData.scripts.powershell.command}
-        </code>
+      {/* Install commands — terminal style */}
+      <div className="w-full max-w-xl">
+        {/* Terminal window */}
+        <div className="bg-[#0a0a0c] border border-brand/20 overflow-hidden">
+          {/* Terminal chrome with tabs */}
+          <div className="flex items-center bg-[#111114] border-b border-brand/10">
+            {/* Window controls */}
+            <div className="flex items-center gap-1.5 px-3 py-2.5 border-r border-brand/10">
+              <span className="w-2 h-2 rounded-full bg-red-500/70" />
+              <span className="w-2 h-2 rounded-full bg-yellow-500/70" />
+              <span className="w-2 h-2 rounded-full bg-green-500/70" />
+            </div>
+            
+            {/* Method tabs — terminal style */}
+            <div className="flex items-center">
+              {installMethods.map((method) => (
+                <button
+                  key={method.id}
+                  type="button"
+                  onClick={() => setActiveMethod(method.id)}
+                  className={`px-4 py-2.5 font-mono text-[10px] tracking-wider uppercase transition-all duration-150 border-r border-brand/10
+                    ${
+                      activeMethod === method.id
+                        ? "text-brand bg-[#0a0a0c]"
+                        : "text-text-subtle hover:text-text-light hover:bg-[#0d0d10]"
+                    }`}
+                >
+                  {method.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Command area */}
+          <div className="relative px-4 py-4 bg-[#08080a]">
+            <code className="block font-mono text-[10px] sm:text-[11px] text-brand select-all cursor-text break-all sm:break-normal pr-10">
+              <span className="text-text-subtle mr-2">{getPrefix(activeMethod)}</span>
+              {getCommand(activeMethod)}
+            </code>
+            
+            {/* Copy button */}
+            <button
+              type="button"
+              onClick={copyToClipboard}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 transition-all duration-150 border border-transparent
+                ${copied 
+                  ? "text-green-400" 
+                  : "text-text-subtle hover:text-brand hover:border-brand/30 hover:bg-brand/5"
+                }`}
+              title={copied ? "Copied!" : "Copy to clipboard"}
+            >
+              {copied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

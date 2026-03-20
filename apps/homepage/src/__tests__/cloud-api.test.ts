@@ -56,26 +56,20 @@ describe("CloudApiClient", () => {
   });
 
   it("health() returns a running probe response when /api/health is unauthorized", async () => {
-    mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ authenticated: false }),
-      });
+    // With no authToken, a 401 immediately returns a synthetic "running" response.
+    // No additional probes are made — a 401 proves the agent is alive.
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
 
     await expect(client.health()).resolves.toEqual({
       status: "ok",
       ready: true,
       uptime: 0,
       agentState: "running",
+      _synthetic: true,
     });
 
-    expect(mockFetch).toHaveBeenNthCalledWith(
-      2,
-      "http://localhost:2138/api/auth/status",
-      expect.objectContaining({ method: "GET" }),
-    );
+    // Only one request made (no fallback probe)
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("health() preserves invalid-token failures when auth is provided", async () => {
@@ -217,10 +211,10 @@ describe("CloudApiClient", () => {
     expect(result.state).toBe("running");
   });
 
-  it("getAgentStatus() returns running when both status endpoints are unauthorized", async () => {
-    mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({ ok: false, status: 401 });
+  it("getAgentStatus() returns running immediately when /api/status is unauthorized (no token)", async () => {
+    // With no authToken, a 401 immediately returns a synthetic "running" response.
+    // No additional probes are made — the agent is alive but auth-protected.
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
 
     await expect(client.getAgentStatus()).resolves.toEqual({
       state: "running",
@@ -228,11 +222,15 @@ describe("CloudApiClient", () => {
       model: "—",
       uptime: 0,
     });
+
+    // Only one request made (no legacy fallback)
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("getAgentStatus() still uses legacy status when only /api/status is unauthorized", async () => {
+  it("getAgentStatus() falls back to legacy endpoint on 404 (non-Milady agent)", async () => {
+    // For non-Milady agents (like localhost), 404 on /api/status falls back to /api/agent/status
     mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({ ok: false, status: 404 })
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -251,47 +249,38 @@ describe("CloudApiClient", () => {
     });
   });
 
-  it("getAgentStatus() falls back to legacy status when /api/status is unauthorized with auth", async () => {
-    const remoteClient = new CloudApiClient({
-      url: "https://agent.example.com",
-      type: "remote",
-      authToken: "good-token",
-    });
-
-    mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            agentName: "Legacy Auth Agent",
-            model: "gpt-4",
-            state: "running",
-          }),
-      });
-
-    await expect(remoteClient.getAgentStatus()).resolves.toEqual({
-      agentName: "Legacy Auth Agent",
-      model: "gpt-4",
-      state: "running",
-    });
-  });
-
-  it("getAgentStatus() preserves invalid-token failures when auth is provided", async () => {
+  it("getAgentStatus() throws on unauthorized when auth token is provided", async () => {
+    // When a token is provided but rejected (401), that's a real auth failure.
+    // We don't fall back — the token should have worked.
     const remoteClient = new CloudApiClient({
       url: "https://agent.example.com",
       type: "remote",
       authToken: "bad-token",
     });
 
-    mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce({ ok: false, status: 401 });
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
 
     await expect(remoteClient.getAgentStatus()).rejects.toThrow(
       "API 401: /api/status",
     );
+
+    // Only one request made (no fallback when auth is provided)
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("getAgentStatus() returns synthetic status for unauthenticated legacy fallback 401", async () => {
+    // For non-Milady agents without auth: if /api/status returns 404 and
+    // /api/agent/status returns 401, we return synthetic "running" status.
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
+
+    await expect(client.getAgentStatus()).resolves.toEqual({
+      state: "running",
+      agentName: "",
+      model: "—",
+      uptime: 0,
+    });
   });
 
   it("getAgentStatus() falls back to /api/agent/status on 404", async () => {
@@ -321,38 +310,38 @@ describe("CloudApiClient", () => {
     );
   });
 
-  it("getAgentStatus() falls back to /api/agent/status on other /api/status errors", async () => {
-    mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 500 })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            agentName: "Legacy Error Fallback",
-            model: "gpt-4",
-            state: "running",
-          }),
-      });
-
-    await expect(client.getAgentStatus()).resolves.toEqual({
-      agentName: "Legacy Error Fallback",
-      model: "gpt-4",
-      state: "running",
+  it("getAgentStatus() skips legacy fallback for Milady agents", async () => {
+    // Milady agents (milady.ai, waifu.fun) don't use legacy /api/agent/status.
+    // 404 on /api/status is an error, not a fallback trigger.
+    const miladyClient = new CloudApiClient({
+      url: "https://abc123.milady.ai",
+      type: "remote",
     });
+
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+
+    await expect(miladyClient.getAgentStatus()).rejects.toThrow(
+      "API 404: /api/status",
+    );
+
+    // Only one request made (no legacy fallback for Milady)
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("getAgentStatus() preserves primary server failures when legacy status is auth-protected", async () => {
-    mockFetch
-      .mockResolvedValueOnce({ ok: false, status: 500 })
-      .mockResolvedValueOnce({ ok: false, status: 401 });
+  it("getAgentStatus() throws immediately on server error (no fallback)", async () => {
+    // For server errors (500), we throw immediately without trying legacy.
+    // Legacy fallback is only for 404 (endpoint not implemented).
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
 
     await expect(client.getAgentStatus()).rejects.toThrow(
       "API 500: /api/status",
     );
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("getAgentStatus() falls back to /api/agent/status when /api/status JSON is invalid", async () => {
+  it("getAgentStatus() falls back to legacy endpoint on invalid JSON (non-Milady)", async () => {
+    // For non-Milady agents, invalid JSON from /api/status falls through to legacy.
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -375,6 +364,22 @@ describe("CloudApiClient", () => {
       model: "gpt-4",
       state: "running",
     });
+  });
+
+  it("health() skips legacy fallback for Milady agents", async () => {
+    // Milady agents (milady.ai, waifu.fun) don't use legacy /health.
+    // 404 on /api/health is an error, not a fallback trigger.
+    const miladyClient = new CloudApiClient({
+      url: "https://abc123.milady.ai",
+      type: "remote",
+    });
+
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+
+    await expect(miladyClient.health()).rejects.toThrow("API 404: /api/health");
+
+    // Only one request made (no legacy fallback for Milady)
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("getMetrics() calls GET /api/metrics", async () => {
@@ -597,7 +602,7 @@ describe("CloudClient", () => {
     await expect(cc.listAgents()).rejects.toThrow("Cloud API 403");
   });
 
-  it("clears stored token when backend returns auth failure", async () => {
+  it("clears stored token when listAgents returns auth failure", async () => {
     setToken("stale-key");
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -608,6 +613,37 @@ describe("CloudClient", () => {
 
     await expect(cc.listAgents()).rejects.toThrow("Invalid or expired API key");
     expect(getToken()).toBeNull();
+  });
+
+  it("does NOT clear token when secondary endpoints fail with auth error", async () => {
+    // Secondary endpoints (credits, billing, sessions) should fail gracefully
+    // without nuking the auth state — they may not exist on the backend yet
+    setToken("valid-key");
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: "Unauthorized" }),
+      text: () => Promise.resolve("Unauthorized"),
+    });
+
+    await expect(cc.getCreditsBalance()).rejects.toThrow("401");
+    // Token should still be present
+    expect(getToken()).toBe("valid-key");
+  });
+
+  it("does NOT clear token on generic 500 Internal Server Error", async () => {
+    // A generic 500 shouldn't be treated as an auth failure
+    setToken("valid-key");
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: "Internal Server Error" }),
+      text: () => Promise.resolve("Internal Server Error"),
+    });
+
+    await expect(cc.listAgents()).rejects.toThrow("500");
+    // Token should still be present since it's a server error, not auth error
+    expect(getToken()).toBe("valid-key");
   });
 
   it("deleteAgent() calls DELETE", async () => {

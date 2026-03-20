@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
-import { getToken, isAuthenticated } from "../../lib/auth";
+import { useAuth } from "../../lib/useAuth";
 import { CloudClient } from "../../lib/cloud-api";
 
 interface BillingSettingsResponse {
@@ -46,6 +46,7 @@ interface CreditsSummaryResponse {
 
 export function BillingPanel() {
   const { agents } = useAgents();
+  const { isAuthenticated: authed, token } = useAuth();
   const cloudAgents = agents.filter((a) => a.source === "cloud");
   const [billingSettings, setBillingSettings] =
     useState<BillingSettingsResponse | null>(null);
@@ -55,10 +56,16 @@ export function BillingPanel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) return;
+    if (!authed || !token) {
+      // Clear data when user signs out
+      setBillingSettings(null);
+      setCreditsSummary(null);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
-    const cc = new CloudClient(getToken() ?? "");
+    const cc = new CloudClient(token);
     Promise.all([
       cc.getBillingSettings().catch(() => null),
       cc.getCreditsSummary().catch(() => null),
@@ -75,7 +82,7 @@ export function BillingPanel() {
         }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [authed, token]);
 
   const totalHourly = useMemo(
     () =>
@@ -86,10 +93,10 @@ export function BillingPanel() {
     [cloudAgents],
   );
 
-  if (!isAuthenticated()) {
+  if (!authed) {
     return (
       <div className="flex flex-col items-center justify-center py-20 animate-fade-up">
-        <div className="w-14 h-14 rounded-2xl bg-surface border border-border flex items-center justify-center mb-5">
+        <div className="w-14 h-14 rounded-sm bg-surface border border-border flex items-center justify-center mb-5">
           <svg
             aria-hidden="true"
             className="w-7 h-7 text-text-muted/30"
@@ -173,7 +180,7 @@ export function BillingPanel() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-        <section className="bg-surface rounded-2xl border border-border p-6">
+        <section className="bg-surface rounded-sm border border-border p-6">
           <div className="flex items-start justify-between gap-4 mb-5">
             <div>
               <p className="text-sm text-text-muted">Auto top-up</p>
@@ -184,7 +191,7 @@ export function BillingPanel() {
               </h3>
             </div>
             <span
-              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs border ${
+              className={`inline-flex items-center rounded-sm px-2.5 py-1 text-xs border ${
                 autoTopUp?.hasPaymentMethod || org?.hasPaymentMethod
                   ? "border-brand/30 bg-brand/10 text-brand"
                   : "border-border text-text-muted"
@@ -224,7 +231,7 @@ export function BillingPanel() {
           )}
         </section>
 
-        <section className="bg-surface rounded-2xl border border-border p-6">
+        <section className="bg-surface rounded-sm border border-border p-6">
           <p className="text-sm text-text-muted mb-4">Usage summary</p>
           <div className="space-y-4">
             <MiniStat
@@ -260,7 +267,7 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="bg-surface rounded-2xl border border-border p-5">
+    <div className="bg-surface rounded-sm border border-border p-5">
       <p className="text-sm text-text-muted mb-1">{label}</p>
       <p className="text-3xl font-semibold text-text-light tabular-nums tracking-tight">
         {value}

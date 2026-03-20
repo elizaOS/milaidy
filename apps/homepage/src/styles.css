@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -7,17 +7,35 @@
   --font-mono: "JetBrains Mono", "Cascadia Code", "Courier New", monospace;
   --font-display: "DM Sans", "Helvetica Neue", Arial, sans-serif;
 
-  --color-dark: #0c0c0e;
-  --color-dark-secondary: #121214;
-  --color-light: #f5f5f5;
+  /* Core palette - tinted darks, never pure black */
+  --color-dark: #08080a;
+  --color-dark-secondary: #0e0e11;
+  --color-light: #f4f4f6;
+  
+  /* Brand gold - confident, luxurious */
   --color-brand: #f0b90b;
-  --color-brand-hover: #d4a30a;
+  --color-brand-hover: #ffc61a;
+  --color-brand-muted: #c99a09;
   --color-accent: #fcd535;
-  --color-text-light: #ececf0;
-  --color-text-dark: #0c0c0e;
-  --color-text-muted: #7c7c8a;
-  --color-surface: #18181c;
-  --color-border: #2a2a30;
+  
+  /* Text hierarchy */
+  --color-text-light: #e8e8ec;
+  --color-text-dark: #08080a;
+  --color-text-muted: #6b6b78;
+  --color-text-subtle: #4a4a55;
+  
+  /* Surfaces - layered depth */
+  --color-surface: #131316;
+  --color-surface-elevated: #1a1a1f;
+  --color-surface-hover: #1e1e24;
+  --color-border: #252530;
+  --color-border-subtle: #1c1c24;
+  
+  /* Status colors - refined */
+  --color-status-running: #22c55e;
+  --color-status-paused: #eab308;
+  --color-status-stopped: #ef4444;
+  --color-status-provisioning: #f0b90b;
 }
 
 html {
@@ -164,7 +182,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 14px 48px 16px;
-  border-radius: 28px;
+  border-radius: 2px;
   background: rgba(120, 120, 130, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(32px) saturate(140%);
@@ -193,7 +211,7 @@ body {
     width: min(100%, 21rem);
     padding: 10px 12px 12px;
     gap: 8px;
-    border-radius: 22px;
+    border-radius: 2px;
   }
 }
 
@@ -230,7 +248,7 @@ body {
 .hero-dock-icon {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: 2px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
@@ -266,7 +284,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: 2px;
   background: rgba(0, 0, 0, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(12px);
@@ -344,9 +362,9 @@ body {
 @media (max-width: 640px) {
   .download-icons {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    width: min(100%, 22rem);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    width: min(100%, 20rem);
   }
 }
 
@@ -382,9 +400,9 @@ body {
   .download-icons .download {
     width: 100%;
     height: auto;
-    min-height: 74px;
-    padding: 10px 8px;
-    gap: 6px;
+    min-height: 44px;
+    padding: 6px 4px;
+    gap: 3px;
   }
 }
 
@@ -514,24 +532,131 @@ body {
   background: linear-gradient(
     90deg,
     var(--color-surface) 0%,
-    #222228 40%,
+    var(--color-surface-elevated) 40%,
     var(--color-surface) 80%
   );
   background-size: 200% 100%;
   animation: shimmer 1.8s ease-in-out infinite;
 }
 
-/* Status dot pulse */
+/* Status indicator pulse - refined */
 @keyframes status-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 currentColor;
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 4px transparent;
+    opacity: 0.5;
   }
 }
 
-.status-dot-pulse {
+.status-pulse {
   animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* Terminal cursor blink */
+@keyframes cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+/* Sidebar nav item active indicator */
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%) scaleY(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* Subtle hover glow for interactive elements */
+.hover-glow:hover {
+  box-shadow: 0 0 24px rgba(240, 185, 11, 0.06);
+}
+
+/* Agent card left accent */
+.agent-accent {
+  transition: all 0.25s ease-out;
+}
+
+/* ── Bloomberg-style data displays ───────────────────────────────── */
+
+/* Monospace numbers */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Stat label style */
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+/* Stat value style */
+.stat-value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--color-text-light);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status badge base */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Terminal-style section headers */
+.section-header {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-brand);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+/* Data grid cell */
+.data-cell {
+  padding: 12px 16px;
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+.data-cell:last-child {
+  border-right: none;
+}
+
+/* Tight data row */
+.data-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.data-row:last-child {
+  border-bottom: none;
 }

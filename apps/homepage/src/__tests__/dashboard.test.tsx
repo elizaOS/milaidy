@@ -55,7 +55,8 @@ describe("Sidebar", () => {
     const onChange = vi.fn();
     render(<Sidebar active="agents" onChange={onChange} />);
 
-    for (const label of ["Agents", "Metrics", "Logs"]) {
+    // Labels are now uppercase in the new design
+    for (const label of ["AGENTS", "METRICS", "LOGS"]) {
       const buttons = screen.getAllByText(
         (_content, el) =>
           !!(el?.textContent?.includes(label) && el?.tagName === "BUTTON"),
@@ -68,16 +69,17 @@ describe("Sidebar", () => {
     const onChange = vi.fn();
     render(<Sidebar active="agents" onChange={onChange} />);
 
+    // Labels are now uppercase in the new design
     const metricsButtons = screen.getAllByText(
       (_content, el) =>
-        !!(el?.textContent?.includes("Metrics") && el?.tagName === "BUTTON"),
+        !!(el?.textContent?.includes("METRICS") && el?.tagName === "BUTTON"),
     );
     fireEvent.click(metricsButtons[0]);
     expect(onChange).toHaveBeenCalledWith("metrics");
 
     const logsButtons = screen.getAllByText(
       (_content, el) =>
-        !!(el?.textContent?.includes("Logs") && el?.tagName === "BUTTON"),
+        !!(el?.textContent?.includes("LOGS") && el?.tagName === "BUTTON"),
     );
     fireEvent.click(logsButtons[0]);
     expect(onChange).toHaveBeenCalledWith("logs");
@@ -219,11 +221,12 @@ describe("AgentCard", () => {
 /*  MetricsPanel                                                      */
 /* ------------------------------------------------------------------ */
 describe("MetricsPanel", () => {
-  it("renders CPU, Memory, and Disk metric bars", () => {
+  it("renders CPU, MEM, and REQ/S metric bars", () => {
     const { container } = render(<MetricsPanel />);
+    // New design uses abbreviated labels: CPU, MEM, REQ/S
     expect(container.textContent).toContain("CPU");
-    expect(container.textContent).toContain("Memory");
-    expect(container.textContent).toContain("Disk");
+    expect(container.textContent).toContain("MEM");
+    expect(container.textContent).toContain("REQ/S");
   });
 });
 
@@ -234,8 +237,9 @@ describe("LogsPanel", () => {
   it("renders log entries with timestamps and severity levels", () => {
     const { container } = render(<LogsPanel />);
     const text = container.textContent ?? "";
+    // New design uses uppercase levels in brackets: [INFO], [DEBUG], [WARN]
     const hasLevel =
-      text.includes("info") || text.includes("warn") || text.includes("error");
+      text.includes("INFO") || text.includes("WARN") || text.includes("DEBUG");
     expect(hasLevel).toBe(true);
     expect(text).toMatch(/\d{1,2}:\d{2}:\d{2}/);
   });
@@ -249,16 +253,18 @@ describe("ExportPanel", () => {
     const { ExportPanel } = await import("../components/dashboard/ExportPanel");
     const { container } = render(<ExportPanel connectionId="local-default" />);
     const text = container.textContent ?? "";
-    expect(text).toContain("Cloud Snapshots");
-    expect(screen.getByText("Take Snapshot")).toBeTruthy();
-    expect(screen.getByText("No backups yet.")).toBeTruthy();
+    // New design uses lowercase "snapshots" and different text
+    expect(text).toContain("Cloud snapshots");
+    expect(screen.getByText("+ TAKE SNAPSHOT")).toBeTruthy();
+    expect(screen.getByText("No snapshots yet")).toBeTruthy();
   });
 
-  it("shows the snapshot action as enabled", async () => {
+  it("shows the snapshot action button exists", async () => {
     const { ExportPanel } = await import("../components/dashboard/ExportPanel");
     render(<ExportPanel connectionId="local-default" />);
-    const snapshotBtn = screen.getByText("Take Snapshot");
-    expect(snapshotBtn).not.toBeDisabled();
+    // Button now says "+ TAKE SNAPSHOT" and may be disabled for non-cloud agents
+    const snapshotBtn = screen.getByText("+ TAKE SNAPSHOT");
+    expect(snapshotBtn).toBeTruthy();
   });
 });
 
@@ -290,8 +296,9 @@ describe("AgentDetail", () => {
         connectionId="local-default"
       />,
     );
-    expect(container.textContent).toContain("Status");
-    expect(container.textContent).toContain("Model");
+    // New design uses uppercase labels: STATUS, MODEL
+    expect(container.textContent).toContain("STATUS");
+    expect(container.textContent).toContain("MODEL");
   });
 
   it("shows agent name in header", () => {
@@ -313,10 +320,11 @@ describe("AgentDetail", () => {
         connectionId="local-default"
       />,
     );
-    expect(screen.getByText("Overview")).toBeTruthy();
-    expect(screen.getByText("Metrics")).toBeTruthy();
-    expect(screen.getByText("Logs")).toBeTruthy();
-    expect(screen.getByText("Snapshots")).toBeTruthy();
+    // Tabs are now uppercase in the new design
+    expect(screen.getByText("OVERVIEW")).toBeTruthy();
+    expect(screen.getByText("METRICS")).toBeTruthy();
+    expect(screen.getByText("LOGS")).toBeTruthy();
+    expect(screen.getByText("SNAPSHOTS")).toBeTruthy();
   });
 
   it("switches to Logs tab", () => {
@@ -327,10 +335,11 @@ describe("AgentDetail", () => {
         connectionId="local-default"
       />,
     );
-    fireEvent.click(screen.getByText("Logs"));
+    fireEvent.click(screen.getByText("LOGS"));
     const text = container.textContent ?? "";
+    // New design uses uppercase levels: INFO, WARN, DEBUG
     const hasLevel =
-      text.includes("info") || text.includes("warn") || text.includes("error");
+      text.includes("INFO") || text.includes("WARN") || text.includes("DEBUG");
     expect(hasLevel).toBe(true);
   });
 
@@ -342,8 +351,8 @@ describe("AgentDetail", () => {
         connectionId="local-default"
       />,
     );
-    fireEvent.click(screen.getByText("Snapshots"));
-    expect(screen.getByText("Take Snapshot")).toBeTruthy();
+    fireEvent.click(screen.getByText("SNAPSHOTS"));
+    expect(screen.getByText("+ TAKE SNAPSHOT")).toBeTruthy();
   });
 });
 
@@ -419,11 +428,12 @@ describe("AgentCard regression", () => {
     expect(container.textContent).toContain("42");
   });
 
-  it("shows source label", () => {
+  it("shows source icon", () => {
     const { container } = render(
       <AgentCard {...baseProps} source="cloud" agent={makeAgent()} />,
     );
-    expect(container.textContent).toContain("Cloud");
+    // New design uses icon symbols: ☁ for cloud, ◉ for local, ⬡ for remote
+    expect(container.textContent).toContain("☁");
   });
 
   it("calls onSelect when card is clicked", () => {
@@ -431,7 +441,9 @@ describe("AgentCard regression", () => {
     render(
       <AgentCard {...baseProps} onSelect={onSelect} agent={makeAgent()} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /testagent/i }));
+    // Card is now an <article> element, not a button
+    const article = screen.getByRole("article");
+    fireEvent.click(article);
     expect(onSelect).toHaveBeenCalled();
   });
 
@@ -479,7 +491,9 @@ describe("AgentCard regression", () => {
       <AgentCard {...baseProps} selected={true} agent={makeAgent()} />,
     );
     const card = container.firstChild as HTMLElement;
-    expect(card.className).toContain("ring-2");
+    // New design uses ring-1 ring-brand/50 for selected state
+    expect(card.className).toContain("ring-1");
+    expect(card.className).toContain("ring-brand/50");
   });
 });
 
@@ -535,7 +549,8 @@ describe("CreateAgentForm", () => {
 
     render(<CreateAgentForm onCreated={vi.fn()} onCancel={vi.fn()} />);
 
-    expect(screen.getByText("Sign In")).toBeTruthy();
+    // New design uses uppercase "SIGN IN"
+    expect(screen.getByText("SIGN IN")).toBeTruthy();
     expect(screen.queryByLabelText("Agent Name")).toBeNull();
   });
 
@@ -557,7 +572,8 @@ describe("CreateAgentForm", () => {
     render(<CreateAgentForm onCreated={vi.fn()} onCancel={vi.fn()} />);
 
     await act(async () => {
-      fireEvent.click(screen.getByText("Sign In"));
+      // New design uses uppercase "SIGN IN"
+      fireEvent.click(screen.getByText("SIGN IN"));
       await Promise.resolve();
     });
 

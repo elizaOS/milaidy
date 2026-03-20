@@ -11,12 +11,11 @@ interface CreateAgentFormProps {
 
 type CreateStep = "form" | "creating" | "provisioning" | "done" | "error";
 
-const PROGRESS_MESSAGES: Record<string, string> = {
-  pending: "Queued for provisioning…",
-  in_progress: "Spinning up your agent…",
-  completed: "Agent is live!",
-  failed: "Provisioning failed.",
-};
+interface DeployStep {
+  id: string;
+  label: string;
+  status: "pending" | "active" | "done" | "error";
+}
 
 export function CreateAgentForm({
   onAuthenticated,
@@ -30,6 +29,7 @@ export function CreateAgentForm({
   const [error, setError] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [_createdAgentId, setCreatedAgentId] = useState<string | null>(null);
+  const [createdName, setCreatedName] = useState("");
   const pollRef = useRef<ReturnType<typeof setTimeout>>();
   const {
     error: loginError,
@@ -59,7 +59,7 @@ export function CreateAgentForm({
         setJobStatus(status);
         if (status.status === "completed") {
           setStep("done");
-          setTimeout(() => onCreated(), 1500);
+          setTimeout(() => onCreated(), 1200);
         } else if (status.status === "failed") {
           setStep("error");
           setError(status.error ?? "Provisioning failed.");
@@ -83,10 +83,11 @@ export function CreateAgentForm({
   const handleCreate = useCallback(async () => {
     if (!name.trim()) return;
     if (!authenticated) {
-      setError("You need to sign in with Eliza Cloud first.");
+      setError("Authentication required.");
       return;
     }
 
+    setCreatedName(name.trim());
     setStep("creating");
     setError(null);
 
@@ -120,16 +121,16 @@ export function CreateAgentForm({
           } else {
             // No job ID, provisioning was synchronous or auto
             setStep("done");
-            setTimeout(() => onCreated(), 1500);
+            setTimeout(() => onCreated(), 1200);
           }
         } catch {
           // Provisioning endpoint failed, agent was still created
           setStep("done");
-          setTimeout(() => onCreated(), 1500);
+          setTimeout(() => onCreated(), 1200);
         }
       } else {
         setStep("done");
-        setTimeout(() => onCreated(), 1500);
+        setTimeout(() => onCreated(), 1200);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -137,7 +138,7 @@ export function CreateAgentForm({
       if (msg.includes("401") || msg.includes("403")) {
         setError("Authentication failed. Please sign in again.");
       } else {
-        setError(`Failed to create agent: ${msg}`);
+        setError(msg);
       }
     }
   }, [authenticated, name, envVars, onCreated, pollJob]);
@@ -151,310 +152,390 @@ export function CreateAgentForm({
     setEnvVars(updated);
   };
 
-  // Provisioning / creating state
-  if (step === "creating" || step === "provisioning" || step === "done") {
-    return (
-      <div className="rounded-2xl bg-surface border border-border p-6 animate-fade-up">
-        <div className="flex flex-col items-center py-8">
-          {step === "done" ? (
-            <>
-              <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
-                <svg
-                  aria-hidden="true"
-                  className="w-7 h-7 text-emerald-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-text-light mb-1">
-                Agent Created!
-              </h3>
-              <p className="text-sm text-text-muted">
-                {name} is now live. Redirecting…
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="w-14 h-14 rounded-full bg-brand/10 flex items-center justify-center mb-4">
-                <div className="w-7 h-7 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
-              </div>
-              <h3 className="text-lg font-medium text-text-light mb-1">
-                {step === "creating" ? "Creating Agent…" : "Provisioning…"}
-              </h3>
-              <p className="text-sm text-text-muted">
-                {jobStatus
-                  ? (PROGRESS_MESSAGES[jobStatus.status] ?? "Working…")
-                  : step === "creating"
-                    ? "Setting up your agent on Eliza Cloud…"
-                    : "Spinning up the sandbox environment…"}
-              </p>
+  // Build deploy steps for terminal output
+  const getDeploySteps = (): DeployStep[] => {
+    const isProvisioning = step === "provisioning";
+    const isDone = step === "done";
+    const jobPending = jobStatus?.status === "pending";
+    const jobInProgress = jobStatus?.status === "in_progress";
 
-              {/* Progress bar */}
-              <div className="w-64 mt-6">
-                <div className="h-1.5 bg-dark rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-brand rounded-full transition-all duration-700 ease-out"
-                    style={{
-                      width:
-                        step === "creating"
-                          ? "30%"
-                          : jobStatus?.status === "pending"
-                            ? "50%"
-                            : jobStatus?.status === "in_progress"
-                              ? "75%"
-                              : "45%",
-                    }}
-                  />
-                </div>
+    return [
+      {
+        id: "create",
+        label: "Agent created",
+        status: step === "creating" ? "active" : "done",
+      },
+      {
+        id: "provision",
+        label: "Provisioning container",
+        status: isDone
+          ? "done"
+          : isProvisioning && jobPending
+            ? "active"
+            : isProvisioning
+              ? "done"
+              : "pending",
+      },
+      {
+        id: "runtime",
+        label: "Starting runtime",
+        status: isDone ? "done" : isProvisioning && jobInProgress ? "active" : "pending",
+      },
+    ];
+  };
+
+  // Provisioning / creating / done states — terminal deploy log
+  if (step === "creating" || step === "provisioning" || step === "done") {
+    const deploySteps = getDeploySteps();
+
+    return (
+      <div className="border border-border bg-surface animate-fade-up">
+        {/* Terminal header bar */}
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-dark-secondary border-b border-border">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${step === "done" ? "bg-emerald-500" : "bg-brand status-pulse"}`} />
+          </div>
+          <span className="font-mono text-xs text-text-muted">
+            {step === "done" ? "deploy complete" : "deploying..."}
+          </span>
+        </div>
+
+        {/* Deploy log output */}
+        <div className="p-5 font-mono text-sm">
+          <div className="text-text-muted mb-4">
+            <span className="text-brand">$</span> milady deploy --name {createdName || name}
+          </div>
+
+          <div className="space-y-2.5">
+            {deploySteps.map((s) => (
+              <div key={s.id} className="flex items-center gap-3">
+                {s.status === "done" && (
+                  <span className="text-emerald-400 w-4 text-center">✓</span>
+                )}
+                {s.status === "active" && (
+                  <span className="text-brand w-4 text-center animate-pulse">◌</span>
+                )}
+                {s.status === "pending" && (
+                  <span className="text-text-subtle w-4 text-center">○</span>
+                )}
+                {s.status === "error" && (
+                  <span className="text-red-400 w-4 text-center">✗</span>
+                )}
+                <span
+                  className={
+                    s.status === "done"
+                      ? "text-text-light"
+                      : s.status === "active"
+                        ? "text-brand"
+                        : "text-text-subtle"
+                  }
+                >
+                  {s.label}
+                  {s.status === "active" && "..."}
+                </span>
               </div>
-            </>
+            ))}
+          </div>
+
+          {/* Done state — brief flash */}
+          {step === "done" && (
+            <div className="mt-6 pt-4 border-t border-border-subtle">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <span>→</span>
+                <span className="text-text-light">{createdName}</span>
+                <span className="text-text-subtle">is live</span>
+              </div>
+            </div>
           )}
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="rounded-2xl bg-surface border border-border p-6 animate-fade-up">
-      <h3 className="text-lg font-medium text-text-light mb-1">
-        Create a new Milady agent
-      </h3>
-      <p className="text-sm text-text-muted mb-5">
-        {authenticated
-          ? "Configure and launch your agent on Eliza Cloud."
-          : "Sign in with Eliza Cloud to create and host agents."}
-      </p>
+  // Error state — terminal error output
+  if (step === "error") {
+    return (
+      <div className="border border-border bg-surface animate-fade-up">
+        {/* Terminal header bar */}
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-dark-secondary border-b border-border">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+          <span className="font-mono text-xs text-text-muted">deploy failed</span>
+        </div>
 
-      {!authenticated ? (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 px-4 py-3 bg-brand/5 border border-brand/20 rounded-xl">
-            <svg
-              aria-hidden="true"
-              className="w-5 h-5 text-brand flex-shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-text-muted">
-                Sign in to Eliza Cloud to create and manage hosted agents.
-              </p>
-              {loginError && (
-                <p className="text-xs text-red-400 mt-1">{loginError}</p>
-              )}
-              {manualLoginUrl && (
-                <a
-                  href={manualLoginUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex mt-2 text-xs text-brand hover:underline"
-                >
-                  Open sign-in page
-                </a>
-              )}
-            </div>
+        {/* Error output */}
+        <div className="p-5 font-mono text-sm">
+          <div className="text-text-muted mb-4">
+            <span className="text-brand">$</span> milady deploy --name {createdName || name}
           </div>
 
-          <div className="flex gap-3">
+          <div className="text-red-400 mb-6">
+            <span className="text-red-500">ERROR:</span> {error}
+          </div>
+
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={signIn}
-              disabled={loginState === "polling"}
-              className="px-5 py-2.5 bg-brand text-dark font-medium text-sm rounded-xl
-                hover:bg-brand-hover active:scale-[0.98] transition-all duration-150
-                disabled:opacity-70 disabled:cursor-wait
-                flex items-center gap-2 shadow-[0_0_16px_rgba(240,185,11,0.12)]"
+              onClick={() => {
+                setStep("form");
+                setError(null);
+              }}
+              className="px-4 py-2.5 bg-surface-elevated border border-border font-mono text-xs text-text-light
+                hover:border-brand/50 transition-colors"
             >
-              {loginState === "polling" ? (
-                <>
-                  <div className="w-4 h-4 rounded-full border-2 border-dark/20 border-t-dark animate-spin" />
-                  Waiting for Sign In…
-                </>
-              ) : (
-                "Sign In"
-              )}
+              RETRY
             </button>
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2.5 text-text-muted text-sm rounded-xl
-                hover:text-text-light hover:bg-dark transition-all duration-150"
+              className="px-4 py-2.5 font-mono text-xs text-text-muted hover:text-text-light transition-colors"
             >
-              Cancel
+              CANCEL
             </button>
           </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Agent name */}
-          <div>
-            <label
-              htmlFor="agent-name-input"
-              className="block text-xs text-text-muted mb-1.5"
-            >
-              Agent Name
-            </label>
-            <input
-              id="agent-name-input"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === "Enter" && !showEnvVars && handleCreate()
-              }
-              placeholder="e.g. my-milady-agent"
-              className="w-full px-4 py-2.5 bg-dark border border-border rounded-xl text-[15px]
-                text-text-light placeholder:text-text-muted/50
-                focus:border-brand/50 focus:outline-none focus:ring-1 focus:ring-brand/20
-                transition-all duration-150"
-            />
+      </div>
+    );
+  }
+
+  // Form state — unauthenticated
+  if (!authenticated) {
+    return (
+      <div className="border border-border bg-surface animate-fade-up">
+        {/* Terminal header */}
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-dark-secondary border-b border-border">
+          <span className="w-2.5 h-2.5 rounded-full bg-text-muted/40" />
+          <span className="font-mono text-xs text-text-muted">new agent</span>
+        </div>
+
+        <div className="p-5">
+          {/* Terminal prompt */}
+          <div className="font-mono text-sm mb-6">
+            <span className="text-brand">$</span>{" "}
+            <span className="text-text-light">milady deploy</span>{" "}
+            <span className="text-text-muted">--new</span>
+            <span className="inline-block w-2 h-4 bg-brand/70 ml-1 cursor-blink" />
           </div>
 
-          {/* Environment Variables (collapsible) */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowEnvVars(!showEnvVars)}
-              className="flex items-center gap-2 text-xs text-text-muted hover:text-text-light transition-colors"
-            >
-              <svg
-                aria-hidden="true"
-                className={`w-3 h-3 transition-transform ${showEnvVars ? "rotate-90" : ""}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-              Environment Variables
-              {envVars.length > 0 && (
-                <span className="px-1.5 py-0.5 bg-brand/10 text-brand rounded-md text-[10px]">
-                  {envVars.length}
-                </span>
-              )}
-            </button>
+          {/* Auth required message */}
+          <div className="border-l-2 border-brand/40 pl-4 mb-6">
+            <p className="font-mono text-xs text-text-subtle tracking-wide mb-1">
+              AUTHENTICATION REQUIRED
+            </p>
+            <p className="text-sm text-text-muted">
+              Sign in to Eliza Cloud to deploy agents.
+            </p>
+            {loginError && (
+              <p className="font-mono text-xs text-red-400 mt-2">{loginError}</p>
+            )}
+          </div>
 
-            {showEnvVars && (
-              <div className="mt-3 space-y-2">
+          {/* Actions */}
+          <div className="flex items-center gap-3">
+            {loginState === "polling" ? (
+              <div className="flex items-center gap-3 font-mono text-sm">
+                <span className="text-brand animate-pulse">◌</span>
+                <span className="text-text-muted">Waiting for browser auth...</span>
+                {manualLoginUrl && (
+                  <a
+                    href={manualLoginUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-brand hover:text-brand-hover transition-colors"
+                  >
+                    [open]
+                  </a>
+                )}
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={signIn}
+                  className="px-5 py-2.5 bg-brand text-dark font-mono text-xs font-semibold tracking-wide
+                    hover:bg-brand-hover active:scale-[0.98] transition-all duration-150"
+                >
+                  SIGN IN
+                </button>
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="px-4 py-2.5 font-mono text-xs text-text-muted hover:text-text-light transition-colors"
+                >
+                  CANCEL
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Form state — authenticated
+  return (
+    <div className="border border-border bg-surface animate-fade-up">
+      {/* Terminal header */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-dark-secondary border-b border-border">
+        <div className="flex items-center gap-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+          <span className="font-mono text-xs text-text-muted">new agent</span>
+        </div>
+        <span className="font-mono text-[10px] text-text-subtle tracking-wide">
+          CLOUD CONNECTED
+        </span>
+      </div>
+
+      <div className="p-5">
+        {/* Command preview */}
+        <div className="font-mono text-sm text-text-muted mb-5">
+          <span className="text-brand">$</span> milady deploy --name{" "}
+          <span className={name ? "text-text-light" : "text-text-subtle"}>
+            {name || "agent-name"}
+          </span>
+        </div>
+
+        {/* Agent name input */}
+        <div className="mb-5">
+          <label
+            htmlFor="agent-name-input"
+            className="block font-mono text-[10px] font-medium tracking-wider text-text-subtle mb-2"
+          >
+            NAME
+          </label>
+          <input
+            id="agent-name-input"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) =>
+              e.key === "Enter" && !showEnvVars && name.trim() && handleCreate()
+            }
+            placeholder="agent-name"
+            autoFocus
+            className="w-full px-4 py-3 bg-dark border border-border font-mono text-sm
+              text-text-light placeholder:text-text-subtle
+              focus:border-brand/50 focus:outline-none
+              transition-colors"
+          />
+        </div>
+
+        {/* Environment Variables — config editor style */}
+        <div className="mb-5">
+          <button
+            type="button"
+            onClick={() => setShowEnvVars(!showEnvVars)}
+            className="flex items-center gap-2 font-mono text-[10px] tracking-wider text-text-subtle 
+              hover:text-text-muted transition-colors"
+          >
+            <span className={`transition-transform ${showEnvVars ? "rotate-90" : ""}`}>
+              ▸
+            </span>
+            ENV
+            {envVars.length > 0 && (
+              <span className="px-1.5 py-0.5 bg-brand/10 text-brand text-[9px]">
+                {envVars.length}
+              </span>
+            )}
+          </button>
+
+          {showEnvVars && (
+            <div className="mt-3 border border-border-subtle bg-dark">
+              {/* Config file header */}
+              <div className="px-3 py-2 border-b border-border-subtle bg-dark-secondary">
+                <span className="font-mono text-[10px] text-text-subtle"># environment variables</span>
+              </div>
+
+              <div className="p-3 space-y-2">
+                {envVars.length === 0 && (
+                  <p className="font-mono text-xs text-text-subtle py-2">
+                    # no variables defined
+                  </p>
+                )}
                 {envVars.map((ev, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: env vars have no stable ID
-                  <div key={i} className="flex gap-2">
+                  <div key={i} className="flex items-center gap-1 font-mono text-sm">
                     <input
                       type="text"
                       value={ev.key}
                       onChange={(e) => updateEnvVar(i, "key", e.target.value)}
                       placeholder="KEY"
-                      className="flex-1 px-3 py-2 bg-dark border border-border rounded-lg text-xs
-                        text-text-light placeholder:text-text-muted/50 font-mono
-                        focus:border-brand/50 focus:outline-none"
+                      className="w-32 px-2 py-1.5 bg-transparent text-brand placeholder:text-text-subtle/50
+                        focus:outline-none uppercase"
                     />
+                    <span className="text-text-subtle">=</span>
                     <input
                       type="text"
                       value={ev.value}
                       onChange={(e) => updateEnvVar(i, "value", e.target.value)}
                       placeholder="value"
-                      className="flex-[2] px-3 py-2 bg-dark border border-border rounded-lg text-xs
-                        text-text-light placeholder:text-text-muted/50 font-mono
-                        focus:border-brand/50 focus:outline-none"
+                      className="flex-1 px-2 py-1.5 bg-transparent text-text-light placeholder:text-text-subtle/50
+                        focus:outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => removeEnvVar(i)}
-                      className="px-2 text-text-muted hover:text-red-400 transition-colors"
+                      className="px-2 py-1 text-text-subtle hover:text-red-400 transition-colors"
+                      title="Remove"
                     >
-                      <svg
-                        aria-hidden="true"
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
+                      ×
                     </button>
                   </div>
                 ))}
                 <button
                   type="button"
                   onClick={addEnvVar}
-                  className="text-xs text-brand hover:text-brand-hover transition-colors"
+                  className="flex items-center gap-1 font-mono text-xs text-text-subtle hover:text-brand transition-colors pt-1"
                 >
-                  + Add variable
+                  <span>+</span> add
                 </button>
               </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={!name.trim()}
-              className="px-5 py-3 bg-brand text-dark font-medium text-sm rounded-xl
-                hover:bg-brand-hover active:scale-[0.98] transition-all duration-150
-                disabled:opacity-30 disabled:cursor-not-allowed
-                flex items-center justify-center gap-2 shadow-[0_0_16px_rgba(240,185,11,0.12)]"
-            >
-              <svg
-                aria-hidden="true"
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              Create &amp; Deploy
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-4 py-3 text-text-muted text-sm rounded-xl
-                hover:text-text-light hover:bg-dark transition-all duration-150"
-            >
-              Cancel
-            </button>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="px-4 py-2.5 bg-red-500/8 border border-red-500/20 rounded-xl text-red-400 text-sm">
-              {error}
             </div>
           )}
         </div>
-      )}
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-5 font-mono text-sm text-red-400">
+            <span className="text-red-500">ERROR:</span> {error}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={!name.trim()}
+            className="px-6 py-3 bg-brand text-dark font-mono text-xs font-semibold tracking-wide
+              hover:bg-brand-hover active:scale-[0.98] transition-all duration-150
+              disabled:opacity-30 disabled:cursor-not-allowed
+              flex items-center gap-2"
+          >
+            <svg
+              aria-hidden="true"
+              className="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            DEPLOY
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-3 font-mono text-xs text-text-muted hover:text-text-light transition-colors"
+          >
+            CANCEL
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

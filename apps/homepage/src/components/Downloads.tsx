@@ -249,28 +249,44 @@ export function Downloads() {
           ))}
         </div>
 
-        {/* Install commands */}
+        {/* Install commands — terminal style */}
         <div className="grid gap-4 md:grid-cols-2 mb-12">
-          <div className="bg-black rounded-lg p-5 text-white">
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/70 font-bold">
-                macOS / Linux / WSL
+          <div className="bg-[#0d0d0f] border border-white/10 overflow-hidden">
+            {/* Terminal chrome */}
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1a1a1f] border-b border-white/10">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+              </div>
+              <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/50 font-medium">
+                bash — macOS / Linux / WSL
               </span>
             </div>
-            <pre className="overflow-x-auto text-xs text-green-400 leading-relaxed">
-              <code>{shellCommand}</code>
-            </pre>
+            <div className="p-4">
+              <pre className="overflow-x-auto text-xs text-green-400 leading-relaxed font-mono">
+                <code><span className="text-white/40 mr-2">$</span>{shellCommand}</code>
+              </pre>
+            </div>
           </div>
 
-          <div className="bg-black rounded-lg p-5 text-white">
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/70 font-bold">
-                Windows PowerShell
+          <div className="bg-[#0d0d0f] border border-white/10 overflow-hidden">
+            {/* Terminal chrome */}
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1a1a1f] border-b border-white/10">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+              </div>
+              <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-white/50 font-medium">
+                pwsh — Windows PowerShell
               </span>
             </div>
-            <pre className="overflow-x-auto text-xs text-blue-400 leading-relaxed">
-              <code>{powershellCommand}</code>
-            </pre>
+            <div className="p-4">
+              <pre className="overflow-x-auto text-xs text-blue-400 leading-relaxed font-mono">
+                <code><span className="text-white/40 mr-2">PS&gt;</span>{powershellCommand}</code>
+              </pre>
+            </div>
           </div>
         </div>
 

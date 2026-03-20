@@ -28,14 +28,15 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
 
   const handleSnapshot = useCallback(async () => {
     if (!agent?.cloudClient || !agent.cloudAgentId) return;
-    setStatus("Taking snapshot...");
+    setStatus("Creating snapshot...");
     try {
       await agent.cloudClient.takeSnapshot(agent.cloudAgentId);
       setStatus("Snapshot created");
       const updated = await agent.cloudClient.listBackups(agent.cloudAgentId);
       setBackups(updated);
+      setTimeout(() => setStatus(null), 3000);
     } catch (err) {
-      setStatus(`Snapshot failed: ${err}`);
+      setStatus(`Error: ${err}`);
     }
   }, [agent]);
 
@@ -46,6 +47,7 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
       try {
         await agent.cloudClient.restoreBackup(agent.cloudAgentId, backupId);
         setStatus("Restore complete");
+        setTimeout(() => setStatus(null), 3000);
       } catch (err) {
         setStatus(`Restore failed: ${err}`);
       }
@@ -55,80 +57,120 @@ export function ExportPanel({ connectionId }: ExportPanelProps) {
 
   if (!connectionId) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-3">
-        <div className="text-text-muted/30 text-4xl">{"\u2913"}</div>
-        <div className="text-text-muted font-mono text-sm">
-          No agent selected
-        </div>
-        <div className="text-text-muted/50 font-mono text-xs">
+      <div className="text-center py-12">
+        <p className="font-mono text-xs text-text-subtle mb-2">NO AGENT SELECTED</p>
+        <p className="font-mono text-xs text-text-muted">
           Select an agent from the Agents panel to manage snapshots.
-        </div>
+        </p>
       </div>
     );
   }
 
   if (!agent) {
     return (
-      <div className="text-text-muted font-mono text-sm">Agent not found</div>
+      <div className="text-center py-12">
+        <p className="font-mono text-xs text-text-muted">Agent not found</p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-lg">
-      <h3 className="font-mono text-xs uppercase tracking-widest text-brand">
-        Cloud Snapshots — {agent.name}
-      </h3>
+    <div className="space-y-6 max-w-2xl">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10px] tracking-[0.15em] text-text-subtle mb-1">
+            SNAPSHOTS
+          </p>
+          <p className="font-mono text-sm text-text-light">{agent.name}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSnapshot}
+          disabled={!hasCloud}
+          className="px-4 py-2 bg-brand text-dark font-mono text-xs font-semibold tracking-wide
+            hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          + TAKE SNAPSHOT
+        </button>
+      </div>
 
-      <button
-        type="button"
-        onClick={handleSnapshot}
-        className="px-4 py-2 bg-brand text-dark font-mono text-xs uppercase tracking-widest rounded hover:bg-brand-hover transition-colors"
-      >
-        Take Snapshot
-      </button>
-
-      {backupsLoading && (
-        <div className="text-brand font-mono text-sm animate-pulse">
-          Loading backups...
+      {/* Status message */}
+      {status && (
+        <div className={`px-4 py-2 border font-mono text-xs ${
+          status.startsWith("Error") || status.startsWith("Restore failed")
+            ? "border-red-500/30 bg-red-500/5 text-red-400"
+            : "border-brand/30 bg-brand/5 text-brand"
+        }`}>
+          {status}
         </div>
       )}
 
-      {!backupsLoading && backups.length === 0 && (
-        <div className="text-text-muted font-mono text-xs">No backups yet.</div>
-      )}
-
-      {!backupsLoading && backups.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-text-muted font-mono text-[10px] uppercase tracking-wider">
-            Backups
+      {/* Backups list */}
+      {backupsLoading ? (
+        <div className="flex items-center gap-2 py-8 justify-center">
+          <div className="w-4 h-4 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
+          <span className="font-mono text-xs text-text-muted">Loading backups...</span>
+        </div>
+      ) : backups.length === 0 ? (
+        <div className="border border-border bg-surface">
+          <div className="px-4 py-2 bg-dark-secondary border-b border-border">
+            <span className="font-mono text-[10px] tracking-wider text-text-subtle">BACKUP HISTORY</span>
           </div>
-          {backups.map((b) => (
-            <div
-              key={b.id}
-              className="flex items-center justify-between bg-dark border border-white/10 rounded p-3"
-            >
-              <div>
-                <div className="text-text-light font-mono text-xs">
-                  {b.id.slice(0, 12)}
+          <div className="p-8 text-center">
+            <p className="font-mono text-xs text-text-muted mb-2">No snapshots yet</p>
+            <p className="font-mono text-[10px] text-text-subtle">
+              Snapshots capture agent state, memories, and configuration.
+              <br />
+              Use them to restore or migrate your agent.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="border border-border bg-surface">
+          <div className="px-4 py-2 bg-dark-secondary border-b border-border flex items-center justify-between">
+            <span className="font-mono text-[10px] tracking-wider text-text-subtle">BACKUP HISTORY</span>
+            <span className="font-mono text-[10px] text-text-subtle">{backups.length} snapshot{backups.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div className="divide-y divide-border-subtle">
+            {backups.map((b) => (
+              <div key={b.id} className="flex items-center justify-between px-4 py-3 hover:bg-surface-hover transition-colors">
+                <div>
+                  <p className="font-mono text-xs text-text-light tabular-nums">
+                    {b.id.slice(0, 12)}
+                  </p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="font-mono text-[10px] text-text-subtle">
+                      {new Date(b.createdAt).toLocaleString()}
+                    </span>
+                    {b.size && (
+                      <span className="font-mono text-[10px] text-text-subtle">
+                        {(b.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-text-muted font-mono text-[10px]">
-                  {new Date(b.createdAt).toLocaleString()}
-                  {b.size ? ` — ${(b.size / 1024 / 1024).toFixed(1)} MB` : ""}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRestore(b.id)}
+                  className="px-3 py-1.5 font-mono text-[10px] tracking-wide
+                    border border-brand/20 text-brand
+                    hover:bg-brand/10 transition-colors"
+                >
+                  RESTORE
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleRestore(b.id)}
-                className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider border border-brand/30 text-brand rounded hover:bg-brand/10 transition-colors"
-              >
-                Restore
-              </button>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
-      {status && <p className="text-xs font-mono text-text-muted">{status}</p>}
+      {/* Info */}
+      {!hasCloud && (
+        <p className="font-mono text-[10px] text-text-subtle">
+          Cloud snapshots are only available for Eliza Cloud agents.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,83 +1,65 @@
-import { useEffect, useState } from "react";
-import type { MetricsData } from "../../lib/cloud-api";
-import { generateMockMetrics } from "../../lib/mock-data";
-
 export function MetricsPanel() {
-  const [metrics, setMetrics] = useState<MetricsData[]>([]);
-
-  useEffect(() => {
-    setMetrics(generateMockMetrics(12));
-    const interval = setInterval(() => {
-      setMetrics((prev) => [...prev.slice(1), ...generateMockMetrics(1)]);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const latest = metrics[metrics.length - 1];
-  if (!latest) return null;
-
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricBar label="CPU" value={latest.cpu} max={100} unit="%" />
-        <MetricBar
-          label="Memory"
-          value={latest.memoryMb}
-          max={2048}
-          unit=" MB"
-        />
-        <MetricBar label="Disk" value={latest.diskMb} max={4096} unit=" MB" />
-      </div>
-      <p className="text-xs text-text-muted/50 flex items-center gap-1.5">
-        <svg
-          aria-hidden="true"
-          className="w-3.5 h-3.5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        Simulated data — metrics API not yet available
-      </p>
-    </div>
-  );
-}
+    <div className="animate-fade-up">
+      {/* Terminal-style header */}
+      <div className="border border-border bg-surface">
+        <div className="px-4 py-2.5 bg-dark-secondary border-b border-border">
+          <span className="font-mono text-xs text-text-muted">
+            $ metrics --watch
+          </span>
+        </div>
+        
+        <div className="p-8 text-center">
+          {/* Decorative metric preview */}
+          <div className="max-w-md mx-auto mb-8">
+            <div className="grid grid-cols-3 gap-px bg-border mb-6">
+              {[
+                { label: "CPU", value: "—%", sub: "idle" },
+                { label: "MEM", value: "—MB", sub: "allocated" },
+                { label: "REQ/S", value: "—", sub: "throughput" },
+              ].map((metric) => (
+                <div key={metric.label} className="bg-surface p-4 text-left">
+                  <p className="font-mono text-[9px] tracking-wider text-text-subtle mb-1">
+                    {metric.label}
+                  </p>
+                  <p className="font-mono text-xl text-text-muted/30 tabular-nums">
+                    {metric.value}
+                  </p>
+                  <p className="font-mono text-[10px] text-text-subtle mt-0.5">
+                    {metric.sub}
+                  </p>
+                </div>
+              ))}
+            </div>
+            
+            {/* Sparkline placeholder */}
+            <div className="h-16 border border-border-subtle bg-dark-secondary/50 flex items-end justify-center gap-1 px-4 pb-3">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-1.5 bg-text-muted/10 rounded-sm"
+                  style={{ height: `${20 + Math.random() * 30}%` }}
+                />
+              ))}
+            </div>
+          </div>
 
-function MetricBar({
-  label,
-  value,
-  max,
-  unit,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  unit: string;
-}) {
-  const pct = Math.min((value / max) * 100, 100);
-  const color =
-    pct > 80 ? "bg-red-400" : pct > 60 ? "bg-amber-400" : "bg-brand";
+          <h3 className="font-mono text-sm text-text-light mb-2">
+            NO ACTIVE METRICS
+          </h3>
+          <p className="font-mono text-xs text-text-muted max-w-sm mx-auto leading-relaxed">
+            Connect to a running agent to stream real-time performance data.
+            <br />
+            CPU, memory, request throughput, and latency will appear here.
+          </p>
 
-  return (
-    <div className="bg-dark rounded-xl p-4 border border-border/50">
-      <div className="flex justify-between text-sm mb-3">
-        <span className="text-text-muted">{label}</span>
-        <span className="text-text-light font-medium tabular-nums">
-          {Math.round(value)}
-          {unit}
-        </span>
-      </div>
-      <div className="h-1.5 bg-border/50 rounded-full overflow-hidden">
-        <div
-          className={`h-full ${color} rounded-full transition-all duration-700 ease-out`}
-          style={{ width: `${pct}%` }}
-        />
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <div className="flex items-center gap-2 text-[10px] font-mono text-text-subtle">
+              <span className="w-2 h-2 rounded-full bg-emerald-500/30" />
+              WAITING FOR DATA
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
