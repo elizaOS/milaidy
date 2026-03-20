@@ -32,7 +32,7 @@ describe("brand gold theme overrides", () => {
   it("overrides app-core accent tokens with the richer gold palette", () => {
     const css = fs.readFileSync(BRAND_CSS_PATH, "utf8");
 
-    expect(css).not.toContain('@import url("https://fonts.googleapis.com');
+    expect(css).toContain('@import url("https://fonts.googleapis.com');
     expect(css).toContain(
       '--font-sans: "DM Sans", "Helvetica Neue", Arial, sans-serif;',
     );

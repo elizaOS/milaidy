@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milady Codebase Conflict Audit — 2026-03-20</title>
+<style>
+:root { --bg: #1a1b26; --surface: #24283b; --border: #414868; --text: #c0caf5; --dim: #565f89; --accent: #7aa2f7; --high: #f7768e; --medium: #e0af68; --low: #9ece6a; --green: #9ece6a; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace; background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.6; }
+h1 { color: var(--accent); font-size: 1.5rem; margin-bottom: 0.5rem; }
+.subtitle { color: var(--dim); margin-bottom: 2rem; }
+.summary { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.5rem; min-width: 120px; }
+.stat .label { color: var(--dim); font-size: 0.75rem; text-transform: uppercase; }
+.stat .value { font-size: 1.5rem; font-weight: bold; }
+.stat .value.high { color: var(--high); }
+.stat .value.medium { color: var(--medium); }
+.stat .value.low { color: var(--low); }
+.stat .value.total { color: var(--accent); }
+.phase { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden; }
+.phase-header { padding: 1rem 1.5rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+.phase-header:hover { background: rgba(122,162,247,0.05); }
+.phase-header h2 { font-size: 1rem; color: var(--accent); }
+.phase-header .count { color: var(--dim); font-size: 0.85rem; }
+.phase-body { padding: 0; }
+.task { border-bottom: 1px solid var(--border); padding: 1rem 1.5rem; }
+.task:last-child { border-bottom: none; }
+.task-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.task-header input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--green); cursor: pointer; }
+.task-id { font-weight: bold; color: var(--text); }
+.sev { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; font-weight: bold; text-transform: uppercase; }
+.sev-high { background: rgba(247,118,142,0.2); color: var(--high); }
+.sev-medium { background: rgba(224,175,104,0.2); color: var(--medium); }
+.sev-low { background: rgba(158,206,106,0.2); color: var(--low); }
+.task-title { font-weight: 600; }
+.task-file { color: var(--dim); font-size: 0.8rem; margin-bottom: 0.5rem; }
+.task-file code { background: rgba(122,162,247,0.1); padding: 1px 4px; border-radius: 3px; color: var(--accent); }
+.task-desc { color: var(--text); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.task-fix { margin-top: 0.5rem; }
+.fix-toggle { color: var(--accent); cursor: pointer; font-size: 0.8rem; user-select: none; }
+.fix-toggle:hover { text-decoration: underline; }
+.fix-content { display: none; margin-top: 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.75rem; font-size: 0.8rem; color: var(--text); white-space: pre-wrap; }
+.fix-content.open { display: block; }
+.dep { color: var(--dim); font-size: 0.75rem; font-style: italic; }
+.arrow { transition: transform 0.2s; display: inline-block; }
+.arrow.open { transform: rotate(90deg); }
+</style>
+</head>
+<body>
+<h1>Milady Codebase Conflict Audit</h1>
+<p class="subtitle">Last updated: 2026-03-20 — 26 validated issues across 6 phases</p>
+
+<div class="summary">
+  <div class="stat"><div class="label">Total Issues</div><div class="value total">26</div></div>
+  <div class="stat"><div class="label">High</div><div class="value high">4</div></div>
+  <div class="stat"><div class="label">Medium</div><div class="value medium">9</div></div>
+  <div class="stat"><div class="label">Low</div><div class="value low">13</div></div>
+</div>
+
+<div class="phase" id="phase0">
+  <div class="phase-header" onclick="togglePhase('phase0')">
+    <h2><span class="arrow open" id="arrow-phase0">▶</span> Phase 0: Config Alignment</h2>
+    <span class="count">9 tasks — 3 HIGH, 3 MEDIUM, 3 LOW</span>
+  </div>
+  <div class="phase-body" id="body-phase0">
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t01" onchange="saveCheck(this)">
+        <span class="task-id">T01</span>
+        <span class="sev sev-high">HIGH / CONFIG</span>
+        <span class="task-title">startEliza(serverOnly) uses UI port 2138 instead of API port 31337</span>
+      </div>
+      <div class="task-file">File: <code>src/runtime/eliza.ts:574-575</code></div>
+      <div class="task-desc">The serverOnly code path reads MILADY_PORT || ELIZA_PORT || 2138 but should read MILADY_API_PORT || 31337. This means `milady start` binds the API on port 2138 (the UI port), conflicting with the dashboard.</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">In src/runtime/eliza.ts around line 574-575, change:
+  const apiPort = Number(process.env.MILADY_PORT || process.env.ELIZA_PORT) || 2138;
+to:
+  const apiPort = Number(process.env.MILADY_API_PORT || process.env.ELIZA_API_PORT || process.env.MILADY_PORT || process.env.ELIZA_PORT) || 31337;</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t02" onchange="saveCheck(this)">
+        <span class="task-id">T02</span>
+        <span class="sev sev-high">HIGH / CONFIG</span>
+        <span class="task-title">Dockerfile hardcodes config filename milady.json instead of eliza.json</span>
+      </div>
+      <div class="task-file">File: <code>Dockerfile:175</code></div>
+      <div class="task-desc">ENV MILADY_CONFIG_PATH="/data/.milady/milady.json" but runtime expects eliza.json. Docker deployments will fail to find config.</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">In Dockerfile line 175, change:
+  ENV MILADY_CONFIG_PATH="/data/.milady/milady.json"
+to:
+  ENV MILADY_CONFIG_PATH="/data/.milady/eliza.json"</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t03" onchange="saveCheck(this)">
+        <span class="task-id">T03</span>
+        <span class="sev sev-high">HIGH / CONFIG</span>
+        <span class="task-title">Docker-compose bridge port binding hardcodes container-side port</span>
+      </div>
+      <div class="task-file">File: <code>deploy/docker-compose.yml:17</code></div>
+      <div class="task-desc">Port mapping "${MILADY_BRIDGE_PORT:-18790}:18790" hardcodes 18790 on the container side. If MILADY_BRIDGE_PORT is overridden, host binds the new port but container still listens on 18790.</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">In deploy/docker-compose.yml line 17, change:
+  - "${MILADY_BRIDGE_PORT:-18790}:18790"
+to:
+  - "${MILADY_BRIDGE_PORT:-18790}:${MILADY_BRIDGE_PORT:-18790}"</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t04" onchange="saveCheck(this)">
+        <span class="task-id">T04</span>
+        <span class="sev sev-medium">MEDIUM / CONFIG</span>
+        <span class="task-title">CLI banner displays wrong port</span>
+      </div>
+      <div class="task-file">File: <code>src/cli/program/register.start.ts:59-64</code></div>
+      <div class="task-desc">Banner reads MILADY_PORT || 2138 and prints "Connect at: http://localhost:2138" even though API runs on 31337.</div>
+      <div class="dep">depends on T01</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">In src/cli/program/register.start.ts line 59, change:
+  const port = process.env.MILADY_PORT || process.env.ELIZA_PORT || "2138";
+to:
+  const port = process.env.MILADY_API_PORT || process.env.ELIZA_API_PORT || process.env.MILADY_PORT || process.env.ELIZA_PORT || "31337";</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t05" onchange="saveCheck(this)">
+        <span class="task-id">T05</span>
+        <span class="sev sev-medium">MEDIUM / CONFIG</span>
+        <span class="task-title">Missing brand env aliases for HOME_PORT and embedding metadata</span>
+      </div>
+      <div class="task-file">File: <code>src/config/brand-env.ts:6-30</code></div>
+      <div class="task-desc">MILADY_HOME_PORT, MILADY_EMBEDDING_META_DIR, and MILADY_EMBEDDING_META_PATH lack Eliza-side aliases.</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">In src/config/brand-env.ts, add before the closing '] as const':
+  ["MILADY_HOME_PORT", "ELIZA_HOME_PORT"],
+  ["MILADY_EMBEDDING_META_DIR", "ELIZA_EMBEDDING_META_DIR"],
+  ["MILADY_EMBEDDING_META_PATH", "ELIZA_EMBEDDING_META_PATH"],</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t06" onchange="saveCheck(this)">
+        <span class="task-id">T06</span>
+        <span class="sev sev-medium">MEDIUM / CONFIG</span>
+        <span class="task-title">Missing config/state paths in Dockerfile.cloud-slim</span>
+      </div>
+      <div class="task-file">File: <code>deploy/Dockerfile.cloud-slim:162-175</code></div>
+      <div class="task-desc">Root Dockerfile sets MILADY_STATE_DIR, CONFIG_PATH, PGLITE_DATA_DIR but cloud-slim only sets MILADY_API_BIND. Cloud agents won't persist config.</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">In deploy/Dockerfile.cloud-slim after the MILADY_API_BIND line, add:
+  ENV MILADY_STATE_DIR="/data/.milady"
+  ENV MILADY_CONFIG_PATH="/data/.milady/eliza.json"
+  ENV PGLITE_DATA_DIR="/data/.milady/workspace/.eliza/.elizadb"
+  RUN mkdir -p /data/.milady/workspace/.eliza/.elizadb</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t07" onchange="saveCheck(this)">
+        <span class="task-id">T07</span>
+        <span class="sev sev-medium">MEDIUM / GAP</span>
+        <span class="task-title">Chrome extension relay port 18792 undocumented</span>
+      </div>
+      <div class="task-file">Files: <code>apps/chrome-extension/background.js:1</code>, <code>CLAUDE.md</code>, <code>.env.example</code></div>
+      <div class="task-desc">Chrome extension uses DEFAULT_PORT 18792 which is absent from the documented port table.</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">Add to the Ports table in CLAUDE.md:
+  | Chrome Extension Relay | 18792 | — |
+
+Add to .env.example port comments:
+  # MILADY_RELAY_PORT=18792  # Chrome extension relay server</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t08" onchange="saveCheck(this)">
+        <span class="task-id">T08</span>
+        <span class="sev sev-low">LOW / CONFIG</span>
+        <span class="task-title">Port resolution priority inconsistent across files</span>
+      </div>
+      <div class="task-file">Files: <code>src/runtime/dev-server.ts:40-45</code>, <code>src/cli/program/register.start.ts:59</code></div>
+      <div class="task-desc">Different files use different env var fallback chains for API port.</div>
+      <div class="dep">depends on T01</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t09" onchange="saveCheck(this)">
+        <span class="task-id">T09</span>
+        <span class="sev sev-low">LOW / CONFIG</span>
+        <span class="task-title">Inconsistent PORT naming in cloud Dockerfiles</span>
+      </div>
+      <div class="task-file">Files: <code>deploy/Dockerfile.cloud-agent:41</code>, <code>deploy/Dockerfile.cloud-slim:164</code></div>
+      <div class="task-desc">Cloud Dockerfiles use PORT=2138 (Railway convention) instead of MILADY_PORT. Intentional but undocumented.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="phase" id="phase1">
+  <div class="phase-header" onclick="togglePhase('phase1')">
+    <h2><span class="arrow open" id="arrow-phase1">▶</span> Phase 1: Security</h2>
+    <span class="count">5 tasks — 1 HIGH, 3 MEDIUM, 2 LOW</span>
+  </div>
+  <div class="phase-body" id="body-phase1">
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t10" onchange="saveCheck(this)">
+        <span class="task-id">T10</span>
+        <span class="sev sev-high">HIGH / SECURITY</span>
+        <span class="task-title">Browser surface webview sandbox disabled</span>
+      </div>
+      <div class="task-file">File: <code>apps/app/src/BrowserSurfaceWindow.tsx:184</code></div>
+      <div class="task-desc">sandbox="" on the electrobun-webview element disables sandboxing. Loaded web content gets full privileges.</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">In apps/app/src/BrowserSurfaceWindow.tsx line 184, change:
+  sandbox=""
+to:
+  sandbox="allow-scripts allow-same-origin allow-popups"
+
+Then test browser functionality with the restriction enabled.</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t11" onchange="saveCheck(this)">
+        <span class="task-id">T11</span>
+        <span class="sev sev-medium">MEDIUM / SECURITY</span>
+        <span class="task-title">Unauthenticated WebSocket in Chrome extension</span>
+      </div>
+      <div class="task-file">File: <code>apps/chrome-extension/background.js:88-92</code></div>
+      <div class="task-desc">WebSocket to relay (localhost:18792) is unauthenticated. Any process on localhost can connect and send commands. Has a TODO comment acknowledging this.</div>
+      <div class="task-fix">
+        <span class="fix-toggle" onclick="toggleFix(this)">▸ Show fix prompt</span>
+        <div class="fix-content">In apps/chrome-extension/background.js around line 88:
+1. Read stored token: const token = await chrome.storage.local.get('apiToken');
+2. Pass as query param: new WebSocket(wsUrl + '?token=' + encodeURIComponent(token.apiToken));
+3. Server-side: validate token in WebSocket upgrade handler before accepting connection.</div>
+      </div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t12" onchange="saveCheck(this)">
+        <span class="task-id">T12</span>
+        <span class="sev sev-medium">MEDIUM / SECURITY</span>
+        <span class="task-title">Missing message validation in Chrome extension relay</span>
+      </div>
+      <div class="task-file">File: <code>apps/chrome-extension/background.js:188-230</code></div>
+      <div class="task-desc">onRelayMessage() accepts arbitrary JSON and processes forwardCDPCommand without validating msg.params or method whitelist.</div>
+      <div class="dep">depends on T11</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t13" onchange="saveCheck(this)">
+        <span class="task-id">T13</span>
+        <span class="sev sev-medium">MEDIUM / SECURITY</span>
+        <span class="task-title">Token exposure via URL parameter in homepage auth</span>
+      </div>
+      <div class="task-file">File: <code>apps/homepage/src/main.tsx:16-27</code></div>
+      <div class="task-desc">OAuth-style flow passes API tokens via ?token= URL parameter. Tokens appear in server/CDN logs and Referer headers before replaceState.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t14" onchange="saveCheck(this)">
+        <span class="task-id">T14</span>
+        <span class="sev sev-low">LOW / SECURITY</span>
+        <span class="task-title">Deep link file path traversal risk</span>
+      </div>
+      <div class="task-file">File: <code>apps/app/src/main.tsx:336-360</code></div>
+      <div class="task-desc">milady://share?file= accepts arbitrary file paths without .. traversal validation.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t15" onchange="saveCheck(this)">
+        <span class="task-id">T15</span>
+        <span class="sev sev-low">LOW / SECURITY</span>
+        <span class="task-title">Preload script validation uses mtime not cryptographic hash</span>
+      </div>
+      <div class="task-file">File: <code>apps/app/electrobun/src/preload-validation.ts:14-65</code></div>
+      <div class="task-desc">Preload validation only checks file modification time, not content integrity. A compromised preload.js would not be detected.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="phase" id="phase2">
+  <div class="phase-header" onclick="togglePhase('phase2')">
+    <h2><span class="arrow open" id="arrow-phase2">▶</span> Phase 2: Error Handling</h2>
+    <span class="count">5 tasks — 1 MEDIUM, 4 LOW</span>
+  </div>
+  <div class="phase-body" id="body-phase2">
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t16" onchange="saveCheck(this)">
+        <span class="task-id">T16</span>
+        <span class="sev sev-medium">MEDIUM / ERROR</span>
+        <span class="task-title">Missing error boundary in BrowserSurfaceWindow</span>
+      </div>
+      <div class="task-file">File: <code>apps/app/src/BrowserSurfaceWindow.tsx</code></div>
+      <div class="task-desc">If the webview component throws, it crashes the detached shell window. No error boundary wraps the electrobun-webview.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t17" onchange="saveCheck(this)">
+        <span class="task-id">T17</span>
+        <span class="sev sev-low">LOW / ERROR</span>
+        <span class="task-title">Missing unhandled rejection handler in dev-server</span>
+      </div>
+      <div class="task-file">File: <code>src/runtime/dev-server.ts</code></div>
+      <div class="task-desc">CLI registers unhandledRejection handler for graceful degradation. Dev-server lacks this, causing hard crashes on embedding/LLM errors.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t18" onchange="saveCheck(this)">
+        <span class="task-id">T18</span>
+        <span class="sev sev-low">LOW / ERROR</span>
+        <span class="task-title">Unhandled promise rejection in Chrome extension listeners</span>
+      </div>
+      <div class="task-file">File: <code>apps/chrome-extension/background.js:486</code></div>
+      <div class="task-desc">void connectOrToggleForActiveTab() suppresses promise errors via void operator.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t19" onchange="saveCheck(this)">
+        <span class="task-id">T19</span>
+        <span class="sev sev-low">LOW / ERROR</span>
+        <span class="task-title">localStorage access without try-catch in homepage auth</span>
+      </div>
+      <div class="task-file">File: <code>apps/homepage/src/lib/auth.ts:19-37</code></div>
+      <div class="task-desc">getToken(), setToken(), clearToken() access localStorage directly. Throws in private browsing mode.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t20" onchange="saveCheck(this)">
+        <span class="task-id">T20</span>
+        <span class="sev sev-low">LOW / ERROR</span>
+        <span class="task-title">Unparseable URLs silently blocked in Electrobun will-navigate</span>
+      </div>
+      <div class="task-file">File: <code>apps/app/electrobun/src/index.ts:605-608</code></div>
+      <div class="task-desc">Catch block calls preventDefault() with no logging. Makes navigation debugging impossible.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="phase" id="phase3">
+  <div class="phase-header" onclick="togglePhase('phase3')">
+    <h2><span class="arrow open" id="arrow-phase3">▶</span> Phase 3: Logic & Race Conditions</h2>
+    <span class="count">4 tasks — 1 MEDIUM, 3 LOW</span>
+  </div>
+  <div class="phase-body" id="body-phase3">
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t21" onchange="saveCheck(this)">
+        <span class="task-id">T21</span>
+        <span class="sev sev-medium">MEDIUM / LOGIC</span>
+        <span class="task-title">Signal handler not re-registered after restart</span>
+      </div>
+      <div class="task-file">File: <code>src/runtime/eliza.ts:59, 633-637</code></div>
+      <div class="task-desc">Module-level signalHandlersRegistered flag prevents re-registration on restart. If handlers were removed, they won't be restored.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t22" onchange="saveCheck(this)">
+        <span class="task-id">T22</span>
+        <span class="sev sev-low">LOW / LOGIC</span>
+        <span class="task-title">Inconsistent hostname in wallet actions (127.0.0.1 vs localhost)</span>
+      </div>
+      <div class="task-file">Files: <code>src/actions/check-balance.ts:176</code>, <code>src/actions/install-plugin.ts:56</code></div>
+      <div class="task-desc">Three wallet actions use 127.0.0.1, install-plugin uses localhost. Could cause issues if bind address is IPv4-only.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t23" onchange="saveCheck(this)">
+        <span class="task-id">T23</span>
+        <span class="sev sev-low">LOW / LOGIC</span>
+        <span class="task-title">Bearer token regex accepts edge cases</span>
+      </div>
+      <div class="task-file">File: <code>src/actions/wallet-action-shared.ts:17-22</code></div>
+      <div class="task-desc">Regex doesn't validate token part is non-empty. "Bearer " with no token produces empty Authorization header.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t24" onchange="saveCheck(this)">
+        <span class="task-id">T24</span>
+        <span class="sev sev-low">LOW / LOGIC</span>
+        <span class="task-title">Typo in auth header fallback "x-milaidy-token"</span>
+      </div>
+      <div class="task-file">File: <code>src/api/server.ts:323</code></div>
+      <div class="task-desc">Header "x-milaidy-token" is a typo of "x-milady-token" (already checked on line 322). Dead code.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="phase" id="phase4">
+  <div class="phase-header" onclick="togglePhase('phase4')">
+    <h2><span class="arrow open" id="arrow-phase4">▶</span> Phase 4: Build & Deploy</h2>
+    <span class="count">1 task — 1 LOW</span>
+  </div>
+  <div class="phase-body" id="body-phase4">
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t25" onchange="saveCheck(this)">
+        <span class="task-id">T25</span>
+        <span class="sev sev-low">LOW / GAP</span>
+        <span class="task-title">Vite proxy port assumption not validated</span>
+      </div>
+      <div class="task-file">File: <code>apps/app/vite.config.ts:13-15, 250-267</code></div>
+      <div class="task-desc">Vite dev config hardcodes API proxy to port 31337. If MILADY_API_PORT is changed without restarting Vite, proxy silently fails.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="phase" id="phase5">
+  <div class="phase-header" onclick="togglePhase('phase5')">
+    <h2><span class="arrow open" id="arrow-phase5">▶</span> Phase 5: UX Polish</h2>
+    <span class="count">2 tasks — 2 LOW</span>
+  </div>
+  <div class="phase-body" id="body-phase5">
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t26" onchange="saveCheck(this)">
+        <span class="task-id">T26</span>
+        <span class="sev sev-low">LOW / UX</span>
+        <span class="task-title">Pairing code expiration message says "check server logs"</span>
+      </div>
+      <div class="task-file">File: <code>src/api/server.ts:1759-1761</code></div>
+      <div class="task-desc">When pairing expires, response says "check server logs" even though the code was just regenerated and could be returned directly.</div>
+    </div>
+
+    <div class="task">
+      <div class="task-header">
+        <input type="checkbox" id="t27" onchange="saveCheck(this)">
+        <span class="task-id">T27</span>
+        <span class="sev sev-low">LOW / ERROR</span>
+        <span class="task-title">CharacterEditor missing null guard for characterData</span>
+      </div>
+      <div class="task-file">File: <code>apps/app/src/components/CharacterEditor.tsx:164-199</code></div>
+      <div class="task-desc">Component destructures 40+ properties from useApp() without null checks. If characterData is null, property access crashes.</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Checkbox persistence
+function saveCheck(el) {
+  const checks = JSON.parse(localStorage.getItem('milady-audit-checks') || '{}');
+  checks[el.id] = el.checked;
+  localStorage.setItem('milady-audit-checks', JSON.stringify(checks));
+}
+function loadChecks() {
+  const checks = JSON.parse(localStorage.getItem('milady-audit-checks') || '{}');
+  for (const [id, checked] of Object.entries(checks)) {
+    const el = document.getElementById(id);
+    if (el) el.checked = checked;
+  }
+}
+
+// Phase collapse/expand
+function togglePhase(id) {
+  const body = document.getElementById('body-' + id);
+  const arrow = document.getElementById('arrow-' + id);
+  if (body.style.display === 'none') {
+    body.style.display = '';
+    arrow.classList.add('open');
+  } else {
+    body.style.display = 'none';
+    arrow.classList.remove('open');
+  }
+}
+
+// Fix prompt toggle
+function toggleFix(el) {
+  const content = el.nextElementSibling;
+  content.classList.toggle('open');
+  el.textContent = content.classList.contains('open') ? '▾ Hide fix prompt' : '▸ Show fix prompt';
+}
+
+loadChecks();
+</script>
+</body>
+</html>

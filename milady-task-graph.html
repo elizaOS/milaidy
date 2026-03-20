@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milady Task Graph — 2026-03-20</title>
+<style>
+:root { --bg: #1a1b26; --surface: #24283b; --border: #414868; --text: #c0caf5; --dim: #565f89; --accent: #7aa2f7; --high: #f7768e; --medium: #e0af68; --low: #9ece6a; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'SF Mono', 'Fira Code', monospace; background: var(--bg); color: var(--text); padding: 2rem; }
+h1 { color: var(--accent); font-size: 1.3rem; margin-bottom: 1.5rem; }
+.graph { display: flex; flex-direction: column; gap: 2rem; max-width: 900px; }
+.phase-row { display: flex; gap: 1rem; align-items: flex-start; }
+.phase-label { min-width: 180px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; font-size: 0.8rem; }
+.phase-label h3 { color: var(--accent); font-size: 0.85rem; margin-bottom: 0.25rem; }
+.phase-label .desc { color: var(--dim); font-size: 0.7rem; }
+.tasks { display: flex; flex-wrap: wrap; gap: 0.5rem; flex: 1; }
+.node { background: var(--surface); border: 2px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.75rem; cursor: default; position: relative; min-width: 60px; text-align: center; }
+.node.high { border-color: var(--high); }
+.node.medium { border-color: var(--medium); }
+.node.low { border-color: var(--low); }
+.node .tid { font-weight: bold; display: block; }
+.node .severity { font-size: 0.6rem; text-transform: uppercase; }
+.node.high .severity { color: var(--high); }
+.node.medium .severity { color: var(--medium); }
+.node.low .severity { color: var(--low); }
+.node .ttitle { font-size: 0.65rem; color: var(--dim); max-width: 120px; display: block; margin-top: 2px; }
+.connector { width: 30px; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 1.2rem; }
+.legend { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; font-size: 0.75rem; }
+.legend-item { display: flex; align-items: center; gap: 0.5rem; }
+.legend-swatch { width: 12px; height: 12px; border-radius: 3px; border: 2px solid; }
+.legend-swatch.high { border-color: var(--high); }
+.legend-swatch.medium { border-color: var(--medium); }
+.legend-swatch.low { border-color: var(--low); }
+.dep-note { color: var(--dim); font-size: 0.65rem; margin-top: 0.5rem; font-style: italic; }
+</style>
+</head>
+<body>
+<h1>Milady Task Dependency Graph — 2026-03-20</h1>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch high"></div> HIGH (4)</div>
+  <div class="legend-item"><div class="legend-swatch medium"></div> MEDIUM (9)</div>
+  <div class="legend-item"><div class="legend-swatch low"></div> LOW (13)</div>
+</div>
+
+<div class="graph">
+
+  <div class="phase-row">
+    <div class="phase-label">
+      <h3>Phase 0</h3>
+      <div class="desc">Config Alignment</div>
+    </div>
+    <div class="tasks">
+      <div class="node high"><span class="tid">T01</span><span class="severity">HIGH</span><span class="ttitle">Port 2138→31337</span></div>
+      <div class="node high"><span class="tid">T02</span><span class="severity">HIGH</span><span class="ttitle">milady.json→eliza.json</span></div>
+      <div class="node high"><span class="tid">T03</span><span class="severity">HIGH</span><span class="ttitle">Bridge port bind</span></div>
+      <div class="node medium"><span class="tid">T04</span><span class="severity">MED</span><span class="ttitle">CLI banner port</span></div>
+      <div class="node medium"><span class="tid">T05</span><span class="severity">MED</span><span class="ttitle">Brand env aliases</span></div>
+      <div class="node medium"><span class="tid">T06</span><span class="severity">MED</span><span class="ttitle">Cloud-slim paths</span></div>
+      <div class="node medium"><span class="tid">T07</span><span class="severity">MED</span><span class="ttitle">Relay port docs</span></div>
+      <div class="node low"><span class="tid">T08</span><span class="severity">LOW</span><span class="ttitle">Port priority</span></div>
+      <div class="node low"><span class="tid">T09</span><span class="severity">LOW</span><span class="ttitle">Cloud PORT name</span></div>
+    </div>
+  </div>
+
+  <div class="phase-row">
+    <div class="phase-label">
+      <h3>Phase 1</h3>
+      <div class="desc">Security</div>
+    </div>
+    <div class="tasks">
+      <div class="node high"><span class="tid">T10</span><span class="severity">HIGH</span><span class="ttitle">Webview sandbox</span></div>
+      <div class="node medium"><span class="tid">T11</span><span class="severity">MED</span><span class="ttitle">WS auth</span></div>
+      <div class="node medium"><span class="tid">T12</span><span class="severity">MED</span><span class="ttitle">Msg validation</span></div>
+      <div class="node medium"><span class="tid">T13</span><span class="severity">MED</span><span class="ttitle">Token in URL</span></div>
+      <div class="node low"><span class="tid">T14</span><span class="severity">LOW</span><span class="ttitle">Deep link path</span></div>
+      <div class="node low"><span class="tid">T15</span><span class="severity">LOW</span><span class="ttitle">Preload hash</span></div>
+    </div>
+  </div>
+
+  <div class="phase-row">
+    <div class="phase-label">
+      <h3>Phase 2</h3>
+      <div class="desc">Error Handling</div>
+    </div>
+    <div class="tasks">
+      <div class="node medium"><span class="tid">T16</span><span class="severity">MED</span><span class="ttitle">Error boundary</span></div>
+      <div class="node low"><span class="tid">T17</span><span class="severity">LOW</span><span class="ttitle">Dev rejection</span></div>
+      <div class="node low"><span class="tid">T18</span><span class="severity">LOW</span><span class="ttitle">Ext promise</span></div>
+      <div class="node low"><span class="tid">T19</span><span class="severity">LOW</span><span class="ttitle">localStorage</span></div>
+      <div class="node low"><span class="tid">T20</span><span class="severity">LOW</span><span class="ttitle">URL logging</span></div>
+    </div>
+  </div>
+
+  <div class="phase-row">
+    <div class="phase-label">
+      <h3>Phase 3</h3>
+      <div class="desc">Logic & Races</div>
+    </div>
+    <div class="tasks">
+      <div class="node medium"><span class="tid">T21</span><span class="severity">MED</span><span class="ttitle">Signal handlers</span></div>
+      <div class="node low"><span class="tid">T22</span><span class="severity">LOW</span><span class="ttitle">127.0.0.1 vs localhost</span></div>
+      <div class="node low"><span class="tid">T23</span><span class="severity">LOW</span><span class="ttitle">Bearer regex</span></div>
+      <div class="node low"><span class="tid">T24</span><span class="severity">LOW</span><span class="ttitle">x-milaidy typo</span></div>
+    </div>
+  </div>
+
+  <div class="phase-row">
+    <div class="phase-label">
+      <h3>Phase 4</h3>
+      <div class="desc">Build & Deploy</div>
+    </div>
+    <div class="tasks">
+      <div class="node low"><span class="tid">T25</span><span class="severity">LOW</span><span class="ttitle">Vite proxy port</span></div>
+    </div>
+  </div>
+
+  <div class="phase-row">
+    <div class="phase-label">
+      <h3>Phase 5</h3>
+      <div class="desc">UX Polish</div>
+    </div>
+    <div class="tasks">
+      <div class="node low"><span class="tid">T26</span><span class="severity">LOW</span><span class="ttitle">Pairing msg</span></div>
+      <div class="node low"><span class="tid">T27</span><span class="severity">LOW</span><span class="ttitle">Null guard</span></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="dep-note">
+  Dependencies: T04 → T01 &nbsp;|&nbsp; T08 → T01 &nbsp;|&nbsp; T12 → T11
+</div>
+
+</body>
+</html>
