@@ -1781,6 +1781,17 @@ async function handleDatabaseRowsCompatRoute(
   return true;
 }
 
+/**
+ * Check if this is a cloud-provisioned container.
+ * Cloud-provisioned containers skip pairing and onboarding since the platform handles auth.
+ */
+function isCloudProvisioned(): boolean {
+  return (
+    process.env.MILADY_CLOUD_PROVISIONED === "1" ||
+    process.env.ELIZA_CLOUD_PROVISIONED === "1"
+  );
+}
+
 async function handleMiladyCompatRoute(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -1789,7 +1800,28 @@ async function handleMiladyCompatRoute(
   const method = (req.method ?? "GET").toUpperCase();
   const url = new URL(req.url ?? "/", "http://localhost");
 
+  // Cloud-provisioned containers skip onboarding — the platform handles setup.
+  // Return { complete: true } so the frontend goes directly to chat.
+  if (method === "GET" && url.pathname === "/api/onboarding/status") {
+    if (isCloudProvisioned()) {
+      sendJsonResponse(res, 200, { complete: true });
+      return true;
+    }
+    // Let upstream handle non-cloud containers
+    return false;
+  }
+
+  // Cloud-provisioned containers don't need pairing — auth is handled by platform.
   if (method === "GET" && url.pathname === "/api/auth/status") {
+    if (isCloudProvisioned()) {
+      sendJsonResponse(res, 200, {
+        required: false,
+        pairingEnabled: false,
+        expiresAt: null,
+      });
+      return true;
+    }
+    // Non-cloud: return normal pairing status
     const required = Boolean(getCompatApiToken());
     const enabled = pairingEnabled();
     if (enabled) {
