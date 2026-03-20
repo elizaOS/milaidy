@@ -1,7 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
 :root {
-  --jet-black: #0b0b0c;
-  --rich-black: #121214;
-  --charcoal: #1e1f23;
+  --font-sans: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Courier New", monospace;
+
+  --jet-black: #08080a;
+  --rich-black: #0e0e11;
+  --charcoal: #1a1a1f;
 
   --deep-gold: #a67c2e;
   --classic-gold: #cfaf5a;
@@ -12,8 +17,8 @@
   --dark-silver: #5e6166;
   --steel: #8a8f98;
   --bright-silver: #c9ccd1;
-  --chrome-highlight: #f5f7fa;
-  --gunmetal: #2a2d31;
+  --chrome-highlight: #e8e8ec;
+  --gunmetal: #252530;
 
   --gold-glow: rgba(242, 210, 122, 0.25);
   --soft-white-glow: rgba(255, 255, 255, 0.08);
@@ -107,30 +112,33 @@
 
 [data-theme="dark"],
 .dark {
+  font-family: var(--font-sans);
+
   --bg: var(--jet-black);
   --bg-accent: var(--rich-black);
   --bg-elevated: var(--rich-black);
-  --bg-hover: var(--charcoal);
+  --bg-hover: #1e1e24;
   --bg-muted: var(--rich-black);
 
   --card: var(--rich-black);
-  --card-foreground: #ededed;
+  --card-foreground: #e8e8ec;
   --surface: var(--charcoal);
 
-  --text: #ededed;
+  --text: #e8e8ec;
   --text-strong: var(--chrome-highlight);
-  --chat-text: #ededed;
-  --muted: #a1a1aa;
+  --chat-text: #e8e8ec;
+  --muted: #6b6b78;
   --muted-strong: var(--bright-silver);
 
   --border: var(--gunmetal);
   --border-strong: var(--dark-silver);
+  --border-subtle: #1c1c24;
   --input: var(--gunmetal);
 
   --header-bar-bg: var(--jet-black);
-  --header-bar-fg: #ededed;
+  --header-bar-fg: #e8e8ec;
   --section-bar-bg: var(--rich-black);
-  --section-bar-fg: #ededed;
+  --section-bar-fg: #e8e8ec;
 }
 
 [data-testid="companion-header-chat-controls"] > button {
@@ -467,3 +475,5 @@ table[class*="border-collapse"][class*="font-mono"] td,
 table[class*="border-collapse"][class*="font-mono"] th {
   border-color: rgba(94, 97, 102, 0.24);
 }
+
+/* Component-level theme overrides removed — use theme variables directly. */

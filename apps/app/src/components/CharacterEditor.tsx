@@ -225,6 +225,7 @@ export function CharacterEditor({
 
   /* ── Generation ─────────────────────────────────────────────────── */
   const [generating, setGenerating] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [mobilePage, setMobilePage] = useState<
     "identity" | "style" | "examples"
   >("identity");
@@ -273,7 +274,7 @@ export function CharacterEditor({
   const [voiceSaving, setVoiceSaving] = useState(false);
   const [voiceSaveError, setVoiceSaveError] = useState<string | null>(null);
   const [voiceTesting, setVoiceTesting] = useState(false);
-  const [voiceTestAudio] = useState<HTMLAudioElement | null>(null);
+  const [voiceTestAudio, setVoiceTestAudio] = useState<HTMLAudioElement | null>(null);
   const [selectedVoicePresetId, setSelectedVoicePresetId] = useState<
     string | null
   >(null);
@@ -611,6 +612,7 @@ export function CharacterEditor({
   const handleGenerate = useCallback(
     async (field: string, mode: "replace" | "append" = "replace") => {
       setGenerating(field);
+      setGenerateError(null);
       try {
         const { generated } = await client.generateCharacterField(
           field,
@@ -666,7 +668,11 @@ export function CharacterEditor({
             }
           } catch {}
         }
-      } catch {}
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Generation failed";
+        setGenerateError(msg);
+      }
       setGenerating(null);
     },
     [
@@ -840,14 +846,13 @@ export function CharacterEditor({
                       onClick={() => {
                         if (voiceTesting) {
                           handleStopTest();
-                        } else if (activeCharacterRosterEntry?.catchphrase) {
+                        } else if (activeVoicePreset?.previewUrl) {
                           setVoiceTesting(true);
-                          void client
-                            .streamVoiceSpeak(
-                              activeCharacterRosterEntry.catchphrase,
-                            )
-                            .then(() => setVoiceTesting(false))
-                            .catch(() => setVoiceTesting(false));
+                          const audio = new Audio(activeVoicePreset.previewUrl);
+                          audio.onended = () => { setVoiceTesting(false); setVoiceTestAudio(null); };
+                          audio.onerror = () => { setVoiceTesting(false); setVoiceTestAudio(null); };
+                          setVoiceTestAudio(audio);
+                          audio.play().catch(() => { setVoiceTesting(false); setVoiceTestAudio(null); });
                         }
                       }}
                       aria-label={
@@ -1252,13 +1257,16 @@ export function CharacterEditor({
       {/* ── Footer ─────────────────────────────────────────────────── */}
       <div className="ce-footer">
         {/* Status messages */}
-        {(characterSaveSuccess || combinedSaveError) && (
+        {(characterSaveSuccess || combinedSaveError || generateError) && (
           <div className="ce-footer-status">
             {characterSaveSuccess && (
               <span className="ce-status-success">{characterSaveSuccess}</span>
             )}
             {combinedSaveError && (
               <span className="ce-status-error">{combinedSaveError}</span>
+            )}
+            {generateError && (
+              <span className="ce-status-error">{generateError}</span>
             )}
           </div>
         )}
