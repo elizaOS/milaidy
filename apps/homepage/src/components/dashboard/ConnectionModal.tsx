@@ -25,7 +25,7 @@ export function ConnectionModal({ onSubmit, onClose }: ConnectionModalProps) {
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md mx-4 space-y-5 animate-fade-up shadow-2xl">
+      <div className="bg-surface border border-border rounded-sm p-6 w-full max-w-md mx-4 space-y-5 animate-fade-up shadow-2xl">
         <div>
           <h3 className="text-lg font-medium text-text-light">
             Connect Remote Agent
@@ -41,7 +41,7 @@ export function ConnectionModal({ onSubmit, onClose }: ConnectionModalProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="My Remote Agent"
-            className="mt-1.5 w-full bg-dark border border-border px-4 py-2.5 text-sm text-text-light rounded-xl
+            className="mt-1.5 w-full bg-dark border border-border px-4 py-2.5 text-sm text-text-light rounded-sm
               focus:border-brand/50 focus:outline-none focus:ring-1 focus:ring-brand/20
               placeholder:text-text-muted/50 transition-all duration-150"
           />
@@ -53,7 +53,7 @@ export function ConnectionModal({ onSubmit, onClose }: ConnectionModalProps) {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://my-agent.example.com"
-            className="mt-1.5 w-full bg-dark border border-border px-4 py-2.5 text-sm text-text-light rounded-xl
+            className="mt-1.5 w-full bg-dark border border-border px-4 py-2.5 text-sm text-text-light rounded-sm
               focus:border-brand/50 focus:outline-none focus:ring-1 focus:ring-brand/20
               placeholder:text-text-muted/50 transition-all duration-150"
           />
@@ -68,7 +68,7 @@ export function ConnectionModal({ onSubmit, onClose }: ConnectionModalProps) {
             onChange={(e) => setToken(e.target.value)}
             placeholder="milady_xxx..."
             type="password"
-            className="mt-1.5 w-full bg-dark border border-border px-4 py-2.5 text-sm text-text-light rounded-xl
+            className="mt-1.5 w-full bg-dark border border-border px-4 py-2.5 text-sm text-text-light rounded-sm
               focus:border-brand/50 focus:outline-none focus:ring-1 focus:ring-brand/20
               placeholder:text-text-muted/50 transition-all duration-150"
           />
@@ -81,7 +81,7 @@ export function ConnectionModal({ onSubmit, onClose }: ConnectionModalProps) {
               onSubmit({ name, url, type: "remote", token: token || undefined })
             }
             disabled={!name || !url}
-            className="flex-1 px-5 py-2.5 bg-brand text-dark font-medium text-sm rounded-xl
+            className="flex-1 px-5 py-2.5 bg-brand text-dark font-medium text-sm rounded-sm
               hover:bg-brand-hover active:scale-[0.98] transition-all duration-150
               disabled:opacity-30 disabled:cursor-not-allowed"
           >
@@ -90,7 +90,7 @@ export function ConnectionModal({ onSubmit, onClose }: ConnectionModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 text-text-muted text-sm rounded-xl
+            className="px-5 py-2.5 text-text-muted text-sm rounded-sm
               hover:text-text-light hover:bg-dark transition-all duration-150"
           >
             Cancel

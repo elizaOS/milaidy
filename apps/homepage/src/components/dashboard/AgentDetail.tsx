@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { ManagedAgent } from "../../lib/AgentProvider";
 import type { AgentStatus } from "../../lib/cloud-api";
+import { openWebUI } from "../../lib/open-web-ui";
 import { ExportPanel } from "./ExportPanel";
 import { LogsPanel } from "./LogsPanel";
 import { MetricsPanel } from "./MetricsPanel";
@@ -20,8 +21,10 @@ function formatUptime(seconds?: number): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
   if (d > 0) return `${d}d ${h}h ${m}m`;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
 }
 
 function formatDate(dateStr?: string): string {
@@ -31,11 +34,21 @@ function formatDate(dateStr?: string): string {
       month: "short",
       day: "numeric",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return dateStr;
   }
 }
+
+const STATE_COLORS: Record<string, { text: string; bg: string }> = {
+  running: { text: "text-emerald-400", bg: "bg-emerald-500" },
+  paused: { text: "text-amber-400", bg: "bg-amber-500" },
+  stopped: { text: "text-red-400", bg: "bg-red-500" },
+  provisioning: { text: "text-brand", bg: "bg-brand" },
+  unknown: { text: "text-text-muted", bg: "bg-text-muted" },
+};
 
 export function AgentDetail({
   agent,
@@ -90,57 +103,83 @@ export function AgentDetail({
     [managedAgent, agent.agentName],
   );
 
+  const stateColors = STATE_COLORS[agent.state] ?? STATE_COLORS.unknown;
+
   return (
-    <div className="rounded-2xl bg-surface border border-border overflow-hidden">
-      {/* Tab bar */}
-      <div className="flex flex-wrap items-center gap-y-2 border-b border-border px-1">
+    <div className="border border-border bg-surface overflow-hidden">
+      {/* Terminal-style header bar */}
+      <div className="flex items-center justify-between gap-4 px-4 py-2.5 bg-dark-secondary border-b border-border">
+        <div className="flex items-center gap-3">
+          {/* Window controls aesthetic */}
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${stateColors.bg} ${agent.state === "running" ? "status-pulse" : ""}`}
+            />
+          </div>
+
+          {/* Agent name */}
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm font-medium text-text-light">
+              {agent.agentName}
+            </span>
+            <span
+              className={`font-mono text-[10px] tracking-wider ${stateColors.text}`}
+            >
+              [{agent.state.toUpperCase()}]
+            </span>
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="flex items-center gap-2">
+          {webUIUrl && (
+            <button
+              type="button"
+              onClick={() => openWebUI(webUIUrl, managedAgent.source)}
+              className="flex items-center gap-1.5 px-3 py-1.5 
+                bg-brand text-dark font-mono text-[11px] font-semibold tracking-wide
+                hover:bg-brand-hover transition-colors"
+            >
+              OPEN UI
+              <svg
+                aria-hidden="true"
+                className="w-3 h-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tab navigation - terminal style */}
+      <div className="flex items-center border-b border-border bg-dark/50">
         {TABS.map((t) => (
           <button
             type="button"
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-3 text-sm transition-all duration-150 relative
+            className={`relative px-5 py-3 font-mono text-xs tracking-wide transition-all duration-150
               ${
                 tab === t
-                  ? "text-text-light"
-                  : "text-text-muted hover:text-text-light"
+                  ? "text-brand bg-surface"
+                  : "text-text-muted hover:text-text-light hover:bg-surface/50"
               }`}
           >
-            {t}
+            {t.toUpperCase()}
             {tab === t && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-brand rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-px bg-brand" />
             )}
           </button>
         ))}
-        <div className="ml-auto flex w-full sm:w-auto items-center justify-between sm:justify-end gap-3 pr-4 pb-2 sm:pb-0">
-          <span className="text-xs text-text-muted">{agent.agentName}</span>
-
-          {webUIUrl && (
-            <a
-              href={webUIUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-dark bg-brand
-                rounded-lg hover:bg-brand-hover transition-all duration-150 font-medium"
-            >
-              <svg
-                aria-hidden="true"
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-              Open Web UI
-            </a>
-          )}
-        </div>
       </div>
 
       {/* Content */}
@@ -175,208 +214,161 @@ function OverviewTab({
   actionLoading: string | null;
   actionError: string | null;
 }) {
-  const stateColors: Record<string, string> = {
-    running: "text-emerald-400",
-    paused: "text-amber-400",
-    stopped: "text-red-400",
-    provisioning: "text-brand",
-    unknown: "text-text-muted",
-  };
-
   const isCloud = managedAgent.source === "cloud";
+  const stateColors = STATE_COLORS[agent.state] ?? STATE_COLORS.unknown;
 
   return (
     <div className="space-y-6">
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
-        <InfoItem label="Status">
-          <span className={stateColors[agent.state] ?? stateColors.unknown}>
-            {agent.state.charAt(0).toUpperCase() + agent.state.slice(1)}
+      {/* Primary stats grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
+        <DataBlock label="STATUS">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${stateColors.bg}`} />
+            <span className={`font-mono ${stateColors.text}`}>
+              {agent.state.toUpperCase()}
+            </span>
+          </div>
+        </DataBlock>
+        <DataBlock label="MODEL">
+          <span className="font-mono text-text-light">
+            {agent.model || "—"}
           </span>
-        </InfoItem>
-        <InfoItem label="Model">
-          <span className="text-text-light">{agent.model}</span>
-        </InfoItem>
-        <InfoItem label="Uptime">
-          <span className="text-text-light">{formatUptime(agent.uptime)}</span>
-        </InfoItem>
-        <InfoItem label="Memories">
-          <span className="text-text-light">
-            {agent.memories !== undefined ? agent.memories : "—"}
+        </DataBlock>
+        <DataBlock label="UPTIME">
+          <span className="font-mono text-text-light tabular-nums">
+            {formatUptime(agent.uptime)}
           </span>
-        </InfoItem>
+        </DataBlock>
+        <DataBlock label="MEMORIES">
+          <span className="font-mono text-text-light tabular-nums">
+            {agent.memories !== undefined
+              ? agent.memories.toLocaleString()
+              : "—"}
+          </span>
+        </DataBlock>
       </div>
 
       {/* Extended info for cloud agents */}
       {isCloud && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 pt-4 border-t border-border">
-          <InfoItem label="Source">
-            <span className="text-brand">Eliza Cloud</span>
-          </InfoItem>
-          <InfoItem label="Region">
-            <span className="text-text-light">
-              {managedAgent.region ?? "Auto"}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border">
+          <DataBlock label="SOURCE">
+            <span className="font-mono text-brand">ELIZA CLOUD</span>
+          </DataBlock>
+          <DataBlock label="REGION">
+            <span className="font-mono text-text-light">
+              {managedAgent.region?.toUpperCase() ?? "AUTO"}
             </span>
-          </InfoItem>
-          <InfoItem label="Created">
-            <span className="text-text-light">
+          </DataBlock>
+          <DataBlock label="CREATED">
+            <span className="font-mono text-text-light text-xs">
               {formatDate(managedAgent.createdAt)}
             </span>
-          </InfoItem>
+          </DataBlock>
           {managedAgent.billing && (
-            <InfoItem label="Cost">
-              <span className="text-text-light">
+            <DataBlock label="HOURLY RATE">
+              <span className="font-mono text-brand tabular-nums">
                 {managedAgent.billing.costPerHour != null
-                  ? `$${managedAgent.billing.costPerHour}/hr`
-                  : (managedAgent.billing.plan ?? "—")}
+                  ? `$${managedAgent.billing.costPerHour.toFixed(2)}/HR`
+                  : (managedAgent.billing.plan?.toUpperCase() ?? "—")}
               </span>
-            </InfoItem>
+            </DataBlock>
           )}
         </div>
       )}
 
-      {/* Billing summary if available */}
+      {/* Billing summary */}
       {managedAgent.billing?.totalCost != null && (
-        <div className="bg-brand/5 border border-brand/15 rounded-xl px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-text-muted">Total Spent</p>
-            <p className="text-lg font-semibold text-brand">
-              ${managedAgent.billing.totalCost.toFixed(2)}
-              {managedAgent.billing.currency && (
-                <span className="text-xs text-text-muted ml-1">
-                  {managedAgent.billing.currency}
-                </span>
-              )}
-            </p>
-          </div>
-          {managedAgent.billing.plan && (
-            <div className="text-right">
-              <p className="text-xs text-text-muted">Plan</p>
-              <p className="text-sm text-text-light font-medium">
-                {managedAgent.billing.plan}
+        <div className="border border-brand/20 bg-brand/5 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-mono text-[10px] tracking-wider text-text-subtle mb-1">
+                TOTAL SPENT
+              </p>
+              <p className="font-mono text-2xl font-semibold text-brand tabular-nums">
+                ${managedAgent.billing.totalCost.toFixed(2)}
+                {managedAgent.billing.currency && (
+                  <span className="text-sm text-text-muted ml-1">
+                    {managedAgent.billing.currency}
+                  </span>
+                )}
               </p>
             </div>
-          )}
+            {managedAgent.billing.plan && (
+              <div className="text-right">
+                <p className="font-mono text-[10px] tracking-wider text-text-subtle mb-1">
+                  PLAN
+                </p>
+                <p className="font-mono text-sm text-text-light">
+                  {managedAgent.billing.plan.toUpperCase()}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Cloud actions */}
       {isCloud && managedAgent.cloudClient && managedAgent.cloudAgentId && (
         <div className="pt-4 border-t border-border">
-          <p className="text-xs text-text-muted mb-3">Actions</p>
+          <p className="font-mono text-[10px] tracking-wider text-text-subtle mb-4">
+            ACTIONS
+          </p>
           <div className="flex flex-wrap gap-2">
             {(agent.state === "running" || agent.state === "paused") && (
               <CloudActionButton
-                label="Suspend"
+                label="SUSPEND"
                 action="suspend"
                 variant="warn"
                 loading={actionLoading}
                 onClick={onAction}
-                icon={
-                  <svg
-                    aria-hidden="true"
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                }
               />
             )}
             {(agent.state === "stopped" || agent.state === "paused") && (
               <CloudActionButton
-                label="Resume"
+                label="RESUME"
                 action="resume"
                 variant="success"
                 loading={actionLoading}
                 onClick={onAction}
-                icon={
-                  <svg
-                    aria-hidden="true"
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                }
               />
             )}
             <CloudActionButton
-              label="Snapshot"
+              label="SNAPSHOT"
               action="snapshot"
               variant="default"
               loading={actionLoading}
               onClick={onAction}
-              icon={
-                <svg
-                  aria-hidden="true"
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-              }
             />
             <CloudActionButton
-              label="Delete"
+              label="DELETE"
               action="delete"
               variant="danger"
               loading={actionLoading}
               onClick={onAction}
-              icon={
-                <svg
-                  aria-hidden="true"
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              }
             />
           </div>
           {actionError && (
-            <p className="mt-2 text-xs text-red-400">{actionError}</p>
+            <p className="mt-3 font-mono text-xs text-red-400">{actionError}</p>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function DataBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-surface p-4">
+      <dt className="font-mono text-[10px] tracking-wider text-text-subtle mb-2">
+        {label}
+      </dt>
+      <dd className="text-sm">{children}</dd>
     </div>
   );
 }
@@ -387,14 +379,12 @@ function CloudActionButton({
   variant,
   loading,
   onClick,
-  icon,
 }: {
   label: string;
   action: string;
   variant: "success" | "warn" | "danger" | "default";
   loading: string | null;
   onClick: (action: string) => void;
-  icon: React.ReactNode;
 }) {
   const isLoading = loading === action;
   const colors = {
@@ -402,7 +392,7 @@ function CloudActionButton({
     warn: "text-amber-400 hover:bg-amber-500/10 border-amber-500/20",
     danger: "text-red-400 hover:bg-red-500/10 border-red-500/20",
     default:
-      "text-text-muted hover:text-text-light hover:bg-surface border-border",
+      "text-text-muted hover:text-text-light hover:bg-surface-elevated border-border",
   };
 
   return (
@@ -410,31 +400,14 @@ function CloudActionButton({
       type="button"
       onClick={() => onClick(action)}
       disabled={loading !== null}
-      className={`flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border
-        transition-all duration-150 disabled:opacity-40
+      className={`flex items-center gap-2 px-4 py-2.5 font-mono text-[11px] tracking-wide 
+        border transition-all duration-150 disabled:opacity-40
         ${colors[variant]}`}
     >
       {isLoading ? (
-        <div className="w-3.5 h-3.5 rounded-full border border-current/30 border-t-current animate-spin" />
-      ) : (
-        icon
-      )}
+        <div className="w-3 h-3 rounded-full border border-current/30 border-t-current animate-spin" />
+      ) : null}
       {label}
     </button>
-  );
-}
-
-function InfoItem({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <dt className="text-xs text-text-muted mb-1">{label}</dt>
-      <dd className="text-sm font-medium">{children}</dd>
-    </div>
   );
 }

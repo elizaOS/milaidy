@@ -24,8 +24,12 @@ export function Homepage() {
             <div className="w-full min-h-[clamp(14rem,42svh,22rem)] sm:min-h-[62svh]" />
 
             <div className="mt-auto flex w-full flex-col items-center gap-4 sm:gap-6">
-              <DownloadIcons />
-              <HeroInstallDock />
+              <div className="w-full max-w-3xl mx-auto px-3 py-4 sm:px-8 sm:py-8 bg-dark/30 backdrop-blur-sm rounded-sm">
+                <DownloadIcons />
+                <div className="mt-5">
+                  <HeroInstallDock />
+                </div>
+              </div>
             </div>
           </div>
         </section>

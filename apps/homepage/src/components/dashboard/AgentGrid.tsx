@@ -1,15 +1,23 @@
 import { useCallback, useState } from "react";
 import { useAgents } from "../../lib/AgentProvider";
-import { isAuthenticated } from "../../lib/auth";
 import { openWebUI } from "../../lib/open-web-ui";
+import { useAuth } from "../../lib/useAuth";
 import { AgentCard } from "./AgentCard";
 import { AgentDetail } from "./AgentDetail";
 import { CreateAgentForm } from "./CreateAgentForm";
 
 export function AgentGrid() {
-  const { filteredAgents: agents, loading, refresh } = useAgents();
+  const {
+    filteredAgents: agents,
+    loading,
+    isRefreshing,
+    error,
+    clearError,
+    refresh,
+  } = useAgents();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const handleAction = useCallback(
     async (agentId: string, action: "play" | "resume" | "pause" | "stop") => {
@@ -41,19 +49,27 @@ export function AgentGrid() {
   );
 
   const getWebUIUrl = useCallback((agent: (typeof agents)[0]) => {
-    // Prefer the webUiUrl set by AgentProvider (from cloud API or sandbox URL)
     if (agent.webUiUrl) return agent.webUiUrl;
-    // For self-hosted/remote, sourceUrl IS the web UI
-    // TODO: Integrate pairing token flow for proper auth handoff (see WEB_UI_URL_NOTES.md)
     return agent.sourceUrl;
   }, []);
 
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="space-y-4 animate-fade-up">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-2xl h-32 animate-shimmer" />
-        ))}
+      <div className="space-y-6 animate-fade-up">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="h-6 w-28 bg-surface animate-shimmer" />
+            <div className="h-4 w-44 bg-surface animate-shimmer mt-2" />
+          </div>
+          <div className="h-10 w-28 bg-surface animate-shimmer" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <AgentCardSkeleton key={i} delay={i * 60} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -65,10 +81,12 @@ export function AgentGrid() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-text-light">Your Agents</h2>
-          <p className="text-sm text-text-muted mt-1">
+          <h2 className="font-mono text-lg font-medium text-text-light tracking-wide">
+            AGENTS
+          </h2>
+          <p className="font-mono text-xs text-text-muted mt-1 tracking-wide">
             {agents.length === 0
-              ? "No agents discovered yet"
+              ? "No agents discovered"
               : `${agents.length} agent${agents.length !== 1 ? "s" : ""} across all sources`}
           </p>
         </div>
@@ -76,9 +94,29 @@ export function AgentGrid() {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-3 bg-brand text-dark font-medium text-sm rounded-xl
-              hover:bg-brand-hover active:scale-[0.98] transition-all duration-150
-              shadow-[0_0_16px_rgba(240,185,11,0.12)]"
+            className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 
+              bg-brand text-dark font-mono text-xs font-semibold tracking-wide
+              hover:bg-brand-hover active:scale-[0.98] transition-all duration-150"
+          >
+            + NEW AGENT
+          </button>
+        )}
+      </div>
+
+      {/* Error banner */}
+      {error && (
+        <div
+          className="flex items-center justify-between gap-4 px-4 py-3 
+          border border-red-500/30 bg-red-500/5 animate-fade-up"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 rounded-full bg-red-500" />
+            <span className="font-mono text-xs text-red-400">{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={clearError}
+            className="text-red-400/60 hover:text-red-400 transition-colors p-1"
           >
             <svg
               aria-hidden="true"
@@ -86,32 +124,60 @@ export function AgentGrid() {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              strokeWidth={2.5}
+              strokeWidth={2}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M12 4v16m8-8H4"
+                d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-            New Agent
           </button>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Refreshing indicator */}
+      {(isRefreshing || isCreating) && agents.length > 0 && (
+        <div className="flex items-center gap-2 font-mono text-[10px] text-text-subtle animate-fade-up">
+          <svg
+            aria-hidden="true"
+            className="w-3 h-3 animate-spin"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          {isCreating ? "CREATING AGENT..." : "SYNCING..."}
+        </div>
+      )}
 
       {/* Create form */}
       {showCreate && (
         <CreateAgentForm
           onAuthenticated={() => refresh()}
-          onCreated={() => {
+          onCreated={async () => {
             setShowCreate(false);
-            refresh();
+            setIsCreating(true);
+            await refresh();
+            setIsCreating(false);
           }}
           onCancel={() => setShowCreate(false)}
         />
       )}
 
-      {/* Agent list */}
+      {/* Agent list or empty state */}
       {agents.length === 0 && !showCreate ? (
         <EmptyState onCreateClick={() => setShowCreate(true)} />
       ) : (
@@ -120,7 +186,7 @@ export function AgentGrid() {
             <div
               key={agent.id}
               className="animate-fade-up"
-              style={{ animationDelay: `${i * 60}ms` }}
+              style={{ animationDelay: `${i * 40}ms` }}
             >
               <AgentCard
                 agent={{
@@ -178,66 +244,119 @@ export function AgentGrid() {
   );
 }
 
+/** Skeleton matching AgentCard layout */
+function AgentCardSkeleton({ delay = 0 }: { delay?: number }) {
+  return (
+    <div
+      className="border border-border bg-surface animate-fade-up"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      {/* Left accent */}
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-text-muted/20" />
+
+      <div className="p-4 pb-0">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 bg-surface-elevated animate-shimmer" />
+          <div className="flex-1">
+            <div className="h-4 w-28 bg-surface-elevated animate-shimmer" />
+            <div className="h-3 w-20 bg-surface-elevated animate-shimmer mt-1.5" />
+          </div>
+          <div className="h-7 w-16 bg-surface-elevated animate-shimmer" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-px mt-4 bg-border-subtle">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-surface px-3 py-2.5">
+            <div className="h-2 w-8 bg-surface-elevated animate-shimmer mb-1" />
+            <div className="h-4 w-10 bg-surface-elevated animate-shimmer" />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 p-3 bg-dark-secondary/50">
+        <div className="h-7 w-16 bg-surface-elevated animate-shimmer" />
+        <div className="h-7 w-20 bg-surface-elevated animate-shimmer" />
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
-  const authed = isAuthenticated();
+  const { isAuthenticated: authed } = useAuth();
 
   return (
-    <div className="flex flex-col items-center justify-center py-20 animate-fade-up">
-      <div className="w-16 h-16 rounded-2xl bg-surface border border-border flex items-center justify-center mb-6">
-        <svg
-          aria-hidden="true"
-          className="w-8 h-8 text-text-muted/30"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-          />
-        </svg>
+    <div className="border border-border bg-surface animate-fade-up">
+      {/* Terminal header */}
+      <div className="px-4 py-2.5 bg-dark-secondary border-b border-border">
+        <span className="font-mono text-xs text-text-muted">
+          $ milady agents --list
+        </span>
       </div>
-      <h3 className="text-lg font-medium text-text-light mb-2">
-        No agents discovered
-      </h3>
-      <p className="text-sm text-text-muted text-center max-w-sm mb-6 leading-relaxed">
-        Start Milady locally to see your agents here. You can also connect to a
-        remote instance or{" "}
-        {authed ? "manage cloud agents" : "sign in to Eliza Cloud"} for hosted
-        options.
-      </p>
-      <div className="flex w-full max-w-sm flex-col sm:flex-row items-stretch gap-3">
-        <a
-          href="/#install"
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-brand text-dark font-medium text-sm rounded-xl
-            hover:bg-brand-hover active:scale-[0.98] transition-all duration-150"
-        >
-          Get the Desktop App
-        </a>
-        <button
-          type="button"
-          onClick={onCreateClick}
-          className="flex items-center justify-center gap-2 px-5 py-3 text-text-muted text-sm font-medium rounded-xl border border-border
-            hover:text-text-light hover:border-text-muted hover:bg-surface transition-all duration-150"
-        >
-          <svg
-            aria-hidden="true"
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
+
+      <div className="p-8 text-center">
+        {/* Decorative agent preview */}
+        <div className="max-w-sm mx-auto mb-8">
+          <div className="border border-border-subtle bg-dark-secondary/30 p-4">
+            <div className="flex items-start gap-4 opacity-30">
+              <div className="w-12 h-12 border border-text-muted/20 bg-surface flex items-center justify-center">
+                <span className="font-mono text-sm text-text-muted">??</span>
+              </div>
+              <div className="flex-1 text-left">
+                <div className="h-4 w-24 bg-text-muted/10 mb-2" />
+                <div className="h-3 w-16 bg-text-muted/10" />
+              </div>
+              <div className="h-6 w-16 bg-text-muted/10" />
+            </div>
+            <div className="grid grid-cols-4 gap-2 mt-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-surface/50 p-2">
+                  <div className="h-2 w-6 bg-text-muted/10 mb-1" />
+                  <div className="h-3 w-8 bg-text-muted/10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <h3 className="font-mono text-sm text-text-light mb-2">
+          NO AGENTS FOUND
+        </h3>
+        <p className="font-mono text-xs text-text-muted max-w-sm mx-auto leading-relaxed mb-6">
+          Start Milady locally to see your agents here.
+          <br />
+          {authed
+            ? "Or create a cloud agent for hosted infrastructure."
+            : "Sign in to Eliza Cloud for hosted options."}
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <a
+            href="/#install"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 
+              bg-brand text-dark font-mono text-xs font-semibold tracking-wide
+              hover:bg-brand-hover transition-all duration-150"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          Create Cloud Agent
-        </button>
+            DOWNLOAD APP
+          </a>
+          <button
+            type="button"
+            onClick={onCreateClick}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 
+              border border-border text-text-muted font-mono text-xs tracking-wide
+              hover:text-text-light hover:border-text-muted hover:bg-surface 
+              transition-all duration-150"
+          >
+            + CREATE CLOUD AGENT
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom hint */}
+      <div className="px-4 py-2 bg-dark-secondary border-t border-border">
+        <span className="font-mono text-[10px] text-text-subtle">
+          TIP: Use the Connect button to add a remote agent URL
+        </span>
       </div>
     </div>
   );
