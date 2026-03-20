@@ -102,10 +102,10 @@ export function HeroBackground() {
       >
         <motion.h1
           variants={itemVariants}
-          className="text-[28vw] sm:text-[clamp(6rem,13vw,14rem)] lg:text-[clamp(8rem,14vw,16rem)] font-black leading-[0.82] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-16 sm:mt-12 max-w-none"
+          className="text-[28vw] sm:text-[11vw] lg:text-[13vw] font-black leading-[0.76] tracking-tighter uppercase text-white/95 flex flex-col items-center pointer-events-none select-none mt-16 sm:mt-12 max-w-[10ch] sm:max-w-none"
         >
           <span>MILADY</span>
-          <span className="text-white/90 drop-shadow-lg text-[28vw] sm:text-[clamp(4rem,9vw,10rem)] lg:text-[clamp(5rem,10vw,12rem)] break-words hyphens-none text-center w-full">
+          <span className="text-white/90 drop-shadow-lg text-[28vw] sm:text-inherit break-words hyphens-none text-center w-full">
             <TypewriterLoop />
           </span>
         </motion.h1>
