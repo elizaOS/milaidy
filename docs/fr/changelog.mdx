@@ -3,6 +3,31 @@ title: Journal des modifications
 description: Nouveautés de Milady — fonctionnalités, améliorations et correctifs.
 ---
 
+<Update label="2026-06-11" description="Semaine du 5 au 11 juin" tags={["Update", "Fix"]}>
+<div id="unified-provider-configuration">
+## Configuration unifiée des fournisseurs
+</div>
+
+Les flux d'intégration, de paramètres et d'abonnement partagent désormais un contrat unique de configuration des fournisseurs. Auparavant, modifier votre fournisseur de modèle à un endroit ne se reflétait pas toujours ailleurs — désormais les sélections de fournisseur restent cohérentes partout. Les choix de fournisseur RPC de portefeuille sont également initialisés à partir de votre configuration de portefeuille enregistrée au lieu de recourir à des valeurs par défaut codées en dur.
+
+<div id="updates">
+## Mises à jour
+</div>
+
+- **Stabilité du démarrage du shell companion** — La vue companion ne se bloque plus et ne dysfonctionne plus au lancement. Le routage après le démarrage est désormais lié à l'onglet actif, et les animations d'accueil sont correctement séquencées pour que le shell se charge proprement à la première ouverture.
+- **Précision de la langue TTS** — La synthèse vocale définit désormais explicitement la balise de langue sur chaque énoncé, empêchant le système de recourir à la locale du système d'exploitation et de produire une prononciation inattendue.
+- **Visibilité de l'en-tête du shell en mode sombre** — La bordure du bouton bascule dans l'en-tête du shell est désormais visible en mode sombre, corrigeant un problème de contraste qui la rendait difficile à voir.
+- **Auto-remplissage du navigateur bloqué dans la recherche de connecteurs** — Le champ de recherche dans le panneau des connecteurs ne déclenche plus les suggestions d'auto-remplissage du navigateur, qui pouvaient recouvrir la liste des résultats.
+- **Zones de clic des boutons normalisées** — Les variantes de bouton petit et grand ont désormais un espacement vertical cohérent, rendant les zones de clic et de toucher plus fiables dans tout le tableau de bord.
+
+<div id="bug-fixes">
+## Corrections de bugs
+</div>
+
+- Correction d'une condition de concurrence lors de la suppression des embeddings qui pouvait provoquer l'échec des opérations en cours pendant le nettoyage
+- Correction de l'absence d'affichage des indications d'erreur ponctuelles — les erreurs d'action transitoires apparaissent désormais une fois et se ferment automatiquement au lieu d'être silencieusement ignorées
+</Update>
+
 <Update label="2026-06-04" description="Semaine du 29 mai au 4 juin" tags={["Feature", "Update"]}>
 ## Portefeuilles serveur Privy
 
