@@ -184,7 +184,6 @@ describe("extractAndPersistOnboardingApiKey", () => {
 
     expect(result).toBe(expectedEnvKey);
   });
-
   it("returns null when provider is not a string", () => {
     const result = extractAndPersistOnboardingApiKey({
       connection: {

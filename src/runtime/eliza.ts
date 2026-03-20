@@ -449,8 +449,10 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
         dropPendingUpdates: true,
         allowedUpdates: ["message", "message_reaction"],
       })
-      .catch((err: Error) =>
-        logger.warn(`[milady] Telegram bot launch error: ${err.message}`),
+      .catch((err) =>
+        logger.warn(
+          `[milady] Telegram bot launch error: ${err instanceof Error ? err.message : String(err)}`,
+        ),
       );
 
     _miladyTelegramBot = bot;
