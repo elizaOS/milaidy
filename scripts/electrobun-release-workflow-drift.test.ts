@@ -301,6 +301,28 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("$minimumBytes = 50MB");
   });
 
+  it("prevents setup stub overwrite and re-verifies public installer size before upload", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const stageIndex = workflow.indexOf("name: Stage Windows setup executables");
+    const reverifyIndex = workflow.indexOf(
+      "name: Re-verify Windows public installer before upload",
+    );
+
+    expect(stageIndex).toBeGreaterThan(-1);
+    expect(reverifyIndex).toBeGreaterThan(stageIndex);
+    expect(workflow).toContain('$publicInstaller.Length -ge 50MB');
+    expect(workflow).toContain(
+      '$setupExecutable.Length -lt $publicInstaller.Length',
+    );
+    expect(workflow).toContain(
+      "Skipping build setup stub that would overwrite verified public installer",
+    );
+    expect(workflow).toContain("$minimumBytes = 50MB");
+    expect(workflow).toContain(
+      "Public Windows installer regressed below standalone size threshold",
+    );
+  });
+
   it("normalizes the Windows launcher path back to the app root before packaging with Inno", () => {
     const script = fs.readFileSync(INNO_BUILD_SCRIPT_PATH, "utf8");
 
