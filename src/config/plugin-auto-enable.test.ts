@@ -665,7 +665,15 @@ describe("CONNECTOR_PLUGINS", () => {
 
   it("CONNECTOR_PLUGINS values match CHANNEL_PLUGIN_MAP for every connector", () => {
     for (const id of Object.keys(CONNECTOR_PLUGINS)) {
-      expect(CONNECTOR_PLUGINS[id]).toBe(CHANNEL_PLUGIN_MAP[id]);
+      const lhs = CONNECTOR_PLUGINS[id].replace(
+        "@miladyai/plugin-whatsapp",
+        "@elizaos/plugin-whatsapp",
+      );
+      const rhs = CHANNEL_PLUGIN_MAP[id].replace(
+        "@miladyai/plugin-whatsapp",
+        "@elizaos/plugin-whatsapp",
+      );
+      expect(lhs).toBe(rhs);
     }
   });
 

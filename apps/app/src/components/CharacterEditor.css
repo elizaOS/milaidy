@@ -26,13 +26,13 @@
 
 /* Suppress focus outlines on non-input elements */
 .ce-root *:focus-visible:not(input):not(textarea) {
-  outline: none !important;
-  box-shadow: none !important;
+  outline: none;
+  box-shadow: none;
 }
 
 .ce-root button:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
+  outline: none;
+  box-shadow: none;
 }
 
 .ce-loading {
@@ -271,8 +271,8 @@
    is hard to read, so we swap to a subtle highlight with light text. */
 
 .ce-voice-inline .bg-accent {
-  background: rgba(250, 204, 21, 0.15) !important;
-  color: #facc15 !important;
+  background: rgba(250, 204, 21, 0.15);
+  color: #facc15;
 }
 
 /* ── Inputs ────────────────────────────────────────────────────── */

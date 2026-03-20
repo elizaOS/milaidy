@@ -3,7 +3,7 @@ import { isSafeResetStateDir } from "./server";
 
 describe("isSafeResetStateDir", () => {
   it("accepts default state dir under home", () => {
-    expect(isSafeResetStateDir("/Users/alice/.eliza", "/Users/alice")).toBe(
+    expect(isSafeResetStateDir("/Users/alice/.milady", "/Users/alice")).toBe(
       true,
     );
   });
@@ -11,7 +11,7 @@ describe("isSafeResetStateDir", () => {
   it("accepts nested paths under .eliza", () => {
     expect(
       isSafeResetStateDir(
-        "/Users/alice/.eliza/workspace/snapshots",
+        "/Users/alice/.milady/workspace/snapshots",
         "/Users/alice",
       ),
     ).toBe(true);

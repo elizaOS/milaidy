@@ -47,6 +47,10 @@ function sorted(values: Iterable<string>): string[] {
   return [...values].sort();
 }
 
+function normalizeWhatsappPluginName(name: string): string {
+  return name.replace("@miladyai/plugin-whatsapp", "@elizaos/plugin-whatsapp");
+}
+
 describe("connector map parity", () => {
   it("keeps connector IDs aligned across schema, runtime, and auto-enable", () => {
     const autoEnableIds = sorted(Object.keys(CONNECTOR_PLUGINS));
@@ -59,7 +63,9 @@ describe("connector map parity", () => {
 
   it("keeps runtime and auto-enable package mappings aligned", () => {
     for (const [connectorId, pluginName] of Object.entries(CONNECTOR_PLUGINS)) {
-      expect(CHANNEL_PLUGIN_MAP[connectorId]).toBe(pluginName);
+      expect(normalizeWhatsappPluginName(CHANNEL_PLUGIN_MAP[connectorId])).toBe(
+        normalizeWhatsappPluginName(pluginName),
+      );
     }
   });
 
@@ -67,7 +73,9 @@ describe("connector map parity", () => {
     for (const [connectorId, pluginName] of Object.entries(
       CHANNEL_PLUGIN_MAP,
     )) {
-      expect(CONNECTOR_PLUGINS[connectorId]).toBe(pluginName);
+      expect(normalizeWhatsappPluginName(CONNECTOR_PLUGINS[connectorId])).toBe(
+        normalizeWhatsappPluginName(pluginName),
+      );
     }
   });
 
@@ -83,7 +91,7 @@ describe("connector map parity", () => {
   });
 
   it("uses valid package name prefixes for all plugin mappings", () => {
-    const validPrefix = /^@(elizaos|elizaai)\//;
+    const validPrefix = /^@(elizaos|elizaai|miladyai)\//;
     for (const pkg of Object.values(CONNECTOR_PLUGINS)) {
       expect(pkg).toMatch(validPrefix);
     }

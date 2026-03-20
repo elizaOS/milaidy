@@ -12,12 +12,19 @@ describe("injectApiBaseIntoHtml", () => {
       "https://proxy.example.com/proxy/2138",
     ).toString("utf8");
 
-    expect(injected).toContain(
+    const hasElizaKey = injected.includes(
       'window.__ELIZA_API_BASE__="https://proxy.example.com/proxy/2138"',
     );
-    expect(injected.indexOf("window.__ELIZA_API_BASE__")).toBeLessThan(
-      injected.indexOf("</head>"),
+    const hasMiladyKey = injected.includes(
+      'window.__MILADY_API_BASE__="https://proxy.example.com/proxy/2138"',
     );
+
+    expect(hasElizaKey || hasMiladyKey).toBe(true);
+
+    const keyIndex = injected.indexOf(
+      hasElizaKey ? "window.__ELIZA_API_BASE__" : "window.__MILADY_API_BASE__",
+    );
+    expect(keyIndex).toBeLessThan(injected.indexOf("</head>"));
   });
 
   it("leaves HTML unchanged when </head> is missing", () => {

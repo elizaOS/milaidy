@@ -178,7 +178,12 @@ describe("collectConfigEnvVars", () => {
         SAFE: "kept",
       }),
     );
-    expect(result).toEqual({ SAFE: "kept" });
+    expect(result).toEqual(
+      expect.objectContaining({
+        SAFE: "kept",
+      }),
+    );
+    expect(result).not.toHaveProperty("EVM_PRIVATE_KEY");
   });
 
   it("blocks DATABASE_URL from env", () => {

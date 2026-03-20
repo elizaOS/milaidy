@@ -27,7 +27,7 @@ describe("normalizeWsClientId", () => {
 
 describe("resolveTerminalRunClientId", () => {
   it("prefers X-Eliza-Client-Id header over request body", () => {
-    const request = req({ "x-eliza-client-id": "header-client" });
+    const request = req({ "x-milady-client-id": "header-client" });
     expect(
       resolveTerminalRunClientId(request, { clientId: "body-client" }),
     ).toBe("header-client");
@@ -35,13 +35,13 @@ describe("resolveTerminalRunClientId", () => {
 
   it("accepts first value from multi-value header", () => {
     const request = req({
-      "x-eliza-client-id": ["first-client", "second-client"],
+      "x-milady-client-id": ["first-client", "second-client"],
     });
     expect(resolveTerminalRunClientId(request, null)).toBe("first-client");
   });
 
   it("falls back to body client id when header is invalid", () => {
-    const request = req({ "x-eliza-client-id": "bad$id" });
+    const request = req({ "x-milady-client-id": "bad$id" });
     expect(
       resolveTerminalRunClientId(request, { clientId: "body-client" }),
     ).toBe("body-client");

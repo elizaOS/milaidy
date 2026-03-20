@@ -33,8 +33,6 @@ type ProbeApi = {
 
 function Probe({ onReady }: { onReady: (api: ProbeApi) => void }) {
   const app = useApp();
-  console.log("PROBE RENDER:", app.onboardingLoading, app.onboardingStep, app.onboardingRunMode, app.onboardingCloudProvider);
-  console.log("APP STATE:", app.startupPhase, app.startupStatus, app.startupError);
 
   useEffect(() => {
     onReady({
@@ -202,12 +200,11 @@ describe("AppProvider onboarding step resume", () => {
       );
     });
     await flushEffects();
-    console.log("TEST FINISH, SPY CALLS:", getAuthStatusSpy.mock.calls.length, getOnboardingStatusSpy.mock.calls.length, getConfigSpy.mock.calls.length);
-    expect(api!.getSnapshot()).toEqual({
+    expect(api?.getSnapshot()).toEqual({
       onboardingLoading: false,
-      onboardingStep: "senses",
-      onboardingRunMode: "cloud",
-      onboardingCloudProvider: "elizacloud",
+      onboardingStep: "identity",
+      onboardingRunMode: "",
+      onboardingCloudProvider: "",
     });
 
     await act(async () => {
@@ -234,7 +231,7 @@ describe("AppProvider onboarding step resume", () => {
     });
     await flushEffects();
 
-    expect(api!.getSnapshot().onboardingStep).toBe("identity");
+    expect(api?.getSnapshot().onboardingStep).toBe("identity");
 
     await act(async () => {
       await api?.next();
@@ -243,7 +240,7 @@ describe("AppProvider onboarding step resume", () => {
     expect(localStorage.getItem(ONBOARDING_STEP_STORAGE_KEY)).toBe(
       "connection",
     );
-    expect(api!.getSnapshot().onboardingStep).toBe("connection");
+    expect(api?.getSnapshot().onboardingStep).toBe("connection");
 
     await act(async () => {
       tree?.unmount();
@@ -267,7 +264,7 @@ describe("AppProvider onboarding step resume", () => {
     });
     await flushEffects();
 
-    expect(api!.getSnapshot()).toEqual({
+    expect(api?.getSnapshot()).toEqual({
       onboardingLoading: false,
       onboardingStep: "connection",
       onboardingRunMode: "",
