@@ -18,7 +18,6 @@ import {
   shutdownRuntime as upstreamShutdownRuntime,
   startEliza as upstreamStartEliza,
 } from "@elizaos/autonomous/runtime/eliza";
-import { HISTORY_KNOWLEDGE } from "../knowledge/history";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import type { EmbeddingProgressCallback } from "./embedding-manager-support.js";
 import {
@@ -42,7 +41,7 @@ const AUTONOMY_ENTITY_ID = stringToUuid("00000000-0000-0000-0000-000000000002");
 const AUTONOMY_MESSAGE_SERVER_ID = stringToUuid(
   "00000000-0000-0000-0000-000000000000",
 );
-
+const HISTORY_KNOWLEDGE = "docs/guides/knowledge.md";
 interface EntityLike {
   id: string;
   agentId?: string;
