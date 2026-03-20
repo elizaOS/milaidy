@@ -3,6 +3,31 @@ title: Registro de cambios
 description: Novedades en Milady — funcionalidades, mejoras y correcciones.
 ---
 
+<Update label="2026-06-11" description="Semana del 5 al 11 de junio" tags={["Update", "Fix"]}>
+<div id="unified-provider-configuration">
+## Configuración unificada de proveedores
+</div>
+
+Los flujos de incorporación, configuración y suscripción ahora comparten un único contrato de configuración de proveedores. Anteriormente, cambiar tu proveedor de modelo en un lugar no siempre se reflejaba en otro — ahora las selecciones de proveedor se mantienen consistentes en todas partes. Las opciones de proveedor RPC de billetera también se inicializan desde tu configuración de billetera guardada en lugar de recurrir a valores predeterminados codificados.
+
+<div id="updates">
+## Actualizaciones
+</div>
+
+- **Estabilidad del arranque del shell companion** — La vista companion ya no se bloquea ni se comporta de forma incorrecta al iniciar. El enrutamiento después del arranque ahora está vinculado a la pestaña activa, y las animaciones de saludo se secuencian correctamente para que el shell se cargue limpiamente en la primera apertura.
+- **Precisión del idioma TTS** — La conversión de texto a voz ahora establece la etiqueta de idioma explícitamente en cada enunciado, evitando que el sistema recurra a la configuración regional del sistema operativo y produzca una pronunciación inesperada.
+- **Visibilidad del encabezado del shell en modo oscuro** — El borde del interruptor en el encabezado del shell ahora es visible en modo oscuro, corrigiendo un problema de contraste que dificultaba su visualización.
+- **Autocompletado del navegador bloqueado en la búsqueda de conectores** — El campo de búsqueda en el panel de conectores ya no activa las sugerencias de autocompletado del navegador, que podían cubrir la lista de resultados.
+- **Áreas de toque de botones normalizadas** — Las variantes de botón pequeño y grande ahora tienen un relleno vertical consistente, haciendo que las áreas de toque y clic sean más fiables en todo el panel de control.
+
+<div id="bug-fixes">
+## Correcciones de errores
+</div>
+
+- Se corrigió una condición de carrera en la eliminación de embeddings que podía causar que las operaciones en curso fallaran durante la limpieza
+- Se corrigió la falta de visualización de avisos de error únicos — los errores transitorios de acciones ahora aparecen una vez y se descartan automáticamente en lugar de ser silenciados
+</Update>
+
 <Update label="2026-06-04" description="Semana del 29 de mayo al 4 de junio" tags={["Feature", "Update"]}>
 ## Billeteras de servidor Privy
 
