@@ -123,20 +123,17 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(`bun install failed after \${attempt} attempts`);
   });
 
-  it("avoids stale per-platform Bun cache fallback during desktop builds", () => {
+  it("does not restore Bun install cache during desktop builds", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const buildJobLabel = "name: Build $" + "{{ matrix.platform.name }}";
+    const buildSection = workflow.slice(
+      workflow.indexOf(buildJobLabel),
+      workflow.indexOf("  create-release:"),
+    );
 
-    expect(workflow).toContain(
-      "key: bun-electrobun-$" +
-        "{{ matrix.platform.artifact-name }}" +
-        "-$" +
-        "{{ hashFiles('bun.lock') }}",
-    );
-    expect(workflow).not.toContain(
-      "restore-keys: bun-electrobun-$" +
-        "{{ matrix.platform.artifact-name }}" +
-        "-",
-    );
+    expect(buildSection).not.toContain("name: Cache Bun install");
+    expect(buildSection).not.toContain("path: ~/.bun/install/cache");
+    expect(buildSection).not.toContain("bun-electrobun-");
   });
 
   it("installs Inno Setup on Windows without relying on winget", () => {
@@ -153,19 +150,16 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
-  it("uses an exact non-matrix cache key in validate-release", () => {
+  it("does not restore Bun install cache in validate-release", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
     const validateSection = workflow.slice(
       workflow.indexOf("name: Validate Release Inputs"),
       workflow.indexOf("  build:"),
     );
 
-    expect(validateSection).toContain(
-      "key: bun-electrobun-validate-$" + "{{ hashFiles('bun.lock') }}",
-    );
-    expect(validateSection).not.toContain(
-      "restore-keys: bun-electrobun-validate-",
-    );
+    expect(validateSection).not.toContain("name: Cache Bun install");
+    expect(validateSection).not.toContain("path: ~/.bun/install/cache");
+    expect(validateSection).not.toContain("bun-electrobun-validate-");
     expect(validateSection).not.toContain("matrix.platform.artifact-name");
   });
 

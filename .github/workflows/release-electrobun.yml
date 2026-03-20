@@ -102,12 +102,6 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Cache Bun install
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-electrobun-validate-${{ hashFiles('bun.lock') }}
-
       - name: Install root dependencies
         run: bun install --frozen-lockfile --ignore-scripts
 
@@ -175,12 +169,6 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Cache Bun install
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-electrobun-${{ matrix.platform.artifact-name }}-${{ hashFiles('bun.lock') }}
 
       - name: Install root dependencies
         # --ignore-scripts skips native dependency install scripts (e.g. @tensorflow/tfjs-node

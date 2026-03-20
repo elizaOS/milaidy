@@ -37,7 +37,6 @@ const requiredWorkflowSnippets = [
   "run: bun run release:check",
   "for attempt in 1 2 3; do",
   `bun install failed on attempt \${attempt}; retrying in 15 seconds`,
-  "key: bun-electrobun-validate-$" + "{{ hashFiles('bun.lock') }}",
   "name: Ensure avatar assets",
   "node scripts/ensure-avatars.mjs",
   "Install quiet macOS packaging wrappers",
@@ -108,10 +107,17 @@ const requiredWorkflowSnippets = [
 const forbiddenWorkflowSnippets = [
   ' -name "*.exe" -o \\',
   'bun install -g "rcedit@4.0.1"',
+  "name: Cache Bun install",
+  "path: ~/.bun/install/cache",
   "restore-keys: bun-electrobun-validate-",
   "restore-keys: bun-electrobun-$" +
     "{{ matrix.platform.artifact-name }}" +
     "-",
+  "key: bun-electrobun-validate-$" + "{{ hashFiles('bun.lock') }}",
+  "key: bun-electrobun-$" +
+    "{{ matrix.platform.artifact-name }}" +
+    "-$" +
+    "{{ hashFiles('bun.lock') }}",
 ];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',
