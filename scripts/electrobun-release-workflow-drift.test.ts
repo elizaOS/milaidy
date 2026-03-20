@@ -123,6 +123,22 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain(`bun install failed after \${attempt} attempts`);
   });
 
+  it("avoids stale per-platform Bun cache fallback during desktop builds", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      "key: bun-electrobun-$" +
+        "{{ matrix.platform.artifact-name }}" +
+        "-$" +
+        "{{ hashFiles('bun.lock') }}",
+    );
+    expect(workflow).not.toContain(
+      "restore-keys: bun-electrobun-$" +
+        "{{ matrix.platform.artifact-name }}" +
+        "-",
+    );
+  });
+
   it("installs Inno Setup on Windows without relying on winget", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
@@ -137,7 +153,7 @@ describe("Electrobun release workflow drift", () => {
     );
   });
 
-  it("uses a non-matrix cache key in validate-release", () => {
+  it("uses an exact non-matrix cache key in validate-release", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
     const validateSection = workflow.slice(
       workflow.indexOf("name: Validate Release Inputs"),
@@ -147,7 +163,9 @@ describe("Electrobun release workflow drift", () => {
     expect(validateSection).toContain(
       "key: bun-electrobun-validate-$" + "{{ hashFiles('bun.lock') }}",
     );
-    expect(validateSection).toContain("restore-keys: bun-electrobun-validate-");
+    expect(validateSection).not.toContain(
+      "restore-keys: bun-electrobun-validate-",
+    );
     expect(validateSection).not.toContain("matrix.platform.artifact-name");
   });
 
