@@ -66,10 +66,14 @@ describe("ensureApiTokenForBindHost", () => {
 describe("resolveCorsOrigin", () => {
   let previousBind: string | undefined;
   let previousAllowedOrigins: string | undefined;
+  let previousMiladyBind: string | undefined;
+  let previousMiladyAllowedOrigins: string | undefined;
 
   beforeEach(() => {
     previousBind = process.env.ELIZA_API_BIND;
     previousAllowedOrigins = process.env.ELIZA_ALLOWED_ORIGINS;
+    previousMiladyBind = process.env.MILADY_API_BIND;
+    previousMiladyAllowedOrigins = process.env.MILADY_ALLOWED_ORIGINS;
   });
 
   afterEach(() => {
@@ -82,6 +86,16 @@ describe("resolveCorsOrigin", () => {
       delete process.env.ELIZA_ALLOWED_ORIGINS;
     } else {
       process.env.ELIZA_ALLOWED_ORIGINS = previousAllowedOrigins;
+    }
+    if (previousMiladyBind === undefined) {
+      delete process.env.MILADY_API_BIND;
+    } else {
+      process.env.MILADY_API_BIND = previousMiladyBind;
+    }
+    if (previousMiladyAllowedOrigins === undefined) {
+      delete process.env.MILADY_ALLOWED_ORIGINS;
+    } else {
+      process.env.MILADY_ALLOWED_ORIGINS = previousMiladyAllowedOrigins;
     }
   });
 

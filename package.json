@@ -227,7 +227,6 @@
   "overrides": {
     "drizzle-orm": "0.45.1",
     "ai": "6.0.30",
-    "@elizaos/core": "2.0.0-alpha.75",
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node.git#1c30d7d7e76a3b0aa120b04dc6a26f5a12dccf67",
     "pty-manager": "1.9.8"
   },

@@ -1795,8 +1795,10 @@ export function ensureApiTokenForBindHost(
 export function resolveCorsOrigin(
   ...args: Parameters<typeof upstreamResolveCorsOrigin>
 ): ReturnType<typeof upstreamResolveCorsOrigin> {
+  syncElizaEnvToMilady();
   syncMiladyEnvToEliza();
   const result = upstreamResolveCorsOrigin(...args);
+  syncMiladyEnvToEliza();
   syncElizaEnvToMilady();
   return result;
 }

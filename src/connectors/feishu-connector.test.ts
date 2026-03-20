@@ -68,9 +68,9 @@ describeIfPluginAvailable("Feishu Connector - Basic Validation", () => {
     } | null;
 
     const hasClients =
-      Array.isArray(plugin?.clients) && plugin!.clients!.length > 0;
+      Array.isArray(plugin?.clients) && (plugin.clients?.length ?? 0) > 0;
     const hasServices =
-      Array.isArray(plugin?.services) && plugin!.services!.length > 0;
+      Array.isArray(plugin?.services) && (plugin.services?.length ?? 0) > 0;
 
     expect(hasClients || hasServices).toBe(true);
   });

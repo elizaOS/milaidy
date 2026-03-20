@@ -32,13 +32,13 @@
 
 /* Suppress focus outlines on non-input elements */
 .ce-root *:focus-visible:not(input):not(textarea) {
-  outline: none !important;
-  box-shadow: none !important;
+  outline: none;
+  box-shadow: none;
 }
 
 .ce-root button:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
+  outline: none;
+  box-shadow: none;
 }
 
 .ce-loading {
@@ -311,9 +311,9 @@
    the selected item.  In milady's yellow-accent theme the dark foreground
    is hard to read, so we swap to a subtle highlight with light text. */
 
-.ce-voice-inline .bg-accent {
-  background: var(--ce-gold-glow) !important;
-  color: var(--ce-gold-highlight) !important;
+.ce-root .ce-voice-inline .ce-voice-inline-select .bg-accent {
+  background: var(--ce-gold-glow);
+  color: var(--ce-gold-highlight);
 }
 
 /* ── Inputs ────────────────────────────────────────────────────── */

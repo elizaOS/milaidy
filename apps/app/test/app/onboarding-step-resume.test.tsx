@@ -392,6 +392,12 @@ describe("AppProvider onboarding step resume", () => {
   it.skip("persists the current onboarding step across quit and reopen", async () => {
     let api: ProbeApi | null = null;
     let tree: TestRenderer.ReactTestRenderer | null = null;
+    const requireApi = (): ProbeApi => {
+      if (!api) {
+        throw new Error("Probe API not ready");
+      }
+      return api;
+    };
 
     await act(async () => {
       tree = TestRenderer.create(
@@ -408,7 +414,7 @@ describe("AppProvider onboarding step resume", () => {
     });
     await flushEffects();
 
-    expect(api!.getSnapshot().onboardingStep).toBe("identity");
+    expect(requireApi().getSnapshot().onboardingStep).toBe("identity");
 
     await act(async () => {
       await api?.next();
@@ -417,7 +423,7 @@ describe("AppProvider onboarding step resume", () => {
     expect(localStorage.getItem(ONBOARDING_STEP_STORAGE_KEY)).toBe(
       "connection",
     );
-    expect(api!.getSnapshot().onboardingStep).toBe("connection");
+    expect(requireApi().getSnapshot().onboardingStep).toBe("connection");
 
     await act(async () => {
       tree?.unmount();
@@ -441,7 +447,7 @@ describe("AppProvider onboarding step resume", () => {
     });
     await flushEffects();
 
-    expect(api!.getSnapshot()).toEqual({
+    expect(requireApi().getSnapshot()).toEqual({
       onboardingLoading: false,
       onboardingStep: "connection",
       onboardingRunMode: "",
@@ -497,6 +503,12 @@ describe("AppProvider onboarding step resume", () => {
 
     let api: ProbeApi | null = null;
     let tree: TestRenderer.ReactTestRenderer | null = null;
+    const requireApi = (): ProbeApi => {
+      if (!api) {
+        throw new Error("Probe API not ready");
+      }
+      return api;
+    };
 
     await act(async () => {
       tree = TestRenderer.create(
@@ -516,7 +528,7 @@ describe("AppProvider onboarding step resume", () => {
     await flushEffects();
     await flushEffects();
 
-    expect(api!.getSnapshot().onboardingStep).toBe("senses");
+    expect(requireApi().getSnapshot().onboardingStep).toBe("senses");
 
     await act(async () => {
       await api?.next({ allowPermissionBypass: true });
