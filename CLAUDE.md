@@ -99,7 +99,17 @@ All `@elizaos/*` packages use the `alpha` dist-tag. When developing locally, `bu
 
 ## Common Pitfalls
 
-- **`bun install` fails on native deps**: TensorFlow, canvas, whisper-node require native build tools. Set `ELIZA_SKIP_NATIVE=1` or install Xcode CLI tools / build-essential.
+- **`bun install` fails on native deps**: TensorFlow, canvas, whisper-node require native build tools. On macOS install Xcode CLI tools (`xcode-select --install`). On Linux install `build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev`. Set `MILADY_NO_VISION_DEPS=1` to skip optional vision deps (camera, etc.).
+- **Avatar assets missing**: `bun install` clones VRM models from GitHub. On restricted networks set `SKIP_AVATAR_CLONE=1` and manually copy avatars to `apps/app/public/vrms/`.
 - **Plugin not found at runtime**: Ensure NODE_PATH is set. Run `bun run repair` to re-run postinstall.
 - **Stale Vite cache after patching deps**: `bun run dev` passes `--force` to Vite automatically. If issues persist, delete `apps/app/.vite/`.
 - **Config file not found**: The actual path is `~/.eliza/eliza.json`, not `~/.milady/milady.json`.
+- **Lock file blocking install**: If postinstall times out with a lock error, delete `.eliza-repo-setup.lock` in the repo root.
+
+## Setup Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `MILADY_NO_VISION_DEPS` | Skip vision dep install (camera/fswebcam) | `0` |
+| `SKIP_AVATAR_CLONE` | Skip VRM avatar download during install | `0` |
+| `ELIZA_SKIP_LOCAL_ELIZA` | Use npm packages instead of `../eliza` workspace | `0` |
