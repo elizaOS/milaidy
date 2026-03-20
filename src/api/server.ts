@@ -1,9 +1,10 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AgentRuntime } from "@elizaos/core";
+import { type AgentRuntime, stringToUuid } from "@elizaos/core";
 
 // Re-export the full upstream server API.
 export * from "@elizaos/autonomous/api/server";
@@ -225,18 +226,99 @@ function getCompatApiToken(): string | null {
   return token ? token : null;
 }
 
+const PAIRING_TTL_MS = 10 * 60 * 1000;
+const PAIRING_WINDOW_MS = 10 * 60 * 1000;
+const PAIRING_MAX_ATTEMPTS = 5;
+const PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+let pairingCode: string | null = null;
+let pairingExpiresAt = 0;
+const pairingAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function tokenMatches(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(provided, "utf8");
+  if (a.length !== b.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(a, b);
+}
+
+function pairingEnabled(): boolean {
+  return (
+    Boolean(getCompatApiToken()) &&
+    process.env.MILADY_PAIRING_DISABLED !== "1" &&
+    process.env.ELIZA_PAIRING_DISABLED !== "1"
+  );
+}
+
+function normalizePairingCode(code: string): string {
+  return code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+}
+
+function generatePairingCode(): string {
+  const bytes = crypto.randomBytes(8);
+  let raw = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    raw += PAIRING_ALPHABET[bytes[i] % PAIRING_ALPHABET.length];
+  }
+  return `${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
+}
+
+function ensurePairingCode(): string | null {
+  if (!pairingEnabled()) {
+    return null;
+  }
+
+  const now = Date.now();
+  if (!pairingCode || now > pairingExpiresAt) {
+    pairingCode = generatePairingCode();
+    pairingExpiresAt = now + PAIRING_TTL_MS;
+    console.warn(
+      `[milady-api] Pairing code: ${pairingCode} (valid for 10 minutes)`,
+    );
+  }
+
+  return pairingCode;
+}
+
+function rateLimitPairing(ip: string | null): boolean {
+  const key = ip ?? "unknown";
+  const now = Date.now();
+  const current = pairingAttempts.get(key);
+
+  if (!current || now > current.resetAt) {
+    pairingAttempts.set(key, { count: 1, resetAt: now + PAIRING_WINDOW_MS });
+    return true;
+  }
+
+  if (current.count >= PAIRING_MAX_ATTEMPTS) {
+    return false;
+  }
+
+  current.count += 1;
+  return true;
+}
+
 function getProvidedApiToken(
   req: Pick<http.IncomingMessage, "headers">,
 ): string | null {
-  const authHeader = extractHeaderValue(req.headers.authorization);
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice("Bearer ".length).trim();
+  const authHeader = extractHeaderValue(req.headers.authorization)?.trim();
+  if (authHeader) {
+    const match = /^Bearer\s+(.+)$/i.exec(authHeader);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
   }
 
-  return (
+  const headerToken =
     extractHeaderValue(req.headers["x-eliza-token"]) ??
-    extractHeaderValue(req.headers["x-milady-token"])
-  );
+    extractHeaderValue(req.headers["x-milady-token"]) ??
+    extractHeaderValue(req.headers["x-milaidy-token"]) ??
+    extractHeaderValue(req.headers["x-api-key"]) ??
+    extractHeaderValue(req.headers["x-api-token"]);
+
+  return headerToken?.trim() || null;
 }
 
 function ensureCompatApiAuthorized(
@@ -248,7 +330,8 @@ function ensureCompatApiAuthorized(
     return true;
   }
 
-  if (getProvidedApiToken(req) === expectedToken) {
+  const providedToken = getProvidedApiToken(req);
+  if (providedToken && tokenMatches(expectedToken, providedToken)) {
     return true;
   }
 
@@ -966,6 +1049,29 @@ export function extractAndPersistOnboardingApiKey(
   return envKey;
 }
 
+function persistCompatOnboardingDefaults(
+  body: Record<string, unknown>,
+): string | null {
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  if (!name) {
+    return null;
+  }
+
+  const config = loadElizaConfig();
+  if (!config.agents || typeof config.agents !== "object") {
+    (config as Record<string, unknown>).agents = {};
+  }
+  const agents = config.agents as NonNullable<typeof config.agents>;
+  if (!agents.defaults || typeof agents.defaults !== "object") {
+    agents.defaults = {};
+  }
+
+  const adminEntityId = stringToUuid(`${name}-admin-entity`);
+  agents.defaults.adminEntityId = adminEntityId;
+  saveElizaConfig(config);
+  return adminEntityId;
+}
+
 // ---------------------------------------------------------------------------
 // Plugin manifest
 // ---------------------------------------------------------------------------
@@ -1491,6 +1597,65 @@ async function handleMiladyCompatRoute(
   const method = (req.method ?? "GET").toUpperCase();
   const url = new URL(req.url ?? "/", "http://localhost");
 
+  if (method === "GET" && url.pathname === "/api/auth/status") {
+    const required = Boolean(getCompatApiToken());
+    const enabled = pairingEnabled();
+    if (enabled) {
+      ensurePairingCode();
+    }
+    sendJsonResponse(res, 200, {
+      required,
+      pairingEnabled: enabled,
+      expiresAt: enabled ? pairingExpiresAt : null,
+    });
+    return true;
+  }
+
+  if (method === "POST" && url.pathname === "/api/auth/pair") {
+    const body = await readCompatJsonBody(req, res);
+    if (body == null) {
+      return true;
+    }
+
+    const token = getCompatApiToken();
+    if (!token) {
+      sendJsonErrorResponse(res, 400, "Pairing not enabled");
+      return true;
+    }
+    if (!pairingEnabled()) {
+      sendJsonErrorResponse(res, 403, "Pairing disabled");
+      return true;
+    }
+    if (!rateLimitPairing(req.socket.remoteAddress ?? null)) {
+      sendJsonErrorResponse(res, 429, "Too many attempts. Try again later.");
+      return true;
+    }
+
+    const provided = normalizePairingCode(
+      typeof body.code === "string" ? body.code : "",
+    );
+    const current = ensurePairingCode();
+    if (!current || Date.now() > pairingExpiresAt) {
+      ensurePairingCode();
+      sendJsonErrorResponse(
+        res,
+        410,
+        "Pairing code expired. Check server logs for a new code.",
+      );
+      return true;
+    }
+
+    if (!tokenMatches(normalizePairingCode(current), provided)) {
+      sendJsonErrorResponse(res, 403, "Invalid pairing code");
+      return true;
+    }
+
+    pairingCode = null;
+    pairingExpiresAt = 0;
+    sendJsonResponse(res, 200, { token });
+    return true;
+  }
+
   // The task-backed compat handler is only used as a fallback when the
   // runtime has no native todo database.  When runtime.db is present the
   // upstream handler serves /api/workbench/todos instead.  Both handlers
@@ -1566,6 +1731,10 @@ async function handleMiladyCompatRoute(
   // (top-level). Bridge the gap by persisting the key from `connection` here
   // before upstream processes the request.
   if (method === "POST" && url.pathname === "/api/onboarding") {
+    if (!ensureCompatApiAuthorized(req, res)) {
+      return true;
+    }
+
     // Read the body, persist the key, then push bytes back so upstream
     // can re-read the same body from the request stream.
     const chunks: Buffer[] = [];
@@ -1580,6 +1749,10 @@ async function handleMiladyCompatRoute(
         unknown
       >;
       extractAndPersistOnboardingApiKey(body);
+      persistCompatOnboardingDefaults(body);
+      if (typeof body.name === "string" && body.name.trim()) {
+        state.pendingAgentName = body.name.trim();
+      }
     } catch {
       // JSON parse failed — let upstream handle the error
     }
@@ -1763,7 +1936,10 @@ function patchHttpCreateServerForMiladyCompat(
 export function resolveWalletExportRejection(
   ...args: Parameters<typeof upstreamResolveWalletExportRejection>
 ): CompatWalletExportRejection | null {
-  return hardenedGuard(...args);
+  const [req] = args;
+  return runWithCompatAuthContext(req, () =>
+    normalizeCompatRejection(hardenedGuard(...args)),
+  );
 }
 
 export function resolveMcpTerminalAuthorizationRejection(
