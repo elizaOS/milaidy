@@ -109,6 +109,7 @@ export function AgentCard({
   const uiUrl = webUiUrl || sourceUrl;
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: card contains nested actionable controls; wrapper needs role+keyboard handling.
     <div
       role="button"
       tabIndex={0}
