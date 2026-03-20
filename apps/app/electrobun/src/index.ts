@@ -74,6 +74,7 @@ const CONFIG_EXPORT_FILE_NAME = "milady-config.json";
 // is hardened across the supported desktop release targets.
 const BROWSER_SURFACE_ENABLED =
   process.env.MILADY_ENABLE_BROWSER_SURFACE === "1";
+const FORCE_AUTOSTART_AGENT = process.env.MILADY_FORCE_AUTOSTART_AGENT === "1";
 let heartbeatMenuSnapshot: HeartbeatMenuSnapshot =
   EMPTY_HEARTBEAT_MENU_SNAPSHOT;
 let heartbeatMenuRefreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -1301,6 +1302,9 @@ async function main(): Promise<void> {
         rt.externalApi.base,
         process.env.MILADY_API_TOKEN,
       );
+    } else if (FORCE_AUTOSTART_AGENT) {
+      console.log("[Main] Forcing embedded agent startup on boot.");
+      void _startAgent(currentWindow);
     }
   }
 

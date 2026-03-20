@@ -39,6 +39,13 @@ describe("deferred agent startup (desktop)", () => {
     expect(source).toContain("pushApiBaseToRenderer");
   });
 
+  it("allows smoke runs to opt into embedded agent startup on boot", () => {
+    expect(source).toContain(
+      'process.env.MILADY_FORCE_AUTOSTART_AGENT === "1"',
+    );
+    expect(source).toContain("void _startAgent(currentWindow);");
+  });
+
   it("preserves the agentStart RPC handler for renderer-triggered startup", () => {
     const handlersPath = path.resolve(__dirname, "rpc-handlers.ts");
     const handlers = fs.readFileSync(handlersPath, "utf8");

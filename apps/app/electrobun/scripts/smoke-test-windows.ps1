@@ -116,6 +116,7 @@ if ($resolvedBuildDir) {
 
 Stop-MiladyProcesses
 $env:ELECTROBUN_CONSOLE = "1"
+$env:MILADY_FORCE_AUTOSTART_AGENT = "1"
 
 if (Test-Path $selfExtractionRoot) {
   Remove-Item $selfExtractionRoot -Recurse -Force -ErrorAction SilentlyContinue

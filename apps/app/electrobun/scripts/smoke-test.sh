@@ -298,8 +298,11 @@ build_launcher_command() {
       LANG="$launch_lang"
       LC_ALL="$launch_lc_all"
       TERM="${TERM:-dumb}"
+      MILADY_FORCE_AUTOSTART_AGENT=1
       "$LAUNCHER_PATH"
     )
+  else
+    LAUNCH_COMMAND=(/usr/bin/env MILADY_FORCE_AUTOSTART_AGENT=1 "$LAUNCHER_PATH")
   fi
 }
 
