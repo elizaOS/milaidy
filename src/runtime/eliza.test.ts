@@ -1572,7 +1572,9 @@ describe("buildCharacterFromConfig", () => {
   it("does not throw when agents.list is empty", () => {
     const config = { agents: { list: [] } } as ElizaConfig;
     expect(() => buildCharacterFromConfig(config)).not.toThrow();
-    expect(["Eliza", "Milady"]).toContain(buildCharacterFromConfig(config).name);
+    expect(["Eliza", "Milady"]).toContain(
+      buildCharacterFromConfig(config).name,
+    );
   });
 
   it("builds a character with name from agents.list and default personality", () => {
