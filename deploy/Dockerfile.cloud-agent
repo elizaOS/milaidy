@@ -37,6 +37,7 @@ COPY deploy/cloud-agent-entrypoint.ts ./entrypoint.ts
 RUN npm install -g tsx@4
 
 ENV NODE_ENV=production
+# PORT is used by cloud platforms (Railway, Fly.io); maps to MILADY_PORT locally
 ENV PORT=2138
 ENV BRIDGE_PORT=18790
 

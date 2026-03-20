@@ -23,7 +23,7 @@ import {
   startApiServer as upstreamStartApiServer,
 } from "@elizaos/autonomous/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
-import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
+import { ensureRuntimeSqlCompatibility, executeRawSql, quoteIdent, sanitizeIdentifier, sqlLiteral } from "../utils/sql-compat";
 import { handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
 import {
@@ -36,19 +36,7 @@ const hardenedGuard = createHardenedExportGuard(
 );
 const require = createRequire(import.meta.url);
 
-const BRAND_ENV_ALIASES = [
-  ["MILADY_API_TOKEN", "ELIZA_API_TOKEN"],
-  ["MILADY_API_BIND", "ELIZA_API_BIND"],
-  ["MILADY_PAIRING_DISABLED", "ELIZA_PAIRING_DISABLED"],
-  ["MILADY_ALLOWED_ORIGINS", "ELIZA_ALLOWED_ORIGINS"],
-  ["MILADY_ALLOW_NULL_ORIGIN", "ELIZA_ALLOW_NULL_ORIGIN"],
-  ["MILADY_ALLOW_WS_QUERY_TOKEN", "ELIZA_ALLOW_WS_QUERY_TOKEN"],
-  ["MILADY_WALLET_EXPORT_TOKEN", "ELIZA_WALLET_EXPORT_TOKEN"],
-  ["MILADY_TERMINAL_RUN_TOKEN", "ELIZA_TERMINAL_RUN_TOKEN"],
-  ["MILADY_USE_PI_AI", "ELIZA_USE_PI_AI"],
-  ["MILADY_STATE_DIR", "ELIZA_STATE_DIR"],
-  ["MILADY_CONFIG_PATH", "ELIZA_CONFIG_PATH"],
-] as const;
+import { syncMiladyEnvToEliza, syncElizaEnvToMilady } from "../config/brand-env.js";
 
 const HEADER_ALIASES = [
   ["x-milady-token", "x-eliza-token"],
@@ -66,8 +54,6 @@ const PACKAGE_ROOT_NAMES = new Set([
   "elizaai",
   "elizaos",
 ]);
-const miladyMirroredEnvKeys = new Set<string>();
-const elizaMirroredEnvKeys = new Set<string>();
 
 type PluginCategory =
   | "ai-provider"
@@ -159,31 +145,7 @@ const CAPABILITY_FEATURE_IDS = new Set([
   "coding-agent",
 ]);
 
-function syncMiladyEnvToEliza(): void {
-  for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
-    const value = process.env[miladyKey];
-    if (typeof value === "string") {
-      process.env[elizaKey] = value;
-      elizaMirroredEnvKeys.add(elizaKey);
-    } else if (elizaMirroredEnvKeys.has(elizaKey)) {
-      delete process.env[elizaKey];
-      elizaMirroredEnvKeys.delete(elizaKey);
-    }
-  }
-}
 
-function syncElizaEnvToMilady(): void {
-  for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
-    const value = process.env[elizaKey];
-    if (typeof value === "string") {
-      process.env[miladyKey] = value;
-      miladyMirroredEnvKeys.add(miladyKey);
-    } else if (miladyMirroredEnvKeys.has(miladyKey)) {
-      delete process.env[miladyKey];
-      miladyMirroredEnvKeys.delete(miladyKey);
-    }
-  }
-}
 
 function mirrorCompatHeaders(req: Pick<http.IncomingMessage, "headers">): void {
   for (const [miladyHeader, elizaHeader] of HEADER_ALIASES) {
@@ -292,15 +254,24 @@ function ensureCompatApiAuthorized(
   return false;
 }
 
+const MAX_BODY_BYTES = 1_048_576; // 1 MB
 async function readCompatJsonBody(
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ): Promise<Record<string, unknown> | null> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
 
   try {
     for await (const chunk of req) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      totalBytes += buf.length;
+      if (totalBytes > MAX_BODY_BYTES) {
+        req.destroy();
+        sendJsonErrorResponse(res, 413, "Request body too large");
+        return null;
+      }
+      chunks.push(buf);
     }
   } catch {
     sendJsonErrorResponse(res, 400, "Invalid request body");
@@ -373,21 +344,6 @@ function maskValue(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-function sanitizeIdentifier(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const sanitized = trimmed.replace(/[^a-zA-Z0-9_]/g, "");
-  return sanitized.length > 0 ? sanitized : null;
-}
-
-function sqlLiteral(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
 
 function sendJsonResponse(
   res: http.ServerResponse,
@@ -808,34 +764,6 @@ async function handleTaskBackedWorkbenchTodoRoute(
   return false;
 }
 
-async function executeRawSql(
-  runtime: AgentRuntime,
-  sqlText: string,
-): Promise<{
-  rows: Record<string, unknown>[];
-  columns: string[];
-}> {
-  const db = runtime.adapter?.db as
-    | {
-        execute: (query: { queryChunks: unknown[] }) => Promise<{
-          rows: Record<string, unknown>[];
-          fields?: Array<{ name: string }>;
-        }>;
-      }
-    | undefined;
-  if (!db?.execute) {
-    throw new Error("Database adapter not available");
-  }
-
-  const { sql } = await import("drizzle-orm");
-  const result = await db.execute(sql.raw(sqlText));
-  const rows = Array.isArray(result.rows) ? result.rows : [];
-  const columns = Array.isArray(result.fields)
-    ? result.fields.map((field) => field.name)
-    : Object.keys(rows[0] ?? {});
-
-  return { rows, columns };
-}
 
 async function _getTableColumnNames(
   runtime: AgentRuntime,
@@ -1430,7 +1358,11 @@ async function handleDatabaseRowsCompatRoute(
 
   const filters: string[] = [];
   if (search) {
-    const escapedSearch = search.replace(/'/g, "''");
+    const escapedSearch = search
+      .replace(/\\/g, "\\\\")
+      .replace(/%/g, "\\%")
+      .replace(/_/g, "\\_")
+      .replace(/'/g, "''");
     filters.push(
       `(${columns
         .map(

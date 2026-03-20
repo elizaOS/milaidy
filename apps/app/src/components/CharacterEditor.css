@@ -55,7 +55,7 @@
 .ce-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24rem;
+  gap: 1.5rem;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -63,7 +63,7 @@
 
 @media (max-width: 1024px) {
   .ce-panels {
-    gap: 16rem;
+    gap: 1rem;
   }
 }
 

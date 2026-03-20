@@ -4,6 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "@elizaos/core";
 import { resolveStateDir } from "../config/paths";
+import { createSerialise } from "../utils/serialise";
 import {
   assertValidGitUrl,
   detectPackageManager,
@@ -22,16 +23,7 @@ function isSupportedUpstreamSchema(value: string): boolean {
   return value === UPSTREAM_SCHEMA;
 }
 
-let ejectLock: Promise<void> = Promise.resolve();
-
-function serialise<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = ejectLock;
-  let resolve: () => void;
-  ejectLock = new Promise<void>((r) => {
-    resolve = r;
-  });
-  return prev.then(fn).finally(() => resolve?.());
-}
+const serialise = createSerialise();
 
 export interface UpstreamMetadata {
   $schema: typeof UPSTREAM_SCHEMA;

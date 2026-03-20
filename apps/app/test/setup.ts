@@ -4,7 +4,8 @@
  * All navigator sub-objects (mediaDevices, geolocation, permissions, clipboard)
  * are created here with vi.fn() stubs so tests can vi.spyOn() them freely.
  */
-import React, * as ReactRuntime from "react";
+
+import React from "react";
 import { vi } from "vitest";
 
 declare global {

@@ -227,7 +227,7 @@ function which(cmd) {
 }
 
 const forceNodeRuntime = process.env.ELIZA_FORCE_NODE === "1";
-const hasBun = !forceNodeRuntime && !!which("bun");
+const hasBun = !forceNodeRuntime && !!which("bun") && !!which("bunx");
 
 if (!hasBun && !which("npx")) {
   console.error(

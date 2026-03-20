@@ -5,6 +5,7 @@
  * features, and mounts the React application.
  */
 
+import { ErrorBoundary } from "./ErrorBoundary";
 import "@elizaos/app-core/styles/styles.css";
 import "./brand-gold.css";
 import "./onboarding-overrides.css";
@@ -451,19 +452,21 @@ function mountReactApp(): void {
   if (!rootEl) throw new Error("Root element #root not found");
 
   createRoot(rootEl).render(
-    <StrictMode>
-      <AppProvider branding={MILADY_BRANDING}>
-        {isDetachedWindowShell(windowShellRoute) ? (
-          <DetachedShellRoot route={windowShellRoute} />
-        ) : (
-          <>
-            <DesktopOnboardingRuntime />
-            <DesktopSurfaceNavigationRuntime />
-            <App />
-          </>
-        )}
-      </AppProvider>
-    </StrictMode>,
+    <ErrorBoundary>
+      <StrictMode>
+        <AppProvider branding={MILADY_BRANDING}>
+          {isDetachedWindowShell(windowShellRoute) ? (
+            <DetachedShellRoot route={windowShellRoute} />
+          ) : (
+            <>
+              <DesktopOnboardingRuntime />
+              <DesktopSurfaceNavigationRuntime />
+              <App />
+            </>
+          )}
+        </AppProvider>
+      </StrictMode>
+    </ErrorBoundary>,
   );
 }
 

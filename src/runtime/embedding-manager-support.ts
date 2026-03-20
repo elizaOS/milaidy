@@ -56,11 +56,11 @@ export const DEFAULT_MODELS_DIR = path.join(os.homedir(), ".eliza", "models");
 
 const EMBEDDING_META_DIR =
   process.env.ELIZA_EMBEDDING_META_DIR ??
-  process.env.ELIZA_EMBEDDING_META_DIR ??
+  process.env.MILADY_EMBEDDING_META_DIR ??
   path.join(os.homedir(), ".eliza", "state");
 export const EMBEDDING_META_PATH =
   process.env.ELIZA_EMBEDDING_META_PATH ??
-  process.env.ELIZA_EMBEDDING_META_PATH ??
+  process.env.MILADY_EMBEDDING_META_PATH ??
   path.join(EMBEDDING_META_DIR, "embedding-meta.json");
 
 let _logger:
@@ -178,7 +178,12 @@ function parseContentLength(
 }
 
 function isAllowedDownloadHost(hostname: string): boolean {
-  return hostname === "huggingface.co" || hostname.endsWith(".huggingface.co");
+  return (
+    hostname === "huggingface.co" ||
+    hostname.endsWith(".huggingface.co") ||
+    hostname === "hf.co" ||
+    hostname.endsWith(".hf.co")
+  );
 }
 
 function validateDownloadUrl(rawUrl: string): URL {

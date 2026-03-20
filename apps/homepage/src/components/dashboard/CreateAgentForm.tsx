@@ -29,7 +29,7 @@ export function CreateAgentForm({
   const [step, setStep] = useState<CreateStep>("form");
   const [error, setError] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
-  const [_createdAgentId, setCreatedAgentId] = useState<string | null>(null);
+  const [, setCreatedAgentId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout>>();
   const {
     error: loginError,

@@ -9,8 +9,31 @@ export function Footer() {
         </h1>
       </div>
 
+      {/* Foreground content — overlays the background text */}
       <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center gap-8 sm:gap-10">
-        <div className="text-center px-2">
+        {/* Logo + description */}
+        <div className="relative text-center px-2">
+          {/* Hidden characters — only visible on hover */}
+          <div className="absolute inset-0 w-full h-full">
+            <img
+              src="/black-asset-1.png"
+              alt=""
+              draggable={false}
+              className="absolute left-4 bottom-0 w-28 h-36 object-contain object-bottom opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-auto select-none"
+            />
+            <img
+              src="/black-asset-2.png"
+              alt=""
+              draggable={false}
+              className="absolute left-1/2 -translate-x-1/2 bottom-0 w-28 h-36 object-contain object-bottom opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-auto select-none"
+            />
+            <img
+              src="/black-asset-3.png"
+              alt=""
+              draggable={false}
+              className="absolute right-4 bottom-0 w-28 h-36 object-contain object-bottom opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-auto select-none"
+            />
+          </div>
           <span className="text-2xl sm:text-3xl font-black tracking-tighter uppercase inline-flex items-center gap-2">
             <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-brand" />
             MILADY
@@ -63,6 +86,7 @@ export function Footer() {
           </SocialLink>
         </div>
 
+        {/* Copyright */}
         <p className="text-[10px] sm:text-xs font-mono text-text-muted uppercase tracking-[0.18em] text-center leading-relaxed px-2">
           &copy; {new Date().getFullYear()} Milady. Latest surfaced release:{" "}
           {releaseData.release.tagName}.

@@ -97,10 +97,18 @@ const { mockClient } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@elizaos/app-core/api", () => ({
-  client: mockClient,
-  SkillScanReportSummary: {},
-}));
+import { client, type MiladyClient } from "@elizaos/app-core/api/client";
+
+// We use vi.spyOn against the real client singleton instead of a module mock,
+// because AppContext imports client via a relative path that vi.mock might not intercept.
+vi.mock("@elizaos/app-core/api/client", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@elizaos/app-core/api/client")>();
+  return {
+    ...actual,
+    SkillScanReportSummary: {},
+  };
+});
 
 import type { OnboardingStep } from "@elizaos/app-core/state";
 import { AppProvider, useApp } from "@elizaos/app-core/state";
@@ -123,6 +131,19 @@ type ProbeApi = {
 
 function Probe({ onReady }: { onReady: (api: ProbeApi) => void }) {
   const app = useApp();
+  console.log(
+    "PROBE RENDER:",
+    app.onboardingLoading,
+    app.onboardingStep,
+    app.onboardingRunMode,
+    app.onboardingCloudProvider,
+  );
+  console.log(
+    "APP STATE:",
+    app.startupPhase,
+    app.startupStatus,
+    app.startupError,
+  );
 
   useEffect(() => {
     onReady({
@@ -180,10 +201,12 @@ describe("AppProvider onboarding step resume", () => {
       pairingEnabled: false,
       expiresAt: null,
     });
-    mockClient.getOnboardingStatus.mockResolvedValue({
-      complete: false,
-    });
-    mockClient.getOnboardingOptions.mockResolvedValue({
+    getOnboardingStatusSpy = vi
+      .spyOn(client, "getOnboardingStatus")
+      .mockResolvedValue({
+        complete: false,
+      });
+    vi.spyOn(client, "getOnboardingOptions").mockResolvedValue({
       names: ["Milady"],
       styles: [
         {
@@ -269,10 +292,32 @@ describe("AppProvider onboarding step resume", () => {
       cloud: { enabled: true, apiKey: "sk-test" },
     };
 
-    expect(inferOnboardingResumeStep({ config })).toBe("senses");
-    expect(
-      deriveOnboardingResumeFields(deriveOnboardingResumeConnection(config)),
-    ).toMatchObject({
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer | null = null;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+    await flushEffects();
+    console.log(
+      "TEST FINISH, SPY CALLS:",
+      getAuthStatusSpy.mock.calls.length,
+      getOnboardingStatusSpy.mock.calls.length,
+      getConfigSpy.mock.calls.length,
+    );
+    expect(api!.getSnapshot()).toEqual({
+      onboardingLoading: false,
+      onboardingStep: "senses",
       onboardingRunMode: "cloud",
       onboardingCloudProvider: "elizacloud",
     });
@@ -461,7 +506,9 @@ describe("AppProvider onboarding step resume", () => {
 
   it.skip("clears the stored onboarding step once onboarding is complete", async () => {
     localStorage.setItem(ONBOARDING_STEP_STORAGE_KEY, "senses");
-    mockClient.getOnboardingStatus.mockResolvedValue({ complete: true });
+    vi.spyOn(client, "getOnboardingStatus").mockResolvedValue({
+      complete: true,
+    });
 
     let tree: TestRenderer.ReactTestRenderer | null = null;
 

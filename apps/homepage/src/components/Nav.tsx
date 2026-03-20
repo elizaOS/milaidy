@@ -51,6 +51,7 @@ export function Nav() {
           </span>
         </button>
 
+        {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-1">
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.anchor} onClick={scrollTo(item.anchor)}>
@@ -176,7 +177,7 @@ function NavLink({
       type="button"
       onClick={onClick}
       className="px-3 py-1.5 text-sm text-text-muted hover:text-text-light rounded-lg
-        hover:bg-surface transition-all duration-150"
+        hover:bg-surface transition-all duration-150 text-left"
     >
       {children}
     </button>

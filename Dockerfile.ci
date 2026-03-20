@@ -52,12 +52,14 @@ WORKDIR /app
 COPY --from=pruner /app /app
 
 ENV NODE_ENV=production
-ENV ELIZA_PORT=2138
+# MILADY_PORT is the canonical name; ELIZA_PORT kept for backward compat
+ENV MILADY_PORT=2138
+ENV ELIZA_PORT=${MILADY_PORT}
 ENV ELIZA_API_BIND=0.0.0.0
 ENV ELIZA_ALLOWED_HOSTS=*
 EXPOSE 2138
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-  CMD sh -lc 'code="$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${ELIZA_PORT}/api/health")" && [ "$code" = "200" -o "$code" = "401" ]'
+  CMD sh -lc 'code="$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${MILADY_PORT}/api/health")" && [ "$code" = "200" -o "$code" = "401" ]'
 
 CMD ["node", "--import", "tsx", "milady.mjs", "start"]

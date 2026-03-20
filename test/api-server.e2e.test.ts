@@ -28,7 +28,6 @@ import { WebSocket } from "ws";
 import { startApiServer } from "../src/api/server";
 import { AGENT_NAME_POOL } from "../src/runtime/onboarding-names";
 
-
 vi.mock("../src/services/mcp-marketplace", () => ({
   searchMcpMarketplace: vi
     .fn()
@@ -512,7 +511,10 @@ function createRuntimeForWorkbenchCrudTests(options?: {
           ? {
               ...task,
               ...update,
-              isCompleted: (update as Record<string, unknown>).completed ?? update.isCompleted ?? task.isCompleted,
+              isCompleted:
+                (update as Record<string, unknown>).completed ??
+                update.isCompleted ??
+                task.isCompleted,
               metadata: {
                 ...((task.metadata as Record<string, unknown> | undefined) ??
                   {}),

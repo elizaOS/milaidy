@@ -1,10 +1,9 @@
 import { logger } from "@elizaos/core";
+import { parseBooleanValue } from "../benchmark/server-utils.js";
 import { theme } from "../terminal/theme";
 
-const TRUTHY_VALUES = new Set(["true", "1", "yes", "on"]);
-
 export function isTruthyEnvValue(value: string | undefined): boolean {
-  return TRUTHY_VALUES.has((value ?? "").trim().toLowerCase());
+  return parseBooleanValue(value);
 }
 
 const LOG_LEVEL_PRIORITY: Record<string, number> = {

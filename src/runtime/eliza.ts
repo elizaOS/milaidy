@@ -21,6 +21,7 @@ import {
 } from "@elizaos/autonomous/runtime/eliza";
 import { CHARACTER_PRESET_META, STYLE_PRESETS } from "../onboarding-presets.js";
 import { normalizeCharacterMessageExamples } from "../utils/character-message-examples";
+import { HISTORY_KNOWLEDGE } from "./history-knowledge";
 import { ensureRuntimeSqlCompatibility } from "../utils/sql-compat";
 import type { EmbeddingProgressCallback } from "./embedding-manager-support.js";
 import {
@@ -29,17 +30,7 @@ import {
 } from "./embedding-manager-support.js";
 import { detectEmbeddingPreset } from "./embedding-presets.js";
 
-const BRAND_ENV_ALIASES = [
-  ["MILADY_USE_PI_AI", "ELIZA_USE_PI_AI"],
-  ["MILADY_CLOUD_TTS_DISABLED", "ELIZA_CLOUD_TTS_DISABLED"],
-  ["MILADY_CLOUD_MEDIA_DISABLED", "ELIZA_CLOUD_MEDIA_DISABLED"],
-  ["MILADY_CLOUD_EMBEDDINGS_DISABLED", "ELIZA_CLOUD_EMBEDDINGS_DISABLED"],
-  ["MILADY_CLOUD_RPC_DISABLED", "ELIZA_CLOUD_RPC_DISABLED"],
-  ["MILADY_DISABLE_LOCAL_EMBEDDINGS", "ELIZA_DISABLE_LOCAL_EMBEDDINGS"],
-] as const;
-
-const miladyMirroredEnvKeys = new Set<string>();
-const elizaMirroredEnvKeys = new Set<string>();
+import { syncMiladyEnvToEliza, syncElizaEnvToMilady } from "../config/brand-env.js";
 const AUTONOMY_WORLD_ID = stringToUuid("00000000-0000-0000-0000-000000000001");
 const AUTONOMY_ENTITY_ID = stringToUuid("00000000-0000-0000-0000-000000000002");
 const AUTONOMY_MESSAGE_SERVER_ID = stringToUuid(
@@ -60,6 +51,9 @@ export const CHANNEL_PLUGIN_MAP = {
   ...upstreamChannelPluginMap,
   ...INTERNAL_CHANNEL_PLUGIN_OVERRIDES,
 };
+
+/** Guards against registering signal handlers more than once. */
+let signalHandlersRegistered = false;
 
 interface EntityLike {
   id: string;
@@ -110,35 +104,6 @@ interface RuntimeAdapterAutonomyCompat {
   ) => Promise<unknown>;
 }
 
-function syncMiladyEnvToEliza(): void {
-  for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
-    const value = process.env[miladyKey];
-    if (typeof value === "string") {
-      if (typeof process.env[elizaKey] !== "string") {
-        process.env[elizaKey] = value;
-        elizaMirroredEnvKeys.add(elizaKey);
-      }
-    } else if (elizaMirroredEnvKeys.has(elizaKey)) {
-      delete process.env[elizaKey];
-      elizaMirroredEnvKeys.delete(elizaKey);
-    }
-  }
-}
-
-function syncElizaEnvToMilady(): void {
-  for (const [miladyKey, elizaKey] of BRAND_ENV_ALIASES) {
-    const value = process.env[elizaKey];
-    if (typeof value === "string") {
-      if (typeof process.env[miladyKey] !== "string") {
-        process.env[miladyKey] = value;
-        miladyMirroredEnvKeys.add(miladyKey);
-      }
-    } else if (miladyMirroredEnvKeys.has(miladyKey)) {
-      delete process.env[miladyKey];
-      miladyMirroredEnvKeys.delete(miladyKey);
-    }
-  }
-}
 
 function syncBrandEnvAliases(): void {
   syncElizaEnvToMilady();
@@ -475,14 +440,23 @@ export async function startEliza(
       const keepAlive = setInterval(() => {}, 1 << 30);
       const cleanup = async () => {
         clearInterval(keepAlive);
+        // Force exit if graceful shutdown hangs for more than 10 seconds.
+        const forceExitTimer = setTimeout(() => {
+          logger.warn("[milady] Shutdown timed out after 10s — forcing exit");
+          process.exit(1);
+        }, 10_000);
+        forceExitTimer.unref?.();
         if (currentRuntime) {
           await upstreamShutdownRuntime(currentRuntime, "server-only shutdown");
         }
         process.exit(0);
       };
 
-      process.on("SIGINT", () => void cleanup());
-      process.on("SIGTERM", () => void cleanup());
+      if (!signalHandlersRegistered) {
+        signalHandlersRegistered = true;
+        process.on("SIGINT", () => void cleanup());
+        process.on("SIGTERM", () => void cleanup());
+      }
       return currentRuntime;
     }
 

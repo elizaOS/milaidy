@@ -100,23 +100,48 @@ export default defineConfig({
         ? [
             {
               find: "@elizaos/plugin-openai",
-              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+              replacement: path.join(
+                repoRoot,
+                "test",
+                "stubs",
+                "plugin-stub.mjs",
+              ),
             },
             {
               find: "@elizaos/plugin-ollama",
-              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+              replacement: path.join(
+                repoRoot,
+                "test",
+                "stubs",
+                "plugin-stub.mjs",
+              ),
             },
             {
               find: "@elizaos/plugin-local-embedding",
-              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+              replacement: path.join(
+                repoRoot,
+                "test",
+                "stubs",
+                "plugin-stub.mjs",
+              ),
             },
             {
               find: "@elizaos/plugin-sql",
-              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+              replacement: path.join(
+                repoRoot,
+                "test",
+                "stubs",
+                "plugin-stub.mjs",
+              ),
             },
             {
               find: "@elizaos/plugin-discord",
-              replacement: path.join(repoRoot, "test", "stubs", "plugin-stub.mjs"),
+              replacement: path.join(
+                repoRoot,
+                "test",
+                "stubs",
+                "plugin-stub.mjs",
+              ),
             },
           ]
         : []),

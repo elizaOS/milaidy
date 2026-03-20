@@ -4,11 +4,11 @@ import { logger } from "@elizaos/core";
 const repairedRuntimes = new WeakSet<AgentRuntime>();
 const repairPromises = new WeakMap<AgentRuntime, Promise<void>>();
 
-function quoteIdent(name: string): string {
+export function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
-function sanitizeIdentifier(value: string | null | undefined): string | null {
+export function sanitizeIdentifier(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -16,11 +16,11 @@ function sanitizeIdentifier(value: string | null | undefined): string | null {
   return sanitized.length > 0 ? sanitized : null;
 }
 
-function sqlLiteral(value: string): string {
+export function sqlLiteral(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-async function executeRawSql(
+export async function executeRawSql(
   runtime: AgentRuntime,
   sqlText: string,
 ): Promise<{

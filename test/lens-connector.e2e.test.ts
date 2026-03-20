@@ -26,9 +26,9 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ethers } from "ethers";
 import { logger, type Plugin } from "@elizaos/core";
 import dotenv from "dotenv";
+import { ethers } from "ethers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   extractPlugin,
@@ -57,8 +57,7 @@ const hasValidPrivateKey =
   Boolean(LENS_PRIVATE_KEY) &&
   /^0x[0-9a-fA-F]{64}$/.test(LENS_PRIVATE_KEY ?? "");
 const hasAppAddress = Boolean(LENS_APP_ADDRESS);
-const runLiveWriteTests =
-  runLiveTests && hasValidPrivateKey && hasAppAddress;
+const runLiveWriteTests = runLiveTests && hasValidPrivateKey && hasAppAddress;
 
 // Mutable auth state — populated by beforeAll in write test suites
 let lensAccessToken: string | null = null;
@@ -168,8 +167,9 @@ async function lensAuthenticate(): Promise<boolean> {
     return false;
   }
 
-  const challenge = (challengeResult.data as { challenge: { id: string; text: string } })
-    .challenge;
+  const challenge = (
+    challengeResult.data as { challenge: { id: string; text: string } }
+  ).challenge;
 
   // 2. Sign the challenge text
   const signature = await wallet.signMessage(challenge.text);
@@ -194,9 +194,11 @@ async function lensAuthenticate(): Promise<boolean> {
     return false;
   }
 
-  const auth = (authResult.data as {
-    authenticate: { accessToken?: string; reason?: string };
-  }).authenticate;
+  const auth = (
+    authResult.data as {
+      authenticate: { accessToken?: string; reason?: string };
+    }
+  ).authenticate;
 
   if (auth.accessToken) {
     lensAccessToken = auth.accessToken;
@@ -227,9 +229,11 @@ async function lensGetAccount(
     }`,
     { request: { address } },
   );
-  const data = result.data as {
-    account?: { address: string; username?: { localName: string } };
-  } | undefined;
+  const data = result.data as
+    | {
+        account?: { address: string; username?: { localName: string } };
+      }
+    | undefined;
   if (!data?.account) return null;
   return {
     address: data.account.address,
@@ -252,11 +256,15 @@ async function lensGetAccountsForWallet(
     }`,
     { request: { managedBy: wallet } },
   );
-  const data = result.data as {
-    accountsAvailable?: {
-      items: Array<{ account: { address: string; username?: { localName: string } } }>;
-    };
-  } | undefined;
+  const data = result.data as
+    | {
+        accountsAvailable?: {
+          items: Array<{
+            account: { address: string; username?: { localName: string } };
+          }>;
+        };
+      }
+    | undefined;
   return (
     data?.accountsAvailable?.items.map((item) => ({
       address: item.account.address,
@@ -290,8 +298,15 @@ async function lensWaitForPost(
       }`,
       { request: { txHash } },
     );
-    const status = (statusResult.data as { transactionStatus?: { __typename?: string; blockTimestamp?: string; reason?: string } })
-      ?.transactionStatus;
+    const status = (
+      statusResult.data as {
+        transactionStatus?: {
+          __typename?: string;
+          blockTimestamp?: string;
+          reason?: string;
+        };
+      }
+    )?.transactionStatus;
     if (status?.__typename === "FinishedTransactionStatus") break;
     if (status?.__typename === "FailedTransactionStatus") return null;
   }
@@ -310,14 +325,16 @@ async function lensWaitForPost(
     }`,
     { request: { txHash } },
   );
-  const data = result.data as {
-    post?: {
-      id: string;
-      isDeleted: boolean;
-      metadata?: { content?: string };
-      commentOn?: { id: string };
-    };
-  } | undefined;
+  const data = result.data as
+    | {
+        post?: {
+          id: string;
+          isDeleted: boolean;
+          metadata?: { content?: string };
+          commentOn?: { id: string };
+        };
+      }
+    | undefined;
 
   if (!data?.post) return null;
   return {
@@ -329,9 +346,7 @@ async function lensWaitForPost(
 }
 
 /** Create a post via Lens API. Returns post hash or null on error. */
-async function lensCreatePost(
-  content: string,
-): Promise<string | null> {
+async function lensCreatePost(content: string): Promise<string | null> {
   const result = await lensGraphQL(
     `mutation Post($request: CreatePostRequest!) {
       post(request: $request) {
@@ -343,25 +358,32 @@ async function lensCreatePost(
     }`,
     {
       request: {
-        contentUri: `data:application/json,${encodeURIComponent(JSON.stringify({
-          $schema: "https://json-schemas.lens.dev/posts/text-only/3.0.0.json",
-          lens: { id: crypto.randomUUID(), mainContentFocus: "TEXT_ONLY", locale: "en", content },
-        }))}`,
+        contentUri: `data:application/json,${encodeURIComponent(
+          JSON.stringify({
+            $schema: "https://json-schemas.lens.dev/posts/text-only/3.0.0.json",
+            lens: {
+              id: crypto.randomUUID(),
+              mainContentFocus: "TEXT_ONLY",
+              locale: "en",
+              content,
+            },
+          }),
+        )}`,
       },
     },
     { authenticated: true },
   );
 
   if (result.errors) {
-    logger.warn(
-      `[lens-connector] Post failed: ${result.errors[0]?.message}`,
-    );
+    logger.warn(`[lens-connector] Post failed: ${result.errors[0]?.message}`);
     return null;
   }
 
-  const data = result.data as {
-    post?: { hash?: string; reason?: string };
-  } | undefined;
+  const data = result.data as
+    | {
+        post?: { hash?: string; reason?: string };
+      }
+    | undefined;
   return data?.post?.hash ?? null;
 }
 
@@ -382,9 +404,7 @@ async function lensDeletePost(postId: string): Promise<void> {
 }
 
 /** Add a reaction to a post. Returns success or null. */
-async function lensAddReaction(
-  postId: string,
-): Promise<boolean | null> {
+async function lensAddReaction(postId: string): Promise<boolean | null> {
   const result = await lensGraphQL(
     `mutation AddReaction($request: AddReactionRequest!) {
       addReaction(request: $request) {
@@ -435,15 +455,15 @@ async function lensRepost(postId: string): Promise<string | null> {
   );
 
   if (result.errors) {
-    logger.warn(
-      `[lens-connector] Repost failed: ${result.errors[0]?.message}`,
-    );
+    logger.warn(`[lens-connector] Repost failed: ${result.errors[0]?.message}`);
     return null;
   }
 
-  const data = result.data as {
-    repost?: { hash?: string; reason?: string };
-  } | undefined;
+  const data = result.data as
+    | {
+        repost?: { hash?: string; reason?: string };
+      }
+    | undefined;
   return data?.repost?.hash ?? null;
 }
 
@@ -465,86 +485,83 @@ const loadLensPlugin = async (): Promise<Plugin | null> => {
 // 1. Setup & Authentication Tests
 // ---------------------------------------------------------------------------
 
-describeIfPluginAvailable(
-  "Lens Connector - Setup & Authentication",
-  () => {
+describeIfPluginAvailable("Lens Connector - Setup & Authentication", () => {
+  it(
+    "can load the Lens plugin without errors",
+    async () => {
+      const plugin = await loadLensPlugin();
+      expect(plugin).not.toBeNull();
+      if (plugin) {
+        expect(plugin.name).toBe("lens");
+      }
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    "Lens plugin exports required structure",
+    async () => {
+      const plugin = await loadLensPlugin();
+      expect(plugin).toBeDefined();
+      if (plugin) {
+        expect(plugin.name).toBe("lens");
+        expect(plugin.description).toBeDefined();
+        expect(typeof plugin.description).toBe("string");
+      }
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    "plugin has clients",
+    async () => {
+      const plugin = await loadLensPlugin();
+      expect(plugin).not.toBeNull();
+      const p = plugin as Plugin & { clients?: unknown[] };
+      expect(p.clients).toBeDefined();
+      expect(Array.isArray(p.clients)).toBe(true);
+      expect(p.clients!.length).toBeGreaterThan(0);
+    },
+    TEST_TIMEOUT,
+  );
+
+  describeIfLive("with Lens credentials", () => {
     it(
-      "can load the Lens plugin without errors",
+      "Lens API health check succeeds",
       async () => {
-        const plugin = await loadLensPlugin();
-        expect(plugin).not.toBeNull();
-        if (plugin) {
-          expect(plugin.name).toBe("lens");
+        const healthy = await lensHealthCheck();
+        expect(healthy).toBe(true);
+      },
+      TEST_TIMEOUT,
+    );
+
+    it(
+      "account address resolves to an account",
+      async () => {
+        const account = await lensGetAccount(LENS_ACCOUNT_ADDRESS!);
+        if (account === null) {
+          logger.warn(
+            "[lens-connector] Account not found or rate-limited — skipping",
+          );
+          return;
         }
+        expect(account.address).toBeDefined();
+        expect(typeof account.address).toBe("string");
       },
       TEST_TIMEOUT,
     );
 
     it(
-      "Lens plugin exports required structure",
+      "provides error for invalid GraphQL query",
       async () => {
-        const plugin = await loadLensPlugin();
-        expect(plugin).toBeDefined();
-        if (plugin) {
-          expect(plugin.name).toBe("lens");
-          expect(plugin.description).toBeDefined();
-          expect(typeof plugin.description).toBe("string");
-        }
+        const result = await lensGraphQL(`query { nonExistentField }`);
+        expect(result.errors).toBeDefined();
+        expect(result.errors!.length).toBeGreaterThan(0);
       },
       TEST_TIMEOUT,
     );
-
-    it(
-      "plugin has clients",
-      async () => {
-        const plugin = await loadLensPlugin();
-        expect(plugin).not.toBeNull();
-        const p = plugin as Plugin & { clients?: unknown[] };
-        expect(p.clients).toBeDefined();
-        expect(Array.isArray(p.clients)).toBe(true);
-        expect(p.clients!.length).toBeGreaterThan(0);
-      },
-      TEST_TIMEOUT,
-    );
-
-    describeIfLive("with Lens credentials", () => {
-      it(
-        "Lens API health check succeeds",
-        async () => {
-          const healthy = await lensHealthCheck();
-          expect(healthy).toBe(true);
-        },
-        TEST_TIMEOUT,
-      );
-
-      it(
-        "account address resolves to an account",
-        async () => {
-          const account = await lensGetAccount(LENS_ACCOUNT_ADDRESS!);
-          if (account === null) {
-            logger.warn(
-              "[lens-connector] Account not found or rate-limited — skipping",
-            );
-            return;
-          }
-          expect(account.address).toBeDefined();
-          expect(typeof account.address).toBe("string");
-        },
-        TEST_TIMEOUT,
-      );
-
-      it(
-        "provides error for invalid GraphQL query",
-        async () => {
-          const result = await lensGraphQL(`query { nonExistentField }`);
-          expect(result.errors).toBeDefined();
-          expect(result.errors!.length).toBeGreaterThan(0);
-        },
-        TEST_TIMEOUT,
-      );
-    });
-  },
-);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // 2. Post Handling Tests
@@ -558,7 +575,8 @@ describeIfLiveWrite("Lens Connector - Post Handling", () => {
   beforeAll(async () => {
     if (!lensAccessToken) {
       const ok = await lensAuthenticate();
-      if (!ok) logger.warn("[lens-connector] Auth failed — write tests will skip");
+      if (!ok)
+        logger.warn("[lens-connector] Auth failed — write tests will skip");
     }
   }, TEST_TIMEOUT);
 
@@ -638,9 +656,11 @@ describeIfLiveWrite("Lens Connector - Post Handling", () => {
         logger.warn("[lens-connector] Notifications query failed — skipping");
         return;
       }
-      const data = result.data as {
-        notifications?: { items?: unknown[] };
-      } | undefined;
+      const data = result.data as
+        | {
+            notifications?: { items?: unknown[] };
+          }
+        | undefined;
       expect(data?.notifications?.items).toBeDefined();
       expect(Array.isArray(data?.notifications?.items)).toBe(true);
     },
@@ -682,7 +702,8 @@ describeIfLiveWrite("Lens Connector - Lens-Specific Features", () => {
   beforeAll(async () => {
     if (!lensAccessToken) {
       const ok = await lensAuthenticate();
-      if (!ok) logger.warn("[lens-connector] Auth failed — write tests will skip");
+      if (!ok)
+        logger.warn("[lens-connector] Auth failed — write tests will skip");
     }
   }, TEST_TIMEOUT);
 
@@ -813,9 +834,14 @@ describeIfLiveWrite("Lens Connector - Lens-Specific Features", () => {
         return;
       }
 
-      const data = result.data as {
-        post?: { id: string; stats?: { reactions: number; reposts: number; comments: number } };
-      } | undefined;
+      const data = result.data as
+        | {
+            post?: {
+              id: string;
+              stats?: { reactions: number; reposts: number; comments: number };
+            };
+          }
+        | undefined;
       expect(data?.post?.stats).toBeDefined();
     },
     LIVE_WRITE_TIMEOUT,
@@ -832,7 +858,8 @@ describeIfLiveWrite("Lens Connector - Media & Attachments", () => {
   beforeAll(async () => {
     if (!lensAccessToken) {
       const ok = await lensAuthenticate();
-      if (!ok) logger.warn("[lens-connector] Auth failed — write tests will skip");
+      if (!ok)
+        logger.warn("[lens-connector] Auth failed — write tests will skip");
     }
   }, TEST_TIMEOUT);
 
@@ -861,19 +888,21 @@ describeIfLiveWrite("Lens Connector - Media & Attachments", () => {
         }`,
         {
           request: {
-            contentUri: `data:application/json,${encodeURIComponent(JSON.stringify({
-              $schema: "https://json-schemas.lens.dev/posts/image/3.0.0.json",
-              lens: {
-                id: crypto.randomUUID(),
-                mainContentFocus: "IMAGE",
-                locale: "en",
-                content,
-                image: {
-                  item: "https://picsum.photos/200",
-                  type: "image/jpeg",
+            contentUri: `data:application/json,${encodeURIComponent(
+              JSON.stringify({
+                $schema: "https://json-schemas.lens.dev/posts/image/3.0.0.json",
+                lens: {
+                  id: crypto.randomUUID(),
+                  mainContentFocus: "IMAGE",
+                  locale: "en",
+                  content,
+                  image: {
+                    item: "https://picsum.photos/200",
+                    type: "image/jpeg",
+                  },
                 },
-              },
-            }))}`,
+              }),
+            )}`,
           },
         },
         { authenticated: true },
@@ -884,9 +913,11 @@ describeIfLiveWrite("Lens Connector - Media & Attachments", () => {
         return;
       }
 
-      const data = result.data as {
-        post?: { hash?: string };
-      } | undefined;
+      const data = result.data as
+        | {
+            post?: { hash?: string };
+          }
+        | undefined;
       const hash = data?.post?.hash;
       expect(hash).toBeTruthy();
       if (hash) postIdsToCleanup.push(hash);
@@ -1018,7 +1049,9 @@ describe("Lens Connector - Integration", () => {
       mod = null;
     }
     if (!mod) {
-      logger.warn("[lens-connector] Workspace not built or import failed — skipping");
+      logger.warn(
+        "[lens-connector] Workspace not built or import failed — skipping",
+      );
       return;
     }
     expect(mod.CHANNEL_PLUGIN_MAP.lens).toBe("@elizaos/plugin-lens");
@@ -1081,7 +1114,9 @@ describe("Lens Connector - Integration", () => {
       mod = null;
     }
     if (!mod) {
-      logger.warn("[lens-connector] Workspace not built or import failed — skipping");
+      logger.warn(
+        "[lens-connector] Workspace not built or import failed — skipping",
+      );
       return;
     }
     try {

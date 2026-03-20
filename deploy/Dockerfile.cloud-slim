@@ -160,6 +160,7 @@ COPY --from=pruner --chown=agent:agent /build/scripts ./scripts
 
 ENV NODE_ENV=production
 ENV MILADY_API_BIND="0.0.0.0"
+# PORT is used by cloud platforms (Railway, Fly.io); maps to MILADY_PORT locally
 ENV PORT=2138
 ENV BRIDGE_PORT=18790
 # Skip local model downloads

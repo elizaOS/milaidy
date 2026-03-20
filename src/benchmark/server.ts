@@ -3,13 +3,11 @@ import http from "node:http";
 import path from "node:path";
 import {
   AgentRuntime,
-  ChannelType,
   type Content,
   elizaLogger,
   type Memory,
   type Plugin,
   stringToUuid,
-  type UUID,
 } from "@elizaos/core";
 import dotenv from "dotenv";
 import { CORE_PLUGINS } from "../runtime/core-plugins";
@@ -22,6 +20,25 @@ import {
   getCapturedAction,
   setBenchmarkContext,
 } from "./plugin";
+import {
+  type BenchmarkOutboxEntry,
+  type BenchmarkSession,
+  type BenchmarkTrajectoryStep,
+  capturedActionToParams,
+  coerceActions,
+  coerceParams,
+  composeBenchmarkPrompt,
+  createSession,
+  ensureBenchmarkSessionContext,
+  extractBenchmarkName,
+  extractRecord,
+  extractTaskId,
+  formatUnknownError,
+  normalizeBenchmarkContext,
+  resolvePort,
+  sessionKey,
+  toPlugin,
+} from "./server-utils.js";
 
 // Load environment variables BEFORE anything else
 // This ensures API keys are available when plugins initialize
@@ -111,47 +128,7 @@ function checkBenchAuth(
   return true;
 }
 
-const DEFAULT_PORT = 3939;
-const BENCHMARK_WORLD_ID = stringToUuid("eliza-benchmark-world");
-const BENCHMARK_MESSAGE_SERVER_ID = stringToUuid(
-  "eliza-benchmark-message-server",
-);
 
-interface BenchmarkSession {
-  benchmark: string;
-  taskId: string;
-  roomId: UUID;
-  relayRoomId: UUID;
-  userEntityId: UUID;
-}
-
-interface BenchmarkOutboxEntry {
-  kind: "direct" | "room";
-  targetId: string;
-  text: string;
-  source: string;
-  ts: number;
-}
-
-interface BenchmarkTrajectoryStep {
-  step: number;
-  startedAt: number;
-  finishedAt: number;
-  inputText: string;
-  promptText: string;
-  context?: Record<string, unknown>;
-  thought: string | null;
-  responseText: string;
-  actions: string[];
-  params: Record<string, unknown>;
-}
-
-function formatUnknownError(error: unknown): string {
-  if (error instanceof Error) {
-    return `${error.name}: ${error.message}`;
-  }
-  return String(error);
-}
 
 function disableManualCompactionAction(runtime: AgentRuntime): void {
   const runtimeWithActions = runtime as AgentRuntime & {
@@ -172,185 +149,6 @@ function disableManualCompactionAction(runtime: AgentRuntime): void {
   );
 }
 
-function toPlugin(candidate: unknown, source: string): Plugin {
-  if (!candidate || typeof candidate !== "object") {
-    throw new Error(`Plugin from ${source} was not an object`);
-  }
-
-  const pluginLike = candidate as { name?: unknown };
-  if (typeof pluginLike.name !== "string" || pluginLike.name.length === 0) {
-    throw new Error(`Plugin from ${source} was missing a valid name`);
-  }
-
-  return candidate as Plugin;
-}
-
-function resolvePort(): number {
-  const raw = process.env.ELIZA_BENCH_PORT;
-  if (!raw) return DEFAULT_PORT;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 65535) {
-    elizaLogger.warn(
-      `[bench] Invalid ELIZA_BENCH_PORT="${raw}"; using ${DEFAULT_PORT}`,
-    );
-    return DEFAULT_PORT;
-  }
-  return Math.floor(parsed);
-}
-
-function extractRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
-  }
-  return value as Record<string, unknown>;
-}
-
-function extractTaskId(context: Record<string, unknown> | undefined): string {
-  const bySnake = context?.task_id;
-  if (typeof bySnake === "string" && bySnake.trim()) return bySnake.trim();
-  const byCamel = context?.taskId;
-  if (typeof byCamel === "string" && byCamel.trim()) return byCamel.trim();
-  return "default-task";
-}
-
-function extractBenchmarkName(
-  context: Record<string, unknown> | undefined,
-): string {
-  const benchmark = context?.benchmark;
-  if (typeof benchmark === "string" && benchmark.trim()) {
-    return benchmark.trim();
-  }
-  return "unknown";
-}
-
-function composeBenchmarkPrompt(params: {
-  text: string;
-  context?: Record<string, unknown>;
-  image?: unknown;
-}): string {
-  const segments: string[] = [params.text.trim()];
-
-  if (params.context && Object.keys(params.context).length > 0) {
-    segments.push(
-      [
-        "BENCHMARK CONTEXT (authoritative):",
-        JSON.stringify(params.context, null, 2),
-      ].join("\n"),
-    );
-  }
-
-  if (params.image !== undefined) {
-    segments.push(
-      ["IMAGE PAYLOAD:", JSON.stringify(params.image, null, 2)].join("\n"),
-    );
-  }
-
-  segments.push(
-    "Respond using normal Eliza action output so actions/params can be executed and evaluated.",
-  );
-
-  return segments.join("\n\n");
-}
-
-function coerceActions(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((entry): entry is string => typeof entry === "string");
-}
-
-function coerceParams(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>;
-      }
-    } catch {
-      // fall through to XML parsing
-    }
-
-    if (trimmed.startsWith("<")) {
-      const paramsByAction: Record<string, unknown> = {};
-      const actionMatches = [
-        ...trimmed.matchAll(/<([A-Za-z0-9_-]+)>([\s\S]*?)<\/\1>/g),
-      ];
-      for (const [, actionName, actionBody] of actionMatches) {
-        const actionParams: Record<string, unknown> = {};
-        const fieldMatches = [
-          ...actionBody.matchAll(/<([A-Za-z0-9_-]+)>([\s\S]*?)<\/\1>/g),
-        ];
-        for (const [, fieldName, fieldValue] of fieldMatches) {
-          actionParams[fieldName] = fieldValue.trim();
-        }
-        paramsByAction[actionName] =
-          Object.keys(actionParams).length > 0
-            ? actionParams
-            : actionBody.trim();
-      }
-      if (Object.keys(paramsByAction).length > 0) {
-        return paramsByAction;
-      }
-    }
-  }
-
-  return {};
-}
-
-function normalizeBenchmarkContext(
-  session: BenchmarkSession,
-  context: Record<string, unknown> | undefined,
-): BenchmarkContext {
-  const normalized: Record<string, unknown> = {
-    ...(context ?? {}),
-    benchmark: session.benchmark,
-    taskId: session.taskId,
-  };
-
-  if (
-    !Array.isArray(normalized.actionSpace) &&
-    Array.isArray(normalized.action_space)
-  ) {
-    normalized.actionSpace = normalized.action_space;
-  }
-
-  if (normalized.task_id === undefined) {
-    normalized.task_id = session.taskId;
-  }
-
-  return normalized as BenchmarkContext;
-}
-
-function capturedActionToParams(
-  capturedAction: CapturedAction | null,
-): Record<string, unknown> {
-  if (!capturedAction) return {};
-
-  const benchmarkParams: Record<string, unknown> = {};
-  if (capturedAction.command) benchmarkParams.command = capturedAction.command;
-  if (capturedAction.toolName)
-    benchmarkParams.tool_name = capturedAction.toolName;
-  if (capturedAction.arguments)
-    benchmarkParams.arguments = capturedAction.arguments;
-  if (capturedAction.operation)
-    benchmarkParams.operation = capturedAction.operation;
-  if (capturedAction.elementId)
-    benchmarkParams.element_id = capturedAction.elementId;
-  if (capturedAction.value) benchmarkParams.value = capturedAction.value;
-
-  if (Object.keys(benchmarkParams).length === 0) {
-    return {};
-  }
-
-  return { BENCHMARK_ACTION: benchmarkParams };
-}
-
-function sessionKey(session: BenchmarkSession): string {
-  return `${session.benchmark}:${session.taskId}`;
-}
 
 async function collectSessionDiagnostics(
   runtime: AgentRuntime,
@@ -447,87 +245,6 @@ async function collectSessionDiagnostics(
       ),
       has_manual_compaction_action: actionNames.includes("COMPACT_SESSION"),
     },
-  };
-}
-
-async function ensureBenchmarkSessionContext(
-  runtime: AgentRuntime,
-  session: BenchmarkSession,
-): Promise<void> {
-  await runtime.ensureWorldExists({
-    id: BENCHMARK_WORLD_ID,
-    name: "Eliza Benchmark World",
-    agentId: runtime.agentId,
-    messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
-    metadata: {
-      type: "benchmark",
-      description: "World used for benchmark sessions",
-      extra: {
-        benchmark: session.benchmark,
-      },
-    },
-  });
-
-  // Use ChannelType.API to ensure the agent always responds to benchmark messages
-  // (API channel type bypasses shouldRespond evaluation)
-  await runtime.ensureRoomExists({
-    id: session.roomId,
-    name: `benchmark:${session.taskId}`,
-    source: "benchmark",
-    type: ChannelType.API,
-    channelId: `bench-${session.taskId}`,
-    messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
-    worldId: BENCHMARK_WORLD_ID,
-    metadata: {
-      benchmark: session.benchmark,
-      taskId: session.taskId,
-    },
-  });
-
-  await runtime.ensureRoomExists({
-    id: session.relayRoomId,
-    name: "relay-room",
-    source: "benchmark",
-    type: ChannelType.API,
-    channelId: `relay-${session.taskId}`,
-    messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
-    worldId: BENCHMARK_WORLD_ID,
-    metadata: {
-      benchmark: session.benchmark,
-      taskId: session.taskId,
-      role: "relay-room",
-    },
-  });
-
-  await runtime.ensureConnection({
-    entityId: session.userEntityId,
-    roomId: session.roomId,
-    worldId: BENCHMARK_WORLD_ID,
-    userName: "Benchmark User",
-    source: "benchmark",
-    channelId: `bench-${session.taskId}`,
-    type: ChannelType.API,
-    messageServerId: BENCHMARK_MESSAGE_SERVER_ID,
-    metadata: {
-      benchmark: session.benchmark,
-      taskId: session.taskId,
-      role: "benchmark-room",
-    },
-  });
-  await runtime.ensureParticipantInRoom(runtime.agentId, session.relayRoomId);
-}
-
-function createSession(taskId: string, benchmark: string): BenchmarkSession {
-  const normalizedTaskId = taskId.trim() || "default-task";
-  const normalizedBenchmark = benchmark.trim() || "unknown";
-  const seed = `${normalizedBenchmark}:${normalizedTaskId}:${Date.now()}:${Math.random()}`;
-
-  return {
-    benchmark: normalizedBenchmark,
-    taskId: normalizedTaskId,
-    roomId: stringToUuid(`benchmark-room:${seed}`),
-    relayRoomId: stringToUuid(`benchmark-relay:${seed}`),
-    userEntityId: stringToUuid(`benchmark-user:${seed}`),
   };
 }
 
