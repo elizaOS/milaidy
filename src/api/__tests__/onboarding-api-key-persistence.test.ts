@@ -147,6 +147,44 @@ describe("extractAndPersistOnboardingApiKey", () => {
     expect(result).toBe("GOOGLE_GENERATIVE_AI_API_KEY");
   });
 
+  it("handles gemini provider ID (catalog uses gemini, not google-genai)", () => {
+    const config = { env: {} } as Record<string, unknown>;
+    mockLoadElizaConfig.mockReturnValue(config);
+
+    const result = extractAndPersistOnboardingApiKey({
+      connection: { provider: "gemini", apiKey: "AIza-gemini-key" },
+    });
+
+    expect(result).toBe("GOOGLE_GENERATIVE_AI_API_KEY");
+  });
+
+  it("handles grok provider ID (catalog uses grok, not xai)", () => {
+    const config = { env: {} } as Record<string, unknown>;
+    mockLoadElizaConfig.mockReturnValue(config);
+
+    const result = extractAndPersistOnboardingApiKey({
+      connection: { provider: "grok", apiKey: "xai-grok-key" },
+    });
+
+    expect(result).toBe("XAI_API_KEY");
+  });
+
+  it.each([
+    ["deepseek", "DEEPSEEK_API_KEY"],
+    ["mistral", "MISTRAL_API_KEY"],
+    ["together", "TOGETHER_API_KEY"],
+    ["zai", "ZAI_API_KEY"],
+  ])("handles %s provider", (provider, expectedEnvKey) => {
+    const config = { env: {} } as Record<string, unknown>;
+    mockLoadElizaConfig.mockReturnValue(config);
+
+    const result = extractAndPersistOnboardingApiKey({
+      connection: { provider, apiKey: `test-key-${provider}` },
+    });
+
+    expect(result).toBe(expectedEnvKey);
+  });
+
   it("returns null when provider is not a string", () => {
     const result = extractAndPersistOnboardingApiKey({
       connection: {

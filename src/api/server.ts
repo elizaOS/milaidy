@@ -918,12 +918,20 @@ function findNearestFile(
 // ---------------------------------------------------------------------------
 
 const ONBOARDING_PROVIDER_ENV_KEYS: Record<string, string> = {
+  // Provider IDs match the upstream onboarding catalog in
+  // @elizaos/autonomous/contracts/onboarding.ts
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
   groq: "GROQ_API_KEY",
-  xai: "XAI_API_KEY",
+  grok: "XAI_API_KEY",
+  xai: "XAI_API_KEY", // alias — catalog uses "grok", keep both
+  gemini: "GOOGLE_GENERATIVE_AI_API_KEY",
+  "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY", // alias — keep both
   openrouter: "OPENROUTER_API_KEY",
-  "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  together: "TOGETHER_API_KEY",
+  zai: "ZAI_API_KEY",
 };
 
 /**
@@ -1588,16 +1596,19 @@ async function handleMiladyCompatRoute(
       // JSON parse failed — let upstream handle the error
     }
 
-    // Respond immediately so the 10-second client timeout doesn't fire.
-    // The upstream handler triggers an agent restart which can take much
-    // longer than the client allows.
+    // Send the response early so the 10-second client timeout doesn't
+    // fire — the upstream handler triggers an agent restart which can
+    // block much longer than the client allows. The upstream handler
+    // will still receive the body and process the onboarding config,
+    // but won't be able to write headers (headersSent check in
+    // sendJsonResponse prevents double-write).
     sendJsonResponse(res, 200, { ok: true });
 
-    // Still forward the body to upstream so it processes the onboarding
-    // config (character, style, etc.) in the background.
+    // Push the raw bytes back into the request stream so upstream
+    // can still consume the body for processing.
     req.push(rawBody);
     req.push(null);
-    return true;
+    return false;
   }
 
   if (method === "GET" && url.pathname === "/api/config") {
