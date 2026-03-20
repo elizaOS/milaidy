@@ -913,6 +913,61 @@ function findNearestFile(
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Onboarding API key persistence
+// ---------------------------------------------------------------------------
+
+const ONBOARDING_PROVIDER_ENV_KEYS: Record<string, string> = {
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+  groq: "GROQ_API_KEY",
+  xai: "XAI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY",
+};
+
+/**
+ * Extract `connection.apiKey` from an onboarding request body and persist it
+ * to eliza.json + process.env. Returns the env key name if persisted, or null.
+ */
+export function extractAndPersistOnboardingApiKey(
+  body: Record<string, unknown>,
+): string | null {
+  const connection = body.connection as
+    | Record<string, unknown>
+    | undefined;
+  if (
+    !connection ||
+    typeof connection.provider !== "string" ||
+    typeof connection.apiKey !== "string" ||
+    connection.apiKey.trim().length === 0
+  ) {
+    return null;
+  }
+
+  const envKey = ONBOARDING_PROVIDER_ENV_KEYS[connection.provider];
+  if (!envKey) {
+    return null;
+  }
+
+  const config = loadElizaConfig();
+  if (!config.env || typeof config.env !== "object") {
+    (config as Record<string, unknown>).env = {};
+  }
+  (config.env as Record<string, string>)[envKey] =
+    connection.apiKey as string;
+  (config as Record<string, unknown>).subscriptionProvider =
+    connection.provider;
+  saveElizaConfig(config);
+  process.env[envKey] = connection.apiKey as string;
+  console.log(`[onboarding] Persisted ${envKey} from connection.apiKey`);
+  return envKey;
+}
+
+// ---------------------------------------------------------------------------
+// Plugin manifest
+// ---------------------------------------------------------------------------
+
 function resolvePluginManifestPath(): string | null {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
@@ -1498,15 +1553,6 @@ async function handleMiladyCompatRoute(
   // (top-level). Bridge the gap by persisting the key from `connection` here
   // before upstream processes the request.
   if (method === "POST" && url.pathname === "/api/onboarding") {
-    const PROVIDER_ENV_KEYS: Record<string, string> = {
-      anthropic: "ANTHROPIC_API_KEY",
-      openai: "OPENAI_API_KEY",
-      groq: "GROQ_API_KEY",
-      xai: "XAI_API_KEY",
-      openrouter: "OPENROUTER_API_KEY",
-      "google-genai": "GOOGLE_GENERATIVE_AI_API_KEY",
-    };
-
     // Read the body, persist the key, then push bytes back so upstream
     // can re-read the same body from the request stream.
     const chunks: Buffer[] = [];
@@ -1520,32 +1566,7 @@ async function handleMiladyCompatRoute(
         string,
         unknown
       >;
-      const connection = body.connection as
-        | Record<string, unknown>
-        | undefined;
-      if (
-        connection &&
-        typeof connection.provider === "string" &&
-        typeof connection.apiKey === "string" &&
-        connection.apiKey.trim().length > 0
-      ) {
-        const envKey = PROVIDER_ENV_KEYS[connection.provider];
-        if (envKey) {
-          const config = loadElizaConfig();
-          if (!config.env || typeof config.env !== "object") {
-            (config as Record<string, unknown>).env = {};
-          }
-          (config.env as Record<string, string>)[envKey] =
-            connection.apiKey as string;
-          (config as Record<string, unknown>).subscriptionProvider =
-            connection.provider;
-          saveElizaConfig(config);
-          process.env[envKey] = connection.apiKey as string;
-          console.log(
-            `[onboarding] Persisted ${envKey} from connection.apiKey`,
-          );
-        }
-      }
+      extractAndPersistOnboardingApiKey(body);
     } catch {
       // JSON parse failed — let upstream handle the error
     }
