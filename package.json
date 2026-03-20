@@ -193,7 +193,9 @@
     "uuid": "^13.0.0",
     "whisper-node": "^1.1.1",
     "ws": "^8.19.0",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "@stwd/sdk": "0.2.0",
+    "@stwd/eliza-plugin": "0.1.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
