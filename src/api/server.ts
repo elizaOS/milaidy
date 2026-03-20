@@ -344,6 +344,50 @@ function maskValue(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
+/**
+ * Env keys that must never be returned in GET /api/config responses.
+ * Covers private keys, auth tokens, and database credentials.
+ * Keys are stored and matched case-insensitively (uppercased).
+ */
+export const SENSITIVE_ENV_RESPONSE_KEYS = new Set([
+  // Wallet private keys
+  "EVM_PRIVATE_KEY",
+  "SOLANA_PRIVATE_KEY",
+  // Auth / step-up tokens
+  "ELIZA_API_TOKEN",
+  "MILADY_API_TOKEN",
+  "ELIZA_WALLET_EXPORT_TOKEN",
+  "ELIZA_TERMINAL_RUN_TOKEN",
+  "HYPERSCAPE_AUTH_TOKEN",
+  // Cloud API keys
+  "ELIZAOS_CLOUD_API_KEY",
+  // Third-party auth tokens
+  "GITHUB_TOKEN",
+  // Database connection strings (may contain credentials)
+  "DATABASE_URL",
+  "POSTGRES_URL",
+]);
+
+/**
+ * Strip sensitive env vars from a config object before it is sent in a GET
+ * /api/config response. Returns a shallow-cloned config with a filtered env
+ * block — the original object is never mutated.
+ */
+export function filterConfigEnvForResponse(
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  const env = config.env;
+  if (!env || typeof env !== "object" || Array.isArray(env)) return config;
+
+  const filteredEnv: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(
+    env as Record<string, unknown>,
+  )) {
+    if (SENSITIVE_ENV_RESPONSE_KEYS.has(key.toUpperCase())) continue;
+    filteredEnv[key] = value;
+  }
+  return { ...config, env: filteredEnv };
+}
 
 function sendJsonResponse(
   res: http.ServerResponse,
@@ -1279,6 +1323,10 @@ async function handleDatabaseRowsCompatRoute(
     return false;
   }
 
+  if (!ensureCompatApiAuthorized(req, res)) {
+    return true;
+  }
+
   if (!runtime) {
     sendJsonErrorResponse(res, 503, DATABASE_UNAVAILABLE_MESSAGE);
     return true;
@@ -1492,7 +1540,13 @@ async function handleMiladyCompatRoute(
       return true;
     }
 
-    sendJsonResponse(res, 200, loadElizaConfig());
+    sendJsonResponse(
+      res,
+      200,
+      filterConfigEnvForResponse(
+        loadElizaConfig() as Record<string, unknown>,
+      ),
+    );
     return true;
   }
 
@@ -1534,21 +1588,21 @@ async function handleMiladyCompatRoute(
     if (testPluginId === "telegram") {
       const token = process.env.TELEGRAM_BOT_TOKEN;
       if (!token) {
-        sendJsonResponse(res, 200, { success: false, pluginId: testPluginId, error: "No bot token configured", durationMs: Date.now() - startMs });
+        sendJsonResponse(res, 422, { success: false, pluginId: testPluginId, error: "No bot token configured", durationMs: Date.now() - startMs });
         return true;
       }
       try {
         const apiRoot = process.env.TELEGRAM_API_ROOT || "https://api.telegram.org";
         const tgResp = await fetch(`${apiRoot}/bot${token}/getMe`);
         const tgData = (await tgResp.json()) as { ok: boolean; result?: { username?: string }; description?: string };
-        sendJsonResponse(res, 200, {
+        sendJsonResponse(res, tgData.ok ? 200 : 422, {
           success: tgData.ok,
           pluginId: testPluginId,
           message: tgData.ok ? `Connected as @${tgData.result?.username}` : `Telegram API error: ${tgData.description}`,
           durationMs: Date.now() - startMs,
         });
       } catch (err) {
-        sendJsonResponse(res, 200, { success: false, pluginId: testPluginId, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs });
+        sendJsonResponse(res, 422, { success: false, pluginId: testPluginId, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startMs });
       }
       return true;
     }

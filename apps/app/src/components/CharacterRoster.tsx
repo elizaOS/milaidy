@@ -91,6 +91,8 @@ export function CharacterRoster({
             className={`ce-roster-card ${isSelected ? "ce-roster-card--active" : ""}`}
             onClick={() => onSelect(entry)}
             data-testid={`${testIdPrefix}-preset-${entry.id}`}
+            aria-label={`Select ${entry.name}${entry.catchphrase ? ` — ${entry.catchphrase}` : ""}`}
+            aria-pressed={isSelected}
           >
             <div
               className={`ce-roster-card-frame ${isSelected ? "ce-roster-card-frame--active" : ""}`}
