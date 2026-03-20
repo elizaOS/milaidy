@@ -112,6 +112,16 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("needs: [prepare, validate-release]");
   });
 
+  it("retries bun install before failing the desktop build matrix", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain("for attempt in 1 2 3; do");
+    expect(workflow).toContain(
+      `bun install failed on attempt \${attempt}; retrying in 15 seconds`,
+    );
+    expect(workflow).toContain(`bun install failed after \${attempt} attempts`);
+  });
+
   it("installs Inno Setup on Windows without relying on winget", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
@@ -120,8 +130,10 @@ describe("Electrobun release workflow drift", () => {
       "https://github.com/jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe",
     );
     expect(workflow).toContain("Start-Process -FilePath $installer");
-    expect(workflow).toContain('MILADY_INNO_SETUP_COMPILER=$iscc');
-    expect(workflow).not.toContain("winget install --exact --id JRSoftware.InnoSetup");
+    expect(workflow).toContain("MILADY_INNO_SETUP_COMPILER=$iscc");
+    expect(workflow).not.toContain(
+      "winget install --exact --id JRSoftware.InnoSetup",
+    );
   });
 
   it("uses a non-matrix cache key in validate-release", () => {
@@ -223,6 +235,9 @@ describe("Electrobun release workflow drift", () => {
   it("installs Inno Setup 6.7.1 and builds a standalone Windows installer", () => {
     const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
     const installIndex = workflow.lastIndexOf("name: Install Inno Setup 6.7.1");
+    const extractIndex = workflow.indexOf(
+      "name: Extract Windows app bundle for Inno Setup",
+    );
     const signIndex = workflow.indexOf("name: Sign Windows executables");
     const buildIndex = workflow.indexOf("name: Build Inno Setup installer");
 
@@ -234,7 +249,11 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("name: Build Inno Setup installer");
     expect(workflow).toContain("packaging/inno/build-inno.ps1");
     expect(installIndex).toBeGreaterThan(signIndex);
-    expect(installIndex).toBeLessThan(buildIndex);
+    expect(extractIndex).toBeGreaterThan(installIndex);
+    expect(buildIndex).toBeGreaterThan(extractIndex);
+    expect(workflow).toContain('$extractDir = "C:\\m"');
+    expect(workflow).toContain("milady-dist/entry.js found");
+    expect(workflow).toContain('-BuildDir "C:\\m"');
     expect(workflow).toContain(
       "name: Verify Windows public installer looks complete",
     );
