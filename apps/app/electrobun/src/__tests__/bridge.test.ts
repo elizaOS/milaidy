@@ -62,6 +62,15 @@ describe("CHANNEL_TO_RPC_METHOD mapping", () => {
     );
   });
 
+  it("maps detached settings and surface window channels correctly", () => {
+    expect(CHANNEL_TO_RPC_METHOD["desktop:openSettingsWindow"]).toBe(
+      "desktopOpenSettingsWindow",
+    );
+    expect(CHANNEL_TO_RPC_METHOD["desktop:openSurfaceWindow"]).toBe(
+      "desktopOpenSurfaceWindow",
+    );
+  });
+
   it("maps canvas:eval to canvasEval", () => {
     expect(CHANNEL_TO_RPC_METHOD["canvas:eval"]).toBe("canvasEval");
   });

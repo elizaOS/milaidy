@@ -401,7 +401,22 @@ export type MiladyRPCSchema = {
         response: { path: string };
       };
       desktopBeep: { params: undefined; response: undefined };
-      desktopOpenSettingsWindow: { params: undefined; response: undefined };
+      desktopOpenSettingsWindow: {
+        params: { tabHint?: string } | undefined;
+        response: undefined;
+      };
+      desktopOpenSurfaceWindow: {
+        params: {
+          surface:
+            | "chat"
+            | "browser"
+            | "triggers"
+            | "plugins"
+            | "connectors"
+            | "cloud";
+        };
+        response: undefined;
+      };
 
       // ---- Desktop: Clipboard ----
       desktopWriteToClipboard: {
@@ -1022,6 +1037,7 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "desktop:getPath": "desktopGetPath",
   "desktop:beep": "desktopBeep",
   "desktop:openSettingsWindow": "desktopOpenSettingsWindow",
+  "desktop:openSurfaceWindow": "desktopOpenSurfaceWindow",
 
   // Desktop: Clipboard
   "desktop:writeToClipboard": "desktopWriteToClipboard",

@@ -131,10 +131,6 @@ describe("DesktopManager lifecycle cleanup", () => {
       expect.any(Function),
     );
     expect(mockEvents.off).toHaveBeenCalledWith(
-      "application-menu-clicked",
-      expect.any(Function),
-    );
-    expect(mockEvents.off).toHaveBeenCalledWith(
       "tray-clicked",
       expect.any(Function),
     );
@@ -171,10 +167,6 @@ describe("DesktopManager lifecycle cleanup", () => {
     expect(window.off).toHaveBeenCalledWith("close", expect.any(Function));
     expect(window.off).toHaveBeenCalledWith("resize", expect.any(Function));
     expect(window.off).toHaveBeenCalledWith("move", expect.any(Function));
-    expect(mockEvents.off).toHaveBeenCalledWith(
-      "application-menu-clicked",
-      expect.any(Function),
-    );
     expect(mockEvents.off).toHaveBeenCalledWith(
       "tray-clicked",
       expect.any(Function),

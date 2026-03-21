@@ -47,8 +47,10 @@ import {
   syncDetachedShellLocation,
 } from "@miladyai/app-core/platform";
 import {
+  DESKTOP_TRAY_MENU_ITEMS,
   DesktopOnboardingRuntime,
   DesktopSurfaceNavigationRuntime,
+  DesktopTrayRuntime,
   DetachedShellRoot,
 } from "@miladyai/app-core/shell";
 import { AppProvider } from "@miladyai/app-core/state";
@@ -395,16 +397,7 @@ async function initializeDesktopShell(): Promise<void> {
 
     // Tray actions routed to the renderer as app-level events.
     await Desktop.setTrayMenu({
-      menu: [
-        { id: "tray-open-chat", label: "Open Chat" },
-        { id: "tray-open-workbench", label: "Open Workbench" },
-        { id: "tray-toggle-pause", label: "Pause/Resume Agent" },
-        { id: "tray-restart", label: "Restart Agent" },
-        { id: "tray-notify", label: "Send Test Notification" },
-        { id: "tray-sep-1", type: "separator" },
-        { id: "tray-show-window", label: "Show Window" },
-        { id: "tray-hide-window", label: "Hide Window" },
-      ],
+      menu: [...DESKTOP_TRAY_MENU_ITEMS],
     });
 
     await Desktop.addListener(
@@ -462,6 +455,7 @@ function mountReactApp(): void {
             <>
               <DesktopOnboardingRuntime />
               <DesktopSurfaceNavigationRuntime />
+              <DesktopTrayRuntime />
               <App />
             </>
           )}

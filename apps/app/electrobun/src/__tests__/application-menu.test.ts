@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildApplicationMenu,
   EMPTY_HEARTBEAT_MENU_SNAPSHOT,
+  parseSettingsWindowAction,
 } from "../application-menu";
 
 function getMenu(
@@ -44,6 +45,8 @@ describe("buildApplicationMenu", () => {
       "File",
       "Edit",
       "View",
+      "Desktop",
+      "Chat",
       "Cloud",
       "Plugins",
       "Connectors",
@@ -98,6 +101,24 @@ describe("buildApplicationMenu", () => {
     expect(labels.some((label) => label.startsWith("Next run: "))).toBe(true);
   });
 
+  it("exposes desktop-native controls and section launchers in a dedicated menu", () => {
+    const desktopLabels = (getMenu("Desktop")?.submenu ?? []).map(
+      (item) => item.label ?? item.type ?? "",
+    );
+
+    expect(desktopLabels).toContain("Desktop Workspace");
+    expect(desktopLabels).toContain("Voice Controls");
+    expect(desktopLabels).toContain("Media Controls");
+    expect(desktopLabels).toContain("Permissions");
+    expect(desktopLabels).toContain("Cloud Settings");
+    expect(desktopLabels).toContain("Show Milady");
+    expect(desktopLabels).toContain("Focus Milady");
+    expect(desktopLabels).toContain("Hide Milady");
+    expect(desktopLabels).toContain("Maximize Milady");
+    expect(desktopLabels).toContain("Restore Milady Size");
+    expect(desktopLabels).toContain("Send Test Notification");
+  });
+
   it("fills plugins, connectors, heartbeats, and window menus with live detached windows", () => {
     const detachedWindows = [
       {
@@ -147,6 +168,9 @@ describe("buildApplicationMenu", () => {
     const pluginsLabels = (
       getMenu("Plugins", false, detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
+    const chatLabels = (
+      getMenu("Chat", false, detachedWindows)?.submenu ?? []
+    ).map((item) => item.label ?? item.type ?? "");
     const connectorsLabels = (
       getMenu("Connectors", false, detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
@@ -160,13 +184,21 @@ describe("buildApplicationMenu", () => {
       getMenu("Window", false, detachedWindows)?.submenu ?? []
     ).map((item) => item.label ?? item.type ?? "");
 
+    expect(chatLabels).toContain("Show in Main Window");
+    expect(chatLabels).toContain("Open New Chat Window");
+    expect(chatLabels).toContain("Milady Chat");
     expect(pluginsLabels).toContain("Open New Plugins Window");
     expect(pluginsLabels).toContain("Milady Plugins");
+    expect(cloudLabels).toContain("Open Cloud Settings");
     expect(cloudLabels).toContain("Open Cloud Window");
     expect(cloudLabels).toContain("Eliza Cloud");
     expect(connectorsLabels).toContain("Open New Connectors Window");
     expect(connectorsLabels).toContain("Milady Connectors");
     expect(heartbeatsLabels).toContain("Milady Heartbeats");
+    expect(windowLabels).toContain("Focus Milady");
+    expect(windowLabels).toContain("Hide Milady");
+    expect(windowLabels).toContain("Maximize Milady");
+    expect(windowLabels).toContain("Restore Milady Size");
     expect(windowLabels).toContain("New Chat Window");
     expect(windowLabels).toContain("New Plugins Window");
     expect(windowLabels).toContain("New Cloud Window");
@@ -210,7 +242,15 @@ describe("buildApplicationMenu", () => {
     });
 
     const topLabels = menu.map((item) => item.label);
-    expect(topLabels).toEqual(["Milady", "File", "Edit", "View", "Window"]);
+    expect(topLabels).toEqual([
+      "Milady",
+      "File",
+      "Edit",
+      "View",
+      "Desktop",
+      "Window",
+    ]);
+    expect(topLabels).not.toContain("Chat");
     expect(topLabels).not.toContain("Cloud");
     expect(topLabels).not.toContain("Plugins");
     expect(topLabels).not.toContain("Connectors");
@@ -277,6 +317,7 @@ describe("buildApplicationMenu", () => {
     });
 
     expect(notReady.map((i) => i.label)).not.toContain("Cloud");
+    expect(ready.map((i) => i.label)).toContain("Chat");
     expect(ready.map((i) => i.label)).toContain("Cloud");
     expect(ready.map((i) => i.label)).toContain("Plugins");
     expect(ready.map((i) => i.label)).toContain("Connectors");
@@ -299,5 +340,13 @@ describe("buildApplicationMenu", () => {
 
     expect(labels).toContain("Status: Heartbeat status unavailable");
     expect(labels).toContain("Heartbeats: 0 total, 0 active");
+  });
+
+  it("parses settings section actions into the tab hint expected by the settings window", () => {
+    expect(parseSettingsWindowAction("open-settings")).toBeUndefined();
+    expect(parseSettingsWindowAction("open-settings-desktop")).toBe("desktop");
+    expect(parseSettingsWindowAction("open-settings-voice")).toBe("voice");
+    expect(parseSettingsWindowAction("open-settings-media")).toBe("media");
+    expect(parseSettingsWindowAction("show")).toBeUndefined();
   });
 });

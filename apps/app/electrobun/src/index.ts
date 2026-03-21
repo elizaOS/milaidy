@@ -26,6 +26,7 @@ import {
   buildApplicationMenu,
   EMPTY_HEARTBEAT_MENU_SNAPSHOT,
   type HeartbeatMenuSnapshot,
+  parseSettingsWindowAction,
 } from "./application-menu";
 import { showBackgroundNoticeOnce } from "./background-notice";
 import {
@@ -1067,10 +1068,11 @@ async function setupUpdater(): Promise<void> {
           void refreshHeartbeatMenuSnapshot();
         } else if (action === "relaunch") {
           void getDesktopManager().relaunch();
-        } else if (action === "open-settings") {
-          void createSettingsWindow();
-        } else if (action?.startsWith("open-settings-")) {
-          void createSettingsWindow(action);
+        } else if (
+          action === "open-settings" ||
+          action?.startsWith("open-settings-")
+        ) {
+          void createSettingsWindow(parseSettingsWindowAction(action));
         } else if (action?.startsWith("new-window:")) {
           const surface = action.slice("new-window:".length);
           if (surfaceWindowManager && isDetachedSurface(surface)) {
@@ -1082,6 +1084,20 @@ async function setupUpdater(): Promise<void> {
         } else if (action?.startsWith("show-main:")) {
           const surface = action.slice("show-main:".length);
           showMainSurface(surface);
+        } else if (action === "focus-main-window") {
+          void getDesktopManager().focusWindow();
+        } else if (action === "hide-main-window") {
+          void getDesktopManager().hideWindow();
+        } else if (action === "maximize-main-window") {
+          void getDesktopManager().maximizeWindow();
+        } else if (action === "restore-main-window") {
+          void getDesktopManager().unmaximizeWindow();
+        } else if (action === "desktop-notify") {
+          void getDesktopManager().showNotification({
+            title: "Milady Desktop",
+            body: "Native application menu actions are wired and responding.",
+            urgency: "normal",
+          });
         } else if (action === "restart-agent") {
           getAgentManager()
             .restart()
@@ -1263,9 +1279,15 @@ async function main(): Promise<void> {
     }
   });
 
-  // Wire settings window callback so menus and RPC can open it.
-  getDesktopManager().setOpenSettingsCallback(() => {
-    void createSettingsWindow();
+  // Wire detached window callbacks so menus and RPC can open them.
+  getDesktopManager().setOpenSettingsCallback((tabHint) => {
+    void createSettingsWindow(tabHint);
+  });
+  getDesktopManager().setOpenSurfaceWindowCallback((surface) => {
+    if (!surfaceWindowManager) {
+      return;
+    }
+    void surfaceWindowManager.openSurfaceWindow(surface);
   });
   getDesktopManager().setOpenExternalHandler((url) => {
     return cloudAuthWindowManager?.open(url) ?? false;
@@ -1294,19 +1316,42 @@ async function main(): Promise<void> {
       tooltip: "Milady",
       title: "Milady",
       menu: [
-        { id: "show", label: "Show Milady", type: "normal" },
-        { id: "sep1", type: "separator" },
-        { id: "navigate-triggers", label: "Open Heartbeats", type: "normal" },
+        { id: "tray-open-chat", label: "Open Chat", type: "normal" },
+        { id: "tray-open-plugins", label: "Open Plugins", type: "normal" },
         {
-          id: "refresh-heartbeats",
-          label: "Refresh Heartbeats",
+          id: "tray-open-desktop-workspace",
+          label: "Open Desktop Workspace",
           type: "normal",
         },
-        { id: "sep1b", type: "separator" },
-        { id: "check-for-updates", label: "Check for Updates", type: "normal" },
+        {
+          id: "tray-open-voice-controls",
+          label: "Open Voice Controls",
+          type: "normal",
+        },
+        {
+          id: "tray-open-media-controls",
+          label: "Open Media Controls",
+          type: "normal",
+        },
+        { id: "sep1", type: "separator" },
+        {
+          id: "tray-toggle-lifecycle",
+          label: "Start/Stop Agent",
+          type: "normal",
+        },
+        {
+          id: "tray-restart",
+          label: "Restart Agent",
+          type: "normal",
+        },
+        {
+          id: "tray-notify",
+          label: "Send Test Notification",
+          type: "normal",
+        },
         { id: "sep2", type: "separator" },
-        { id: "restart-agent", label: "Restart Agent", type: "normal" },
-        { id: "relaunch", label: "Relaunch Milady", type: "normal" },
+        { id: "tray-show-window", label: "Show Window", type: "normal" },
+        { id: "tray-hide-window", label: "Hide Window", type: "normal" },
         { id: "sep3", type: "separator" },
         { id: "quit", label: "Quit", type: "normal" },
       ],

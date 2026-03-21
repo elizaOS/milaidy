@@ -199,8 +199,21 @@ export function registerRpcHandlers(
     desktopGetPath: async (params: Parameters<typeof desktop.getPath>[0]) =>
       desktop.getPath(params),
     desktopBeep: async () => desktop.beep(),
-    desktopOpenSettingsWindow: async () => {
-      desktop.openSettings();
+    desktopOpenSettingsWindow: async (
+      params: { tabHint?: string } | undefined,
+    ) => {
+      desktop.openSettings(params?.tabHint);
+    },
+    desktopOpenSurfaceWindow: async (params: {
+      surface:
+        | "chat"
+        | "browser"
+        | "triggers"
+        | "plugins"
+        | "connectors"
+        | "cloud";
+    }) => {
+      desktop.openSurfaceWindow(params.surface);
     },
 
     // ---- Desktop: Screen ----

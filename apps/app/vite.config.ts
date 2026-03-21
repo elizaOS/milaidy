@@ -200,35 +200,44 @@ export default defineConfig({
       // Force local @miladyai/app-core when workspace-linked (prevents stale
       // bun cache copies from overriding the symlinked local source).
       ...(() => {
-        const appCorePkgPath = path.resolve(miladyRoot, "packages/app-core/package.json");
+        const appCorePkgPath = path.resolve(
+          miladyRoot,
+          "packages/app-core/package.json",
+        );
         const appCorePkgDir = path.dirname(appCorePkgPath);
-        const appCorePkg = JSON.parse(fs.readFileSync(appCorePkgPath, 'utf8'));
-        
+        const appCorePkg = JSON.parse(fs.readFileSync(appCorePkgPath, "utf8"));
+
         const generatedAliases = [];
-        
+
         for (const [key, value] of Object.entries(appCorePkg.exports || {})) {
           if (typeof value === "string") {
-            const aliasKey = key === "." ? "@miladyai/app-core" : `@miladyai/app-core/${key.replace(/^\.\//, '')}`;
+            const aliasKey =
+              key === "."
+                ? "@miladyai/app-core"
+                : `@miladyai/app-core/${key.replace(/^\.\//, "")}`;
             // If the package exports something ending with .js instead of .ts, we check for .ts locally
             // But the exports in app-core point directly to .ts, .tsx, .css, so we can just resolve it
-            let targetPath = path.resolve(appCorePkgDir, value);
-            
+            const targetPath = path.resolve(appCorePkgDir, value);
+
             generatedAliases.push({
               find: new RegExp(`^${aliasKey}$`),
-              replacement: targetPath
+              replacement: targetPath,
             });
             // Also map .js extension for users importing it as .js
             if (!aliasKey.endsWith(".js") && !aliasKey.endsWith(".css")) {
               generatedAliases.push({
                 find: new RegExp(`^${aliasKey}\\.js$`),
-                replacement: targetPath
+                replacement: targetPath,
               });
             }
           }
         }
 
         const uiSource = path.resolve(miladyRoot, "packages/ui/src");
-        const autonomousSource = path.resolve(miladyRoot, "node_modules/@elizaos/agent/packages/agent/src");
+        const autonomousSource = path.resolve(
+          miladyRoot,
+          "node_modules/@elizaos/agent/packages/agent/src",
+        );
 
         return [
           ...generatedAliases,

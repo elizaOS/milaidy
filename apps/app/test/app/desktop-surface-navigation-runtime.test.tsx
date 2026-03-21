@@ -19,7 +19,7 @@ vi.mock("@miladyai/app-core/state", () => ({
   CUSTOM_ONBOARDING_STEPS: [],
 }));
 
-import { DesktopSurfaceNavigationRuntime } from "@miladyai/app-core/shell";
+import { DesktopSurfaceNavigationRuntime } from "../../../../packages/app-core/src/shell/DesktopSurfaceNavigationRuntime";
 
 describe("DesktopSurfaceNavigationRuntime", () => {
   const setTab = vi.fn();
@@ -56,6 +56,21 @@ describe("DesktopSurfaceNavigationRuntime", () => {
     expect(setTab).toHaveBeenCalledWith("plugins");
   });
 
+  it("routes navigate actions to supported main-window tabs", async () => {
+    await act(async () => {
+      TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
+    });
+
+    const listener = subscribeDesktopBridgeEventMock.listener as
+      | ((payload: unknown) => void)
+      | undefined;
+
+    listener?.({ itemId: "navigate-plugins" });
+
+    expect(switchShellView).toHaveBeenCalledWith("desktop");
+    expect(setTab).toHaveBeenCalledWith("plugins");
+  });
+
   it("ignores unrelated tray actions", async () => {
     await act(async () => {
       TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
@@ -64,7 +79,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
     const listener = (subscribeDesktopBridgeEventMock as any).listener as
       | ((payload: unknown) => void)
       | undefined;
-    listener?.({ itemId: "navigate-plugins" });
+    listener?.({ itemId: "desktop-notify" });
     listener?.({ itemId: "show-main:cloud" });
 
     expect(switchShellView).not.toHaveBeenCalled();

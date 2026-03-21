@@ -3,10 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
-import {
-  getAppCoreSourceRoot,
-  resolveModuleEntry,
-} from "../../test/eliza-package-paths";
+import { getAppCoreSourceRoot } from "../../test/eliza-package-paths";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appCorePackageRoot = getAppCoreSourceRoot(here);
@@ -57,22 +54,37 @@ export default defineConfig({
       },
       ...(appCorePackageRoot
         ? (() => {
-            const appCorePkgPath = path.resolve(appCorePackageRoot, "..", "package.json");
-            const appCorePkg = JSON.parse(fs.readFileSync(appCorePkgPath, 'utf8'));
+            const appCorePkgPath = path.resolve(
+              appCorePackageRoot,
+              "..",
+              "package.json",
+            );
+            const appCorePkg = JSON.parse(
+              fs.readFileSync(appCorePkgPath, "utf8"),
+            );
             const generatedAliases = [];
-            for (const [key, value] of Object.entries(appCorePkg.exports || {})) {
+            for (const [key, value] of Object.entries(
+              appCorePkg.exports || {},
+            )) {
               if (typeof value === "string") {
-                const aliasKey = key === "." ? "@miladyai/app-core" : `@miladyai/app-core/${key.replace(/^\.\//, '')}`;
-                let targetPath = path.resolve(appCorePackageRoot, "..", value);
-                
+                const aliasKey =
+                  key === "."
+                    ? "@miladyai/app-core"
+                    : `@miladyai/app-core/${key.replace(/^\.\//, "")}`;
+                const targetPath = path.resolve(
+                  appCorePackageRoot,
+                  "..",
+                  value,
+                );
+
                 generatedAliases.push({
                   find: new RegExp(`^${aliasKey}$`),
-                  replacement: targetPath
+                  replacement: targetPath,
                 });
                 if (!aliasKey.endsWith(".js") && !aliasKey.endsWith(".css")) {
                   generatedAliases.push({
                     find: new RegExp(`^${aliasKey}\\.js$`),
-                    replacement: targetPath
+                    replacement: targetPath,
                   });
                 }
               }
