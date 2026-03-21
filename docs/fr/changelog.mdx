@@ -3,6 +3,42 @@ title: Journal des modifications
 description: Nouveautés de Milady — fonctionnalités, améliorations et correctifs.
 ---
 
+<Update label="2026-04-16" description="Semaine du 10 au 16 avril" tags={["Feature", "Update", "Fix"]}>
+<div id="keyboard-shortcuts-overlay">
+## Superposition des raccourcis clavier
+</div>
+
+Appuyez sur `Shift+?` depuis n'importe où dans l'application pour voir tous les raccourcis clavier disponibles. La superposition regroupe les raccourcis par catégorie — agent, navigation, actualisation et utilitaire — pour que vous puissiez découvrir les commandes sans quitter le clavier.
+
+<div id="training-backend-detection">
+## Détection du backend d'entraînement
+</div>
+
+Avant de lancer un travail de fine-tuning, Milady détecte désormais automatiquement les backends de calcul disponibles (MLX, CUDA, CPU) et valide votre sélection. Si vous demandez un backend qui n'est pas disponible, vous recevez une erreur claire au lieu d'un échec silencieux. Les backends détectés sont également disponibles via l'[API d'entraînement](/fr/rest/training).
+
+<div id="orchestrator-trajectory-view">
+## Vue de trajectoire de l'orchestrateur
+</div>
+
+Les appels LLM effectués par l'orchestrateur de l'essaim sont désormais étiquetés avec des métadonnées de source et affichés avec des badges violets dans la [vue de trajectoire](/fr/advanced/trajectories). Vous pouvez voir quelles décisions l'orchestrateur a prises, à quelle session et tâche elles se rapportent, et en quoi elles diffèrent des appels d'agents individuels.
+
+<div id="updates">
+## Mises à jour
+</div>
+
+- **Récupération d'interruption de flux** — Si un flux de réponse LLM se coupe en plein message, le chat le marque désormais comme "(Réponse interrompue)" et affiche un bouton Réessayer pour que vous puissiez régénérer sans retaper. Auparavant, les flux interrompus laissaient un message partiel sans possibilité de récupération.
+- **Persistance de session terminal** — Les terminaux de l'agent de codage restent désormais actifs lorsque vous changez d'onglet et se reconnectent automatiquement après une déconnexion WebSocket. Vous ne perdez plus le contexte du terminal en naviguant dans le tableau de bord.
+- **Limitation du débit vocal** — Le point de terminaison vocal applique désormais un plafond de 2 000 caractères de texte et une limite de débit par session pour empêcher l'abus rapide de TTS. Les requêtes dépassant l'une ou l'autre limite reçoivent une réponse d'erreur claire.
+- **Indicateur de progression de reconnexion** — Lorsque le tableau de bord perd sa connexion WebSocket, vous voyez désormais une bannière ambrée "Reconnexion (tentative X/15)..." avec un indicateur rotatif avant l'apparition de la bannière d'échec, vous donnant une visibilité sur le processus de nouvelle tentative.
+
+<div id="bug-fixes">
+## Corrections de bugs
+</div>
+
+- Correction du bouton d'arrêt de l'agent de codage qui ne fonctionnait pas — cliquer sur arrêter met désormais correctement fin à la session active
+- Correction de la sortie en double du terminal lors de l'ouverture d'un panneau d'agent de codage
+- Correction du chargement silencieusement échoué des avatars VRM et des ressources 3D lorsque le serveur renvoyait du HTML au lieu de données binaires
+- Correction du monitoring de la mémoire — un nouveau panneau de débogage est disponible pour suivre l'utilisation du tas pendant les sessions longues
 <Update label="2026-06-11" description="Semaine du 5 au 11 juin" tags={["Update", "Fix"]}>
 <div id="unified-provider-configuration">
 ## Configuration unifiée des fournisseurs
