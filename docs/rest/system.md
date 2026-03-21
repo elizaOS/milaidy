@@ -19,6 +19,7 @@ The system API covers core server operations that don't belong to a specific dom
 | GET | `/api/config/schema` | Get the configuration JSON schema |
 | PUT | `/api/config` | Update configuration |
 | POST | `/api/tts/elevenlabs` | ElevenLabs text-to-speech proxy |
+| POST | `/api/tts/cloud` | Eliza Cloud text-to-speech proxy |
 | POST | `/api/terminal/run` | Execute a shell command |
 | POST | `/api/ingest/share` | Submit shared content for ingestion |
 | GET | `/api/ingest/share` | Retrieve the share ingest queue |
@@ -294,6 +295,34 @@ Binary audio stream with `Content-Type: audio/mpeg`.
 | 400 | Missing text or API key not available |
 | 429 | ElevenLabs rate limit |
 | 502 | ElevenLabs request failed |
+
+---
+
+### POST /api/tts/cloud
+
+Proxy endpoint for Eliza Cloud text-to-speech. Sends the request to the Eliza Cloud TTS service and returns the audio stream. Requires an active Eliza Cloud connection with a valid API key.
+
+The endpoint resolves the cloud API key from (in order): `ELIZAOS_CLOUD_API_KEY` environment variable, `cloud.apiKey` in the config file, or the sealed secret store.
+
+**Request Body**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `text` | string | Yes | Text to synthesize |
+| `voiceId` | string | No | Cloud voice name. Supported values: `alloy`, `ash`, `ballad`, `coral`, `echo`, `nova`, `sage`, `shimmer`, `verse`. Defaults to `nova`. |
+| `modelId` | string | No | TTS model ID (default: `gpt-5-mini-tts`). Can also be set via `ELIZAOS_CLOUD_TTS_MODEL`. |
+
+**Response**
+
+Binary audio stream with `Content-Type: audio/mpeg`.
+
+**Errors**
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Missing text or invalid JSON request body |
+| 401 | Eliza Cloud is not connected (no API key available) |
+| 502 | Eliza Cloud TTS request failed |
 
 ---
 

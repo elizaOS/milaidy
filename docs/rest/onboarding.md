@@ -6,6 +6,15 @@ description: "REST API endpoints for the first-run onboarding flow — checking 
 
 The onboarding API drives the first-run setup wizard. It lets you check whether the agent has been configured, retrieve available provider and style options, and submit the initial configuration (agent name, personality, AI provider, connectors, etc.).
 
+## Cloud provisioning bypass
+
+When the agent is running as a cloud-provisioned container, onboarding is bypassed automatically. The bypass activates only when **both** conditions are met:
+
+1. `MILADY_CLOUD_PROVISIONED=1` (or `ELIZA_CLOUD_PROVISIONED=1`) is set
+2. `MILADY_API_TOKEN` (or `ELIZA_API_TOKEN`) is configured
+
+When cloud provisioned, `GET /api/onboarding/status` returns `{ "complete": true }` so the frontend skips the setup wizard and goes directly to chat. A container with only the cloud flag but no API token falls through to the normal onboarding flow.
+
 ## Endpoints
 
 | Method | Path | Description |
@@ -18,7 +27,7 @@ The onboarding API drives the first-run setup wizard. It lets you check whether 
 
 ### GET /api/onboarding/status
 
-Returns whether the initial setup has been completed. Onboarding is considered complete when a config file exists and the `agents` section is populated.
+Returns whether the initial setup has been completed. Onboarding is considered complete when a config file exists and the `agents` section is populated. For cloud-provisioned containers, this always returns `{ "complete": true }`.
 
 **Response**
 
@@ -30,7 +39,7 @@ Returns whether the initial setup has been completed. Onboarding is considered c
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `complete` | boolean | `true` if the config file exists and contains an agents section |
+| `complete` | boolean | `true` if the config file exists and contains an agents section, or if the agent is cloud provisioned |
 
 ---
 

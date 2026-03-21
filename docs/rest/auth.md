@@ -81,6 +81,17 @@ The `POST /api/auth/pair` endpoint is rate-limited per IP address:
 
 The IP is resolved from `req.socket.remoteAddress`. When the limit is exceeded, the endpoint returns `429 Too Many Requests`.
 
+## Cloud provisioning bypass
+
+When the agent is running as a cloud-provisioned container (e.g., on Eliza Cloud or in an enterprise deployment), authentication and pairing are bypassed automatically. The bypass activates only when **both** conditions are met:
+
+1. `MILADY_CLOUD_PROVISIONED=1` (or `ELIZA_CLOUD_PROVISIONED=1`) is set
+2. `MILADY_API_TOKEN` (or `ELIZA_API_TOKEN`) is configured
+
+When cloud provisioned, `GET /api/auth/status` returns `{ "required": false, "pairingEnabled": false, "expiresAt": null }` — the frontend skips the pairing screen entirely.
+
+A container with only the cloud flag but no API token falls through to the normal pairing flow.
+
 ## Endpoints
 
 ### GET /api/auth/status
@@ -99,9 +110,9 @@ Check whether authentication is required and whether the pairing flow is current
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `required` | boolean | `true` when `MILADY_API_TOKEN` is set |
-| `pairingEnabled` | boolean | `true` when the pairing flow is active |
-| `expiresAt` | number \| null | Unix ms timestamp when the current pairing code expires, or `null` if pairing is disabled |
+| `required` | boolean | `true` when `MILADY_API_TOKEN` is set. `false` when running in a cloud-provisioned container. |
+| `pairingEnabled` | boolean | `true` when the pairing flow is active. `false` when cloud provisioned. |
+| `expiresAt` | number \| null | Unix ms timestamp when the current pairing code expires, or `null` if pairing is disabled or cloud provisioned |
 
 ---
 
@@ -149,7 +160,7 @@ Access-Control-Allow-Headers: Content-Type, Authorization, X-Milady-Token, X-Api
 ## Related
 
 - [API Reference overview](/api-reference)
-- [Environment variables](/cli/environment) — `MILADY_API_TOKEN`, `MILADY_ALLOW_WS_QUERY_TOKEN`, `MILADY_PAIRING_DISABLED`
+- [Environment variables](/cli/environment) — `MILADY_API_TOKEN`, `MILADY_ALLOW_WS_QUERY_TOKEN`, `MILADY_PAIRING_DISABLED`, `MILADY_CLOUD_PROVISIONED`
 
 ## Common Error Codes
 
