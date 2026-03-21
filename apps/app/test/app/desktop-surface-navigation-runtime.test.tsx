@@ -4,10 +4,15 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { subscribeDesktopBridgeEventMock, useAppMock } = vi.hoisted(() => ({
-  subscribeDesktopBridgeEventMock: vi.fn(),
-  useAppMock: vi.fn(),
-}));
+const { listenerRef, subscribeDesktopBridgeEventMock, useAppMock } = vi.hoisted(
+  () => ({
+    listenerRef: {
+      current: undefined as ((payload: unknown) => void) | undefined,
+    },
+    subscribeDesktopBridgeEventMock: vi.fn(),
+    useAppMock: vi.fn(),
+  }),
+);
 
 vi.mock("@miladyai/app-core/bridge", () => ({
   subscribeDesktopBridgeEvent: subscribeDesktopBridgeEventMock,
@@ -28,6 +33,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
   beforeEach(() => {
     setTab.mockReset();
     switchShellView.mockReset();
+    listenerRef.current = undefined;
     subscribeDesktopBridgeEventMock.mockReset();
     useAppMock.mockReset();
     useAppMock.mockReturnValue({
@@ -35,7 +41,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       switchShellView,
     });
     subscribeDesktopBridgeEventMock.mockImplementation(({ listener }) => {
-    (subscribeDesktopBridgeEventMock as any).listener = listener;
+      listenerRef.current = listener;
       return () => {};
     });
   });
@@ -45,9 +51,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
     });
 
-    const listener = (subscribeDesktopBridgeEventMock as any).listener as
-      | ((payload: unknown) => void)
-      | undefined;
+    const listener = listenerRef.current;
     expect(listener).toBeTypeOf("function");
 
     listener?.({ itemId: "show-main:plugins" });
@@ -61,9 +65,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
     });
 
-    const listener = subscribeDesktopBridgeEventMock.listener as
-      | ((payload: unknown) => void)
-      | undefined;
+    const listener = listenerRef.current;
 
     listener?.({ itemId: "navigate-plugins" });
 
@@ -76,9 +78,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
     });
 
-    const listener = (subscribeDesktopBridgeEventMock as any).listener as
-      | ((payload: unknown) => void)
-      | undefined;
+    const listener = listenerRef.current;
     listener?.({ itemId: "desktop-notify" });
     listener?.({ itemId: "show-main:cloud" });
 
