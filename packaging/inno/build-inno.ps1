@@ -154,7 +154,9 @@ $appId = if ($normalizedChannel -eq "stable") {
 } else {
   "com.miladyai.milady.$normalizedChannel"
 }
-$defaultDirName = "{localappdata}\com.miladyai.milady\$normalizedChannel\$channelInstallName"
+# Keep install root short to avoid MAX_PATH (Error 206) when extracting deep
+# runtime dependency trees on systems where long paths are not fully enabled.
+$defaultDirName = "{localappdata}\Milady\$normalizedChannel"
 $outputBaseFilename = "Milady-Setup-$normalizedChannel"
 
 $signSection = Get-InstallerSignSection

@@ -749,6 +749,32 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "MILADY_TEST_WINDOWS_LAUNCHER_PATH=$launcherPath"
           Write-Host "Reusing packaged Windows launcher for Playwright: $launcherPath"
 
+      - name: Run Windows clean installer proof
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        env:
+          # Keep behavior aligned with packaged smoke: agent runtime should not
+          # fail waiting on local embedding model setup in CI.
+          MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MILADY_TEST_WINDOWS_PROOF_INSTALL_DIR: C:\mi-proof
+        run: |
+          Remove-Item $env:MILADY_TEST_WINDOWS_PROOF_INSTALL_DIR -Recurse -Force -ErrorAction SilentlyContinue
+          pwsh -File apps/app/electrobun/scripts/verify-windows-installer-proof.ps1 `
+            -ArtifactsDir (Join-Path $PWD "apps/app/electrobun/artifacts") `
+            -BuildDir (Join-Path $PWD "apps/app/electrobun/build") `
+            -ProofInstallDir $env:MILADY_TEST_WINDOWS_PROOF_INSTALL_DIR `
+            -OutputDir (Join-Path $PWD "apps/app/electrobun/artifacts/windows-installer-proof")
+
+      - name: Upload Windows installer proof artifact
+        if: always() && matrix.platform.os == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-windows-installer-proof
+          path: apps/app/electrobun/artifacts/windows-installer-proof/**
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Run Windows packaged renderer bootstrap check
         if: matrix.platform.os == 'windows'
         run: |
@@ -775,8 +801,25 @@ jobs:
             exit 1
           }
           New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
+          $publicInstaller = Get-ChildItem -Path $artifactsDir -File -Filter "Milady-Setup-*.exe" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
           foreach ($setupExecutable in $setupExecutables) {
-            Copy-Item $setupExecutable.FullName -Destination $artifactsDir -Force
+            $destinationPath = Join-Path $artifactsDir $setupExecutable.Name
+            if (
+              $publicInstaller -and
+              $publicInstaller.Name -eq $setupExecutable.Name -and
+              $publicInstaller.Length -ge 50MB -and
+              $setupExecutable.Length -lt $publicInstaller.Length
+            ) {
+              Write-Warning "Skipping build setup stub that would overwrite verified public installer: $($setupExecutable.FullName)"
+              continue
+            }
+            if (Test-Path $destinationPath) {
+              Write-Host "Skipping setup executable already present in artifacts: $destinationPath"
+              continue
+            }
+            Copy-Item $setupExecutable.FullName -Destination $destinationPath -Force
             Write-Host "Staged Windows setup executable: $($setupExecutable.Name)"
           }
 
@@ -819,6 +862,28 @@ jobs:
           if ($failed -gt 0) {
             exit 1
           }
+
+      - name: Re-verify Windows public installer before upload
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path "apps/app/electrobun/artifacts" -File -Filter "Milady-Setup-*.exe" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if (-not $installer) {
+            Write-Error "No public Windows installer found in apps/app/electrobun/artifacts after staging/signing."
+            exit 1
+          }
+
+          $minimumBytes = 50MB
+          if ($installer.Length -lt $minimumBytes) {
+            Write-Error "Public Windows installer regressed below standalone size threshold: $($installer.FullName) ($($installer.Length) bytes)"
+            exit 1
+          }
+
+          Write-Host "Public installer still valid for release upload: $($installer.Name)"
+          Write-Host "Installer size: $([math]::Round($installer.Length / 1MB, 1)) MB"
 
       - name: Build MSIX package
         if: matrix.platform.os == 'windows'
@@ -988,7 +1053,27 @@ jobs:
         shell: pwsh
         run: |
           $artifactsDir = Join-Path $PWD "apps/app/electrobun/artifacts"
-          $exeFiles = Get-ChildItem -Path $artifactsDir -Filter "*.exe"
+          $canonicalInstallers = Get-ChildItem -Path $artifactsDir -File -Filter "Milady-Setup-*.exe" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending
+          if (-not $canonicalInstallers) {
+            Write-Error "No canonical Windows installer found before compression."
+            exit 1
+          }
+          if ($canonicalInstallers.Count -gt 1) {
+            Write-Error "Multiple canonical Windows installers found before compression."
+            $canonicalInstallers | ForEach-Object { Write-Host "  - $($_.FullName)" }
+            exit 1
+          }
+
+          $canonicalInstaller = $canonicalInstallers | Select-Object -First 1
+          $otherSetupExecutables = Get-ChildItem -Path $artifactsDir -File -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -ne $canonicalInstaller.FullName }
+          foreach ($extraSetup in $otherSetupExecutables) {
+            Write-Warning "Removing non-canonical setup executable before upload: $($extraSetup.FullName)"
+            Remove-Item $extraSetup.FullName -Force -ErrorAction SilentlyContinue
+          }
+
+          $exeFiles = Get-ChildItem -Path $artifactsDir -File -Filter "*.exe" -ErrorAction SilentlyContinue
           foreach ($exe in $exeFiles) {
             $zipPath = $exe.FullName + ".zip"
             Write-Host "Compressing $($exe.Name) -> $($exe.Name).zip"

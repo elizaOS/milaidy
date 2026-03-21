@@ -19,6 +19,10 @@ const WINDOWS_SMOKE_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/smoke-test-windows.ps1",
 );
+const WINDOWS_INSTALLER_PROOF_PATH = path.join(
+  ROOT,
+  "apps/app/electrobun/scripts/verify-windows-installer-proof.ps1",
+);
 const MACOS_STAGE_SCRIPT_PATH = path.join(
   ROOT,
   "apps/app/electrobun/scripts/stage-macos-release-artifacts.sh",
@@ -305,6 +309,30 @@ describe("Electrobun release workflow drift", () => {
     expect(workflow).toContain("$minimumBytes = 50MB");
   });
 
+  it("prevents setup stub overwrite and re-verifies public installer size before upload", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const stageIndex = workflow.indexOf(
+      "name: Stage Windows setup executables",
+    );
+    const reverifyIndex = workflow.indexOf(
+      "name: Re-verify Windows public installer before upload",
+    );
+
+    expect(stageIndex).toBeGreaterThan(-1);
+    expect(reverifyIndex).toBeGreaterThan(stageIndex);
+    expect(workflow).toContain("$publicInstaller.Length -ge 50MB");
+    expect(workflow).toContain(
+      "$setupExecutable.Length -lt $publicInstaller.Length",
+    );
+    expect(workflow).toContain(
+      "Skipping build setup stub that would overwrite verified public installer",
+    );
+    expect(workflow).toContain("$minimumBytes = 50MB");
+    expect(workflow).toContain(
+      "Public Windows installer regressed below standalone size threshold",
+    );
+  });
+
   it("normalizes the Windows launcher path back to the app root before packaging with Inno", () => {
     const script = fs.readFileSync(INNO_BUILD_SCRIPT_PATH, "utf8");
 
@@ -435,6 +463,16 @@ describe("Electrobun release workflow drift", () => {
     expect(smokeScript).toContain("ANTHROPIC_API_KEY");
   });
 
+  it("resets stale Windows startup logs and classifies only true fatal startup lines", () => {
+    const smokeScript = fs.readFileSync(WINDOWS_SMOKE_PATH, "utf8");
+
+    expect(smokeScript).toContain("Cleared stale startup log:");
+    expect(smokeScript).toContain("function Test-StartupLogFatalLine");
+    expect(smokeScript).toContain("optional plugin");
+    expect(smokeScript).toContain("@elizaos/plugin-");
+    expect(smokeScript).toContain("Fatal startup lines detected:");
+  });
+
   it("bundles plugins.json and package.json into milady-dist for packaged builds", () => {
     const config = fs.readFileSync(ELECTROBUN_CONFIG_PATH, "utf8");
 
@@ -530,6 +568,46 @@ describe("Electrobun release workflow drift", () => {
       "path: apps/app/electrobun/artifacts/windows-smoke-diagnostics/**",
     );
     expect(workflow).not.toContain("env.USERPROFILE }}\\.config\\Milady");
+  });
+
+  it("runs and uploads a clean Windows installer proof artifact on every release build", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+    const proofScript = fs.readFileSync(WINDOWS_INSTALLER_PROOF_PATH, "utf8");
+
+    expect(workflow).toContain("name: Run Windows clean installer proof");
+    expect(workflow).toContain(
+      "apps/app/electrobun/scripts/verify-windows-installer-proof.ps1",
+    );
+    expect(workflow).toContain("name: Upload Windows installer proof artifact");
+    expect(workflow).toContain(
+      "path: apps/app/electrobun/artifacts/windows-installer-proof/**",
+    );
+    expect(workflow).toContain(
+      "MILADY_TEST_WINDOWS_PROOF_INSTALL_DIR: C:\\mi-proof",
+    );
+    expect(workflow).toContain(
+      "if: always() && matrix.platform.os == 'windows'",
+    );
+
+    expect(proofScript).toContain("Milady-Setup-*.exe");
+    expect(proofScript).toContain("smoke-test-windows.ps1");
+    expect(proofScript).toContain("Start Menu");
+    expect(proofScript).toContain("unins*.exe");
+    expect(proofScript).toContain("proof-summary.json");
+  });
+
+  it("normalizes Windows setup upload inputs down to canonical installer naming", () => {
+    const workflow = fs.readFileSync(WORKFLOW_PATH, "utf8");
+
+    expect(workflow).toContain(
+      '$canonicalInstallers = Get-ChildItem -Path $artifactsDir -File -Filter "Milady-Setup-*.exe"',
+    );
+    expect(workflow).toContain(
+      'Write-Warning "Removing non-canonical setup executable before upload:',
+    );
+    expect(workflow).toContain(
+      'Write-Error "Multiple canonical Windows installers found before compression."',
+    );
   });
 
   it("seeds the Windows embedding model cache before packaged smoke", () => {

@@ -99,6 +99,12 @@ const requiredWorkflowSnippets = [
   'MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"',
   'MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"',
   "MILADY_TEST_WINDOWS_INSTALL_DIR: C:\\mi",
+  "name: Run Windows clean installer proof",
+  "verify-windows-installer-proof.ps1",
+  "MILADY_TEST_WINDOWS_PROOF_INSTALL_DIR: C:\\mi-proof",
+  "name: Upload Windows installer proof artifact",
+  "path: apps/app/electrobun/artifacts/windows-installer-proof/**",
+  "if: always() && matrix.platform.os == 'windows'",
   "ANTHROPIC_API_KEY: $" + "{{ secrets.ANTHROPIC_API_KEY }}",
   'Join-Path $PWD "apps/app/electrobun/node_modules/electrobun"',
   "if ($null -eq $resolvedRceditPackageJson)",
@@ -608,6 +614,10 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
     "$handler.UseProxy = $false",
     '--noproxy "127.0.0.1"',
     "function Test-BackendProbeStatus",
+    "function Test-StartupLogFatalLine",
+    "Cleared stale startup log:",
+    "optional plugin",
+    "Fatal startup lines detected:",
     "-SkipHttpErrorCheck",
     "Dump-PortDiagnostics",
     "Dump-ProcessDiagnostics",
@@ -622,6 +632,35 @@ function assertWindowsSmokeScriptHasLeadingParamBlock() {
   if (missingSnippets.length > 0) {
     console.error(
       "release-check: smoke-test-windows.ps1 is missing the packaged-launcher/dynamic-port smoke logic.",
+    );
+    for (const snippet of missingSnippets) {
+      console.error(`  - ${snippet}`);
+    }
+    process.exit(1);
+  }
+}
+
+function assertWindowsInstallerProofScript() {
+  const script = readFileSync(
+    "apps/app/electrobun/scripts/verify-windows-installer-proof.ps1",
+    "utf8",
+  );
+
+  const requiredSnippets = [
+    "Milady-Setup-*.exe",
+    "smoke-test-windows.ps1",
+    "MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER",
+    "Start Menu",
+    "unins*.exe",
+    "proof-summary.json",
+  ];
+  const missingSnippets = requiredSnippets.filter(
+    (snippet) => !script.includes(snippet),
+  );
+
+  if (missingSnippets.length > 0) {
+    console.error(
+      "release-check: verify-windows-installer-proof.ps1 is missing required clean-install proof logic.",
     );
     for (const snippet of missingSnippets) {
       console.error(`  - ${snippet}`);
@@ -790,6 +829,7 @@ function main() {
   assertElectrobunConfigHasPostWrapSigner();
   assertMacArtifactStagerLooksCorrect();
   assertWindowsSmokeScriptHasLeadingParamBlock();
+  assertWindowsInstallerProofScript();
   assertInnoBuildScriptHasTimeoutAndHeartbeat();
   assertMacSmokeScriptLaunchesPackagedLauncherDirectly();
   assertServerDynamicHyperscapeImport();
