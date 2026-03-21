@@ -30,6 +30,7 @@ vi.mock("@miladyai/app-core/onboarding-presets", () => ({
       voicePresetId: undefined,
     },
   },
+  STYLE_PRESETS: [],
 }));
 
 import {

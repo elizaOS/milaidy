@@ -11,6 +11,7 @@ const { subscribeDesktopBridgeEventMock, useAppMock } = vi.hoisted(() => ({
 
 vi.mock("@miladyai/app-core/bridge", () => ({
   subscribeDesktopBridgeEvent: subscribeDesktopBridgeEventMock,
+  isElectrobunRuntime: () => true,
 }));
 
 vi.mock("@miladyai/app-core/state", () => ({
@@ -33,7 +34,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       switchShellView,
     });
     subscribeDesktopBridgeEventMock.mockImplementation(({ listener }) => {
-      subscribeDesktopBridgeEventMock.listener = listener;
+    (subscribeDesktopBridgeEventMock as any).listener = listener;
       return () => {};
     });
   });
@@ -43,7 +44,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
     });
 
-    const listener = subscribeDesktopBridgeEventMock.listener as
+    const listener = (subscribeDesktopBridgeEventMock as any).listener as
       | ((payload: unknown) => void)
       | undefined;
     expect(listener).toBeTypeOf("function");
@@ -59,7 +60,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
     });
 
-    const listener = subscribeDesktopBridgeEventMock.listener as
+    const listener = (subscribeDesktopBridgeEventMock as any).listener as
       | ((payload: unknown) => void)
       | undefined;
     listener?.({ itemId: "navigate-plugins" });

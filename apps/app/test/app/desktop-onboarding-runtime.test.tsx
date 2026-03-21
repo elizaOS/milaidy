@@ -18,6 +18,7 @@ vi.mock("@miladyai/app-core/bridge", () => ({
 
 vi.mock("@miladyai/app-core/state", () => ({
   useApp: useAppMock,
+  CUSTOM_ONBOARDING_STEPS: [],
 }));
 
 import { DesktopOnboardingRuntime } from "@miladyai/app-core/shell";

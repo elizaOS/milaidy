@@ -28,7 +28,7 @@ export function IdentityStep() {
 
   const handleSelect = useCallback(
     (entry: CharacterRosterEntry) => {
-      setState("onboardingStyle", entry.catchphrase);
+      setState("onboardingStyle", entry.catchphrase ?? "");
       setState("onboardingName", entry.name);
       setState("selectedVrmIndex", entry.avatarIndex);
     },
@@ -168,50 +168,14 @@ export function IdentityStep() {
       </div>
 
       {/* ── Roster bar ── */}
-      <div className="ob-identity-roster">
-        {entries.map((entry) => {
-          const isSelected = selectedId === entry.catchphrase;
-          return (
-            <button
-              key={entry.catchphrase}
-              type="button"
-              className={`ob-identity-card ${isSelected ? "ob-identity-card--active" : ""}`}
-              onClick={() => handleSelect(entry)}
-              data-testid={`onboarding-preset-${entry.catchphrase}`}
-            >
-              <div
-                className={`ob-identity-card-frame ${isSelected ? "ob-identity-card-frame--active" : ""}`}
-                style={{ clipPath: SLANT_CLIP }}
-              >
-                <div
-                  className="ob-identity-card-inner"
-                  style={{ clipPath: SLANT_CLIP }}
-                >
-                  {isSelected && (
-                    <div
-                      className="pointer-events-none absolute -inset-3 bg-yellow-300/15 blur-xl"
-                      style={{ clipPath: SLANT_CLIP }}
-                    />
-                  )}
-                  <img
-                    src={getVrmPreviewUrl(entry.avatarIndex)}
-                    alt={entry.name}
-                    draggable={false}
-                    className={`ob-identity-card-img ${isSelected ? "ob-identity-card-img--active" : ""}`}
-                  />
-                  <div className="ob-identity-card-label">
-                    <div
-                      className={`ob-identity-card-name ${isSelected ? "ob-identity-card-name--active" : ""}`}
-                      style={{ clipPath: INSET_CLIP }}
-                    >
-                      {entry.name}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </button>
-          );
-        })}
+      <div className="ob-identity-roster border-t border-white/5 bg-black/50 p-4 pb-8 backdrop-blur-md">
+        <CharacterRoster
+          entries={entries}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+          variant="onboarding"
+          testIdPrefix="onboarding"
+        />
       </div>
 
       {/* ── Actions row ── */}

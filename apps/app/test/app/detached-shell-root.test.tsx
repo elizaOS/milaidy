@@ -11,11 +11,8 @@ vi.mock("@miladyai/app-core/state", () => ({
   useApp: useAppMock,
 }));
 
-vi.mock("@miladyai/app-core/src/BrowserSurfaceWindow", () => ({
-  BrowserSurfaceWindow: () => <div data-testid="browser-surface-window" />,
-}));
-
 vi.mock("@miladyai/app-core/components", () => ({
+  BrowserSurfaceWindow: () => <div data-testid="browser-surface-window" />,
   ChatView: () => <div data-testid="chat-view" />,
   CloudDashboard: () => <div data-testid="cloud-dashboard" />,
   CodingAgentSettingsSection: () => (

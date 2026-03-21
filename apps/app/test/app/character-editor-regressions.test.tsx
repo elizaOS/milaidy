@@ -46,6 +46,7 @@ vi.mock("@miladyai/app-core/voice", () => ({
       previewUrl: "https://cdn.example.com/preview.mp3",
     },
   ],
+  EDGE_BACKUP_VOICES: [],
   sanitizeApiKey: (value: string | undefined) => value?.trim() ?? "",
 }));
 
@@ -93,10 +94,12 @@ vi.mock("@miladyai/ui", () => {
   };
 });
 
-vi.mock("@miladyai/app-core/components", () => {
+vi.mock("@miladyai/app-core/components", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@miladyai/app-core/components")>();
   const React = require("react") as typeof import("react");
 
   return {
+    ...actual,
     CharacterRoster: () =>
       React.createElement("div", { "data-testid": "character-roster" }),
     resolveRosterEntries: () => [

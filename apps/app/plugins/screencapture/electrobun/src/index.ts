@@ -10,8 +10,8 @@ import type {
   ScreenCapturePlugin,
   ScreenshotOptions,
   ScreenshotResult,
-} from "@miladyai/app-core/src/definitions";
-import { ScreenCaptureWeb } from "@miladyai/app-core/src/web";
+} from "../../src/definitions";
+import { ScreenCaptureWeb } from "../../src/web";
 
 interface NativeScreenshotResponse {
   available: boolean;

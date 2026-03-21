@@ -6,7 +6,10 @@ import { describe, expect, it } from "vitest";
 const APP_SRC_DIR = path.resolve(import.meta.dirname, "../../src");
 const APP_INDEX_PATH = path.resolve(import.meta.dirname, "../../index.html");
 const MAIN_PATH = path.join(APP_SRC_DIR, "main.tsx");
-const BRAND_CSS_PATH = path.join(APP_SRC_DIR, "brand-gold.css");
+const BRAND_CSS_PATH = path.resolve(
+  import.meta.dirname,
+  "../../../../packages/app-core/src/styles/brand-gold.css",
+);
 const CHARACTER_EDITOR_CSS_PATH = path.resolve(
   import.meta.dirname,
   "../../../../packages/app-core/src/components/CharacterEditor.css",
@@ -15,9 +18,9 @@ const CHARACTER_ROSTER_PATH = path.resolve(
   import.meta.dirname,
   "../../../../packages/app-core/src/components/CharacterRoster.tsx",
 );
-const MAIN_WINDOW_RUNTIME_PATH = path.join(
-  APP_SRC_DIR,
-  "DesktopSurfaceNavigationRuntime.tsx",
+const MAIN_WINDOW_RUNTIME_PATH = path.resolve(
+  import.meta.dirname,
+  "../../../../packages/app-core/src/shell/DesktopSurfaceNavigationRuntime.tsx",
 );
 
 describe("brand gold theme overrides", () => {
@@ -25,7 +28,7 @@ describe("brand gold theme overrides", () => {
     const source = fs.readFileSync(MAIN_PATH, "utf8");
 
     expect(source).toContain('import "@miladyai/app-core/styles/styles.css";');
-    expect(source).toContain('import "./brand-gold.css";');
+    expect(source).toContain('import "@miladyai/app-core/styles/brand-gold.css";');
     expect(source).toContain("DesktopSurfaceNavigationRuntime");
   });
 

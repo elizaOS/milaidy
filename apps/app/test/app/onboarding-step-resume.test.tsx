@@ -97,13 +97,13 @@ const { mockClient } = vi.hoisted(() => ({
   },
 }));
 
-import { client } from "@miladyai/app-core/api/client";
+import { client } from "@miladyai/app-core/api";
 
 // We use vi.spyOn against the real client singleton instead of a module mock,
 // because AppContext imports client via a relative path that vi.mock might not intercept.
-vi.mock("@miladyai/app-core/api/client", async (importOriginal) => {
+vi.mock("@miladyai/app-core/api", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@miladyai/app-core/api/client")>();
+    await importOriginal<typeof import("@miladyai/app-core/api")>();
   return {
     ...actual,
     SkillScanReportSummary: {},
