@@ -311,10 +311,7 @@ export function CharacterEditor({
   }, [onboardingPresetStyles]);
 
   const characterRoster = resolveRosterEntries(
-    rosterStyles as unknown as readonly {
-      [k: string]: unknown;
-      catchphrase: string;
-    }[],
+    rosterStyles as any,
   );
 
   const d = characterDraft;

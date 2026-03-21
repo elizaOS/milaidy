@@ -23,6 +23,7 @@ import {
   initializeStorageBridge,
   isElectrobunRuntime,
 } from "@miladyai/app-core/bridge";
+import { CharacterEditor } from "@miladyai/app-core/components";
 import type { BrandingConfig } from "@miladyai/app-core/config";
 import {
   AGENT_READY_EVENT,
@@ -34,29 +35,28 @@ import {
   SHARE_TARGET_EVENT,
   TRAY_ACTION_EVENT,
 } from "@miladyai/app-core/events";
-import { applyLaunchConnectionFromUrl } from "@miladyai/app-core/platform";
+import {
+  applyForceFreshOnboardingReset,
+  applyLaunchConnectionFromUrl,
+  installDesktopPermissionsClientPatch,
+  installForceFreshOnboardingClientPatch,
+  installLocalProviderCloudPreferencePatch,
+  isDetachedWindowShell,
+  resolveWindowShellRoute,
+  shouldInstallMainWindowOnboardingPatches,
+  syncDetachedShellLocation,
+} from "@miladyai/app-core/platform";
+import {
+  DesktopOnboardingRuntime,
+  DesktopSurfaceNavigationRuntime,
+  DetachedShellRoot,
+} from "@miladyai/app-core/shell";
 import { AppProvider } from "@miladyai/app-core/state";
 // Import the agent plugin
 import { Agent } from "@miladyai/capacitor-agent";
 import { Desktop } from "@miladyai/capacitor-desktop";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { installLocalProviderCloudPreferencePatch } from "@miladyai/app-core/platform";
-import { CharacterEditor } from "@miladyai/app-core/components";
-import { DesktopOnboardingRuntime } from "@miladyai/app-core/shell";
-import { DesktopSurfaceNavigationRuntime } from "@miladyai/app-core/shell";
-import { DetachedShellRoot } from "@miladyai/app-core/shell";
-import { installDesktopPermissionsClientPatch } from "@miladyai/app-core/platform";
-import {
-  applyForceFreshOnboardingReset,
-  installForceFreshOnboardingClientPatch,
-} from "@miladyai/app-core/platform";
-import {
-  isDetachedWindowShell,
-  resolveWindowShellRoute,
-  shouldInstallMainWindowOnboardingPatches,
-  syncDetachedShellLocation,
-} from "@miladyai/app-core/platform";
 
 const MILADY_BRANDING: Partial<BrandingConfig> = {
   appName: "Milady",

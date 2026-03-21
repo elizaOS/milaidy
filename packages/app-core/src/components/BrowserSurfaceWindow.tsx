@@ -56,7 +56,7 @@ export function BrowserSurfaceWindow() {
     const webview = webviewRef.current;
     if (!webview) return;
 
-    const handleNavigation = (event: CustomEvent) => {
+    const handleNavigation = (event: any) => {
       const nextUrl = readBrowserNavigationUrl(event.detail);
       if (nextUrl) {
         applyNavigationUrl(nextUrl);
@@ -70,7 +70,7 @@ export function BrowserSurfaceWindow() {
       void syncNavigationState();
     };
 
-    const handleNewWindowOpen = (event: CustomEvent) => {
+    const handleNewWindowOpen = (event: any) => {
       const nextUrl = readBrowserNavigationUrl(event.detail);
       if (nextUrl) {
         navigateTo(nextUrl);
