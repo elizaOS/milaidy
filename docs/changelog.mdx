@@ -3,6 +3,37 @@ title: Changelog
 description: What's new in Milady — features, improvements, and fixes.
 ---
 
+<Update label="2026-06-18" description="Week of June 12–18" tags={["Feature", "Update", "Fix"]}>
+## Simplified cloud onboarding
+
+First-run setup for cloud users is now a streamlined three-step flow — welcome, cloud login, and companion chat — replacing the previous six-step wizard. Cloud-provisioned containers also skip pairing and onboarding entirely when a platform API token is configured, so managed deployments start instantly.
+
+## Cloud dashboard with local-first agent management
+
+The cloud [dashboard](/apps/dashboard) now discovers and manages both local and cloud agents in a unified view. Authentication is reactive — switching agents or environments no longer requires a page refresh. Agent health probes run in parallel in the background, so the dashboard loads quickly even when managing multiple agents. A new credits and billing section shows your balance, budgets, and usage at a glance.
+
+## Knowledge image and MDX uploads
+
+The [knowledge base](/guides/knowledge) now accepts image files and `.mdx` documents. Image uploads are automatically described using your agent's vision model (or stored as a reference entry if vision is unavailable) instead of failing with a "binary data" error. MDX files are processed as markdown, making it easy to import documentation directly.
+
+## Homepage redesign
+
+The homepage has been simplified to a single-page layout with a download dropdown for all platforms, a Try Cloud call-to-action, and a cleaner mobile experience. Install command pills are now readable on phone-sized screens, and deep links work reliably on the hosted dashboard.
+
+## Updates
+
+- **Eliza Cloud as a first-class TTS provider** — Eliza Cloud now appears as its own voice provider in [settings](/apps/dashboard/settings) instead of being nested under ElevenLabs. This eliminates the confusing provider-plus-source selection and ensures the correct voice catalog loads for your chosen provider.
+- **All coding agents visible in settings** — The [coding agents](/guides/coding-swarms) settings section now correctly displays all installed agents (Claude, Gemini, Codex, Aider). Previously, only Aider appeared because the settings UI wasn't matching full adapter names from the preflight API.
+- **Coding agent settings load without flicker** — Revisiting the coding agents settings page no longer shows a loading skeleton. The preflight data is cached after the first visit so subsequent navigations render immediately.
+- **Mobile dashboard improvements** — Navigation spacing, content responsiveness, and layout on phone-sized screens have been tightened across both the homepage and dashboard.
+
+## Bug fixes
+
+- Fixed plugin services not starting during registration — services declared by plugins (like the PTY service for coding agents) are now eagerly started, resolving 503 errors on coding agent preflight
+- Fixed cloud auth endpoints returning 401 by updating to the current session-based login flow
+- Fixed hosted auth flow silently falling back to public sandbox discovery when tokens were stale — credentials are now scoped per cloud host and cleared properly on expiry
+</Update>
+
 <Update label="2026-04-16" description="Week of April 10–16" tags={["Feature", "Update", "Fix"]}>
 ## Keyboard shortcuts overlay
 
@@ -29,6 +60,8 @@ LLM calls made by the swarm orchestrator are now tagged with source metadata and
 - Fixed duplicate terminal output when opening a coding agent panel
 - Fixed VRM avatars and 3D assets silently failing to load when the server returned HTML instead of binary data
 - Fixed memory monitoring — a new debug panel is available for tracking heap usage during long-running sessions
+</Update>
+
 <Update label="2026-06-11" description="Week of June 5–11" tags={["Update", "Fix"]}>
 ## Unified provider configuration
 
