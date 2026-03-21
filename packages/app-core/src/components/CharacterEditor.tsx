@@ -15,6 +15,7 @@ import { STYLE_PRESETS } from "@miladyai/app-core/onboarding-presets";
 import { useApp } from "@miladyai/app-core/state";
 import { normalizeCharacterMessageExamples } from "@miladyai/app-core/utils/character-message-examples";
 import { EDGE_BACKUP_VOICES, PREMADE_VOICES, sanitizeApiKey } from "@miladyai/app-core/voice";
+import { useChatAvatarVoiceBridge, useVoiceChat } from "@miladyai/app-core/hooks";
 import { Button, Input, Textarea, ThemedSelect } from "@miladyai/ui";
 import {
   CharacterRoster,
@@ -193,7 +194,7 @@ export function CharacterEditor({
     setState,
     onboardingOptions,
     selectedVrmIndex: _selectedVrmIndex,
-    t: _t,
+    t,
     registryStatus: _registryStatus,
     registryLoading: _registryLoading,
     registryRegistering: _registryRegistering,
@@ -287,6 +288,28 @@ export function CharacterEditor({
     Record<string, string> | string | undefined
   >;
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({});
+
+  const handleChatAvatarSpeakingChange = useCallback(
+    (isSpeaking: boolean) => {
+      setState("chatAvatarSpeaking", isSpeaking);
+    },
+    [setState],
+  );
+
+  const voice = useVoiceChat({
+    cloudConnected: elizaCloudConnected,
+    interruptOnSpeech: false,
+    lang: "en-US",
+    voiceConfig: voiceConfig as any,
+    onTranscript: () => {},
+  });
+
+  useChatAvatarVoiceBridge({
+    mouthOpen: voice.mouthOpen,
+    isSpeaking: voice.isSpeaking,
+    usingAudioAnalysis: voice.usingAudioAnalysis,
+    onSpeakingChange: handleChatAvatarSpeakingChange,
+  });
   const [voiceLoading, setVoiceLoading] = useState(false);
   const [voiceSaving, setVoiceSaving] = useState(false);
   const [voiceSaveError, setVoiceSaveError] = useState<string | null>(null);
@@ -540,9 +563,10 @@ export function CharacterEditor({
   /* ── Select character from roster ───────────────────────────────── */
   const handleSelectCharacter = useCallback(
     (entry: CharacterRosterEntry) => {
+      if (entry.id === selectedCharacterId) return;
       commitCharacterSelection(entry, true);
     },
-    [commitCharacterSelection],
+    [commitCharacterSelection, selectedCharacterId],
   );
 
   /* ── Auto-select on mount ───────────────────────────────────────── */
@@ -625,7 +649,7 @@ export function CharacterEditor({
     if (typeof window === "undefined") return;
     const mql = window.matchMedia("(max-width: 768px)");
     const dispatch = () => {
-      const offset = customizing && !mql.matches ? 0.5 : 0;
+      const offset = customizing && !mql.matches ? 0.6 : 0;
       window.dispatchEvent(
         new CustomEvent("eliza:editor-camera-offset", {
           detail: { offset },
@@ -879,14 +903,15 @@ export function CharacterEditor({
   if (characterLoading && !characterData) {
     return (
       <div className="ce-root">
-        <div className="ce-loading">Loading character data...</div>
+        <div className="ce-loading">{t("charactereditor.LoadingCharacterData", { defaultValue: "Loading character data..." })}</div>
       </div>
     );
   }
 
   /* ── Render ─────────────────────────────────────────────────────── */
   return (
-    <div className={`ce-root${customizing ? " ce-root--editor-active" : ""}`}>
+    <div className="ce-layout-container">
+      <div className={`ce-root${customizing ? " ce-root--editor-active" : ""}`}>
       {/* ── Character Roster (when NOT customizing) ────────────────── */}
       {!customizing && (
         <div className="ce-roster-wrap">
@@ -908,7 +933,7 @@ export function CharacterEditor({
               className={`ce-page-tab ${activePage === "identity" ? "ce-page-tab--active" : ""}`}
               onClick={() => setActivePage("identity")}
             >
-              Character
+              {t("charactereditor.TabCharacter", { defaultValue: "Character" })}
             </button>
             <button
               type="button"
@@ -918,7 +943,7 @@ export function CharacterEditor({
                 setActivePage("style");
               }}
             >
-              Styles
+              {t("charactereditor.TabStyles", { defaultValue: "Styles" })}
             </button>
             <button
               type="button"
@@ -928,7 +953,7 @@ export function CharacterEditor({
                 setActivePage("examples");
               }}
             >
-              Examples
+              {t("charactereditor.TabExamples", { defaultValue: "Examples" })}
             </button>
           </div>
           <Button
@@ -938,10 +963,10 @@ export function CharacterEditor({
             className="ce-reset-btn"
             onClick={handleResetToDefaults}
             disabled={!activeCharacterRosterEntry}
-            title="Reset to Defaults"
+            title={t("charactereditor.ResetToDefaults", { defaultValue: "Reset to Defaults" })}
           >
             <RotateCcw className="h-4 w-4 mr-1" />
-            Reset
+            {t("charactereditor.Reset", { defaultValue: "Reset" })}
           </Button>
         </div>
       )}
@@ -955,12 +980,12 @@ export function CharacterEditor({
               <div className="ce-name-voice-row">
                 <div className="ce-name-voice-col">
                   <div className="ce-section-header">
-                    <span className="ce-label">Name</span>
+                    <span className="ce-label">{t("charactereditor.Name", { defaultValue: "Name" })}</span>
                   </div>
                   <Input
                     type="text"
                     value={d.name ?? ""}
-                    placeholder="Agent name"
+                    placeholder={t("charactereditor.AgentNamePlaceholder", { defaultValue: "Agent name" })}
                     onChange={(
                       e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
                     ) => handleFieldEdit("name", e.target.value)}
@@ -969,7 +994,7 @@ export function CharacterEditor({
                 </div>
                 <div className="ce-name-voice-col">
                   <div className="ce-section-header">
-                    <span className="ce-label">Voice</span>
+                    <span className="ce-label">{t("charactereditor.Voice", { defaultValue: "Voice" })}</span>
                   </div>
                   <div className="ce-voice-inline">
                     <ThemedSelect
@@ -980,7 +1005,7 @@ export function CharacterEditor({
                         const preset = allVoices.find((p) => p.id === id);
                         if (preset) handleSelectPreset(preset);
                       }}
-                      placeholder="Select a voice"
+                      placeholder={t("charactereditor.SelectAVoice", { defaultValue: "Select a voice" })}
                       menuPlacement="bottom"
                       className="ce-voice-inline-select"
                       triggerClassName="h-8 rounded-md border-border/50 bg-bg/65 px-3 py-0 text-[11px] shadow-inner backdrop-blur-sm"
@@ -1031,7 +1056,7 @@ export function CharacterEditor({
             {/* Bio / About Me */}
             <section className="ce-section ce-section--grow">
               <div className="ce-section-header">
-                <span className="ce-label">About Me</span>
+                <span className="ce-label">{t("charactereditor.AboutMe", { defaultValue: "About Me" })}</span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1039,13 +1064,13 @@ export function CharacterEditor({
                   onClick={() => void handleGenerate("bio")}
                   disabled={generating === "bio"}
                 >
-                  {generating === "bio" ? "generating..." : "regenerate"}
+                  {generating === "bio" ? t("charactereditor.Generating", { defaultValue: "generating..." }) : t("charactereditor.Regenerate", { defaultValue: "regenerate" })}
                 </Button>
               </div>
               <Textarea
                 value={bioText}
                 rows={4}
-                placeholder="Describe who your agent is..."
+                placeholder={t("charactereditor.AboutMePlaceholder", { defaultValue: "Describe who your agent is..." })}
                 onChange={(
                   e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
                 ) => handleFieldEdit("bio", e.target.value)}
@@ -1056,7 +1081,7 @@ export function CharacterEditor({
             {/* System Prompt / Directions */}
             <section className="ce-section ce-section--grow">
               <div className="ce-section-header">
-                <span className="ce-label">System Prompt</span>
+                <span className="ce-label">{t("charactereditor.SystemPrompt", { defaultValue: "System Prompt" })}</span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1064,14 +1089,14 @@ export function CharacterEditor({
                   onClick={() => void handleGenerate("system")}
                   disabled={generating === "system"}
                 >
-                  {generating === "system" ? "generating..." : "regenerate"}
+                  {generating === "system" ? t("charactereditor.Generating") : t("charactereditor.Regenerate")}
                 </Button>
               </div>
               <Textarea
                 value={d.system ?? ""}
                 rows={4}
                 maxLength={10000}
-                placeholder="Write in first person..."
+                placeholder={t("charactereditor.SystemPromptPlaceholder", { defaultValue: "Write in first person..." })}
                 onChange={(
                   e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
                 ) => handleFieldEdit("system", e.target.value)}
@@ -1096,7 +1121,7 @@ export function CharacterEditor({
                   onClick={() => void handleGenerate("style", "replace")}
                   disabled={generating === "style"}
                 >
-                  {generating === "style" ? "generating..." : "regenerate"}
+                  {generating === "style" ? t("charactereditor.Generating") : t("charactereditor.Regenerate")}
                 </Button>
               </div>
               <div className="ce-style-sections">
@@ -1210,7 +1235,7 @@ export function CharacterEditor({
               }}
             >
               <div className="ce-section-header">
-                <span className="ce-label">Chat Examples</span>
+                <span className="ce-label">{t("charactereditor.ChatExamples", { defaultValue: "Chat Examples" })}</span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1218,7 +1243,7 @@ export function CharacterEditor({
                   onClick={() => void handleGenerate("chatExamples", "replace")}
                   disabled={generating === "chatExamples"}
                 >
-                  {generating === "chatExamples" ? "generating..." : "generate"}
+                  {generating === "chatExamples" ? t("charactereditor.Generating") : t("charactereditor.Generate", { defaultValue: "generate" })}
                 </Button>
               </div>
               <div className="ce-examples-list">
@@ -1227,7 +1252,7 @@ export function CharacterEditor({
                   <div key={`convo-${ci}`} className="ce-example-convo">
                     <div className="ce-example-convo-header">
                       <span className="ce-example-convo-label">
-                        Conversation {ci + 1}
+                        {t("charactereditor.ConversationN", { defaultValue: `Conversation ${ci + 1}` }).replace("{n}", String(ci + 1))}
                       </span>
                       <button
                         type="button"
@@ -1284,7 +1309,7 @@ export function CharacterEditor({
                   </div>
                 ))}
                 {normalizedMessageExamples.length === 0 && (
-                  <div className="ce-style-empty">No chat examples yet.</div>
+                  <div className="ce-style-empty">{t("charactereditor.NoChatExamples", { defaultValue: "No chat examples yet." })}</div>
                 )}
               </div>
             </section>
@@ -1297,7 +1322,7 @@ export function CharacterEditor({
               }}
             >
               <div className="ce-section-header">
-                <span className="ce-label">Post Examples</span>
+                <span className="ce-label">{t("charactereditor.PostExamples", { defaultValue: "Post Examples" })}</span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1305,7 +1330,7 @@ export function CharacterEditor({
                   onClick={() => void handleGenerate("postExamples", "replace")}
                   disabled={generating === "postExamples"}
                 >
-                  {generating === "postExamples" ? "generating..." : "generate"}
+                  {generating === "postExamples" ? t("charactereditor.Generating") : t("charactereditor.Generate")}
                 </Button>
               </div>
               <div className="ce-examples-list">
@@ -1347,7 +1372,7 @@ export function CharacterEditor({
                   </div>
                 ))}
                 {(d.postExamples ?? []).length === 0 && (
-                  <div className="ce-style-empty">No post examples yet.</div>
+                  <div className="ce-style-empty">{t("charactereditor.NoPostExamples", { defaultValue: "No post examples yet." })}</div>
                 )}
                 <button
                   type="button"
@@ -1357,13 +1382,14 @@ export function CharacterEditor({
                     handleFieldEdit("postExamples", updated);
                   }}
                 >
-                  + Add Post
+                  + {t("charactereditor.AddPost", { defaultValue: "Add Post" })}
                 </button>
               </div>
             </section>
           </div>
         </div>
       )}
+      </div>
 
       {/* ── Footer ─────────────────────────────────────────────────── */}
       <div className="ce-footer">
@@ -1390,7 +1416,7 @@ export function CharacterEditor({
             disabled={characterSaving || voiceSaving || !hasPendingChanges}
             onClick={() => void handleSaveAll()}
           >
-            {characterSaving || voiceSaving ? "saving..." : "Save"}
+            {characterSaving || voiceSaving ? t("charactereditor.Saving", { defaultValue: "saving..." }) : t("charactereditor.Save", { defaultValue: "Save" })}
           </Button>
 
           {/* Toggle between Customize and Select — always present, just text changes */}
@@ -1409,7 +1435,7 @@ export function CharacterEditor({
               }
             }}
           >
-            {customizing ? "Select" : "Customize"}
+            {customizing ? t("charactereditor.SelectBtn", { defaultValue: "Select" }) : t("charactereditor.CustomizeBtn", { defaultValue: "Customize" })}
           </Button>
         </div>
       </div>

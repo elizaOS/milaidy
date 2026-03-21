@@ -38,6 +38,7 @@ export function normalizeLanguage(input: unknown): UiLanguage {
   if (lower.startsWith("ko")) return "ko";
   if (lower.startsWith("es")) return "es";
   if (lower.startsWith("pt")) return "pt";
+  if (lower.startsWith("vi")) return "vi";
   return DEFAULT_UI_LANGUAGE;
 }
 

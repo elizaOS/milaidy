@@ -41,6 +41,7 @@ export class VrmCameraManager {
     lookAtTarget: THREE.Vector3,
     baseCameraPosition: THREE.Vector3,
     applyInteractionMode: (controls: OrbitControls) => void,
+    skipControlUpdate = false,
   ): void {
     this.normalizeAvatarToStage(vrm, cameraProfile);
     vrm.scene.updateMatrixWorld(true);
@@ -58,9 +59,13 @@ export class VrmCameraManager {
     baseCameraPosition.copy(camera.position);
 
     if (controls) {
-      controls.target.copy(lookAtTarget);
+      if (!skipControlUpdate) {
+        controls.target.copy(lookAtTarget);
+      }
       applyInteractionMode(controls);
-      controls.update();
+      if (!skipControlUpdate) {
+        controls.update();
+      }
     }
   }
 

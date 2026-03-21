@@ -28,7 +28,9 @@ describe("brand gold theme overrides", () => {
     const source = fs.readFileSync(MAIN_PATH, "utf8");
 
     expect(source).toContain('import "@miladyai/app-core/styles/styles.css";');
-    expect(source).toContain('import "@miladyai/app-core/styles/brand-gold.css";');
+    expect(source).toContain(
+      'import "@miladyai/app-core/styles/brand-gold.css";',
+    );
     expect(source).toContain("DesktopSurfaceNavigationRuntime");
   });
 

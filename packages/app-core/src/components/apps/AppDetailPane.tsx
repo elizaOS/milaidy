@@ -60,7 +60,7 @@ export function AppDetailPane({
           </div>
         </div>
         <div className="text-[12px] text-muted leading-relaxed mb-4">
-          {app.description ?? "No description"}
+          {app.description ?? t("appsview.NoDescription", { defaultValue: "No description" })}
         </div>
         <Button
           variant="default"
@@ -69,7 +69,7 @@ export function AppDetailPane({
           disabled={busy}
           onClick={onLaunch}
         >
-          {busy ? "Launching..." : "Launch"}
+          {busy ? t("appsview.Launching", { defaultValue: "Launching..." }) : t("appsview.Launch", { defaultValue: "Launch" })}
         </Button>
         {hasActiveViewer ? (
           <Button
@@ -78,7 +78,7 @@ export function AppDetailPane({
             className="rounded-xl shadow-sm w-full mb-4"
             onClick={onOpenCurrentGame}
           >
-            Resume Session
+            {t("appsview.ResumeSession", { defaultValue: "Resume Session" })}
           </Button>
         ) : null}
       </div>
@@ -129,7 +129,7 @@ export function AppDetailPane({
       </div>
 
       <div className="text-[13px] text-muted leading-relaxed mb-5 pb-5 border-b border-border">
-        {app.description ?? "No description available."}
+        {app.description ?? t("appsview.NoDescriptionAvailable", { defaultValue: "No description available." })}
       </div>
 
       <div className="flex flex-wrap gap-2 mb-5">
@@ -140,7 +140,7 @@ export function AppDetailPane({
           disabled={busy}
           onClick={onLaunch}
         >
-          {busy ? "Launching..." : "Launch"}
+          {busy ? t("appsview.Launching") : t("appsview.Launch")}
         </Button>
         {hasActiveViewer ? (
           <>
@@ -150,7 +150,7 @@ export function AppDetailPane({
               className="rounded-xl shadow-sm"
               onClick={onOpenCurrentGame}
             >
-              Resume Session
+              {t("appsview.ResumeSession")}
             </Button>
             <Button
               variant="outline"
@@ -158,7 +158,7 @@ export function AppDetailPane({
               className="rounded-xl shadow-sm"
               onClick={onOpenCurrentGameInNewTab}
             >
-              Open in Tab
+              {t("appsview.OpenInTab", { defaultValue: "Open in Tab" })}
             </Button>
           </>
         ) : null}
@@ -166,12 +166,12 @@ export function AppDetailPane({
 
       <div className="flex flex-col gap-3 text-[12px] mb-5">
         <div className="flex justify-between">
-          <span className="text-muted">Launch type</span>
+          <span className="text-muted">{t("appsview.LaunchType", { defaultValue: "Launch type" })}</span>
           <span className="text-txt">{app.launchType || "—"}</span>
         </div>
         {app.launchUrl ? (
           <div className="flex justify-between">
-            <span className="text-muted">URL</span>
+            <span className="text-muted">{t("appsview.URL", { defaultValue: "URL" })}</span>
             <span className="text-txt truncate max-w-[260px]">
               {app.launchUrl}
             </span>
@@ -179,7 +179,7 @@ export function AppDetailPane({
         ) : null}
         {app.repository ? (
           <div className="flex justify-between">
-            <span className="text-muted">Repository</span>
+            <span className="text-muted">{t("appsview.Repository", { defaultValue: "Repository" })}</span>
             <a
               href={app.repository}
               target="_blank"
@@ -195,7 +195,7 @@ export function AppDetailPane({
       {app.capabilities?.length ? (
         <div className="mb-5">
           <div className="text-[11px] text-muted mb-2 font-semibold uppercase tracking-wider">
-            Capabilities
+            {t("appsview.Capabilities", { defaultValue: "Capabilities" })}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {app.capabilities.map((capability) => (
@@ -213,19 +213,19 @@ export function AppDetailPane({
       {app.viewer ? (
         <div className="mb-5 p-3 rounded-xl border border-border bg-surface">
           <div className="text-[11px] text-muted mb-2 font-semibold uppercase tracking-wider">
-            Viewer
+            {t("appsview.Viewer", { defaultValue: "Viewer" })}
           </div>
           <div className="flex flex-col gap-1.5 text-[11px]">
             <div className="flex justify-between">
-              <span className="text-muted">URL</span>
+              <span className="text-muted">{t("appsview.URL")}</span>
               <span className="text-txt truncate max-w-[240px]">
                 {app.viewer.url}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted">Auth</span>
+              <span className="text-muted">{t("appsview.Auth", { defaultValue: "Auth" })}</span>
               <span className="text-txt">
-                {app.viewer.postMessageAuth ? "enabled" : "disabled"}
+                {app.viewer.postMessageAuth ? t("appsview.Enabled", { defaultValue: "enabled" }) : t("appsview.Disabled", { defaultValue: "disabled" })}
               </span>
             </div>
           </div>

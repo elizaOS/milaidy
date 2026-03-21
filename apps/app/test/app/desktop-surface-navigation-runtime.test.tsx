@@ -35,7 +35,8 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       switchShellView,
     });
     subscribeDesktopBridgeEventMock.mockImplementation(({ listener }) => {
-    (subscribeDesktopBridgeEventMock as any).listener = listener;
+      // biome-ignore lint/suspicious/noExplicitAny: internal test hook property
+      (subscribeDesktopBridgeEventMock as any).listener = listener;
       return () => {};
     });
   });
@@ -45,6 +46,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
     });
 
+    // biome-ignore lint/suspicious/noExplicitAny: internal testing mock hook property
     const listener = (subscribeDesktopBridgeEventMock as any).listener as
       | ((payload: unknown) => void)
       | undefined;
@@ -61,6 +63,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
       TestRenderer.create(React.createElement(DesktopSurfaceNavigationRuntime));
     });
 
+    // biome-ignore lint/suspicious/noExplicitAny: internal testing mock hook property
     const listener = (subscribeDesktopBridgeEventMock as any).listener as
       | ((payload: unknown) => void)
       | undefined;

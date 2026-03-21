@@ -188,8 +188,8 @@ const DEFAULT_CAMERA_ANIMATION: CameraAnimationConfig = {
 const CAMERA_PROFILE_TRANSITION_DURATION_SECONDS = 0.8;
 const AVATAR_SWITCH_CAMERA_TRANSITION_DURATION_SECONDS = 3;
 const COMPANION_WORLD_SCALE = 2.5;
-const COMPANION_DARK_WORLD_FLOOR_OFFSET_Y = -0.95;
-const COMPANION_LIGHT_WORLD_FLOOR_OFFSET_Y = -0.35;
+const COMPANION_DARK_WORLD_FLOOR_OFFSET_Y = -0.90;
+const COMPANION_LIGHT_WORLD_FLOOR_OFFSET_Y = -0.30;
 const COMPANION_WORLD_REVEAL_DURATION = 5.4;
 const COMPANION_WORLD_REVEAL_EDGE = 0.28;
 const COMPANION_WORLD_REVEAL_EASE_EXPONENT = 2;
@@ -586,7 +586,7 @@ export class VrmEngine {
   private teleportCompleteTime = -Infinity;
   private teleportProgressUniform: { value: number } | null = null;
   private teleportDissolvedMaterials: THREE.Material[] = [];
-  private teleportFallbackShaders: TeleportFallbackShader[] = [];
+  private teleportFallbackShaders: { uniforms: { uTeleportProgress: { value: number } }; isOutgoing?: boolean }[] = [];
   private teleportSparkles: TeleportSparkleSystem | null = null;
   private revealStarted = false;
   private mouthValue = 0;
@@ -594,6 +594,10 @@ export class VrmEngine {
   private vrmName: string | null = null;
   private lookAtTarget = new THREE.Vector3(0, 0.5, 0);
   private readonly idleGlbUrl = resolveAppAssetUrl("animations/idle.glb.gz");
+
+  private outgoingVrm: VRM | null = null;
+  private outgoingMixer: THREE.AnimationMixer | null = null;
+  private outgoingIdleAction: THREE.AnimationAction | null = null;
   private cameraAnimation: CameraAnimationConfig = {
     ...DEFAULT_CAMERA_ANIMATION,
   };
@@ -982,8 +986,17 @@ export class VrmEngine {
       !dyno.length ||
       !dyno.swizzle
     ) {
+      console.error("[VrmEngine] createWorldRevealController failed missing dyno props:", {
+        Gsplat: !!dyno?.Gsplat, dynoBlock: !!dyno?.dynoBlock, dynoFloat: !!dyno?.dynoFloat,
+        dynoVec3: !!dyno?.dynoVec3, dynoConst: !!dyno?.dynoConst, splitGsplat: !!dyno?.splitGsplat,
+        combineGsplat: !!dyno?.combineGsplat, add: !!dyno?.add, sub: !!dyno?.sub,
+        mul: !!dyno?.mul, div: !!dyno?.div, abs: !!dyno?.abs, clamp: !!dyno?.clamp,
+        max: !!dyno?.max, mix: !!dyno?.mix, smoothstep: !!dyno?.smoothstep,
+        pow: !!dyno?.pow, length: !!dyno?.length, swizzle: !!dyno?.swizzle
+      });
       return null;
     }
+    console.log("[VrmEngine] createWorldRevealController SUCCESS, dyno checked ok");
 
     const originUniform = dyno.dynoVec3(reveal.origin, "uWorldRevealOrigin");
     const resolvedRadius = Math.max(
@@ -1563,14 +1576,17 @@ export class VrmEngine {
     const targetLookAt = new THREE.Vector3();
     const targetPos = new THREE.Vector3();
 
+    const dummyCamera = this.camera.clone();
+
     this.cameraManager.centerAndFrame(
       vrm,
-      this.camera,
+      dummyCamera,
       this.controls,
       this.cameraProfile,
       targetLookAt,
       targetPos,
       (c) => this.cameraManager.applyInteractionMode(c, this.interactionMode),
+      true, // skipControlUpdate
     );
 
     this.startCameraTransition(
@@ -1579,7 +1595,7 @@ export class VrmEngine {
       startFov,
       targetPos,
       targetLookAt,
-      this.camera.fov,
+      dummyCamera.fov,
       durationSeconds,
     );
   }
@@ -1818,25 +1834,34 @@ export class VrmEngine {
       const targetLookAt = new THREE.Vector3().copy(this.lookAtTarget);
       const targetPos = new THREE.Vector3().copy(this.camera.position);
 
+      let targetFov = this.camera.fov;
+
       if (this.vrm) {
+        const dummyCamera = this.camera.clone();
         this.cameraManager.centerAndFrame(
           this.vrm,
-          this.camera,
+          dummyCamera,
           this.controls,
           this.cameraProfile,
           targetLookAt,
           targetPos,
           (c) =>
             this.cameraManager.applyInteractionMode(c, this.interactionMode),
+          true, // skipControlUpdate
         );
+        targetFov = dummyCamera.fov;
       } else {
+        const dummyCamera = this.camera.clone();
         this.cameraManager.applyCameraProfileToCamera(
-          this.camera,
+          dummyCamera,
           this.controls,
           this.cameraProfile,
         );
-        targetPos.copy(this.camera.position);
+        targetPos.copy(dummyCamera.position);
+        targetFov = dummyCamera.fov;
+        // controls.target handles lookAt internally or we just leap
         if (this.controls) {
+          // Skipping instant snap of controls.target, we let transition handle it
           targetLookAt.copy(this.controls.target);
         }
       }
@@ -1847,7 +1872,7 @@ export class VrmEngine {
         startFov,
         targetPos,
         targetLookAt,
-        this.camera.fov,
+        targetFov,
         CAMERA_PROFILE_TRANSITION_DURATION_SECONDS,
       );
     } else {
@@ -2141,8 +2166,14 @@ export class VrmEngine {
     const requestId = ++this.vrmLoadRequestId;
     const hadPreviousVrm = this.vrm !== null;
     if (this.vrm) {
-      this.vrm.scene.parent?.remove(this.vrm.scene);
-      VRMUtils.deepDispose(this.vrm.scene);
+      if (this.outgoingVrm) {
+        this.outgoingVrm.scene.parent?.remove(this.outgoingVrm.scene);
+        VRMUtils.deepDispose(this.outgoingVrm.scene);
+      }
+      this.outgoingVrm = this.vrm;
+      this.outgoingMixer = this.mixer;
+      this.outgoingIdleAction = this.idleAction;
+
       this.vrm = null;
       this.vrmReady = false;
       this.vrmName = null;
@@ -2150,8 +2181,8 @@ export class VrmEngine {
       this.idleAction = null;
       this.idleLoadPromise = null;
       this.revealStarted = false;
-      this.cleanupTeleportSparkles();
-      this.stopEmote();
+      this.clearPendingEmoteCompletion();
+      this.emoteAction = null;
       this.emoteClipCache.clear();
     }
     this.lastLoadError = null;
@@ -2201,12 +2232,7 @@ export class VrmEngine {
     if (!vrm) throw new Error("Loaded asset is not a VRM");
     VRMUtils.removeUnnecessaryVertices(vrm.scene);
     if (this.camera) {
-      if (hadPreviousVrm) {
-        this.transitionCameraToFramedAvatar(
-          vrm,
-          AVATAR_SWITCH_CAMERA_TRANSITION_DURATION_SECONDS,
-        );
-      } else {
+      if (!hadPreviousVrm) {
         this.cameraManager.centerAndFrame(
           vrm,
           this.camera,
@@ -2268,6 +2294,13 @@ export class VrmEngine {
   }
 
   private async playTeleportReveal(vrm: VRM): Promise<void> {
+    if (this.outgoingVrm && this.camera) {
+      this.transitionCameraToFramedAvatar(
+        vrm,
+        AVATAR_SWITCH_CAMERA_TRANSITION_DURATION_SECONDS,
+      );
+    }
+
     this.teleportProgress = 0.0;
     this.revealStarted = true;
     this.cleanupTeleportDissolve();
@@ -2280,104 +2313,61 @@ export class VrmEngine {
       const uProgress = tsl.uniform(0.0);
       this.teleportProgressUniform = uProgress;
 
-      vrm.scene.traverse((obj: THREE.Object3D) => {
-        if (!(obj instanceof THREE.Mesh)) return;
-        const mats = Array.isArray(obj.material)
-          ? obj.material
-          : [obj.material];
-        for (const mat of mats) {
-          if (!mat.isNodeMaterial || mat.userData._dissolveApplied) continue;
-          appliedNodeDissolve = true;
-          mat.userData._dissolveApplied = true;
-          mat.userData._origOpacityNode = mat.opacityNode ?? null;
-          mat.userData._origEmissiveNode =
-            (mat as MeshStandardMaterialWithNodeProps).emissiveNode ?? null;
-          mat.userData._origAlphaTest = mat.alphaTest;
+      const applyTslDissolve = (targetVrm: VRM, isOutgoing: boolean) => {
+        targetVrm.scene.traverse((obj: THREE.Object3D) => {
+          if (!(obj instanceof THREE.Mesh)) return;
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          for (const mat of mats) {
+            if (!mat.isNodeMaterial || mat.userData._dissolveApplied) continue;
+            appliedNodeDissolve = true;
+            mat.userData._dissolveApplied = true;
+            mat.userData._origOpacityNode = mat.opacityNode ?? null;
+            mat.userData._origEmissiveNode = (mat as MeshStandardMaterialWithNodeProps).emissiveNode ?? null;
+            mat.userData._origAlphaTest = mat.alphaTest;
 
-          // World-space Y from TSL
-          const worldY = tsl.positionWorld.y;
+            const worldY = tsl.positionWorld.y;
+            const threshold = uProgress.mul(TELEPORT_DISSOLVE_END_Y - TELEPORT_DISSOLVE_START_Y).add(TELEPORT_DISSOLVE_START_Y);
+            const diff = worldY.sub(threshold);
 
-          // Sweep threshold starts 1m lower than before.
-          const threshold = uProgress
-            .mul(TELEPORT_DISSOLVE_END_Y - TELEPORT_DISSOLVE_START_Y)
-            .add(TELEPORT_DISSOLVE_START_Y);
+            const nx = tsl.sin(tsl.positionWorld.x.mul(18.0).add(worldY.mul(12.0)));
+            const ny = tsl.cos(worldY.mul(15.0).add(tsl.positionWorld.z.mul(10.0)));
+            const nz = tsl.sin(tsl.positionWorld.z.mul(18.0).add(tsl.positionWorld.x.mul(10.0)));
+            const noise = nx.add(ny).add(nz).div(3.0).add(1.0).mul(0.5);
+            const ratio = diff.div(0.3).clamp(0.0, 1.0);
+            
+            const baseAlpha = tsl.step(ratio, noise);
+            const dissolveAlpha = isOutgoing ? tsl.float(1.0).sub(baseAlpha) : baseAlpha;
 
-          // Distance above dissolve line
-          const diff = worldY.sub(threshold);
+            const edgeDist = diff.abs();
+            const glowWidth = tsl.float(0.08);
+            const glowIntensity = tsl.float(1.0).sub(edgeDist.div(glowWidth).clamp(0.0, 1.0));
+            const hueShift = tsl.fract(worldY.mul(3.0).add(uProgress.mul(2.0)));
+            const holoR = tsl.smoothstep(tsl.float(0.3), tsl.float(0.7), hueShift).mul(0.8).add(0.2);
+            const holoG = tsl.float(0.9);
+            const holoB = tsl.smoothstep(tsl.float(0.7), tsl.float(0.3), hueShift).mul(0.8).add(0.2);
+            const holoColor = tsl.vec3(holoR, holoG, holoB);
 
-          // Dither noise using a hash of world position
-          const noiseCoord = tsl.vec2(
-            worldY.mul(40.0),
-            tsl.positionWorld.x.add(tsl.positionWorld.z).mul(30.0),
-          );
-          const noise = tsl.fract(
-            tsl
-              .sin(tsl.dot(noiseCoord, tsl.vec2(12.9898, 78.233)))
-              .mul(43758.5453),
-          );
+            const glowActive = tsl.step(tsl.float(0.001), uProgress).mul(tsl.float(1.0).sub(tsl.step(tsl.float(0.999), uProgress)));
+            const emissiveBoost = holoColor.mul(glowIntensity.mul(10.0).mul(glowActive).mul(dissolveAlpha));
 
-          // Ratio: 0 = fully visible, 1 = fully hidden (wider zone = 0.3)
-          const ratio = diff.div(0.3).clamp(0.0, 1.0);
+            const origOpacity = mat.opacityNode as any;
+            mat.opacityNode = origOpacity ? (((origOpacity).mul(dissolveAlpha) as any) ?? dissolveAlpha) : dissolveAlpha;
 
-          // Dithered alpha: visible when noise >= ratio
-          const dissolveAlpha = tsl.step(ratio, noise);
+            const matWithEmissive = mat as any;
+            const origEmissive = matWithEmissive.emissiveNode as any;
+            matWithEmissive.emissiveNode = origEmissive ? ((origEmissive).add(emissiveBoost) as any) : emissiveBoost;
 
-          // --- Holographic glow at the dissolve edge ---
-          // Glow is strongest right at the dissolve boundary
-          const edgeDist = diff.abs();
-          const glowWidth = tsl.float(0.15);
-          const glowIntensity = tsl
-            .float(1.0)
-            .sub(edgeDist.div(glowWidth).clamp(0.0, 1.0));
-          // Holographic color: cyan-magenta shift based on world position
-          const hueShift = tsl.fract(worldY.mul(3.0).add(uProgress.mul(2.0)));
-          const holoR = tsl
-            .smoothstep(tsl.float(0.3), tsl.float(0.7), hueShift)
-            .mul(0.8)
-            .add(0.2);
-          const holoG = tsl.float(0.9);
-          const holoB = tsl
-            .smoothstep(tsl.float(0.7), tsl.float(0.3), hueShift)
-            .mul(0.8)
-            .add(0.2);
-          const holoColor = tsl.vec3(holoR, holoG, holoB);
+            mat.alphaTest = 0.01;
+            mat.needsUpdate = true;
+            this.teleportDissolvedMaterials.push(mat);
+          }
+        });
+      };
 
-          // Only show glow when dissolve is active and fragment is visible
-          const glowActive = tsl
-            .step(tsl.float(0.001), uProgress)
-            .mul(tsl.float(1.0).sub(tsl.step(tsl.float(0.999), uProgress)));
-          const emissiveBoost = holoColor.mul(
-            glowIntensity.mul(3.0).mul(glowActive).mul(dissolveAlpha),
-          );
-
-          // Compose with existing nodes
-          const origOpacity = mat.opacityNode as
-            | TslMaterialNode
-            | null
-            | undefined;
-          mat.opacityNode = origOpacity
-            ? (((origOpacity as { mul: (value: unknown) => unknown }).mul(
-                dissolveAlpha,
-              ) as unknown as TslMaterialNode) ?? dissolveAlpha)
-            : dissolveAlpha;
-
-          const matWithEmissive = mat as MeshStandardMaterialWithNodeProps;
-          const origEmissive = matWithEmissive.emissiveNode as
-            | TslMaterialNode
-            | null
-            | undefined;
-          matWithEmissive.emissiveNode = origEmissive
-            ? ((origEmissive as { add: (value: unknown) => unknown }).add(
-                emissiveBoost,
-              ) as unknown as TslMaterialNode)
-            : (emissiveBoost as TslMaterialNode);
-
-          mat.alphaTest = 0.01;
-          mat.transparent = true;
-          mat.needsUpdate = true;
-          this.teleportDissolvedMaterials.push(mat);
-        }
-      });
+      applyTslDissolve(vrm, false);
+      if (this.outgoingVrm) {
+        applyTslDissolve(this.outgoingVrm, true);
+      }
     } catch (err) {
       console.warn(
         "[VrmEngine] TSL dissolve unavailable, showing instantly:",
@@ -2386,28 +2376,30 @@ export class VrmEngine {
     }
 
     if (!appliedNodeDissolve) {
-      this.applyTeleportFallbackDissolve(vrm);
+      this.applyTeleportFallbackDissolve(vrm, false);
+      if (this.outgoingVrm) {
+        this.applyTeleportFallbackDissolve(this.outgoingVrm, true);
+      }
     }
   }
 
-  private applyTeleportFallbackDissolve(vrm: VRM): void {
+  private applyTeleportFallbackDissolve(vrm: VRM, isOutgoing: boolean): void {
     vrm.scene.traverse((obj: THREE.Object3D) => {
       if (!(obj instanceof THREE.Mesh)) return;
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       for (const mat of mats) {
         if (mat.userData._dissolveApplied) continue;
         mat.userData._dissolveApplied = true;
-        mat.userData._origTransparent = mat.transparent;
         mat.userData._origAlphaTest = mat.alphaTest;
         mat.userData._origOnBeforeCompile = mat.onBeforeCompile;
         mat.userData._origCustomProgramCacheKey = mat.customProgramCacheKey;
 
-        const shaderRef: TeleportFallbackShader = {
+        const shaderRef = {
           uniforms: { uTeleportProgress: { value: this.teleportProgress } },
+          isOutgoing,
         };
         this.teleportFallbackShaders.push(shaderRef);
 
-        mat.transparent = true;
         mat.alphaTest = Math.max(mat.alphaTest ?? 0, 0.01);
         mat.onBeforeCompile = (
           shader: Parameters<THREE.Material["onBeforeCompile"]>[0],
@@ -2425,8 +2417,11 @@ vTeleportWorldPosition = worldPosition.xyz;`,
           shader.fragmentShader = `
 uniform float uTeleportProgress;
 varying vec3 vTeleportWorldPosition;
-float teleportNoiseHash(vec2 p) {
-  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+float teleportSmoothNoise(vec3 p) {
+  float nx = sin(p.x * 18.0 + p.y * 12.0);
+  float ny = cos(p.y * 15.0 + p.z * 10.0);
+  float nz = sin(p.z * 18.0 + p.x * 10.0);
+  return (nx + ny + nz) / 3.0 * 0.5 + 0.5;
 }
 ${shader.fragmentShader}
 `.replace(
@@ -2434,12 +2429,18 @@ ${shader.fragmentShader}
             `float teleportThreshold = mix(${TELEPORT_DISSOLVE_START_Y.toFixed(1)}, ${TELEPORT_DISSOLVE_END_Y.toFixed(1)}, uTeleportProgress);
 float teleportDiff = vTeleportWorldPosition.y - teleportThreshold;
 float teleportRatio = clamp(teleportDiff / 0.3, 0.0, 1.0);
-float teleportNoise = teleportNoiseHash(vec2(
-  vTeleportWorldPosition.y * 40.0,
-  (vTeleportWorldPosition.x + vTeleportWorldPosition.z) * 30.0
-));
-if (teleportNoise < teleportRatio) discard;
+float teleportNoise = teleportSmoothNoise(vTeleportWorldPosition);
+${isOutgoing ? "if (teleportNoise >= teleportRatio) discard;" : "if (teleportNoise < teleportRatio) discard;"}
 #include <alphatest_fragment>`,
+          ).replace(
+            "#include <emissivemap_fragment>",
+            `#include <emissivemap_fragment>
+            float teleportGlowDist = abs(teleportDiff);
+            float teleportGlowIntensity = 1.0 - clamp(teleportGlowDist / 0.08, 0.0, 1.0);
+            vec3 teleportHoloColor = vec3(0.3, 0.9, 0.8);
+            float teleportGlowActive = step(0.001, uTeleportProgress) * (1.0 - step(0.999, uTeleportProgress));
+            float teleportDissolveAlpha = ${isOutgoing ? "1.0 - step(teleportRatio, teleportNoise)" : "step(teleportRatio, teleportNoise)"};
+            totalEmissiveRadiance += teleportHoloColor * (teleportGlowIntensity * 10.0 * teleportGlowActive * teleportDissolveAlpha);`
           );
 
           const originalOnBeforeCompile = mat.userData._origOnBeforeCompile;
@@ -2450,8 +2451,12 @@ if (teleportNoise < teleportRatio) discard;
             );
           }
         };
-        mat.customProgramCacheKey = () =>
-          `${mat.type}:teleport-dissolve-fallback`;
+        const origCacheKey = mat.userData._origCustomProgramCacheKey;
+        mat.customProgramCacheKey = () => {
+          const baseKey =
+            typeof origCacheKey === "function" ? origCacheKey.call(mat) : "";
+          return `${baseKey}:${mat.type}:teleport-dissolve-fallback:${isOutgoing ? "out" : "in"}`;
+        };
         mat.needsUpdate = true;
         this.teleportDissolvedMaterials.push(mat);
       }
@@ -2475,40 +2480,63 @@ if (teleportNoise < teleportRatio) discard;
     const particleHeight = THREE.MathUtils.clamp(size.y * 0.82, 0.95, 1.75);
     const particles: TeleportSparkleParticle[] = [];
 
-    for (let index = 0; index < TELEPORT_SPARKLE_PARTICLE_COUNT; index += 1) {
+    // Central high-energy flash
+    const flashMaterial = new THREE.SpriteMaterial({
+      map: texture,
+      color: new THREE.Color().setHSL(0.55, 0.95, 0.65),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      depthTest: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const flashSprite = new THREE.Sprite(flashMaterial);
+    flashSprite.visible = false;
+    flashSprite.renderOrder = 9999;
+    sparkleGroup.add(flashSprite);
+    particles.push({
+      sprite: flashSprite,
+      material: flashMaterial,
+      baseAngle: 0,
+      baseRadius: 0,
+      height: size.y * 0.5,
+      start: 0,
+      duration: 0.3,
+      spin: 0,
+      wobble: 0,
+      wobbleSpeed: 0,
+      baseSize: 1.8, // Massive size marks it as the central flash
+    });
+
+    // Vertical streaks
+    for (let index = 0; index < 60; index += 1) {
       const hue = 0.52 + Math.random() * 0.08;
       const material = new THREE.SpriteMaterial({
         map: texture,
-        color: new THREE.Color().setHSL(hue, 0.85, 0.72),
+        color: new THREE.Color().setHSL(hue, 0.95, 0.8),
         transparent: true,
         opacity: 0,
         depthWrite: false,
+        depthTest: false,
         blending: THREE.AdditiveBlending,
       });
       const sprite = new THREE.Sprite(material);
       sprite.visible = false;
+      sprite.renderOrder = 9999;
       sparkleGroup.add(sprite);
 
-      const duration = 0.3 + Math.random() * 0.32;
-      const maxStart = Math.max(0.02, 0.92 - duration);
       particles.push({
         sprite,
         material,
-        baseAngle:
-          (index / TELEPORT_SPARKLE_PARTICLE_COUNT) * Math.PI * 2 +
-          (Math.random() - 0.5) * 0.55,
-        baseRadius:
-          (0.18 + Math.random() * 0.82) * TELEPORT_SPARKLE_RING_RADIUS,
-        height: particleHeight * (0.55 + Math.random() * 0.55),
-        start: Math.random() * maxStart,
-        duration,
-        spin: (1.8 + Math.random() * 3.6) * (Math.random() > 0.5 ? 1 : -1),
-        wobble: 0.02 + Math.random() * 0.08,
-        wobbleSpeed: 8 + Math.random() * 12,
-        baseSize:
-          TELEPORT_SPARKLE_MIN_SIZE +
-          Math.random() *
-            (TELEPORT_SPARKLE_MAX_SIZE - TELEPORT_SPARKLE_MIN_SIZE),
+        baseAngle: Math.random() * Math.PI * 2,
+        baseRadius: Math.random() * 0.4 + 0.05,
+        height: particleHeight * (1.1 + Math.random() * 0.5),
+        start: Math.random() * 0.3, // Fast start
+        duration: 0.2 + Math.random() * 0.25, // Snappy duration
+        spin: (Math.random() - 0.5) * 0.5,
+        wobble: 0,
+        wobbleSpeed: 0,
+        baseSize: 0.02 + Math.random() * 0.05, // Thin width 
       });
     }
 
@@ -2540,27 +2568,32 @@ if (teleportNoise < teleportRatio) discard;
       }
 
       anyVisible = true;
-      const rise = 1 - (1 - localProgress) ** 2;
-      const angle = particle.baseAngle + progress * Math.PI * 2 * particle.spin;
-      const wobblePhase = progress * particle.wobbleSpeed + particle.baseAngle;
-      const wobbleOffset = Math.sin(wobblePhase) * particle.wobble;
-      const radial = particle.baseRadius * (1 - 0.48 * rise);
-      const x = Math.cos(angle) * radial + wobbleOffset;
-      const z =
-        Math.sin(angle) * radial + Math.cos(wobblePhase) * particle.wobble;
-      const y =
-        0.08 +
-        particle.height * rise +
-        Math.sin(progress * 10 + particle.baseAngle * 3) * 0.04;
-      const opacity =
-        Math.sin(localProgress * Math.PI) *
-        (0.72 + 0.28 * Math.sin(progress * 22 + particle.baseAngle * 5));
-      const scale = particle.baseSize * (0.7 + (1 - localProgress) * 1.15);
+      const opacity = Math.sin(localProgress * Math.PI) * 1.5;
 
-      particle.sprite.visible = opacity > 0.01;
-      particle.sprite.position.set(x, y, z);
-      particle.sprite.scale.setScalar(scale);
-      particle.material.opacity = opacity;
+      if (particle.baseSize > 1.0) {
+        // Central flash
+        const scale = particle.baseSize * (1.0 + localProgress * 2.0);
+        particle.sprite.position.set(0, particle.height, 0);
+        particle.sprite.scale.setScalar(scale);
+        particle.sprite.visible = opacity > 0.01;
+        particle.material.opacity = Math.min(opacity, 1.0) * 0.45;
+      } else {
+        // Vertical streaks
+        const rise = localProgress ** 1.5;
+        const angle = particle.baseAngle + progress * particle.spin;
+        const radial = particle.baseRadius * (1.0 + rise * 0.6);
+        const x = Math.cos(angle) * radial;
+        const z = Math.sin(angle) * radial;
+        const y = particle.height * rise;
+
+        const width = particle.baseSize * 0.6;
+        const height = particle.baseSize * (8.0 + localProgress * 6.0);
+
+        particle.sprite.position.set(x, y, z);
+        particle.sprite.scale.set(width, height, 1);
+        particle.sprite.visible = opacity > 0.01;
+        particle.material.opacity = Math.min(opacity, 1.0);
+      }
     }
 
     if (!anyVisible && progress >= 1) {
@@ -2580,7 +2613,6 @@ if (teleportNoise < teleportRatio) discard;
             mat.userData._origEmissiveNode ?? null;
         }
         mat.alphaTest = mat.userData._origAlphaTest ?? 0;
-        mat.transparent = mat.userData._origTransparent ?? mat.transparent;
         mat.onBeforeCompile =
           mat.userData._origOnBeforeCompile ?? mat.onBeforeCompile;
         mat.customProgramCacheKey =
@@ -2589,7 +2621,6 @@ if (teleportNoise < teleportRatio) discard;
         delete mat.userData._origOpacityNode;
         delete mat.userData._origEmissiveNode;
         delete mat.userData._origAlphaTest;
-        delete mat.userData._origTransparent;
         delete mat.userData._origOnBeforeCompile;
         delete mat.userData._origCustomProgramCacheKey;
         mat.needsUpdate = true;
@@ -2626,9 +2657,14 @@ if (teleportNoise < teleportRatio) discard;
     const stableDelta = Math.min(rawDelta, 1 / 30);
     this.elapsedTime += rawDelta;
     this.mixer?.update(rawDelta);
+    this.outgoingMixer?.update(rawDelta);
+    if (this.outgoingVrm) {
+      this.applyMouthToVrm(this.outgoingVrm);
+      this.outgoingVrm.update(stableDelta);
+    }
     if (this.vrm) {
       if (this.teleportProgress < 1.0) {
-        this.teleportProgress += stableDelta * 2.0; // ~0.5 seconds duration
+        this.teleportProgress += stableDelta * 2.8; // ~0.35 seconds duration
         if (this.teleportProgress > 1.0) this.teleportProgress = 1.0;
 
         if (this.teleportProgressUniform) {
@@ -2639,6 +2675,13 @@ if (teleportNoise < teleportRatio) discard;
         }
 
         if (this.teleportProgress >= 1.0) {
+          if (this.outgoingVrm) {
+            this.outgoingVrm.scene.parent?.remove(this.outgoingVrm.scene);
+            VRMUtils.deepDispose(this.outgoingVrm.scene);
+            this.outgoingVrm = null;
+            this.outgoingMixer = null;
+            this.outgoingIdleAction = null;
+          }
           this.cleanupTeleportDissolve();
           this.cleanupTeleportSparkles();
           this.teleportCompleteTime = this.elapsedTime;

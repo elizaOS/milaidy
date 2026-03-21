@@ -940,6 +940,7 @@ function SkillsModalView() {
     installSkillFromMarketplace,
     uninstallMarketplaceSkill,
     installSkillFromGithubUrl,
+    t,
   } = useApp();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -986,9 +987,9 @@ function SkillsModalView() {
       {/* ── Left sidebar ── */}
       <div className="plugins-game-list-panel">
         <div className="plugins-game-list-head">
-          <div className="plugins-game-section-title">Talents</div>
+          <div className="plugins-game-section-title">{t("skillsview.Talents", { defaultValue: "Talents" })}</div>
           <div className="plugins-game-section-meta">
-            {skills.length} installed
+            {skills.length} {t("skillsview.installed", { defaultValue: "installed" })}
           </div>
         </div>
 
@@ -997,7 +998,7 @@ function SkillsModalView() {
           <div className="plugins-game-list-search-row">
             <input
               type="text"
-              placeholder="Search skills..."
+              placeholder={t("skillsview.SearchSkills", { defaultValue: "Search skills..." })}
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               className="plugins-game-search-input"
@@ -1007,7 +1008,7 @@ function SkillsModalView() {
               className="plugins-game-chip plugins-game-add-btn"
               onClick={() => setInstallModalOpen(true)}
             >
-              <span className="plugins-game-add-symbol">+</span> Install
+              <span className="plugins-game-add-symbol">+</span> {t("skillsview.Install", { defaultValue: "Install" })}
             </button>
           </div>
         </div>
@@ -1029,7 +1030,7 @@ function SkillsModalView() {
         {/* Skill list */}
         <div className="plugins-game-list-scroll">
           {filtered.length === 0 ? (
-            <div className="plugins-game-list-empty">No skills found</div>
+            <div className="plugins-game-list-empty">{t("skillsview.NoSkillsFound", { defaultValue: "No skills found" })}</div>
           ) : (
             filtered.map((skill) => (
               <button
@@ -1100,14 +1101,14 @@ function SkillsModalView() {
                 className="plugins-game-action-btn"
                 onClick={() => setEditingSkill(selected)}
               >
-                Edit Source
+                {t("skillsview.EditSource", { defaultValue: "Edit Source" })}
               </button>
               <button
                 type="button"
                 className="plugins-game-action-btn"
                 onClick={() => handleDeleteSkill(selected.id, selected.name)}
               >
-                Delete
+                {t("skillsview.Delete", { defaultValue: "Delete" })}
               </button>
             </div>
           </>
@@ -1115,7 +1116,7 @@ function SkillsModalView() {
           <div className="plugins-game-detail-empty">
             <span className="plugins-game-detail-empty-icon">🧠</span>
             <span className="plugins-game-detail-empty-text">
-              Select a talent to configure
+              {t("skillsview.SelectATalentToConf", { defaultValue: "Select a talent to configure" })}
             </span>
           </div>
         )}
@@ -1189,6 +1190,7 @@ function SkillsFullView() {
     uninstallMarketplaceSkill,
     installSkillFromGithubUrl,
     setState,
+    t,
   } = useApp();
 
   const [installModalOpen, setInstallModalOpen] = useState(false);
@@ -1329,7 +1331,7 @@ function SkillsFullView() {
           }
           onClick={() => setState("skillCreateFormOpen", !skillCreateFormOpen)}
         >
-          {skillCreateFormOpen ? "Cancel" : "+ New Skill"}
+          {skillCreateFormOpen ? t("common.cancel") : "+ " + t("skillsview.NewSkill", { defaultValue: "New Skill" })}
         </Button>
         <Button
           variant="default"
@@ -1337,16 +1339,16 @@ function SkillsFullView() {
           className="h-9 px-4 font-bold tracking-wide shadow-sm"
           onClick={() => setInstallModalOpen(true)}
         >
-          Browse Marketplace
+          {t("skillsview.BrowseMarketplace", { defaultValue: "Browse Marketplace" })}
         </Button>
         <Button
           variant="ghost"
           size="sm"
           className="h-9 px-4 font-bold text-muted hover:text-txt"
           onClick={() => refreshSkills()}
-          title="Refresh Skills List"
+          title={t("skillsview.RefreshSkillsList", { defaultValue: "Refresh Skills List" })}
         >
-          Refresh
+          {t("skillsview.Refresh", { defaultValue: "Refresh" })}
         </Button>
       </div>
 

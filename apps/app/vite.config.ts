@@ -134,6 +134,25 @@ function sparkWasmDataUrlPlugin(): Plugin {
   };
 }
 
+function watchWorkspacePackagesPlugin(): Plugin {
+  return {
+    name: "watch-workspace-packages",
+    configureServer(server) {
+      server.watcher.add(path.resolve(miladyRoot, "packages"));
+      server.watcher.on("change", (file) => {
+        if (file.includes("/packages/")) {
+          if (file.endsWith("package.json")) {
+            server.restart();
+          } else {
+            // Force a full reload on any other package file change (e.g. ts/tsx files)
+            server.ws.send({ type: "full-reload" });
+          }
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig({
   root: here,
   base: "./",
@@ -141,6 +160,7 @@ export default defineConfig({
   plugins: [
     publicSrcPlugin(),
     sparkWasmDataUrlPlugin(),
+    watchWorkspacePackagesPlugin(),
     tailwindcss(),
     react(),
     desktopCorsPlugin(),
@@ -200,35 +220,44 @@ export default defineConfig({
       // Force local @miladyai/app-core when workspace-linked (prevents stale
       // bun cache copies from overriding the symlinked local source).
       ...(() => {
-        const appCorePkgPath = path.resolve(miladyRoot, "packages/app-core/package.json");
+        const appCorePkgPath = path.resolve(
+          miladyRoot,
+          "packages/app-core/package.json",
+        );
         const appCorePkgDir = path.dirname(appCorePkgPath);
-        const appCorePkg = JSON.parse(fs.readFileSync(appCorePkgPath, 'utf8'));
-        
+        const appCorePkg = JSON.parse(fs.readFileSync(appCorePkgPath, "utf8"));
+
         const generatedAliases = [];
-        
+
         for (const [key, value] of Object.entries(appCorePkg.exports || {})) {
           if (typeof value === "string") {
-            const aliasKey = key === "." ? "@miladyai/app-core" : `@miladyai/app-core/${key.replace(/^\.\//, '')}`;
+            const aliasKey =
+              key === "."
+                ? "@miladyai/app-core"
+                : `@miladyai/app-core/${key.replace(/^\.\//, "")}`;
             // If the package exports something ending with .js instead of .ts, we check for .ts locally
             // But the exports in app-core point directly to .ts, .tsx, .css, so we can just resolve it
-            let targetPath = path.resolve(appCorePkgDir, value);
-            
+            const targetPath = path.resolve(appCorePkgDir, value);
+
             generatedAliases.push({
               find: new RegExp(`^${aliasKey}$`),
-              replacement: targetPath
+              replacement: targetPath,
             });
             // Also map .js extension for users importing it as .js
             if (!aliasKey.endsWith(".js") && !aliasKey.endsWith(".css")) {
               generatedAliases.push({
                 find: new RegExp(`^${aliasKey}\\.js$`),
-                replacement: targetPath
+                replacement: targetPath,
               });
             }
           }
         }
 
         const uiSource = path.resolve(miladyRoot, "packages/ui/src");
-        const autonomousSource = path.resolve(miladyRoot, "node_modules/@elizaos/agent/packages/agent/src");
+        const autonomousSource = path.resolve(
+          miladyRoot,
+          "node_modules/@elizaos/agent/packages/agent/src",
+        );
 
         return [
           ...generatedAliases,

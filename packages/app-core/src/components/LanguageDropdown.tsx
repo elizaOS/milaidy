@@ -21,6 +21,7 @@ export const LANGUAGES: { id: UiLanguage; flag: string; label: string }[] = [
   { id: "ko", flag: "🇰🇷", label: "한국어" },
   { id: "es", flag: "🇪🇸", label: "Español" },
   { id: "pt", flag: "🇧🇷", label: "Português" },
+  { id: "vi", flag: "🇻🇳", label: "Tiếng Việt" },
 ];
 
 export interface LanguageDropdownProps {

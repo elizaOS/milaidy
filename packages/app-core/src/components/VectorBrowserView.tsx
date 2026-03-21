@@ -1083,7 +1083,7 @@ function MemoryDetailModal({
             {t("vectorbrowserview.Metadata")}
           </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-4">
-            <span className="text-[var(--muted)]">ID</span>
+            <span className="text-[var(--muted)]">{t("vectorbrowserview.ID", { defaultValue: "ID" })}</span>
             <span className="text-[var(--txt)] font-mono truncate">
               {memory.id || "—"}
             </span>
@@ -1406,8 +1406,8 @@ export function VectorBrowserView() {
           <span className="text-xs text-muted">•</span>
           <span className="text-xs text-muted">
             {Number(stats.dimensions) > 0
-              ? `${stats.dimensions}D embeddings`
-              : "loading..."}
+              ? t("vectorbrowserview.DimensionsEmbeddings", { defaultValue: "{dimensions}D embeddings" }).replace("{dimensions}", String(stats.dimensions))
+              : t("vectorbrowserview.Loading", { defaultValue: "loading..." })}
           </span>
           {Number(stats.uniqueCount) > 0 && (
             <>
@@ -1477,14 +1477,14 @@ export function VectorBrowserView() {
               size="sm"
               onClick={() => setViewMode("graph")}
             >
-              2D
+              {t("vectorbrowserview.2D", { defaultValue: "2D" })}
             </Button>
             <Button
               variant={viewMode === "3d" ? "default" : "outline"}
               size="sm"
               onClick={() => setViewMode("3d")}
             >
-              3D
+              {t("vectorbrowserview.3D", { defaultValue: "3D" })}
             </Button>
           </div>
 
@@ -1560,8 +1560,8 @@ export function VectorBrowserView() {
             </div>
             <div className="text-[var(--muted)] text-xs">
               {search
-                ? "No records match your search query."
-                : "No memory records detected in the database."}
+                ? t("vectorbrowserview.NoRecordsMatchSearchQuery", { defaultValue: "No records match your search query." })
+                : t("vectorbrowserview.NoMemoryRecordsDetected", { defaultValue: "No memory records detected in the database." })}
             </div>
           </div>
         ) : (

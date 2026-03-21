@@ -97,7 +97,8 @@ vi.mock("@miladyai/ui", () => {
 });
 
 vi.mock("@miladyai/app-core/components", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@miladyai/app-core/components")>();
+  const actual =
+    await importOriginal<typeof import("@miladyai/app-core/components")>();
   const ReactMock = await import("react");
 
   return {
@@ -249,7 +250,7 @@ describe("CharacterEditor regressions", () => {
       (node) =>
         node.type === "button" &&
         Array.isArray(node.children) &&
-        node.children.includes("Customize")
+        node.children.includes("Customize"),
     );
     await act(async () => {
       customizeBtn.props.onClick();
@@ -261,7 +262,7 @@ describe("CharacterEditor regressions", () => {
         node.type === "button" &&
         node.props.className &&
         typeof node.props.className === "string" &&
-        node.props.className.includes("ce-regen-btn")
+        node.props.className.includes("ce-regen-btn"),
     );
     const regenerateButton = regenerateButtons[0];
     expect(regenerateButton).toBeDefined();
@@ -318,7 +319,7 @@ describe("CharacterEditor regressions", () => {
       (node) =>
         node.type === "button" &&
         Array.isArray(node.children) &&
-        node.children.includes("Customize")
+        node.children.includes("Customize"),
     );
     await act(async () => {
       customizeBtn.props.onClick();

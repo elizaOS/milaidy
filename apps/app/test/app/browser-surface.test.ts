@@ -1,9 +1,9 @@
+import { describe, expect, it } from "vitest";
 import {
   DEFAULT_BROWSER_HOME,
   normalizeBrowserAddressInput,
   readBrowserNavigationUrl,
 } from "../../../../packages/app-core/src/components/browser-surface";
-import { describe, expect, it } from "vitest";
 
 describe("browser surface helpers", () => {
   it("normalizes URL-style address input into http(s) destinations", () => {

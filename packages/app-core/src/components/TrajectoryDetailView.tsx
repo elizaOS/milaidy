@@ -87,7 +87,7 @@ function CodeBlock({ content, label }: { content: string; label: string }) {
               className="text-[10px] text-txt hover:underline"
               onClick={() => setExpanded(!expanded)}
             >
-              {expanded ? "Collapse" : "Expand"}
+              {expanded ? t("trajectorydetailview.Collapse", { defaultValue: "Collapse" }) : t("trajectorydetailview.Expand", { defaultValue: "Expand" })}
             </button>
           )}
           <button
@@ -388,20 +388,20 @@ export function TrajectoryDetailView({
         return (
           <div className="flex flex-wrap gap-4 text-xs mb-3 pb-3 border-b border-border">
             <div>
-              <span className="text-muted">Decision Type: </span>
+              <span className="text-muted">{t("trajectorydetailview.DecisionType", { defaultValue: "Decision Type:" })} </span>
               <span className="text-purple-400 font-semibold">
                 {decisionType}
               </span>
             </div>
             {taskLabel && (
               <div>
-                <span className="text-muted">Task: </span>
+                <span className="text-muted">{t("trajectorydetailview.Task", { defaultValue: "Task:" })} </span>
                 <span>{taskLabel}</span>
               </div>
             )}
             {sessionId && (
               <div>
-                <span className="text-muted">Session: </span>
+                <span className="text-muted">{t("trajectorydetailview.Session1", { defaultValue: "Session:" })} </span>
                 <span className="font-mono text-[10px]">{sessionId}</span>
               </div>
             )}

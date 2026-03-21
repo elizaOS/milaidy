@@ -67,7 +67,7 @@ function CloudRpcStatus({
     return (
       <div className="flex items-center gap-2 text-xs">
         <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok)]" />
-        <span className="font-semibold">Connected to Eliza Cloud</span>
+        <span className="font-semibold">{t("configpageview.ConnectedToElizaCloud", { defaultValue: "Connected to Eliza Cloud" })}</span>
         {credits !== null && (
           <span className="text-[var(--muted)] ml-auto">
             {t("configpageview.Credits")}{" "}
@@ -102,7 +102,7 @@ function CloudRpcStatus({
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 text-xs">
         <span className="inline-block w-2 h-2 rounded-full bg-[var(--muted)]" />
-        <span className="text-[var(--muted)]">Requires Eliza Cloud</span>
+        <span className="text-[var(--muted)]">{t("configpageview.RequiresElizaCloud", { defaultValue: "Requires Eliza Cloud" })}</span>
       </div>
       <button
         type="button"
@@ -110,13 +110,14 @@ function CloudRpcStatus({
         onClick={() => void onLogin()}
         disabled={loginBusy}
       >
-        {loginBusy ? "Connecting..." : "Log in"}
+        {loginBusy ? t("configpageview.Connecting", { defaultValue: "Connecting..." }) : t("configpageview.LogIn", { defaultValue: "Log in" })}
       </button>
     </div>
   );
 }
 
 function buildRpcRendererConfig(
+  t: (key: string, options?: any) => string,
   selectedProvider: string,
   providerConfigs: RpcSectionConfigMap,
   rpcFieldValues: Record<string, string>,
@@ -149,8 +150,8 @@ function buildRpcRendererConfig(
       label: field.label,
       sensitive: true,
       placeholder: field.isSet
-        ? "Already set — leave blank to keep"
-        : "Enter API key",
+        ? t("configpageview.ApiKeySetPlaceholder", { defaultValue: "Already set — leave blank to keep" })
+        : t("configpageview.ApiKeyPlaceholder", { defaultValue: "Enter API key" }),
       width: "full",
     };
     if (rpcFieldValues[field.configKey] !== undefined) {
@@ -177,6 +178,7 @@ type RpcSectionProps<T extends string> = {
   onRpcFieldChange: (key: string, value: unknown) => void;
   cloud: RpcSectionCloudProps;
   containerClassName: string;
+  t: (key: string, options?: any) => string;
 };
 
 function RpcConfigSection<T extends string>({
@@ -190,8 +192,10 @@ function RpcConfigSection<T extends string>({
   onRpcFieldChange,
   cloud,
   containerClassName,
+  t,
 }: RpcSectionProps<T>) {
   const rpcConfig = buildRpcRendererConfig(
+    t,
     selectedProvider,
     providerConfigs,
     rpcFieldValues,
@@ -209,7 +213,7 @@ function RpcConfigSection<T extends string>({
         containerClassName,
         (key: string) => {
           // hack to get t function without breaking hook rules
-          return key === "providerswitcher.elizaCloud" ? "Eliza Cloud" : key;
+          return key === "providerswitcher.elizaCloud" ? t("providerswitcher.elizaCloud", { defaultValue: "Eliza Cloud" }) : key;
         },
       )}
 
@@ -411,17 +415,16 @@ function CloudServicesSection() {
     <div className="mt-4 p-5 border border-border rounded-xl bg-card">
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm font-semibold">
-          {t("configpageview.CloudServices") || "Cloud Services"}
+          {t("configpageview.CloudServices", { defaultValue: "Cloud Services" })}
         </div>
         {needsRestart && (
           <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full border border-accent/30 bg-accent/8 text-accent">
-            Restart required
+            {t("configpageview.RestartRequired", { defaultValue: "Restart required" })}
           </span>
         )}
       </div>
       <p className="text-xs text-muted mb-4 leading-snug">
-        Choose which services to use from Eliza Cloud. Disable inference to use
-        your own API keys instead.
+        {t("configpageview.CloudServicesDesc", { defaultValue: "Choose which services to use from Eliza Cloud. Disable inference to use your own API keys instead." })}
       </p>
       <div className="flex flex-col gap-2">
         {CLOUD_SERVICE_DEFS.map(({ key, label, description }) => (
@@ -665,7 +668,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
       {!elizaCloudConnected && (
         <div className="mt-4 p-5 border border-border rounded-xl bg-card">
           <div className="flex items-center justify-between mb-4">
-            <div className="font-bold text-sm">Custom RPC Providers</div>
+            <div className="font-bold text-sm">{t("configpageview.CustomRpcProviders", { defaultValue: "Custom RPC Providers" })}</div>
             <button
               type="button"
               className="settings-button flex items-center gap-1.5 text-[12px] text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border border-[var(--border)] rounded-lg cursor-pointer transition-colors hover:border-[var(--accent)]"
@@ -701,6 +704,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
               onRpcFieldChange={handleRpcFieldChange}
               cloud={cloudStatusProps}
               containerClassName="flex flex-wrap gap-1.5"
+              t={t}
             />
             <RpcConfigSection
               title={t("configpageview.EVM")}
@@ -713,6 +717,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
               onRpcFieldChange={handleRpcFieldChange}
               cloud={cloudStatusProps}
               containerClassName="flex flex-wrap gap-1.5"
+              t={t}
             />
             <RpcConfigSection
               title={t("configpageview.Solana")}
@@ -725,6 +730,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
               onRpcFieldChange={handleRpcFieldChange}
               cloud={cloudStatusProps}
               containerClassName="flex flex-wrap gap-1.5"
+              t={t}
             />
           </div>
 
@@ -741,7 +747,7 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
               onClick={handleWalletSaveAll}
               disabled={walletApiKeySaving}
             >
-              {walletApiKeySaving ? "Saving..." : "Save"}
+              {walletApiKeySaving ? t("configpageview.Saving", { defaultValue: "Saving..." }) : t("configpageview.Save", { defaultValue: "Save" })}
             </button>
           </div>
         </div>
