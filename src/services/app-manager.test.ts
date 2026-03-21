@@ -2,8 +2,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { AppManager } from "@elizaos/autonomous/services/app-manager";
-import * as registryClient from "@elizaos/autonomous/services/registry-client";
+import { AppManager } from "@elizaos/agent/services/app-manager";
+import * as registryClient from "@elizaos/agent/services/registry-client";
 import {
   type Action,
   type Character,
@@ -57,7 +57,7 @@ class FakeAgentRuntime implements IAgentRuntime {
 
   // IDatabaseAdapter methods (stubbed)
   db = {};
-  async registerMemory(_memory: Memory): Promise<void> {}
+  async registerMemory(_memory: Memory): Promise<void> { }
   async getMemory(_messageId: string): Promise<Memory | null> {
     return null;
   }
@@ -73,7 +73,7 @@ class FakeAgentRuntime implements IAgentRuntime {
   async getMemoriesCount() {
     return 0;
   }
-  async createLog() {}
+  async createLog() { }
   async getLogs() {
     return [];
   }
@@ -83,8 +83,8 @@ class FakeAgentRuntime implements IAgentRuntime {
   async searchMemoriesByEmbedding() {
     return [];
   }
-  async removeMemory() {}
-  async removeAllMemories() {}
+  async removeMemory() { }
+  async removeAllMemories() { }
   async countMemories() {
     return 0;
   }
@@ -100,7 +100,7 @@ class FakeAgentRuntime implements IAgentRuntime {
   async createRoom() {
     return "fake-room-id" as any;
   }
-  async removeRoom() {}
+  async removeRoom() { }
   async getRoomsForParticipant() {
     return [];
   }
@@ -122,7 +122,7 @@ class FakeAgentRuntime implements IAgentRuntime {
   async getParticipantUserState() {
     return null;
   }
-  async setParticipantUserState() {}
+  async setParticipantUserState() { }
   async createRelationship() {
     return true;
   }
@@ -153,50 +153,50 @@ class FakeAgentRuntime implements IAgentRuntime {
   }
 
   // Runtime methods
-  initialize = async () => {};
-  stop = async () => {};
-  processActions = async () => {};
+  initialize = async () => { };
+  stop = async () => { };
+  processActions = async () => { };
   evaluate = async () => null;
   evaluatePre = async () => ({ blocked: false, redacted: false });
-  ensureConnection = async () => {};
-  ensureConnections = async () => {};
-  ensureParticipantInRoom = async () => {};
-  ensureWorldExists = async () => {};
-  ensureRoomExists = async () => {};
+  ensureConnection = async () => { };
+  ensureConnections = async () => { };
+  ensureParticipantInRoom = async () => { };
+  ensureWorldExists = async () => { };
+  ensureRoomExists = async () => { };
   composeState = async () => ({}) as State;
   useModel = async () => "fake-response";
   generateText = async () => ({}) as any;
-  registerModel = () => {};
+  registerModel = () => { };
   getModel = () => undefined;
   getModelConfiguration = () => undefined;
-  registerEvent = () => {};
+  registerEvent = () => { };
   getEvent = () => undefined;
-  emitEvent = async () => {};
-  registerTaskWorker = () => {};
+  emitEvent = async () => { };
+  registerTaskWorker = () => { };
   getTaskWorker = () => undefined;
   dynamicPromptExecFromState = async () => null;
   addEmbeddingToMemory = async (m: Memory) => m;
-  queueEmbeddingGeneration = async () => {};
+  queueEmbeddingGeneration = async () => { };
   getAllMemories = async () => [];
-  clearAllAgentMemories = async () => {};
+  clearAllAgentMemories = async () => { };
   updateMemory = async () => true;
   createRunId = () => "fake-run-id" as any;
   startRun = () => "fake-run-id" as any;
-  endRun = () => {};
+  endRun = () => { };
   getCurrentRunId = () => "fake-run-id" as any;
   getEntityById = async () => null;
   createEntity = async () => true;
   getRooms = async () => [];
-  registerSendHandler = () => {};
-  sendMessageToTarget = async () => {};
-  updateWorld = async () => {};
+  registerSendHandler = () => { };
+  sendMessageToTarget = async () => { };
+  updateWorld = async () => { };
   redactSecrets = (t: string) => t;
   getConnection = async () => ({});
   getServiceLoadPromise = async () => ({}) as Service;
   getRegisteredServiceTypes = () => [];
   hasService = () => false;
-  registerDatabaseAdapter = () => {};
-  setSetting = () => {};
+  registerDatabaseAdapter = () => { };
+  setSetting = () => { };
   getSetting = () => null;
   getConversationLength = () => 0;
   isActionPlanningEnabled = () => true;
@@ -206,7 +206,7 @@ class FakeAgentRuntime implements IAgentRuntime {
   getAllActions = () => [];
   getFilteredActions = () => [];
   isActionAllowed = () => ({ allowed: true, reason: "" });
-  registerPlugin = async () => {};
+  registerPlugin = async () => { };
 
   // Synchronous registration methods to match interface
   registerProvider(provider: Provider): void {
@@ -269,48 +269,48 @@ class FakeAgentRuntime implements IAgentRuntime {
   createAgent = async () => true;
   updateAgent = async () => true;
   deleteAgent = async () => true;
-  ensureEmbeddingDimension = async () => {};
+  ensureEmbeddingDimension = async () => { };
   getEntitiesByIds = async () => null;
   getEntitiesForRoom = async () => [];
   createEntities = async () => true;
-  updateEntity = async () => {};
+  updateEntity = async () => { };
   getComponent = async () => null;
   getComponents = async () => [];
   createComponent = async () => true;
-  updateComponent = async () => {};
-  deleteComponent = async () => {};
-  deleteManyMemories = async () => {};
-  deleteAllMemories = async () => {};
+  updateComponent = async () => { };
+  deleteComponent = async () => { };
+  deleteManyMemories = async () => { };
+  deleteAllMemories = async () => { };
   createWorld = async () => "fake-world-id" as any;
   getWorld = async () => null;
-  removeWorld = async () => {};
+  removeWorld = async () => { };
   getAllWorlds = async () => [];
   getRoomsByIds = async () => null;
   createRooms = async () => [];
-  deleteRoom = async () => {};
-  deleteRoomsByWorldId = async () => {};
-  updateRoom = async () => {};
+  deleteRoom = async () => { };
+  deleteRoomsByWorldId = async () => { };
+  updateRoom = async () => { };
   addParticipantsRoom = async () => true;
-  updateRelationship = async () => {};
+  updateRelationship = async () => { };
   getTasks = async () => [];
   getTask = async () => null;
   getTasksByName = async () => [];
   createTask = async () => "fake-task-id" as any;
-  updateTask = async () => {};
-  deleteTask = async () => {};
+  updateTask = async () => { };
+  deleteTask = async () => { };
   getMemoriesByWorldId = async () => [];
   getPairingRequests = async () => [];
   createPairingRequest = async () => "fake-req-id" as any;
-  updatePairingRequest = async () => {};
-  deletePairingRequest = async () => {};
+  updatePairingRequest = async () => { };
+  deletePairingRequest = async () => { };
   getPairingAllowlist = async () => [];
   createPairingAllowlistEntry = async () => "fake-entry-id" as any;
-  deletePairingAllowlistEntry = async () => {};
+  deletePairingAllowlistEntry = async () => { };
   isReady = async () => true;
-  close = async () => {};
+  close = async () => { };
   getCachedEmbeddings = async () => [];
-  log = async () => {};
-  deleteLog = async () => {};
+  log = async () => { };
+  deleteLog = async () => { };
   isRoomParticipant = async () => false;
   getParticipantsForEntity = async () => [];
 }

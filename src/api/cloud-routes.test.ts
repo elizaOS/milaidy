@@ -20,7 +20,7 @@ const { saveElizaConfigMock, validateCloudBaseUrlMock } = vi.hoisted(() => ({
   validateCloudBaseUrlMock: vi.fn<(rawUrl: string) => Promise<string | null>>(),
 }));
 
-vi.mock("@elizaos/autonomous/cloud/validate-url", () => ({
+vi.mock("@elizaos/agent/cloud/validate-url", () => ({
   validateCloudBaseUrl: validateCloudBaseUrlMock,
 }));
 
@@ -1068,9 +1068,9 @@ describe("handleCloudRoute", () => {
         getService: vi.fn((name: string) =>
           name === "CLOUD_AUTH"
             ? {
-                isAuthenticated: () => authenticated,
-                logout: logoutMock,
-              }
+              isAuthenticated: () => authenticated,
+              logout: logoutMock,
+            }
             : null,
         ),
         setSetting: setSettingMock,

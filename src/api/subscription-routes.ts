@@ -1,7 +1,7 @@
 import {
   type SubscriptionRouteState as AutonomousSubscriptionRouteState,
   handleSubscriptionRoutes as handleAutonomousSubscriptionRoutes,
-} from "@elizaos/autonomous/api/subscription-routes";
+} from "@elizaos/agent/api/subscription-routes";
 import type { ElizaConfig } from "../config/config";
 import type { RouteRequestContext } from "./route-helpers";
 

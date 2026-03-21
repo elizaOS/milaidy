@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/config/types.hooks";
+export * from "@elizaos/agent/config/types.hooks";

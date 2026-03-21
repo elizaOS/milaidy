@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/config/types.agent-defaults";
+export * from "@elizaos/agent/config/types.agent-defaults";

@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/config/object-utils";
+export * from "@elizaos/agent/config/object-utils";

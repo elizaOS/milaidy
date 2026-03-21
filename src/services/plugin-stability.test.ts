@@ -107,7 +107,6 @@ const envKeysToClean = [
   "OLLAMA_BASE_URL",
   "ELIZAOS_CLOUD_API_KEY",
   "ELIZAOS_CLOUD_ENABLED",
-  "ELIZA_USE_PI_AI",
   "DISCORD_BOT_TOKEN",
   "TELEGRAM_BOT_TOKEN",
   "SLACK_BOT_TOKEN",
@@ -171,13 +170,12 @@ describe("Plugin Enumeration", () => {
       "@elizaos/core",
       "@elizaos/plugin-acp",
       "@elizaos/skills",
-      "@elizaos/tui",
     ]);
     // All enumerated plugins should be valid scoped package names
     for (const name of ALL_KNOWN_PLUGINS) {
       expect(
         name.startsWith("@elizaos/plugin-") ||
-          name.startsWith("@elizaai/plugin-"),
+        name.startsWith("@elizaai/plugin-"),
       ).toBe(true);
     }
     expect(knownPackages.size).toBeGreaterThan(0);
@@ -639,7 +637,7 @@ describe("Provider Validation", () => {
       const mod = await import("../runtime/eliza-plugin");
       createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
     } catch {
-      const mod = await import("@elizaos/autonomous/runtime/eliza-plugin");
+      const mod = await import("@elizaos/agent/runtime/eliza-plugin");
       createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
     }
 
@@ -679,7 +677,7 @@ describe("Provider Validation", () => {
       const mod = await import("../runtime/eliza-plugin");
       createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
     } catch {
-      const mod = await import("@elizaos/autonomous/runtime/eliza-plugin");
+      const mod = await import("@elizaos/agent/runtime/eliza-plugin");
       createPlugin = (mod as Record<string, PluginFactory>).createElizaPlugin;
     }
 

@@ -287,21 +287,6 @@ describe("applyPluginAutoEnable — env vars", () => {
     ).toBe(true);
   });
 
-  it("enables pi-ai plugin when USE_PI_AI env is set", () => {
-    // The env key name depends on branding: ELIZA_USE_PI_AI or ELIZA_USE_PI_AI.
-    // Detect which key the source expects by looking at AUTH_PROVIDER_PLUGINS.
-    const piAiEnvKey = AUTH_PROVIDER_PLUGINS.ELIZA_USE_PI_AI
-      ? "ELIZA_USE_PI_AI"
-      : "ELIZA_USE_PI_AI";
-    const params = makeParams({
-      env: { [piAiEnvKey]: "1" },
-    });
-    const { config, changes } = applyPluginAutoEnable(params);
-
-    expect(config.plugins?.allow).toContain("pi-ai");
-    expect(changes.some((c) => c.includes("PI_AI"))).toBe(true);
-  });
-
   it("skips env var with empty string value", () => {
     const params = makeParams({ env: { OPENAI_API_KEY: "" } });
     const { changes } = applyPluginAutoEnable(params);
@@ -695,14 +680,6 @@ describe("AUTH_PROVIDER_PLUGINS", () => {
     expect(AUTH_PROVIDER_PLUGINS.OBSIDAN_VAULT_PATH).toBe(
       "@elizaos/plugin-obsidian",
     );
-  });
-
-  it("maps USE_PI_AI env key to pi-ai plugin", () => {
-    // The key name depends on the branding of the resolved source.
-    const piAiMapping =
-      AUTH_PROVIDER_PLUGINS.ELIZA_USE_PI_AI ??
-      AUTH_PROVIDER_PLUGINS.ELIZA_USE_PI_AI;
-    expect(piAiMapping).toBe("@elizaos/plugin-pi-ai");
   });
 
   it("maps CUA env keys to cua plugin", () => {

@@ -32,79 +32,79 @@ export default defineConfig({
       // export quirks.
       ...(elizaCoreEntry
         ? [
-            {
-              find: "@elizaos/core",
-              replacement: elizaCoreEntry,
-            },
-          ]
+          {
+            find: "@elizaos/core",
+            replacement: elizaCoreEntry,
+          },
+        ]
         : []),
       ...(autonomousSourceRoot
         ? [
-            {
-              find: /^@elizaos\/autonomous\/(.*)/,
-              replacement: path.join(autonomousSourceRoot, "$1"),
-            },
-            {
-              find: "@elizaos/autonomous",
-              replacement: resolveModuleEntry(
-                path.join(autonomousSourceRoot, "index"),
-              ),
-            },
-          ]
+          {
+            find: /^@elizaos\/autonomous\/(.*)/,
+            replacement: path.join(autonomousSourceRoot, "$1"),
+          },
+          {
+            find: "@elizaos/agent",
+            replacement: resolveModuleEntry(
+              path.join(autonomousSourceRoot, "index"),
+            ),
+          },
+        ]
         : []),
       ...(appCoreSourceRoot
         ? [
-            {
-              find: "@elizaos/app-core/bridge/electrobun-rpc",
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "app-core-bridge.ts",
-              ),
-            },
-            {
-              find: "@elizaos/app-core/bridge/electrobun-runtime",
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "app-core-bridge.ts",
-              ),
-            },
-            {
-              find: "@elizaos/app-core/bridge",
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "app-core-bridge.ts",
-              ),
-            },
-            {
-              find: /^@elizaos\/app-core\/(.*)/,
-              replacement: path.join(appCoreSourceRoot, "$1"),
-            },
-            {
-              find: "@elizaos/app-core",
-              replacement: resolveModuleEntry(
-                path.join(appCoreSourceRoot, "index"),
-              ),
-            },
-          ]
+          {
+            find: "@miladyai/app-core/bridge/electrobun-rpc",
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "app-core-bridge.ts",
+            ),
+          },
+          {
+            find: "@miladyai/app-core/bridge/electrobun-runtime",
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "app-core-bridge.ts",
+            ),
+          },
+          {
+            find: "@miladyai/app-core/bridge",
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "app-core-bridge.ts",
+            ),
+          },
+          {
+            find: /^@elizaos\/app-core\/(.*)/,
+            replacement: path.join(appCoreSourceRoot, "$1"),
+          },
+          {
+            find: "@miladyai/app-core",
+            replacement: resolveModuleEntry(
+              path.join(appCoreSourceRoot, "index"),
+            ),
+          },
+        ]
         : [
-            {
-              // Stub app-core when workspace is absent — its npm dist has
-              // extensionless JS imports that break under vitest/vite.
-              find: /^@elizaos\/app-core(\/.*)?$/,
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "plugin-stub.mjs",
-              ),
-            },
-          ]),
+          {
+            // Stub app-core when workspace is absent — its npm dist has
+            // extensionless JS imports that break under vitest/vite.
+            find: /^@elizaos\/app-core(\/.*)?$/,
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "plugin-stub.mjs",
+            ),
+          },
+        ]),
     ],
   },
   test: {
@@ -173,8 +173,8 @@ export default defineConfig({
       deps: {
         inline: [
           "@elizaos/core",
-          "@elizaos/autonomous",
-          "@elizaos/app-core",
+          "@elizaos/agent",
+          "@miladyai/app-core",
           /^@elizaos\/plugin-/,
           "zod",
         ],

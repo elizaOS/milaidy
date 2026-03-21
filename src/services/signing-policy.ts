@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/signing-policy";
+export * from "@elizaos/agent/services/signing-policy";

@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/contracts/config";
+export * from "@elizaos/agent/contracts/config";

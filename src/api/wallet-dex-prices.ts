@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/wallet-dex-prices";
+export * from "@elizaos/agent/api/wallet-dex-prices";

@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/runtime/agent-event-service";
+export * from "@elizaos/agent/runtime/agent-event-service";

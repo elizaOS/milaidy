@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/credit-detection";
+export * from "@elizaos/agent/api/credit-detection";

@@ -3,7 +3,7 @@
  * onboarding (selection-only) and the character editor (with customization).
  */
 
-import { getVrmPreviewUrl } from "@elizaos/app-core/state";
+import { getVrmPreviewUrl } from "@miladyai/app-core/state";
 
 /* ── Shared constants ─────────────────────────────────────────────────── */
 
@@ -24,13 +24,14 @@ export type CharacterRosterEntry = {
   avatarIndex: number;
   voicePresetId?: string;
   catchphrase: string;
+  greetingAnimation?: string;
   preset: Record<string, unknown>;
 };
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
 export function resolveRosterEntries(
-  styles: readonly { catchphrase: string; [k: string]: unknown }[],
+  styles: readonly { catchphrase: string;[k: string]: unknown }[],
 ): CharacterRosterEntry[] {
   return styles.map((preset, index) => {
     const meta = CHARACTER_PRESET_META[preset.catchphrase];
@@ -41,6 +42,7 @@ export function resolveRosterEntries(
       avatarIndex: meta?.avatarIndex ?? (index % 8) + 1,
       voicePresetId: meta?.voicePresetId,
       catchphrase: meta?.catchphrase ?? preset.catchphrase ?? "",
+      greetingAnimation: meta?.greetingAnimation,
       preset,
     };
   });
@@ -68,11 +70,10 @@ export function CharacterRoster({
   if (entries.length === 0) {
     return (
       <div
-        className={`rounded-2xl border p-4 text-sm ${
-          useWhiteBorders
+        className={`rounded-2xl border p-4 text-sm ${useWhiteBorders
             ? "border-white/10 bg-black/10 text-white/50"
             : "border-border/40 bg-black/10 text-muted"
-        }`}
+          }`}
       >
         Loading character presets...
       </div>

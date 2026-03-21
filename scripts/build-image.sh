@@ -178,7 +178,7 @@ patch_vite() {
   sed -i 's|"packages/app-core/src/index\.ts"|"app-core/src/index.ts"|g' "$file"
   sed -i 's|packages/app-core/src/\$1|app-core/src/$1|g' "$file"
 
-  # 4. @elizaos/ui → use dist/ (npm package ships compiled output, no src/)
+  # 4. @miladyai/ui → use dist/ (npm package ships compiled output, no src/)
   #    Target only lines that reference elizaRoot (not miladyRoot)
   sed -i 's|path\.resolve(elizaRoot, "packages/ui/src/index\.ts")|path.resolve(elizaRoot, "ui/dist/index.js")|g' "$file"
   sed -i 's|path\.resolve(elizaRoot, "packages/ui/src/\$1")|path.resolve(elizaRoot, "ui/dist/$1")|g' "$file"

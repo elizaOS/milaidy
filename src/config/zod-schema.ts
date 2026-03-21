@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/config/zod-schema";
+export * from "@elizaos/agent/config/zod-schema";

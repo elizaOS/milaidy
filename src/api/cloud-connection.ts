@@ -1,5 +1,5 @@
-import { resolveCloudApiBaseUrl as resolveCanonicalCloudApiBaseUrl } from "@elizaos/autonomous/cloud/base-url";
-import { validateCloudBaseUrl } from "@elizaos/autonomous/cloud/validate-url";
+import { resolveCloudApiBaseUrl as resolveCanonicalCloudApiBaseUrl } from "@elizaos/agent/cloud/base-url";
+import { validateCloudBaseUrl } from "@elizaos/agent/cloud/validate-url";
 import type { AgentRuntime } from "@elizaos/core";
 import { logger } from "@elizaos/core";
 import type { ElizaConfig } from "../config/config";
@@ -333,8 +333,7 @@ async function clearCloudAuthService(
       await method.call(cloudAuth);
     } catch (err) {
       logger.warn(
-        `[cloud/disconnect] Failed to invoke CLOUD_AUTH.${methodName}: ${
-          err instanceof Error ? err.message : String(err)
+        `[cloud/disconnect] Failed to invoke CLOUD_AUTH.${methodName}: ${err instanceof Error ? err.message : String(err)
         }`,
       );
     }
@@ -379,8 +378,7 @@ async function clearRuntimeCloudState(
         runtimeWithCloud.setSetting(key, null);
       } catch (err) {
         logger.warn(
-          `[cloud/disconnect] Failed to clear runtime setting ${key}: ${
-            err instanceof Error ? err.message : String(err)
+          `[cloud/disconnect] Failed to clear runtime setting ${key}: ${err instanceof Error ? err.message : String(err)
           }`,
         );
       }
@@ -394,8 +392,7 @@ async function clearRuntimeCloudState(
       });
     } catch (err) {
       logger.warn(
-        `[cloud/disconnect] Failed to clear cloud secrets from agent DB: ${
-          err instanceof Error ? err.message : String(err)
+        `[cloud/disconnect] Failed to clear cloud secrets from agent DB: ${err instanceof Error ? err.message : String(err)
         }`,
       );
     }
@@ -415,8 +412,7 @@ export async function disconnectUnifiedCloudConnection(args: {
       await cloudManager.disconnect();
     } catch (err) {
       logger.warn(
-        `[cloud/disconnect] Failed to disconnect cloud manager: ${
-          err instanceof Error ? err.message : String(err)
+        `[cloud/disconnect] Failed to disconnect cloud manager: ${err instanceof Error ? err.message : String(err)
         }`,
       );
     }
@@ -433,8 +429,7 @@ export async function disconnectUnifiedCloudConnection(args: {
     saveConfig?.(config);
   } catch (err) {
     logger.warn(
-      `[cloud/disconnect] Failed to save cloud disconnect state: ${
-        err instanceof Error ? err.message : String(err)
+      `[cloud/disconnect] Failed to save cloud disconnect state: ${err instanceof Error ? err.message : String(err)
       }`,
     );
   }

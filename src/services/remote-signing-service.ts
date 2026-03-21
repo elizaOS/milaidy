@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/remote-signing-service";
+export * from "@elizaos/agent/services/remote-signing-service";

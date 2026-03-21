@@ -25,7 +25,7 @@ vi.mock("../diagnostics/integration-observability", () => ({
   createIntegrationTelemetrySpan: createSpanMock,
 }));
 
-vi.mock("@elizaos/autonomous/cloud/validate-url", () => ({
+vi.mock("@elizaos/agent/cloud/validate-url", () => ({
   validateCloudBaseUrl: validateCloudBaseUrlMock,
 }));
 

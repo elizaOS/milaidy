@@ -11,7 +11,7 @@ describe("onboarding style overrides", () => {
   it("imports the local onboarding override stylesheet after app-core styles", () => {
     const source = fs.readFileSync(MAIN_PATH, "utf8");
 
-    expect(source).toContain('import "@elizaos/app-core/styles/styles.css";');
+    expect(source).toContain('import "@miladyai/app-core/styles/styles.css";');
     expect(source).toContain('import "./onboarding-overrides.css";');
   });
 

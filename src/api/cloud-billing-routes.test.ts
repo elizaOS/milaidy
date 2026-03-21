@@ -9,20 +9,20 @@ vi.mock("@elizaos/core", () => ({
   logger: { warn: vi.fn() },
 }));
 
-vi.mock("@elizaos/autonomous/cloud/validate-url", () => ({
+vi.mock("@elizaos/agent/cloud/validate-url", () => ({
   validateCloudBaseUrl: vi.fn(() => Promise.resolve(null)),
 }));
 
-vi.mock("@elizaos/autonomous/api/http-helpers", () => ({
+vi.mock("@elizaos/agent/api/http-helpers", () => ({
   sendJson: vi.fn(),
   sendJsonError: vi.fn(),
 }));
 
 const { sendJson, sendJsonError } = await import(
-  "@elizaos/autonomous/api/http-helpers"
+  "@elizaos/agent/api/http-helpers"
 );
 const { validateCloudBaseUrl } = await import(
-  "@elizaos/autonomous/cloud/validate-url"
+  "@elizaos/agent/cloud/validate-url"
 );
 
 function makeState(

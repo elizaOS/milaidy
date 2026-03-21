@@ -20,7 +20,7 @@ const bridgeStubPath = path.join(
 );
 
 /**
- * Custom Vite plugin that redirects @elizaos/app-core/bridge imports to
+ * Custom Vite plugin that redirects @miladyai/app-core/bridge imports to
  * the test stub before Vite's built-in resolver tries to resolve through
  * the package's exports map (which may reference native bindings that are
  * unavailable in the test environment).
@@ -31,9 +31,9 @@ function appCoreBridgeStubPlugin(): Plugin {
     enforce: "pre",
     resolveId(source) {
       if (
-        source === "@elizaos/app-core/bridge/electrobun-rpc" ||
-        source === "@elizaos/app-core/bridge/electrobun-runtime" ||
-        source === "@elizaos/app-core/bridge"
+        source === "@miladyai/app-core/bridge/electrobun-rpc" ||
+        source === "@miladyai/app-core/bridge/electrobun-runtime" ||
+        source === "@miladyai/app-core/bridge"
       ) {
         return bridgeStubPath;
       }
@@ -56,17 +56,17 @@ export default defineConfig({
       },
       ...(appCorePackageRoot
         ? [
-            {
-              find: /^@elizaos\/app-core\/(.*)/,
-              replacement: path.join(appCorePackageRoot, "$1"),
-            },
-            {
-              find: "@elizaos/app-core",
-              replacement: resolveModuleEntry(
-                path.join(appCorePackageRoot, "index"),
-              ),
-            },
-          ]
+          {
+            find: /^@elizaos\/app-core\/(.*)/,
+            replacement: path.join(appCorePackageRoot, "$1"),
+          },
+          {
+            find: "@miladyai/app-core",
+            replacement: resolveModuleEntry(
+              path.join(appCorePackageRoot, "index"),
+            ),
+          },
+        ]
         : []),
     ],
   },
@@ -118,7 +118,7 @@ export default defineConfig({
     globals: true,
     server: {
       deps: {
-        inline: ["@elizaos/app-core"],
+        inline: ["@miladyai/app-core"],
       },
     },
   },

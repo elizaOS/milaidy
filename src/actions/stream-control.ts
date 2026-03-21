@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/actions/stream-control";
+export * from "@elizaos/agent/actions/stream-control";

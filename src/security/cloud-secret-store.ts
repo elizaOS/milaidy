@@ -1,7 +1,7 @@
 /**
  * Sealed, non-enumerable store for cloud API secrets.
  *
- * The upstream `@elizaos/autonomous` cloud-routes handler writes
+ * The upstream `@elizaos/agent` cloud-routes handler writes
  * `ELIZAOS_CLOUD_API_KEY` directly to `process.env` on login, making it
  * readable by any module and visible in crash dumps. This module provides:
  *

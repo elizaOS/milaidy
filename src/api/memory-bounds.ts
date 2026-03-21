@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/memory-bounds";
+export * from "@elizaos/agent/api/memory-bounds";

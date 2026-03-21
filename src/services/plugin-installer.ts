@@ -164,7 +164,7 @@ function resolveCurrentElizaReleaseChannel(): "alpha" | "next" | null {
   }
 
   try {
-    const pkgPath = require.resolve("@elizaos/autonomous/package.json");
+    const pkgPath = require.resolve("@elizaos/agent/package.json");
     const pkg = JSON.parse(fsSync.readFileSync(pkgPath, "utf8")) as {
       version?: unknown;
     };
@@ -476,9 +476,9 @@ async function _uninstallPlugin(pluginName: string): Promise<UninstallResult> {
   } catch (err) {
     const code =
       typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      typeof (err as { code?: string }).code === "string"
+        err !== null &&
+        "code" in err &&
+        typeof (err as { code?: string }).code === "string"
         ? (err as { code: string }).code
         : undefined;
     if (code !== "ENOENT") {

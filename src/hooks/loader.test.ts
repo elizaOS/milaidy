@@ -40,14 +40,14 @@ vi.mock("@elizaos/core", () => ({
 
 // Mock discoverHooks to return controlled entries
 const mockDiscoverHooks = vi.fn<() => Promise<HookEntry[]>>();
-vi.mock("@elizaos/autonomous/hooks/discovery", () => ({
+vi.mock("@elizaos/agent/hooks/discovery", () => ({
   discoverHooks: (...args: unknown[]) => mockDiscoverHooks(...(args as [])),
 }));
 
 // Mock eligibility — default to eligible
 const mockCheckEligibility = vi.fn();
 const mockResolveHookConfig = vi.fn();
-vi.mock("@elizaos/autonomous/hooks/eligibility", () => ({
+vi.mock("@elizaos/agent/hooks/eligibility", () => ({
   checkEligibility: (...args: unknown[]) =>
     mockCheckEligibility(...(args as [])),
   resolveHookConfig: (...args: unknown[]) =>
@@ -57,7 +57,7 @@ vi.mock("@elizaos/autonomous/hooks/eligibility", () => ({
 // Track calls to registerHook and clearHooks
 const mockRegisterHook = vi.fn();
 const mockClearHooks = vi.fn();
-vi.mock("@elizaos/autonomous/hooks/registry", () => ({
+vi.mock("@elizaos/agent/hooks/registry", () => ({
   registerHook: (...args: unknown[]) => mockRegisterHook(...(args as [])),
   clearHooks: () => mockClearHooks(),
 }));
@@ -107,11 +107,11 @@ function makeEntry(
   const metadata: ElizaHookMetadata | undefined =
     opts.events !== undefined
       ? {
-          events: opts.events,
-          hookKey: opts.hookKey,
-          emoji: opts.emoji,
-          export: opts.export,
-        }
+        events: opts.events,
+        hookKey: opts.hookKey,
+        emoji: opts.emoji,
+        export: opts.export,
+      }
       : undefined;
 
   return {
@@ -148,7 +148,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 async function getLoadHooks() {
-  const mod = await import("@elizaos/autonomous/hooks/loader");
+  const mod = await import("@elizaos/agent/hooks/loader");
   return mod.loadHooks;
 }
 

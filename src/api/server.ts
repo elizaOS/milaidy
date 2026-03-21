@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { type AgentRuntime, logger, stringToUuid } from "@elizaos/core";
 
 // Re-export the full upstream server API.
-export * from "@elizaos/autonomous/api/server";
+export * from "@elizaos/agent/api/server";
 
 // Override the wallet export rejection function with the hardened version
 // that adds rate limiting, audit logging, and a forced confirmation delay.
@@ -22,7 +22,7 @@ import {
   resolveWalletExportRejection as upstreamResolveWalletExportRejection,
   resolveWebSocketUpgradeRejection as upstreamResolveWebSocketUpgradeRejection,
   startApiServer as upstreamStartApiServer,
-} from "@elizaos/autonomous/api/server";
+} from "@elizaos/agent/api/server";
 import { loadElizaConfig, saveElizaConfig } from "../config/config";
 import { sanitizeSpeechText } from "../utils/spoken-text";
 import {
@@ -1439,7 +1439,7 @@ function findNearestFile(
 
 const ONBOARDING_PROVIDER_ENV_KEYS: Record<string, string> = {
   // Provider IDs match the upstream onboarding catalog in
-  // @elizaos/autonomous/contracts/onboarding.ts
+  // @elizaos/agent/contracts/onboarding.ts
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
   groq: "GROQ_API_KEY",
@@ -1839,8 +1839,8 @@ function persistCompatPluginMutation(
 
     const nextConfig =
       pluginEntry.config &&
-      typeof pluginEntry.config === "object" &&
-      !Array.isArray(pluginEntry.config)
+        typeof pluginEntry.config === "object" &&
+        !Array.isArray(pluginEntry.config)
         ? { ...(pluginEntry.config as Record<string, unknown>) }
         : {};
 
@@ -2278,7 +2278,7 @@ async function handleMiladyCompatRoute(
 
     try {
       const { getWalletAddresses } = await import(
-        "@elizaos/autonomous/api/wallet"
+        "@elizaos/agent/api/wallet"
       );
       const addresses = getWalletAddresses();
       sendJsonResponse(res, 200, {

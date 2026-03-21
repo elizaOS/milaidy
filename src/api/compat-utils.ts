@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/compat-utils";
+export * from "@elizaos/agent/api/compat-utils";

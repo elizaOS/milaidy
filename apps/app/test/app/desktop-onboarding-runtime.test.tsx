@@ -11,12 +11,12 @@ const { invokeDesktopBridgeRequestMock, isElectrobunRuntimeMock, useAppMock } =
     useAppMock: vi.fn(),
   }));
 
-vi.mock("@elizaos/app-core/bridge", () => ({
+vi.mock("@miladyai/app-core/bridge", () => ({
   invokeDesktopBridgeRequest: invokeDesktopBridgeRequestMock,
   isElectrobunRuntime: isElectrobunRuntimeMock,
 }));
 
-vi.mock("@elizaos/app-core/state", () => ({
+vi.mock("@miladyai/app-core/state", () => ({
   useApp: useAppMock,
 }));
 

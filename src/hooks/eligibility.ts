@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/hooks/eligibility";
+export * from "@elizaos/agent/hooks/eligibility";

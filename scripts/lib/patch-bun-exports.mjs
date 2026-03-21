@@ -137,7 +137,7 @@ export function warnStaleBunCache(root, log = console.log) {
         JSON.parse(readFileSync(pkgJsonPath, "utf8")).version || "";
       const stamp = readFileSync(stampPath, "utf8").trim();
       if (stamp === pkgVersion) return 0;
-    } catch {}
+    } catch { }
   }
 
   const prefixes = [
@@ -183,7 +183,7 @@ export function warnStaleBunCache(root, log = console.log) {
       ? JSON.parse(readFileSync(pkgJsonPath, "utf8")).version || ""
       : "";
     writeFileSync(stampPath, pkgVersion, "utf8");
-  } catch {}
+  } catch { }
 
   if (staleCount > 0) {
     log(
@@ -494,14 +494,14 @@ function buildAppCoreMiladyVrmStateSource(catalog) {
       (asset) => `  {
     title: ${JSON.stringify(asset.title)},
     vrmPath: resolveAppAssetUrl(${JSON.stringify(
-      toAppCoreRelativeAssetPath(`/vrms/${asset.slug}.vrm.gz`),
-    )}),
+        toAppCoreRelativeAssetPath(`/vrms/${asset.slug}.vrm.gz`),
+      )}),
     previewPath: resolveAppAssetUrl(${JSON.stringify(
-      toAppCoreRelativeAssetPath(`/vrms/previews/${asset.slug}.png`),
-    )}),
+        toAppCoreRelativeAssetPath(`/vrms/previews/${asset.slug}.png`),
+      )}),
     backgroundPath: resolveAppAssetUrl(${JSON.stringify(
-      toAppCoreRelativeAssetPath(`/vrms/backgrounds/${asset.slug}.png`),
-    )}),
+        toAppCoreRelativeAssetPath(`/vrms/backgrounds/${asset.slug}.png`),
+      )}),
   },`,
     )
     .join("\n");
@@ -619,7 +619,7 @@ ${entries}
 }
 
 /**
- * @elizaos/app-core alpha.53 still ships the upstream Eliza avatar roster
+ * @miladyai/app-core alpha.53 still ships the upstream Eliza avatar roster
  * (4 slots pointing at eliza-1/4/5/9), but Milady owns the asset catalog.
  * Patch the published bundle so runtime avatar URLs and injected characters
  * derive from apps/app/characters/catalog.json.
@@ -800,17 +800,17 @@ export function patchAutonomousMiladyOnboardingPresets(
   const candidates = [
     ...findPackageFilePaths(
       root,
-      "@elizaos/autonomous",
+      "@elizaos/agent",
       "packages/autonomous/src/onboarding-presets.js",
     ),
     ...findPackageFilePaths(
       root,
-      "@elizaos/autonomous",
+      "@elizaos/agent",
       "src/onboarding-presets.js",
     ),
     ...findPackageFilePaths(
       root,
-      "@elizaos/autonomous",
+      "@elizaos/agent",
       "src/onboarding-presets.ts",
     ),
   ];
@@ -824,7 +824,7 @@ export function patchAutonomousMiladyOnboardingPresets(
     }
     patched = true;
     log(
-      "[patch-deps] Patched @elizaos/autonomous packages/autonomous/src/onboarding-presets.js: onboarding presets now derive from Milady.",
+      "[patch-deps] Patched @elizaos/agent packages/autonomous/src/onboarding-presets.js: onboarding presets now derive from Milady.",
     );
   }
 
@@ -832,7 +832,7 @@ export function patchAutonomousMiladyOnboardingPresets(
 }
 
 /**
- * Patch all installed @elizaos/app-core copies so bundled avatar URLs and
+ * Patch all installed @miladyai/app-core copies so bundled avatar URLs and
  * injected character metadata resolve from Milady's shared asset catalog.
  */
 export function patchAppCoreMiladyAssets(
@@ -881,7 +881,7 @@ export function patchAppCoreMiladyAssets(
   for (const target of patchTargets) {
     const candidates = findPackageFilePaths(
       root,
-      "@elizaos/app-core",
+      "@miladyai/app-core",
       target.relativePath,
     );
 
@@ -889,7 +889,7 @@ export function patchAppCoreMiladyAssets(
       if (!target.apply(filePath, catalog)) continue;
       patched = true;
       log(
-        `[patch-deps] Patched @elizaos/app-core ${target.relativePath}: ${target.description}.`,
+        `[patch-deps] Patched @miladyai/app-core ${target.relativePath}: ${target.description}.`,
       );
     }
   }
@@ -1197,7 +1197,7 @@ export function patchProperLockfileSignalExitCompat(root, log = console.log) {
 export function patchAutonomousTypeError(root, log = console.log) {
   const candidates = findPackageFilePaths(
     root,
-    "@elizaos/autonomous",
+    "@elizaos/agent",
     "src/api/server.ts",
   );
   let patched = false;
@@ -1213,7 +1213,7 @@ export function patchAutonomousTypeError(root, log = console.log) {
       );
       writeFileSync(filePath, source, "utf8");
       patched = true;
-      log("[patch-deps] Patched @elizaos/autonomous type error in server.ts");
+      log("[patch-deps] Patched @elizaos/agent type error in server.ts");
     }
   }
   return patched;

@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/runtime/embedding-presets";
+export * from "@elizaos/agent/runtime/embedding-presets";

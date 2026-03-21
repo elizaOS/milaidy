@@ -1434,6 +1434,7 @@ export const CHARACTER_PRESET_META: Record<
     avatarIndex: number;
     voicePresetId?: string;
     catchphrase: string;
+    greetingAnimation?: string;
   }
 > = {
   "I'm here to help you.": {
@@ -1441,48 +1442,56 @@ export const CHARACTER_PRESET_META: Record<
     avatarIndex: 1,
     voicePresetId: "sarah",
     catchphrase: "I'm here to help you.",
+    greetingAnimation: "animations/greetings/greeting1.fbx.gz",
   },
   "I'm here to get things done.": {
     name: "Jin",
     avatarIndex: 2,
     voicePresetId: "adam",
     catchphrase: "I'm here to get things done.",
+    greetingAnimation: "animations/greetings/greeting2.fbx.gz",
   },
   "I'm online and ready.": {
     name: "Kei",
     avatarIndex: 3,
     voicePresetId: "josh",
     catchphrase: "I'm online and ready.",
+    greetingAnimation: "animations/greetings/greeting3.fbx.gz",
   },
   "I'm ready to assist.": {
     name: "Momo",
     avatarIndex: 4,
     voicePresetId: "alice",
     catchphrase: "I'm ready to assist.",
+    greetingAnimation: "animations/greetings/greeting4.fbx.gz",
   },
   "Let's build something fun.": {
     name: "Rin",
     avatarIndex: 5,
     voicePresetId: "matilda",
     catchphrase: "Let's build something fun.",
+    greetingAnimation: "animations/greetings/greeting5.fbx.gz",
   },
   "I am ready when you are.": {
     name: "Ryu",
     avatarIndex: 6,
     voicePresetId: "daniel",
     catchphrase: "I am ready when you are.",
+    greetingAnimation: "animations/greetings/greeting6.fbx.gz",
   },
   "Show me what we're building.": {
     name: "Satoshi",
     avatarIndex: 7,
     voicePresetId: "brian",
     catchphrase: "Show me what we're building.",
+    greetingAnimation: "animations/greetings/greeting7.fbx.gz",
   },
   "Let's figure this out together.": {
     name: "Yuki",
     avatarIndex: 8,
     voicePresetId: "lily",
     catchphrase: "Let's figure this out together.",
+    greetingAnimation: "animations/greetings/greeting8.fbx.gz",
   },
 };
 

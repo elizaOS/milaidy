@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/actions/restart";
+export * from "@elizaos/agent/actions/restart";

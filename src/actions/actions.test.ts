@@ -12,7 +12,7 @@ vi.mock("@elizaos/core", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@elizaos/autonomous/config/config", () => {
+vi.mock("@elizaos/agent/config/config", () => {
   const loadFn = vi.fn(() => ({ customActions: [] }));
   const saveFn = vi.fn();
   return {
@@ -25,14 +25,14 @@ vi.mock("node:dns/promises", () => ({
   lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34", family: 4 }]),
 }));
 
-import { loadElizaConfig } from "@elizaos/autonomous/config/config";
+import { loadElizaConfig } from "@elizaos/agent/config/config";
 import {
   __setPinnedFetchImplForTests,
   buildTestHandler,
   loadCustomActions,
   registerCustomActionLive,
   setCustomActionsRuntime,
-} from "@elizaos/autonomous/runtime/custom-actions";
+} from "@elizaos/agent/runtime/custom-actions";
 import type { IAgentRuntime } from "@elizaos/core";
 import type { CustomActionDef, ElizaConfig } from "../config/types.eliza";
 

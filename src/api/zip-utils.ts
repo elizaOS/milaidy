@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/zip-utils";
+export * from "@elizaos/agent/api/zip-utils";

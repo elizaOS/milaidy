@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/tx-service";
+export * from "@elizaos/agent/api/tx-service";

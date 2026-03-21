@@ -24,39 +24,39 @@ export default defineConfig({
       },
       ...(elizaCoreEntry
         ? [
-            {
-              find: "@elizaos/core",
-              replacement: elizaCoreEntry,
-            },
-          ]
+          {
+            find: "@elizaos/core",
+            replacement: elizaCoreEntry,
+          },
+        ]
         : []),
       ...(autonomousSourceRoot
         ? [
-            {
-              find: /^@elizaos\/autonomous\/(.*)/,
-              replacement: path.join(autonomousSourceRoot, "$1"),
-            },
-            {
-              find: "@elizaos/autonomous",
-              replacement: resolveModuleEntry(
-                path.join(autonomousSourceRoot, "index"),
-              ),
-            },
-          ]
+          {
+            find: /^@elizaos\/autonomous\/(.*)/,
+            replacement: path.join(autonomousSourceRoot, "$1"),
+          },
+          {
+            find: "@elizaos/agent",
+            replacement: resolveModuleEntry(
+              path.join(autonomousSourceRoot, "index"),
+            ),
+          },
+        ]
         : []),
       ...(appCoreSourceRoot
         ? [
-            {
-              find: /^@elizaos\/app-core\/(.*)/,
-              replacement: path.join(appCoreSourceRoot, "$1"),
-            },
-            {
-              find: "@elizaos/app-core",
-              replacement: resolveModuleEntry(
-                path.join(appCoreSourceRoot, "index"),
-              ),
-            },
-          ]
+          {
+            find: /^@elizaos\/app-core\/(.*)/,
+            replacement: path.join(appCoreSourceRoot, "$1"),
+          },
+          {
+            find: "@miladyai/app-core",
+            replacement: resolveModuleEntry(
+              path.join(appCoreSourceRoot, "index"),
+            ),
+          },
+        ]
         : []),
       {
         find: "@elizaos/skills",
@@ -98,52 +98,52 @@ export default defineConfig({
       },
       ...(!liveTest
         ? [
-            {
-              find: "@elizaos/plugin-openai",
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "plugin-stub.mjs",
-              ),
-            },
-            {
-              find: "@elizaos/plugin-ollama",
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "plugin-stub.mjs",
-              ),
-            },
-            {
-              find: "@elizaos/plugin-local-embedding",
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "plugin-stub.mjs",
-              ),
-            },
-            {
-              find: "@elizaos/plugin-sql",
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "plugin-stub.mjs",
-              ),
-            },
-            {
-              find: "@elizaos/plugin-discord",
-              replacement: path.join(
-                repoRoot,
-                "test",
-                "stubs",
-                "plugin-stub.mjs",
-              ),
-            },
-          ]
+          {
+            find: "@elizaos/plugin-openai",
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "plugin-stub.mjs",
+            ),
+          },
+          {
+            find: "@elizaos/plugin-ollama",
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "plugin-stub.mjs",
+            ),
+          },
+          {
+            find: "@elizaos/plugin-local-embedding",
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "plugin-stub.mjs",
+            ),
+          },
+          {
+            find: "@elizaos/plugin-sql",
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "plugin-stub.mjs",
+            ),
+          },
+          {
+            find: "@elizaos/plugin-discord",
+            replacement: path.join(
+              repoRoot,
+              "test",
+              "stubs",
+              "plugin-stub.mjs",
+            ),
+          },
+        ]
         : []),
       {
         find: "@elizaos/plugin-telegram",
@@ -187,7 +187,7 @@ export default defineConfig({
       deps: {
         inline: [
           "@elizaos/core",
-          "@elizaos/autonomous",
+          "@elizaos/agent",
           /^@elizaos\/plugin-/,
           "zod",
         ],

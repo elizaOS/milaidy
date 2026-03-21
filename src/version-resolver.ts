@@ -1,2 +1,2 @@
-export * from "@elizaos/autonomous/version-resolver";
-export { resolveElizaVersion } from "@elizaos/autonomous/version-resolver";
+export * from "@elizaos/agent/version-resolver";
+export { resolveElizaVersion } from "@elizaos/agent/version-resolver";

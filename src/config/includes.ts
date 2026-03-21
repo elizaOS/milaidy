@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/config/includes";
+export * from "@elizaos/agent/config/includes";

@@ -5,15 +5,15 @@
  * right panel has style rules + examples. Footer has voice + save + reset.
  */
 
-import { client } from "@elizaos/app-core/api";
+import { client } from "@miladyai/app-core/api";
 import {
   APP_EMOTE_EVENT,
   dispatchWindowEvent,
   VOICE_CONFIG_UPDATED_EVENT,
-} from "@elizaos/app-core/events";
-import { useApp } from "@elizaos/app-core/state";
-import { PREMADE_VOICES, sanitizeApiKey } from "@elizaos/app-core/voice";
-import { Button, Input, Textarea, ThemedSelect } from "@elizaos/ui";
+} from "@miladyai/app-core/events";
+import { useApp } from "@miladyai/app-core/state";
+import { PREMADE_VOICES, sanitizeApiKey } from "@miladyai/app-core/voice";
+import { Button, Input, Textarea, ThemedSelect } from "@miladyai/ui";
 import { STYLE_PRESETS } from "../../../../src/onboarding-presets";
 import { normalizeCharacterMessageExamples } from "../../../../src/utils/character-message-examples";
 import {
@@ -177,6 +177,7 @@ export function CharacterEditor({
     characterLoading,
     characterSaving,
     characterSaveSuccess,
+    chatAgentVoiceMuted,
     characterSaveError,
     handleCharacterFieldInput,
     handleCharacterArrayInput,
@@ -256,8 +257,11 @@ export function CharacterEditor({
   const [fieldsEdited, setFieldsEdited] = useState(false);
   /** Ref to suppress dirty-tracking during programmatic field updates. */
   const suppressDirtyRef = useRef(false);
-  /** Queued catchphrase to speak after VRM teleport-in dissolve finishes. */
-  const pendingWaveCatchphraseRef = useRef<string | null>(null);
+  /** Queued greeting to play after VRM teleport-in dissolve finishes. */
+  const pendingGreetingRef = useRef<{
+    catchphrase: string;
+    animationPath: string;
+  } | null>(null);
   const onboardingPresetStyles = useMemo(
     () => getOnboardingPresetStyles(onboardingOptions),
     [onboardingOptions],
@@ -309,9 +313,9 @@ export function CharacterEditor({
     "Agent";
   const normalizedMessageExamples = Array.isArray(d.messageExamples)
     ? normalizeCharacterMessageExamples(
-        d.messageExamples,
-        fallbackCharacterName,
-      )
+      d.messageExamples,
+      fallbackCharacterName,
+    )
     : [];
   const bioText =
     typeof d.bio === "string"
@@ -397,7 +401,7 @@ export function CharacterEditor({
             setSelectedVoicePresetId(preset?.id ?? null);
           }
         }
-      } catch {}
+      } catch { }
       setVoiceLoading(false);
     })();
   }, []);
@@ -457,9 +461,14 @@ export function CharacterEditor({
       if (applyDefaults) {
         applyCharacterDefaults(entry);
       }
-      // Queue wave + catchphrase to play after the VRM teleport-in dissolve finishes
+      // Queue greeting animation + catchphrase to play after the VRM teleport-in dissolve finishes
       if (isNewCharacter && entry.catchphrase) {
-        pendingWaveCatchphraseRef.current = entry.catchphrase;
+        pendingGreetingRef.current = {
+          catchphrase: entry.catchphrase,
+          animationPath:
+            entry.greetingAnimation ??
+            "animations/emotes/waving-both-hands.glb.gz",
+        };
       }
     },
     [
@@ -505,20 +514,20 @@ export function CharacterEditor({
     activeCharacterRosterEntry,
   ]);
 
-  /* ── Play wave + catchphrase when VRM teleport-in dissolve finishes ── */
+  /* ── Play greeting animation + catchphrase when VRM teleport-in dissolve finishes ── */
   useEffect(() => {
     const handler = () => {
-      const catchphrase = pendingWaveCatchphraseRef.current;
-      if (!catchphrase) return;
-      pendingWaveCatchphraseRef.current = null;
+      const greeting = pendingGreetingRef.current;
+      if (!greeting) return;
+      pendingGreetingRef.current = null;
       dispatchWindowEvent(APP_EMOTE_EVENT, {
-        emoteId: "wave",
-        path: "/animations/emotes/waving-both-hands.glb",
-        duration: 2.5,
+        emoteId: "greeting",
+        path: `/${greeting.animationPath}`,
+        duration: 3,
         loop: false,
         showOverlay: false,
       });
-      void client.streamVoiceSpeak(catchphrase).catch(() => {});
+      void client.streamVoiceSpeak(greeting.catchphrase).catch(() => {});
     };
     const eventName = "eliza:vrm-teleport-complete";
     window.addEventListener(eventName, handler);
@@ -657,7 +666,7 @@ export function CharacterEditor({
               if (parsed.chat) handleStyleEdit("chat", parsed.chat.join("\n"));
               if (parsed.post) handleStyleEdit("post", parsed.post.join("\n"));
             }
-          } catch {}
+          } catch { }
         } else if (field === "chatExamples") {
           const formatted = normalizeCharacterMessageExamples(
             generated,
@@ -679,7 +688,7 @@ export function CharacterEditor({
                 handleCharacterArrayInput("postExamples", parsed.join("\n"));
               }
             }
-          } catch {}
+          } catch { }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Generation failed";

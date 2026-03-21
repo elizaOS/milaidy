@@ -10,7 +10,7 @@
 import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@elizaos/app-core/state", () => ({
+vi.mock("@miladyai/app-core/state", () => ({
   getVrmPreviewUrl: (index: number) => `/avatars/preview-${index}.png`,
 }));
 
@@ -62,7 +62,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId={null}
-          onSelect={() => {}}
+          onSelect={() => { }}
         />,
       );
     });
@@ -78,7 +78,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId={null}
-          onSelect={() => {}}
+          onSelect={() => { }}
         />,
       );
     });
@@ -105,7 +105,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId={null}
-          onSelect={() => {}}
+          onSelect={() => { }}
         />,
       );
     });
@@ -128,7 +128,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId={null}
-          onSelect={() => {}}
+          onSelect={() => { }}
         />,
       );
     });
@@ -146,7 +146,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId="chaotic"
-          onSelect={() => {}}
+          onSelect={() => { }}
         />,
       );
     });
@@ -185,7 +185,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={entries}
           selectedId={null}
-          onSelect={() => {}}
+          onSelect={() => { }}
         />,
       );
     });

@@ -54,7 +54,7 @@ import { CONNECTOR_PLUGINS } from "../config/plugin-auto-enable";
 import { CONNECTOR_IDS } from "../config/schema";
 // Import the plugin import specifier resolver by whichever name is exported.
 // The eliza workspace exports resolveElizaPluginImportSpecifier while the
-// npm-published @elizaos/autonomous package exports
+// npm-published @elizaos/agent package exports
 // resolveElizaPluginImportSpecifier.
 import * as _elizaExports from "./eliza";
 import {
@@ -93,8 +93,8 @@ const resolvePluginImportSpecifier:
   ((_elizaExports as any).resolveElizaPluginImportSpecifier ??
     // biome-ignore lint/suspicious/noExplicitAny: dynamic export name
     (_elizaExports as any).resolveElizaPluginImportSpecifier) as
-    | ((name: string, url?: string) => string)
-    | undefined;
+  | ((name: string, url?: string) => string)
+  | undefined;
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -136,12 +136,10 @@ describe("collectPluginNames", () => {
     "OLLAMA_BASE_URL",
     "ELIZAOS_CLOUD_API_KEY",
     "ELIZAOS_CLOUD_ENABLED",
-    "ELIZA_USE_PI_AI",
     "ELIZA_DISABLE_LOCAL_EMBEDDINGS",
     "OBSIDIAN_VAULT_PATH",
     "OBSIDAN_VAULT_PATH",
     // Include MILADY_* brand aliases that syncMiladyEnvToEliza/syncElizaEnvToMilady may set
-    "MILADY_USE_PI_AI",
     "MILADY_CLOUD_TTS_DISABLED",
     "MILADY_CLOUD_MEDIA_DISABLED",
     "MILADY_CLOUD_EMBEDDINGS_DISABLED",
@@ -288,44 +286,6 @@ describe("collectPluginNames", () => {
     expect(names.has("@elizaos/plugin-openai")).toBe(true);
     expect(names.has("@elizaos/plugin-vercel-ai-gateway")).toBe(true);
     expect(names.has("@elizaos/plugin-groq")).toBe(false);
-  });
-
-  it("adds pi-ai provider plugin when ELIZA_USE_PI_AI is enabled", () => {
-    process.env.ELIZA_USE_PI_AI = "1";
-    const names = collectPluginNames({} as ElizaConfig);
-
-    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
-    // pi-ai mode should suppress direct provider plugins.
-    expect(names.has("@elizaos/plugin-anthropic")).toBe(false);
-    expect(names.has("@elizaos/plugin-openai")).toBe(false);
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(false);
-  });
-
-  it("cloud mode takes precedence over pi-ai mode", () => {
-    process.env.ELIZA_USE_PI_AI = "1";
-    const config = {
-      cloud: { enabled: true },
-    } as Partial<ElizaConfig> as ElizaConfig;
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-elizacloud")).toBe(true);
-    expect(names.has("@elizaos/plugin-pi-ai")).toBe(false);
-  });
-
-  it("pi-ai mode overrides explicit direct-provider entries", () => {
-    process.env.ELIZA_USE_PI_AI = "1";
-    const config = {
-      plugins: {
-        entries: {
-          openai: { enabled: true },
-        },
-      },
-    } as Partial<ElizaConfig> as ElizaConfig;
-
-    const names = collectPluginNames(config);
-
-    expect(names.has("@elizaos/plugin-pi-ai")).toBe(true);
-    expect(names.has("@elizaos/plugin-openai")).toBe(false);
   });
 
   it("does not auto-enable a provider from env when explicitly disabled in plugins.entries", () => {
@@ -1019,8 +979,8 @@ describe("autoResolveDiscordAppId", () => {
 
   it("resolves app id from Discord API when token is present", async () => {
     process.env.DISCORD_API_TOKEN = "tok";
-    const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => { });
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => { });
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -1048,7 +1008,7 @@ describe("autoResolveDiscordAppId", () => {
 
   it("logs a warning when Discord API responds with an error", async () => {
     process.env.DISCORD_API_TOKEN = "tok";
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => { });
 
     globalThis.fetch = vi.fn(async () => ({
       ok: false,
@@ -1067,7 +1027,7 @@ describe("autoResolveDiscordAppId", () => {
 
   it("logs a warning when the Discord API request throws", async () => {
     process.env.DISCORD_API_TOKEN = "tok";
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => { });
 
     globalThis.fetch = vi.fn(async () => {
       throw new Error("network down");
@@ -1264,7 +1224,7 @@ describe("applyDatabaseConfigToEnv", () => {
   it("defaults PGLITE_DATA_DIR to the agent workspace when database config is missing", () => {
     applyDatabaseConfigToEnv({} as ElizaConfig);
     expect(process.env.POSTGRES_URL).toBeUndefined();
-    // The state dir name depends on the @elizaos/autonomous build
+    // The state dir name depends on the @elizaos/agent build
     // (either .eliza in workspace or .eliza in the published npm package).
     expect(process.env.PGLITE_DATA_DIR).toMatch(
       /\.(eliza|eliza)[/\\]workspace[/\\]\.eliza[/\\]\.elizadb$/,
@@ -1446,7 +1406,7 @@ describe("shutdownRuntime", () => {
 
   it("still closes the adapter when runtime.stop throws", async () => {
     const stopError = new Error("stop failed");
-    const close = vi.fn(async () => {});
+    const close = vi.fn(async () => { });
     const runtime = {
       adapter: { close },
       stop: vi.fn(async () => {
@@ -1462,7 +1422,7 @@ describe("shutdownRuntime", () => {
 
   it("propagates adapter close failures after attempting shutdown", async () => {
     const closeError = new Error("close failed");
-    const stop = vi.fn(async () => {});
+    const stop = vi.fn(async () => { });
     const runtime = {
       adapter: {
         close: vi.fn(async () => {
@@ -2304,7 +2264,7 @@ describe("findPluginExport", () => {
       default: {
         name: "rich",
         description: "rich plugin",
-        init: () => {},
+        init: () => { },
         actions: [],
       },
     });
@@ -2678,7 +2638,7 @@ describe("deduplicatePluginActions", () => {
         name: n,
         description: `action ${n}`,
         similes: [],
-        handler: async () => {},
+        handler: async () => { },
         validate: async () => true,
         examples: [],
       })),

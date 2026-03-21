@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/runtime/restart";
+export * from "@elizaos/agent/runtime/restart";

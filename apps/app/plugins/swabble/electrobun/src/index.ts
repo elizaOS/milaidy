@@ -4,7 +4,7 @@ import {
   getElectrobunRendererRpc,
   invokeDesktopBridgeRequest,
   subscribeDesktopBridgeEvent,
-} from "@elizaos/app-core/bridge/electrobun-rpc";
+} from "@miladyai/app-core/bridge/electrobun-rpc";
 import type {
   SwabbleAudioLevelEvent,
   SwabbleConfig,
@@ -462,7 +462,7 @@ export class SwabbleElectrobun implements SwabblePlugin {
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    void rpcRequest({ data: btoa(binary) }).catch(() => {});
+    void rpcRequest({ data: btoa(binary) }).catch(() => { });
   }
 
   private normalizeWakeWordEvent(data: unknown): SwabbleWakeWordEvent {
@@ -708,17 +708,17 @@ export class SwabbleElectrobun implements SwabblePlugin {
 
     throw new Error(
       "setAudioDevice is not supported for Web Speech API. " +
-        "Use Whisper.cpp mode for device selection.",
+      "Use Whisper.cpp mode for device selection.",
     );
   }
 
   private notifyListeners<
     T extends
-      | SwabbleWakeWordEvent
-      | SwabbleTranscriptEvent
-      | SwabbleStateEvent
-      | SwabbleAudioLevelEvent
-      | SwabbleErrorEvent,
+    | SwabbleWakeWordEvent
+    | SwabbleTranscriptEvent
+    | SwabbleStateEvent
+    | SwabbleAudioLevelEvent
+    | SwabbleErrorEvent,
   >(eventName: string, data: T): void {
     for (const listener of this.listeners) {
       if (listener.eventName === eventName) {

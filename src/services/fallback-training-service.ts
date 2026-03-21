@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/fallback-training-service";
+export * from "@elizaos/agent/services/fallback-training-service";

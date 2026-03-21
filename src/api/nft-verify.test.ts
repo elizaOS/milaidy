@@ -33,7 +33,7 @@ vi.mock("ethers", async () => {
 const mockMarkAddressVerified = vi.fn();
 const mockIsAddressWhitelisted = vi.fn().mockReturnValue(false);
 
-vi.mock("@elizaos/autonomous/api/twitter-verify", () => ({
+vi.mock("@elizaos/agent/api/twitter-verify", () => ({
   markAddressVerified: (...args: unknown[]) => mockMarkAddressVerified(...args),
   isAddressWhitelisted: (...args: unknown[]) =>
     mockIsAddressWhitelisted(...args),
@@ -55,7 +55,7 @@ vi.mock("@elizaos/core", () => ({
 import {
   verifyAndWhitelistHolder,
   verifyElizaHolder,
-} from "@elizaos/autonomous/api/nft-verify";
+} from "@elizaos/agent/api/nft-verify";
 
 // ── Tests ────────────────────────────────────────────────────────────────
 

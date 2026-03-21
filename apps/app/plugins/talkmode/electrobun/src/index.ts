@@ -19,7 +19,7 @@ import {
   getElectrobunRendererRpc,
   invokeDesktopBridgeRequest,
   subscribeDesktopBridgeEvent,
-} from "@elizaos/app-core/bridge/electrobun-rpc";
+} from "@miladyai/app-core/bridge/electrobun-rpc";
 import type {
   SpeakOptions,
   SpeakResult,
@@ -551,7 +551,7 @@ export class TalkModeElectrobun implements TalkModePlugin {
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    void rpcRequest({ data: btoa(binary) }).catch(() => {});
+    void rpcRequest({ data: btoa(binary) }).catch(() => { });
   }
 
   private stopAudioCapture(): void {

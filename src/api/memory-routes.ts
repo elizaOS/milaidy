@@ -1,4 +1,4 @@
-import { handleMemoryRoutes as handleAutonomousMemoryRoutes } from "@elizaos/autonomous/api/memory-routes";
+import { handleMemoryRoutes as handleAutonomousMemoryRoutes } from "@elizaos/agent/api/memory-routes";
 import type { AgentRuntime } from "@elizaos/core";
 import type { RouteRequestContext } from "./route-helpers";
 

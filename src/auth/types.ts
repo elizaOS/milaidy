@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/auth/types";
+export * from "@elizaos/agent/auth/types";

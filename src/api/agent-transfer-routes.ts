@@ -2,7 +2,7 @@ import {
   type AgentTransferRouteState,
   type AgentTransferRouteContext as AutonomousAgentTransferRouteContext,
   handleAgentTransferRoutes as handleAutonomousAgentTransferRoutes,
-} from "@elizaos/autonomous/api/agent-transfer-routes";
+} from "@elizaos/agent/api/agent-transfer-routes";
 import {
   AgentExportError,
   estimateExportSize,

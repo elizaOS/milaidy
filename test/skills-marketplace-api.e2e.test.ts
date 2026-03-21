@@ -19,7 +19,7 @@ import { startApiServer } from "../src/api/server";
 // Mock skill-catalog-client — returns fixture data instead of reading files
 // ---------------------------------------------------------------------------
 
-vi.mock("@elizaos/autonomous/services/skill-catalog-client", () => {
+vi.mock("@elizaos/agent/services/skill-catalog-client", () => {
   const fixtureSkills = [
     {
       slug: "hello-world",

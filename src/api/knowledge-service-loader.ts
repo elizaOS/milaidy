@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/knowledge-service-loader";
+export * from "@elizaos/agent/api/knowledge-service-loader";

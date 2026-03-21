@@ -1,6 +1,6 @@
-export * from "@elizaos/autonomous/config/config";
+export * from "@elizaos/agent/config/config";
 
-export type { ElizaConfig } from "@elizaos/autonomous/config/types";
+export type { ElizaConfig } from "@elizaos/agent/config/types";
 
 export interface LegacyCloudConfig {
   cloud?: { enabled?: boolean } | null;

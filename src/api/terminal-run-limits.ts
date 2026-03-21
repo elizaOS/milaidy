@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/terminal-run-limits";
+export * from "@elizaos/agent/api/terminal-run-limits";

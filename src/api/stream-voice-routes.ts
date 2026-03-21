@@ -3,11 +3,11 @@ import {
   readRequestBody,
   sendJson,
   sendJsonError,
-} from "@elizaos/autonomous/api/http-helpers";
+} from "@elizaos/agent/api/http-helpers";
 import {
   handleStreamVoiceRoute as handleAutonomousStreamVoiceRoute,
   onAgentMessage as onAutonomousAgentMessage,
-} from "@elizaos/autonomous/api/stream-voice-routes";
+} from "@elizaos/agent/api/stream-voice-routes";
 import {
   getTtsProviderStatus,
   resolveTtsConfig,

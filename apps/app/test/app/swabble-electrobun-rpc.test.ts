@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ElectrobunRendererRpc } from "@elizaos/app-core/bridge";
+import type { ElectrobunRendererRpc } from "@miladyai/app-core/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SwabbleElectrobun } from "../../plugins/swabble/electrobun/src/index";
 
@@ -72,7 +72,7 @@ function installAudioCaptureStubs(): void {
         array.fill(0);
       }),
     }));
-    close = vi.fn(async () => {});
+    close = vi.fn(async () => { });
   }
 
   Object.defineProperty(globalThis, "AudioContext", {

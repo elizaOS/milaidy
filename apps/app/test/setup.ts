@@ -36,7 +36,7 @@ console.error = (...args: unknown[]) => {
 };
 
 // ---------------------------------------------------------------------------
-// Mock @elizaos/app-core bridge modules — the real electrobun RPC module
+// Mock @miladyai/app-core bridge modules — the real electrobun RPC module
 // relies on native Electrobun bindings that are unavailable in the test
 // environment.
 // ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ function isInjectedElectrobunRuntime(): boolean {
   );
 }
 
-vi.mock("@elizaos/app-core/bridge/electrobun-rpc", () => {
+vi.mock("@miladyai/app-core/bridge/electrobun-rpc", () => {
   function getElectrobunRendererRpc() {
     if (typeof window === "undefined") return null;
     const w = window as unknown as Record<string, unknown>;
@@ -98,15 +98,15 @@ vi.mock("@elizaos/app-core/bridge/electrobun-rpc", () => {
           );
         };
       }
-      return () => {};
+      return () => { };
     },
-    initializeCapacitorBridge: () => {},
-    initializeStorageBridge: async () => {},
+    initializeCapacitorBridge: () => { },
+    initializeStorageBridge: async () => { },
     ElectrobunRendererRpc: {},
   };
 });
 
-vi.mock("@elizaos/app-core/bridge", () => {
+vi.mock("@miladyai/app-core/bridge", () => {
   function getElectrobunRendererRpc() {
     if (typeof window === "undefined") return null;
     const w = window as unknown as Record<string, unknown>;
@@ -148,10 +148,10 @@ vi.mock("@elizaos/app-core/bridge", () => {
           );
         };
       }
-      return () => {};
+      return () => { };
     },
-    initializeCapacitorBridge: () => {},
-    initializeStorageBridge: async () => {},
+    initializeCapacitorBridge: () => { },
+    initializeStorageBridge: async () => { },
     ElectrobunRendererRpc: {},
   };
 });
@@ -320,11 +320,11 @@ function createMockStorage(): Storage {
 function hasStorageApi(value: unknown): value is Storage {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      typeof (value as Storage).getItem === "function" &&
-      typeof (value as Storage).setItem === "function" &&
-      typeof (value as Storage).removeItem === "function" &&
-      typeof (value as Storage).clear === "function",
+    typeof value === "object" &&
+    typeof (value as Storage).getItem === "function" &&
+    typeof (value as Storage).setItem === "function" &&
+    typeof (value as Storage).removeItem === "function" &&
+    typeof (value as Storage).clear === "function",
   );
 }
 
@@ -541,8 +541,8 @@ if (typeof globalThis.AudioContext === "undefined") {
         length: 44100,
         sampleRate: 44100,
       }));
-      resume = vi.fn(async () => {});
-      close = vi.fn(async () => {});
+      resume = vi.fn(async () => { });
+      close = vi.fn(async () => { });
     },
     writable: true,
     configurable: true,

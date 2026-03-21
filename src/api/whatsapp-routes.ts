@@ -3,7 +3,7 @@ import {
   applyWhatsAppQrOverride as applyAutonomousWhatsAppQrOverride,
   handleWhatsAppRoute as handleAutonomousWhatsAppRoute,
   MAX_PAIRING_SESSIONS,
-} from "@elizaos/autonomous/api/whatsapp-routes";
+} from "@elizaos/agent/api/whatsapp-routes";
 import {
   sanitizeAccountId,
   WhatsAppPairingSession,
@@ -11,7 +11,7 @@ import {
   whatsappLogout,
 } from "../services/whatsapp-pairing";
 
-export type { WhatsAppRouteState } from "@elizaos/autonomous/api/whatsapp-routes";
+export type { WhatsAppRouteState } from "@elizaos/agent/api/whatsapp-routes";
 export { MAX_PAIRING_SESSIONS };
 
 export async function handleWhatsAppRoute(
@@ -19,7 +19,7 @@ export async function handleWhatsAppRoute(
   res: ServerResponse,
   pathname: string,
   method: string,
-  state: import("@elizaos/autonomous/api/whatsapp-routes").WhatsAppRouteState,
+  state: import("@elizaos/agent/api/whatsapp-routes").WhatsAppRouteState,
 ): Promise<boolean> {
   return handleAutonomousWhatsAppRoute(req, res, pathname, method, state, {
     sanitizeAccountId,

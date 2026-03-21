@@ -1,8 +1,8 @@
 import {
   invokeDesktopBridgeRequest,
   isElectrobunRuntime,
-} from "@elizaos/app-core/bridge";
-import { useApp } from "@elizaos/app-core/state";
+} from "@miladyai/app-core/bridge";
+import { useApp } from "@miladyai/app-core/state";
 import { useEffect, useRef } from "react";
 
 export function DesktopOnboardingRuntime() {

@@ -1,4 +1,4 @@
-import type { client as appClient } from "@elizaos/app-core/api";
+import type { client as appClient } from "@miladyai/app-core/api";
 
 const CONNECTION_MODE_STORAGE_KEY = "eliza:connection-mode";
 const ONBOARDING_STEP_STORAGE_KEY = "eliza:onboarding:step";
@@ -114,7 +114,7 @@ export function installForceFreshOnboardingClientPatch(
 ): () => void {
   const existingPatch = client[PATCH_STATE] as PatchState | undefined;
   if (existingPatch) {
-    return () => {};
+    return () => { };
   }
 
   const originalGetConfig = client.getConfig.bind(client);

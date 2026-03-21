@@ -1,7 +1,7 @@
 import {
   type PermissionRouteState as AutonomousPermissionRouteState,
   handlePermissionRoutes as handleAutonomousPermissionRoutes,
-} from "@elizaos/autonomous/api/permissions-routes";
+} from "@elizaos/agent/api/permissions-routes";
 import type { AgentRuntime } from "@elizaos/core";
 import type { ElizaConfig } from "../config/config";
 import type { RouteRequestContext } from "./route-helpers";

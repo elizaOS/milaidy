@@ -960,23 +960,23 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
       );
       expect(patched).toBe(true);
       expect(
-        logs.some((line) => line.includes("@elizaos/app-core state/vrm.js")),
+        logs.some((line) => line.includes("@miladyai/app-core state/vrm.js")),
       ).toBe(true);
       expect(
         logs.some((line) =>
-          line.includes("@elizaos/app-core components/avatar/VrmViewer.js"),
+          line.includes("@miladyai/app-core components/avatar/VrmViewer.js"),
         ),
       ).toBe(true);
       expect(
         logs.some((line) =>
           line.includes(
-            "@elizaos/app-core components/onboarding/IdentityStep.js",
+            "@miladyai/app-core components/onboarding/IdentityStep.js",
           ),
         ),
       ).toBe(true);
       expect(
         logs.some((line) =>
-          line.includes("@elizaos/app-core components/CharacterView.js"),
+          line.includes("@miladyai/app-core components/CharacterView.js"),
         ),
       ).toBe(true);
       expect(
@@ -1117,7 +1117,7 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
       expect(
         logs.some((line) =>
           line.includes(
-            "@elizaos/autonomous packages/autonomous/src/onboarding-presets.js",
+            "@elizaos/agent packages/autonomous/src/onboarding-presets.js",
           ),
         ),
       ).toBe(true);

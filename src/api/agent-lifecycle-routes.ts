@@ -1,14 +1,14 @@
 import {
   type AgentLifecycleRouteState,
   handleAgentLifecycleRoutes as handleAutonomousAgentLifecycleRoutes,
-} from "@elizaos/autonomous/api/agent-lifecycle-routes";
+} from "@elizaos/agent/api/agent-lifecycle-routes";
 import type { RouteHelpers, RouteRequestMeta } from "./route-helpers";
 
 export type { AgentLifecycleRouteState };
 
 export interface AgentLifecycleRouteContext
   extends RouteRequestMeta,
-    Pick<RouteHelpers, "error" | "json" | "readJsonBody"> {
+  Pick<RouteHelpers, "error" | "json" | "readJsonBody"> {
   state: AgentLifecycleRouteState;
 }
 

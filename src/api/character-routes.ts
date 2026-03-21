@@ -2,7 +2,7 @@ import {
   type CharacterRouteContext as AutonomousCharacterRouteContext,
   type CharacterRouteState as AutonomousCharacterRouteState,
   handleCharacterRoutes as handleAutonomousCharacterRoutes,
-} from "@elizaos/autonomous/api/character-routes";
+} from "@elizaos/agent/api/character-routes";
 import type { ElizaConfig } from "../config/types";
 import { CharacterSchema } from "../config/zod-schema";
 import type { RouteRequestContext } from "./route-helpers";

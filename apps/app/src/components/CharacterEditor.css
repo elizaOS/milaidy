@@ -465,7 +465,7 @@
 }
 
 .ce-roster-card-name {
-  padding: 2px 4px;
+  padding: 2px 32px 2px 0;
   font-size: clamp(8px, 1.2vw, 11px);
   font-weight: 600;
   color: white;
@@ -473,6 +473,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: right;
 }
 
 .ce-roster-card-name--active {
@@ -489,6 +490,28 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Mobile portrait: 4×2 grid with overlapping slant cards ── */
+@media (max-width: 600px) {
+  .ce-roster-wrap {
+    overflow: visible;
+  }
+  .ce-roster {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.35rem 0;
+    padding: 0 1.5rem;
+    max-width: 100%;
+  }
+  .ce-roster-card {
+    margin: 0 -0.65rem;
+    max-width: none;
+    opacity: 0.65;
+  }
+  .ce-roster-card--active {
+    opacity: 1;
+  }
 }
 
 .ce-roster-empty {

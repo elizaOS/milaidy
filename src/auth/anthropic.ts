@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/auth/anthropic";
+export * from "@elizaos/agent/auth/anthropic";

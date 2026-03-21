@@ -1,4 +1,4 @@
-export * from "@elizaos/autonomous/api/streaming-text";
+export * from "@elizaos/agent/api/streaming-text";
 
 export function computeStreamingDelta(
   existing: string,

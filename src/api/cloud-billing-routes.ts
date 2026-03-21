@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/cloud-billing-routes";
+export * from "@elizaos/agent/api/cloud-billing-routes";

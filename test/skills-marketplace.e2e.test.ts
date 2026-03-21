@@ -44,15 +44,15 @@ const mockMcpDetails = {
   },
 };
 
-vi.mock("@elizaos/autonomous/services/mcp-marketplace", () => ({
+vi.mock("@elizaos/agent/services/mcp-marketplace", () => ({
   searchMcpMarketplace: vi.fn().mockImplementation(async (query?: string) => {
     if (query === "FORCE_ERROR") throw new Error("API unreachable");
     const lq = (query ?? "").toLowerCase();
     const results = lq
       ? mockMcpResults.filter(
-          (r) =>
-            r.name.includes(lq) || r.description.toLowerCase().includes(lq),
-        )
+        (r) =>
+          r.name.includes(lq) || r.description.toLowerCase().includes(lq),
+      )
       : mockMcpResults;
     return { results };
   }),
@@ -63,7 +63,7 @@ vi.mock("@elizaos/autonomous/services/mcp-marketplace", () => ({
 }));
 
 // Mock skill-catalog-client to prevent real I/O
-vi.mock("@elizaos/autonomous/services/skill-catalog-client", () => ({
+vi.mock("@elizaos/agent/services/skill-catalog-client", () => ({
   getCatalogSkills: vi.fn().mockResolvedValue([]),
   getCatalogSkill: vi.fn().mockResolvedValue(null),
   searchCatalogSkills: vi.fn().mockResolvedValue([]),

@@ -1,8 +1,8 @@
-import type { client as appClient } from "@elizaos/app-core/api";
+import type { client as appClient } from "@miladyai/app-core/api";
 import {
   normalizeOnboardingProviderId,
   ONBOARDING_PROVIDER_CATALOG,
-} from "@elizaos/autonomous/contracts/onboarding";
+} from "@elizaos/agent/contracts/onboarding";
 
 const PATCH_STATE = Symbol.for("milady.cloudPreferencePatch");
 
@@ -100,7 +100,7 @@ function hasRemoteConnection(
   const cloud = asRecord(config?.cloud);
   return Boolean(
     readString(cloud, "remoteApiBase") ||
-      readString(cloud, "remoteAccessToken"),
+    readString(cloud, "remoteAccessToken"),
   );
 }
 
@@ -124,11 +124,11 @@ function hasInactiveCloudSignals(
   const models = asRecord(config?.models);
   return Boolean(
     readString(cloud, "apiKey") ||
-      normalizeOnboardingProviderId(readString(cloud, "provider")) ===
-        "elizacloud" ||
-      readString(cloud, "inferenceMode") === "cloud" ||
-      readString(models, "small") ||
-      readString(models, "large"),
+    normalizeOnboardingProviderId(readString(cloud, "provider")) ===
+    "elizacloud" ||
+    readString(cloud, "inferenceMode") === "cloud" ||
+    readString(models, "small") ||
+    readString(models, "large"),
   );
 }
 
@@ -144,9 +144,9 @@ export function shouldPreferLocalProviderConfig(
 
   return Boolean(
     resolveConfiguredLocalProvider(config) &&
-      !hasRemoteConnection(config) &&
-      !cloudHandlesInference(config) &&
-      hasInactiveCloudSignals(config),
+    !hasRemoteConnection(config) &&
+    !cloudHandlesInference(config) &&
+    hasInactiveCloudSignals(config),
   );
 }
 
@@ -220,7 +220,7 @@ export function installLocalProviderCloudPreferencePatch(
 ): () => void {
   const existingPatch = client[PATCH_STATE] as PatchState | undefined;
   if (existingPatch) {
-    return () => {};
+    return () => { };
   }
 
   const originalGetConfig = client.getConfig.bind(client);

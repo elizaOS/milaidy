@@ -13,14 +13,14 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { saveElizaConfig } from "@elizaos/autonomous/config/config";
+import { saveElizaConfig } from "@elizaos/agent/config/config";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ElizaConfig } from "../config/types";
 
 // Mock resolveConfigPath so we can write to a temp file
 let tmpConfigPath: string;
 
-vi.mock("@elizaos/autonomous/config/paths", () => ({
+vi.mock("@elizaos/agent/config/paths", () => ({
   resolveConfigPath: () => tmpConfigPath,
   resolveUserPath: (p: string) => p,
 }));

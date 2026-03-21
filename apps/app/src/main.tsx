@@ -6,7 +6,7 @@
  */
 
 import { ErrorBoundary } from "./ErrorBoundary";
-import "@elizaos/app-core/styles/styles.css";
+import "@miladyai/app-core/styles/styles.css";
 import "./brand-gold.css";
 import "./onboarding-overrides.css";
 import "./native-plugin-entrypoints";
@@ -15,15 +15,15 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { StatusBar, Style } from "@capacitor/status-bar";
-import { App } from "@elizaos/app-core";
-import { client } from "@elizaos/app-core/api";
+import { App } from "@miladyai/app-core";
+import { client } from "@miladyai/app-core/api";
 // Import Capacitor bridge utilities
 import {
   initializeCapacitorBridge,
   initializeStorageBridge,
   isElectrobunRuntime,
-} from "@elizaos/app-core/bridge";
-import type { BrandingConfig } from "@elizaos/app-core/config";
+} from "@miladyai/app-core/bridge";
+import type { BrandingConfig } from "@miladyai/app-core/config";
 import {
   AGENT_READY_EVENT,
   APP_PAUSE_EVENT,
@@ -33,9 +33,9 @@ import {
   dispatchElizaEvent as dispatchMiladyEvent,
   SHARE_TARGET_EVENT,
   TRAY_ACTION_EVENT,
-} from "@elizaos/app-core/events";
-import { applyLaunchConnectionFromUrl } from "@elizaos/app-core/platform";
-import { AppProvider } from "@elizaos/app-core/state";
+} from "@miladyai/app-core/events";
+import { applyLaunchConnectionFromUrl } from "@miladyai/app-core/platform";
+import { AppProvider } from "@miladyai/app-core/state";
 // Import the agent plugin
 import { Agent } from "@miladyai/capacitor-agent";
 import { Desktop } from "@miladyai/capacitor-desktop";
@@ -413,7 +413,7 @@ async function initializeDesktopShell(): Promise<void> {
         dispatchMiladyEvent(TRAY_ACTION_EVENT, event);
       },
     );
-  } catch {}
+  } catch { }
 }
 
 /**

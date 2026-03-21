@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/runtime/eliza-plugin";
+export * from "@elizaos/agent/runtime/eliza-plugin";

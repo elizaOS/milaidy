@@ -14,8 +14,8 @@ import {
   SettingsView,
   StartupFailureView,
   VoiceConfigView,
-} from "@elizaos/app-core/components";
-import { useApp } from "@elizaos/app-core/state";
+} from "@miladyai/app-core/components";
+import { useApp } from "@miladyai/app-core/state";
 import type { JSX } from "react";
 import { BrowserSurfaceWindow } from "./BrowserSurfaceWindow";
 import {

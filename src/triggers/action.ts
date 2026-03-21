@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/triggers/action";
+export * from "@elizaos/agent/triggers/action";

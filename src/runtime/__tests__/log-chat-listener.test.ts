@@ -1,4 +1,4 @@
-import { logToChatListener } from "@elizaos/autonomous/runtime/eliza";
+import { logToChatListener } from "@elizaos/agent/runtime/eliza";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock @elizaos/core

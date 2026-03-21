@@ -50,7 +50,7 @@ FROM node:22-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ git ca-certificates curl unzip \
-  && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.9"
 ENV PATH="/root/.bun/bin:$PATH"
@@ -62,11 +62,11 @@ RUN bun install --frozen-lockfile --ignore-scripts 2>&1
 RUN node ./scripts/link-browser-server.mjs 2>/dev/null || true && node ./scripts/patch-deps.mjs
 RUN npx tsdown 2>&1 || echo "tsdown done"
 
-# Patch @elizaos/autonomous version to match the milady wrapper version
+# Patch @elizaos/agent version to match the milady wrapper version
 RUN node -e "const fs=require('fs'); const v=require('./package.json').version; \
-  try { const p=JSON.parse(fs.readFileSync('node_modules/@elizaos/autonomous/package.json','utf8')); \
-  p.version=v; fs.writeFileSync('node_modules/@elizaos/autonomous/package.json',JSON.stringify(p,null,2)); \
-  console.log('Patched autonomous version to', v); } catch(e) { console.log('skip:', e.message); }"
+    try { const p=JSON.parse(fs.readFileSync('node_modules/@elizaos/agent/package.json','utf8')); \
+    p.version=v; fs.writeFileSync('node_modules/@elizaos/agent/package.json',JSON.stringify(p,null,2)); \
+    console.log('Patched autonomous version to', v); } catch(e) { console.log('skip:', e.message); }"
 
 # ─── Stage 2: Pruner ──────────────────────────────────────────────────────────
 # Removes dev / build / GPU / browser-only packages from the builder filesystem.
@@ -325,9 +325,9 @@ FROM node:22-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl \
-  && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-# tsx is required: node --import tsx loads @elizaos/autonomous raw .ts files.
+# tsx is required: node --import tsx loads @elizaos/agent raw .ts files.
 # Install globally so the node binary can find it via --import.
 RUN npm install -g tsx
 
@@ -343,6 +343,6 @@ ENV MILADY_API_BIND=0.0.0.0
 EXPOSE 2138
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:${MILADY_PORT}/api/health || exit 1
+    CMD curl -f http://localhost:${MILADY_PORT}/api/health || exit 1
 
 CMD ["node", "--import", "tsx", "milady.mjs", "start"]

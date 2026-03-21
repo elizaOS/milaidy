@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 const ROOT = path.resolve(import.meta.dirname, "..");
 const SERVER_TS_PATH = path.join(
   ROOT,
-  "node_modules/@elizaos/autonomous/packages/autonomous/src/api/server.js",
+  "node_modules/@elizaos/agent/packages/autonomous/src/api/server.js",
 );
 const ELIZA_TS_PATH = path.join(
   ROOT,
-  "node_modules/@elizaos/autonomous/packages/autonomous/src/runtime/eliza.js",
+  "node_modules/@elizaos/agent/packages/autonomous/src/runtime/eliza.js",
 );
 const WORKFLOW_PATH = path.join(
   ROOT,
@@ -86,7 +86,7 @@ describe("Electrobun release workflow drift", () => {
     );
     expect(workflow).toContain(
       'MILADY_DESKTOP_COMMAND_PREFIX="arch -x86_64" node scripts/desktop-build.mjs package --env=$' +
-        "{{ needs.prepare.outputs.env }}",
+      "{{ needs.prepare.outputs.env }}",
     );
     expect(workflow).not.toContain("arch -x86_64 bun install --ignore-scripts");
     expect(workflow).not.toContain(
@@ -491,7 +491,7 @@ describe("Electrobun release workflow drift", () => {
     expect(installerLaunchIndex).toBeGreaterThan(installerFallbackIndex);
     expect(workflow).toContain(
       "MILADY_TEST_WINDOWS_LAUNCHER_PATH_FILE: $" +
-        "{{ runner.temp }}\\milady-windows-ui-launcher.txt",
+      "{{ runner.temp }}\\milady-windows-ui-launcher.txt",
     );
     // agent.ts sets MILADY_DISABLE_LOCAL_EMBEDDINGS=1 on Windows automatically;
     // the workflow also sets it so the entire process tree inherits it.

@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/update-checker";
+export * from "@elizaos/agent/services/update-checker";

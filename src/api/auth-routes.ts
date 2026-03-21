@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/auth-routes";
+export * from "@elizaos/agent/api/auth-routes";

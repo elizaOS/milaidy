@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/auth/apply-stealth";
+export * from "@elizaos/agent/auth/apply-stealth";

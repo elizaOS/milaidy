@@ -1,4 +1,4 @@
-import { pathForTab } from "@elizaos/app-core/navigation";
+import { pathForTab } from "@miladyai/app-core/navigation";
 
 export type DetachedSurfaceTab =
   | "chat"

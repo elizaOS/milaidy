@@ -7,7 +7,7 @@
 #   3. runtime  — slim base with only what's needed
 #
 # The real Milady agent runtime runs via milady.mjs → dist/entry.js which
-# imports from @elizaos/autonomous (workspace package). The workspace packages
+# imports from @elizaos/agent (workspace package). The workspace packages
 # reference src/ via relative imports, so we keep src/ + packages/ alongside
 # dist/ and use tsx for TS resolution at runtime.
 #
@@ -56,54 +56,54 @@ WORKDIR /build
 # - Whisper/STT (not needed headless)
 # - Browser automation (not needed headless)
 RUN rm -rf \
-    node_modules/@node-llama-cpp \
-    node_modules/node-llama-cpp \
-    node_modules/@tensorflow \
-    node_modules/onnxruntime-node \
-    node_modules/onnxruntime-web \
-    node_modules/@biomejs \
-    node_modules/koffi \
-    node_modules/@capacitor \
-    node_modules/@babylonjs \
-    node_modules/three \
-    node_modules/@mediapipe \
-    node_modules/face-api.js \
-    node_modules/tesseract.js-core \
-    node_modules/tesseract.js \
-    node_modules/nodejs-whisper \
-    node_modules/whisper-node \
-    node_modules/electrobun \
-    node_modules/@rolldown \
-    node_modules/@storybook \
-    node_modules/lucide-react \
-    node_modules/@img \
-    node_modules/puppeteer-core \
-    node_modules/chromium-bidi \
-    node_modules/@anthropic-ai/claude-agent-sdk \
-    node_modules/@napi-rs \
-    node_modules/unrun \
-    node_modules/miladyai \
-    node_modules/@electric-sql \
-    node_modules/pdfjs-dist \
-    node_modules/sharp \
-    node_modules/react \
-    node_modules/react-dom \
-    node_modules/@react-* \
-    node_modules/canvas \
-    node_modules/playwright* \
-    node_modules/@playwright \
-    node_modules/esbuild \
-    node_modules/@esbuild \
-    node_modules/vite \
-    node_modules/@vitejs \
-    node_modules/vitest \
-    node_modules/typescript \
-    node_modules/tsdown \
-    node_modules/@swc \
-    node_modules/jsdom \
-    node_modules/ink* \
-    node_modules/yoga-wasm-web \
-    2>/dev/null || true
+  node_modules/@node-llama-cpp \
+  node_modules/node-llama-cpp \
+  node_modules/@tensorflow \
+  node_modules/onnxruntime-node \
+  node_modules/onnxruntime-web \
+  node_modules/@biomejs \
+  node_modules/koffi \
+  node_modules/@capacitor \
+  node_modules/@babylonjs \
+  node_modules/three \
+  node_modules/@mediapipe \
+  node_modules/face-api.js \
+  node_modules/tesseract.js-core \
+  node_modules/tesseract.js \
+  node_modules/nodejs-whisper \
+  node_modules/whisper-node \
+  node_modules/electrobun \
+  node_modules/@rolldown \
+  node_modules/@storybook \
+  node_modules/lucide-react \
+  node_modules/@img \
+  node_modules/puppeteer-core \
+  node_modules/chromium-bidi \
+  node_modules/@anthropic-ai/claude-agent-sdk \
+  node_modules/@napi-rs \
+  node_modules/unrun \
+  node_modules/miladyai \
+  node_modules/@electric-sql \
+  node_modules/pdfjs-dist \
+  node_modules/sharp \
+  node_modules/react \
+  node_modules/react-dom \
+  node_modules/@react-* \
+  node_modules/canvas \
+  node_modules/playwright* \
+  node_modules/@playwright \
+  node_modules/esbuild \
+  node_modules/@esbuild \
+  node_modules/vite \
+  node_modules/@vitejs \
+  node_modules/vitest \
+  node_modules/typescript \
+  node_modules/tsdown \
+  node_modules/@swc \
+  node_modules/jsdom \
+  node_modules/ink* \
+  node_modules/yoga-wasm-web \
+  2>/dev/null || true
 
 # Remove .cache, .tsbuildinfo, source maps
 RUN find node_modules -name '.cache' -type d -exec rm -rf {} + 2>/dev/null || true
@@ -121,9 +121,9 @@ RUN rm -rf apps/app/electrobun apps/app/android apps/app/ios apps/app/dist apps/
 FROM node:22-bookworm-slim AS runtime
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+  apt-get install -y --no-install-recommends curl ca-certificates && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 
 # Install tsx globally for TypeScript resolution at runtime
 # (workspace packages export .ts source files, not compiled JS)
@@ -143,7 +143,7 @@ COPY --from=pruner --chown=agent:agent /build/package.json ./package.json
 # from ../../../../src/runtime/milady-plugin.ts)
 COPY --from=pruner --chown=agent:agent /build/src ./src
 
-# Copy workspace packages (especially @elizaos/autonomous which IS the runtime)
+# Copy workspace packages (especially @elizaos/agent which IS the runtime)
 COPY --from=pruner --chown=agent:agent /build/packages ./packages
 
 # Copy apps dir structure (some workspace links reference it)

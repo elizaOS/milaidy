@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/sandbox-engine";
+export * from "@elizaos/agent/services/sandbox-engine";

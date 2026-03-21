@@ -135,42 +135,42 @@ describe("getElizaPackageLinks", () => {
       expect(expectedLinks).toEqual(
         expect.arrayContaining([
           {
-            linkPath: path.join(miladyRoot, "node_modules/@elizaos/autonomous"),
+            linkPath: path.join(miladyRoot, "node_modules/@elizaos/agent"),
             targetPath: path.join(elizaRoot, "packages/autonomous"),
           },
           {
-            linkPath: path.join(miladyRoot, "node_modules/@elizaos/app-core"),
+            linkPath: path.join(miladyRoot, "node_modules/@miladyai/app-core"),
             targetPath: path.join(elizaRoot, "packages/app-core"),
           },
           {
             linkPath: path.join(
               miladyRoot,
-              "apps/app/node_modules/@elizaos/app-core",
+              "apps/app/node_modules/@miladyai/app-core",
             ),
             targetPath: path.join(elizaRoot, "packages/app-core"),
           },
           {
             linkPath: path.join(
               miladyRoot,
-              "apps/home/node_modules/@elizaos/app-core",
+              "apps/home/node_modules/@miladyai/app-core",
             ),
             targetPath: path.join(elizaRoot, "packages/app-core"),
           },
           {
-            linkPath: path.join(miladyRoot, "node_modules/@elizaos/ui"),
+            linkPath: path.join(miladyRoot, "node_modules/@miladyai/ui"),
             targetPath: path.join(elizaRoot, "packages/ui"),
           },
           {
             linkPath: path.join(
               miladyRoot,
-              "apps/app/node_modules/@elizaos/ui",
+              "apps/app/node_modules/@miladyai/ui",
             ),
             targetPath: path.join(elizaRoot, "packages/ui"),
           },
           {
             linkPath: path.join(
               miladyRoot,
-              "apps/home/node_modules/@elizaos/ui",
+              "apps/home/node_modules/@miladyai/ui",
             ),
             targetPath: path.join(elizaRoot, "packages/ui"),
           },

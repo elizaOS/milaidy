@@ -467,7 +467,7 @@ describe("Core Plugins with Vision Integration", () => {
 
   it("plugin-vision has static import in eliza.ts", async () => {
     const canonicalElizaPath = fileURLToPath(
-      import.meta.resolve("@elizaos/autonomous/runtime/eliza"),
+      import.meta.resolve("@elizaos/agent/runtime/eliza"),
     );
     const canonicalElizaContent = fs.readFileSync(canonicalElizaPath, "utf-8");
 

@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/self-updater";
+export * from "@elizaos/agent/services/self-updater";

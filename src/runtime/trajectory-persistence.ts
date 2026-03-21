@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/runtime/trajectory-persistence";
+export * from "@elizaos/agent/runtime/trajectory-persistence";

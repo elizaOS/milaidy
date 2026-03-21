@@ -97,7 +97,7 @@ function patchPluginPdfBrokenDefault() {
           );
         }
       }
-    } catch {}
+    } catch { }
   }
 
   let patched = 0;
@@ -145,7 +145,7 @@ function patchPluginSqlUUID() {
           );
         }
       }
-    } catch {}
+    } catch { }
   }
 
   let patched = 0;
@@ -177,25 +177,25 @@ function patchPluginSqlUUID() {
 patchPluginSqlUUID();
 
 /**
- * Patch @elizaos/autonomous ensureBrowserServerLink() file extension.
+ * Patch @elizaos/agent ensureBrowserServerLink() file extension.
  *
  * The upstream code checks for `dist/index` without `.js` extension, but
  * existsSync() requires the full filename. Fix to `dist/index.js`.
  * Remove once the upstream adds the extension.
  */
 function patchBrowserServerIndexExtension() {
-  const searchDirs = [resolve(root, "node_modules/@elizaos/autonomous")];
+  const searchDirs = [resolve(root, "node_modules/@elizaos/agent")];
   const bunCacheDir = resolve(root, "node_modules/.bun");
   if (existsSync(bunCacheDir)) {
     try {
       for (const entry of readdirSync(bunCacheDir)) {
         if (entry.startsWith("@elizaos+autonomous@")) {
           searchDirs.push(
-            resolve(bunCacheDir, entry, "node_modules/@elizaos/autonomous"),
+            resolve(bunCacheDir, entry, "node_modules/@elizaos/agent"),
           );
         }
       }
-    } catch {}
+    } catch { }
   }
 
   let patched = 0;
@@ -228,7 +228,7 @@ function patchBrowserServerIndexExtension() {
 patchBrowserServerIndexExtension();
 
 /**
- * Patch @elizaos/autonomous server reset safety check.
+ * Patch @elizaos/agent server reset safety check.
  *
  * The upstream isSafeResetStateDir only allows state directories whose path
  * contains ".eliza" or "eliza" as a segment. Since Milady sets ELIZA_NAMESPACE
@@ -239,7 +239,7 @@ patchBrowserServerIndexExtension();
 function patchAutonomousResetAllowedSegments() {
   const serverJs = resolve(
     root,
-    "node_modules/@elizaos/autonomous/packages/autonomous/src/api/server.js",
+    "node_modules/@elizaos/agent/packages/autonomous/src/api/server.js",
   );
   if (!existsSync(serverJs)) {
     console.log(
@@ -277,7 +277,7 @@ function patchAutonomousResetAllowedSegments() {
 patchAutonomousResetAllowedSegments();
 
 /**
- * Patch @elizaos/app-core AvatarLoader to use a linear determinate progress bar
+ * Patch @miladyai/app-core AvatarLoader to use a linear determinate progress bar
  * that fills from 0% to 100% before the world is shown, instead of the upstream
  * indeterminate sine-wave animation.
  * Remove once upstream ships a determinate loader.
@@ -290,7 +290,7 @@ function patchAvatarLoaderLinearProgress() {
   addUniquePath(
     loaderPaths,
     seenRealpaths,
-    resolve(root, "node_modules/@elizaos/app-core/components/AvatarLoader.js"),
+    resolve(root, "node_modules/@miladyai/app-core/components/AvatarLoader.js"),
   );
 
   // Bun cache
@@ -305,12 +305,12 @@ function patchAvatarLoaderLinearProgress() {
             resolve(
               bunCacheDir,
               entry,
-              "node_modules/@elizaos/app-core/components/AvatarLoader.js",
+              "node_modules/@miladyai/app-core/components/AvatarLoader.js",
             ),
           );
         }
       }
-    } catch {}
+    } catch { }
   }
 
   let patched = 0;

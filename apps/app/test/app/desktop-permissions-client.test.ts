@@ -6,7 +6,7 @@ const { invokeDesktopBridgeRequestMock } = vi.hoisted(() => ({
   invokeDesktopBridgeRequestMock: vi.fn(),
 }));
 
-vi.mock("@elizaos/app-core/bridge", () => ({
+vi.mock("@miladyai/app-core/bridge", () => ({
   invokeDesktopBridgeRequest: invokeDesktopBridgeRequestMock,
 }));
 

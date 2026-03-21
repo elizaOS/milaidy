@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/plugin-validation";
+export * from "@elizaos/agent/api/plugin-validation";

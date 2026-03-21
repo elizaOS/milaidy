@@ -2,10 +2,10 @@ import type http from "node:http";
 import {
   type CloudRouteState as AutonomousCloudRouteState,
   handleCloudRoute as handleAutonomousCloudRoute,
-} from "@elizaos/autonomous/api/cloud-routes";
-import { normalizeCloudSiteUrl } from "@elizaos/autonomous/cloud/base-url";
-import type { CloudManager } from "@elizaos/autonomous/cloud/cloud-manager";
-import { validateCloudBaseUrl } from "@elizaos/autonomous/cloud/validate-url";
+} from "@elizaos/agent/api/cloud-routes";
+import { normalizeCloudSiteUrl } from "@elizaos/agent/cloud/base-url";
+import type { CloudManager } from "@elizaos/agent/cloud/cloud-manager";
+import { validateCloudBaseUrl } from "@elizaos/agent/cloud/validate-url";
 import type { AgentRuntime } from "@elizaos/core";
 import type { ElizaConfig } from "../config/config";
 import { saveElizaConfig } from "../config/config";
@@ -80,8 +80,8 @@ function isTimeoutError(error: unknown): boolean {
 
 function createNoopTelemetrySpan(): TelemetrySpan {
   return {
-    success: () => {},
-    failure: () => {},
+    success: () => { },
+    failure: () => { },
   };
 }
 
@@ -276,9 +276,9 @@ export async function handleCloudRoute(
         pollRes.status === 404
           ? { status: "expired", error: "Session not found or expired" }
           : {
-              status: "error",
-              error: `Eliza Cloud returned HTTP ${pollRes.status}`,
-            },
+            status: "error",
+            error: `Eliza Cloud returned HTTP ${pollRes.status}`,
+          },
       );
       return true;
     }

@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/agent-model";
+export * from "@elizaos/agent/api/agent-model";

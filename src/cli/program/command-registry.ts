@@ -7,7 +7,6 @@ import { registerDoctorCommand } from "./register.doctor";
 import { registerSetupCommand } from "./register.setup";
 import { registerStartCommand } from "./register.start";
 import { registerSubCliCommands } from "./register.subclis";
-import { registerTuiCommand } from "./register.tui";
 import { registerUpdateCommand } from "./register.update";
 
 export function registerProgramCommands(
@@ -15,7 +14,6 @@ export function registerProgramCommands(
   argv: string[] = process.argv,
 ) {
   registerStartCommand(program);
-  registerTuiCommand(program);
   registerSetupCommand(program);
   registerDoctorCommand(program);
   registerDbCommand(program);

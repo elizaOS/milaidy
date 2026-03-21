@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/runtime/release-plugin-policy";
+export * from "@elizaos/agent/runtime/release-plugin-policy";

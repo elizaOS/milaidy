@@ -24,7 +24,7 @@ describe("brand gold theme overrides", () => {
   it("loads the local gold brand stylesheet after app-core styles", () => {
     const source = fs.readFileSync(MAIN_PATH, "utf8");
 
-    expect(source).toContain('import "@elizaos/app-core/styles/styles.css";');
+    expect(source).toContain('import "@miladyai/app-core/styles/styles.css";');
     expect(source).toContain('import "./brand-gold.css";');
     expect(source).toContain("DesktopSurfaceNavigationRuntime");
   });

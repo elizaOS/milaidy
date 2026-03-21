@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/nfa-routes";
+export * from "@elizaos/agent/api/nfa-routes";

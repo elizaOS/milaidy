@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // Mock the claude-code-stealth module
-vi.mock("@elizaos/autonomous/auth/claude-code-stealth", () => ({
+vi.mock("@elizaos/agent/auth/claude-code-stealth", () => ({
   installClaudeCodeStealthFetchInterceptor: vi.fn(),
 }));
 
@@ -13,10 +13,10 @@ describe("applyClaudeCodeStealth", () => {
 
   test("does nothing when ANTHROPIC_API_KEY is not set", async () => {
     const { applyClaudeCodeStealth } = await import(
-      "@elizaos/autonomous/auth/apply-stealth"
+      "@elizaos/agent/auth/apply-stealth"
     );
     const { installClaudeCodeStealthFetchInterceptor } = await import(
-      "@elizaos/autonomous/auth/claude-code-stealth"
+      "@elizaos/agent/auth/claude-code-stealth"
     );
     applyClaudeCodeStealth();
     expect(installClaudeCodeStealthFetchInterceptor).not.toHaveBeenCalled();
@@ -25,10 +25,10 @@ describe("applyClaudeCodeStealth", () => {
   test("does nothing when ANTHROPIC_API_KEY is a standard key", async () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-api-key";
     const { applyClaudeCodeStealth } = await import(
-      "@elizaos/autonomous/auth/apply-stealth"
+      "@elizaos/agent/auth/apply-stealth"
     );
     const { installClaudeCodeStealthFetchInterceptor } = await import(
-      "@elizaos/autonomous/auth/claude-code-stealth"
+      "@elizaos/agent/auth/claude-code-stealth"
     );
     applyClaudeCodeStealth();
     expect(installClaudeCodeStealthFetchInterceptor).not.toHaveBeenCalled();
@@ -37,10 +37,10 @@ describe("applyClaudeCodeStealth", () => {
   test("installs interceptor for subscription tokens (sk-ant-oat)", async () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-oat01-test";
     const { applyClaudeCodeStealth } = await import(
-      "@elizaos/autonomous/auth/apply-stealth"
+      "@elizaos/agent/auth/apply-stealth"
     );
     const { installClaudeCodeStealthFetchInterceptor } = await import(
-      "@elizaos/autonomous/auth/claude-code-stealth"
+      "@elizaos/agent/auth/claude-code-stealth"
     );
     applyClaudeCodeStealth();
     expect(installClaudeCodeStealthFetchInterceptor).toHaveBeenCalledTimes(1);
@@ -50,7 +50,7 @@ describe("applyClaudeCodeStealth", () => {
 describe("findProjectRoot", () => {
   test("returns project root when package name matches 'elizaai'", async () => {
     const { findProjectRoot } = await import(
-      "@elizaos/autonomous/auth/apply-stealth"
+      "@elizaos/agent/auth/apply-stealth"
     );
     const path = await import("node:path");
     // The eliza repo has package name "elizaai", which findProjectRoot
@@ -62,7 +62,7 @@ describe("findProjectRoot", () => {
 
   test("returns startDir when no matching package.json is found", async () => {
     const { findProjectRoot } = await import(
-      "@elizaos/autonomous/auth/apply-stealth"
+      "@elizaos/agent/auth/apply-stealth"
     );
     // Use filesystem root — no package.json with name "elizaai" there
     const result = findProjectRoot("/tmp");

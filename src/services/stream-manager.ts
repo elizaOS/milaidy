@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/stream-manager";
+export * from "@elizaos/agent/services/stream-manager";

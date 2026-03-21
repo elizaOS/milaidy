@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/actions/switch-stream-source";
+export * from "@elizaos/agent/actions/switch-stream-source";

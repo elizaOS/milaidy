@@ -26,13 +26,13 @@ const { _loadConfig, _saveConfig } = vi.hoisted(() => ({
   _saveConfig: vi.fn(),
 }));
 
-vi.mock("@elizaos/autonomous/config/config", () => ({
+vi.mock("@elizaos/agent/config/config", () => ({
   loadElizaConfig: _loadConfig,
   saveElizaConfig: _saveConfig,
 }));
 
 // Mock version module
-vi.mock("@elizaos/autonomous/runtime/version", () => ({
+vi.mock("@elizaos/agent/runtime/version", () => ({
   VERSION: "2.0.0-alpha.7",
 }));
 
@@ -40,7 +40,7 @@ import {
   checkForUpdate,
   fetchAllChannelVersions,
   resolveChannel,
-} from "@elizaos/autonomous/services/update-checker";
+} from "@elizaos/agent/services/update-checker";
 
 // ============================================================================
 // 1. Channel resolution
@@ -145,7 +145,7 @@ describe("checkForUpdate", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
     _loadConfig.mockReturnValue({});
-    _saveConfig.mockImplementation(() => {});
+    _saveConfig.mockImplementation(() => { });
     mockFetch.mockReset();
   });
 

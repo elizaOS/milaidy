@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/api/sandbox-routes";
+export * from "@elizaos/agent/api/sandbox-routes";

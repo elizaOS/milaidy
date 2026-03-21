@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   type DiagnosticsRouteContext as AutonomousDiagnosticsRouteContext,
   handleDiagnosticsRoutes as handleAutonomousDiagnosticsRoutes,
-} from "@elizaos/autonomous/api/diagnostics-routes";
+} from "@elizaos/agent/api/diagnostics-routes";
 import {
   AUDIT_EVENT_TYPES,
   AUDIT_SEVERITIES,

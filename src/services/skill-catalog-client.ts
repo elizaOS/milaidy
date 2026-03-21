@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/skill-catalog-client";
+export * from "@elizaos/agent/services/skill-catalog-client";

@@ -9,11 +9,11 @@ const { subscribeDesktopBridgeEventMock, useAppMock } = vi.hoisted(() => ({
   useAppMock: vi.fn(),
 }));
 
-vi.mock("@elizaos/app-core/bridge", () => ({
+vi.mock("@miladyai/app-core/bridge", () => ({
   subscribeDesktopBridgeEvent: subscribeDesktopBridgeEventMock,
 }));
 
-vi.mock("@elizaos/app-core/state", () => ({
+vi.mock("@miladyai/app-core/state", () => ({
   useApp: useAppMock,
 }));
 
@@ -34,7 +34,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
     });
     subscribeDesktopBridgeEventMock.mockImplementation(({ listener }) => {
       subscribeDesktopBridgeEventMock.listener = listener;
-      return () => {};
+      return () => { };
     });
   });
 

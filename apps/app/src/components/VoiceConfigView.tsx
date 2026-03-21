@@ -1,12 +1,12 @@
-import { client } from "@elizaos/app-core/api";
-import { ConfigSaveFooter } from "@elizaos/app-core/components/ConfigSaveFooter";
+import { client } from "@miladyai/app-core/api";
+import { ConfigSaveFooter } from "@miladyai/app-core/components/ConfigSaveFooter";
 import {
   dispatchWindowEvent,
   VOICE_CONFIG_UPDATED_EVENT,
-} from "@elizaos/app-core/events";
-import { useApp } from "@elizaos/app-core/state";
-import { PREMADE_VOICES, sanitizeApiKey } from "@elizaos/app-core/voice";
-import { Button, Input } from "@elizaos/ui";
+} from "@miladyai/app-core/events";
+import { useApp } from "@miladyai/app-core/state";
+import { PREMADE_VOICES, sanitizeApiKey } from "@miladyai/app-core/voice";
+import { Button, Input } from "@miladyai/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ProviderId = "cloud" | "elevenlabs" | "edge";
@@ -358,8 +358,8 @@ export function VoiceConfigView() {
         const rawApiKey = voiceConfig.elevenlabs?.apiKey;
         const providedApiKey =
           typeof rawApiKey === "string" &&
-          rawApiKey.trim().length > 0 &&
-          rawApiKey !== "[REDACTED]"
+            rawApiKey.trim().length > 0 &&
+            rawApiKey !== "[REDACTED]"
             ? rawApiKey.trim()
             : undefined;
 
@@ -465,11 +465,10 @@ export function VoiceConfigView() {
               key={p.id}
               variant="outline"
               size="sm"
-              className={`flex-1 h-auto flex-col py-2 ${
-                currentProvider === p.id
-                  ? "border-[var(--accent)] bg-[var(--accent)]/20"
-                  : ""
-              }`}
+              className={`flex-1 h-auto flex-col py-2 ${currentProvider === p.id
+                ? "border-[var(--accent)] bg-[var(--accent)]/20"
+                : ""
+                }`}
               onClick={() => handleProviderChange(p.id)}
             >
               <div className="font-semibold">{p.label}</div>
@@ -488,11 +487,10 @@ export function VoiceConfigView() {
               : "Microsoft Edge local voices"}
         </span>
         <span
-          className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
-            isConfigured
-              ? "border-green-600 bg-green-600/10 text-[var(--text)]"
-              : "border-[var(--warn)] bg-[var(--warn-subtle)] text-[var(--text)]"
-          }`}
+          className={`rounded-full border px-1.5 py-0.5 text-[10px] ${isConfigured
+            ? "border-green-600 bg-green-600/10 text-[var(--text)]"
+            : "border-[var(--warn)] bg-[var(--warn-subtle)] text-[var(--text)]"
+            }`}
         >
           {isConfigured
             ? t("mediasettingssection.Configured")
@@ -516,11 +514,10 @@ export function VoiceConfigView() {
                   key={`cloud-voice-lang-${lang}`}
                   variant="outline"
                   size="sm"
-                  className={`text-[10px] px-2 py-1 ${
-                    voiceLanguageFilter === lang
-                      ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white"
-                      : ""
-                  }`}
+                  className={`text-[10px] px-2 py-1 ${voiceLanguageFilter === lang
+                    ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white"
+                    : ""
+                    }`}
                   onClick={() => setVoiceLanguageFilter(lang)}
                 >
                   {lang === "all" ? "All Languages" : lang}
@@ -536,11 +533,10 @@ export function VoiceConfigView() {
                     key={preset.id}
                     variant="outline"
                     size="sm"
-                    className={`h-auto flex-col items-start py-1.5 px-2 text-left ${
-                      active
-                        ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]"
-                        : ""
-                    }`}
+                    className={`h-auto flex-col items-start py-1.5 px-2 text-left ${active
+                      ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]"
+                      : ""
+                      }`}
                     onClick={() => handleCloudVoiceSelect(preset.voiceId)}
                   >
                     <div className="font-semibold truncate w-full">
@@ -597,11 +593,10 @@ export function VoiceConfigView() {
                   key={`eleven-voice-lang-${lang}`}
                   variant="outline"
                   size="sm"
-                  className={`text-[10px] px-2 py-1 ${
-                    voiceLanguageFilter === lang
-                      ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white"
-                      : ""
-                  }`}
+                  className={`text-[10px] px-2 py-1 ${voiceLanguageFilter === lang
+                    ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white"
+                    : ""
+                    }`}
                   onClick={() => setVoiceLanguageFilter(lang)}
                 >
                   {lang === "all" ? "All Languages" : lang}
@@ -639,11 +634,10 @@ export function VoiceConfigView() {
                     key={preset.id}
                     variant="outline"
                     size="sm"
-                    className={`h-auto flex-col items-start py-1.5 px-2 text-left ${
-                      active
-                        ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]"
-                        : ""
-                    }`}
+                    className={`h-auto flex-col items-start py-1.5 px-2 text-left ${active
+                      ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white shadow-[0_0_0_1px_var(--accent)]"
+                      : ""
+                      }`}
                     onClick={() => handleElevenVoiceSelect(preset.voiceId)}
                   >
                     <div className="font-semibold truncate w-full">

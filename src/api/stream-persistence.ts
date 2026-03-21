@@ -10,7 +10,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { StreamingDestination } from "@elizaos/autonomous/api/stream-routes";
+import type { StreamingDestination } from "@elizaos/agent/api/stream-routes";
 import { logger } from "@elizaos/core";
 
 // ---------------------------------------------------------------------------
@@ -79,9 +79,9 @@ export function parseDestinationQuery(url?: string): string | undefined {
 function getOverlayLayoutJson(destinationId?: string | null): string | null {
   const files = destinationId
     ? [
-        overlayFileForDestination(destinationId),
-        overlayFileForDestination(null),
-      ]
+      overlayFileForDestination(destinationId),
+      overlayFileForDestination(null),
+    ]
     : [overlayFileForDestination(null)];
   for (const f of files) {
     try {

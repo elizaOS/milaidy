@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/config/types.gateway";
+export * from "@elizaos/agent/config/types.gateway";

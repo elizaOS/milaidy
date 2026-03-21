@@ -11,7 +11,7 @@ vi.mock("../auth/index", () => ({
   applySubscriptionCredentials,
   deleteCredentials,
 }));
-vi.mock("@elizaos/autonomous/auth", () => ({
+vi.mock("@elizaos/agent/auth", () => ({
   applySubscriptionCredentials,
   deleteCredentials,
 }));

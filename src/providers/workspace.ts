@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/providers/workspace";
+export * from "@elizaos/agent/providers/workspace";

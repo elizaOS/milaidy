@@ -7,7 +7,7 @@ import {
   stringToUuid,
 } from "@elizaos/core";
 
-export * from "@elizaos/autonomous/runtime/eliza";
+export * from "@elizaos/agent/runtime/eliza";
 
 import {
   type BootElizaRuntimeOptions,
@@ -19,7 +19,7 @@ import {
   collectPluginNames as upstreamCollectPluginNames,
   shutdownRuntime as upstreamShutdownRuntime,
   startEliza as upstreamStartEliza,
-} from "@elizaos/autonomous/runtime/eliza";
+} from "@elizaos/agent/runtime/eliza";
 import {
   syncElizaEnvToMilady,
   syncMiladyEnvToEliza,
@@ -444,7 +444,7 @@ async function ensureTelegramBotPolling(runtime: AgentRuntime): Promise<void> {
           );
           await ctx
             .reply("Sorry, I encountered an error processing your message.")
-            .catch(() => {});
+            .catch(() => { });
         }
       },
     );
@@ -621,7 +621,7 @@ export async function startEliza(
       console.log(`[milady] Control UI: http://localhost:${actualApiPort}`);
       console.log("[milady] Server running. Press Ctrl+C to stop.");
 
-      const keepAlive = setInterval(() => {}, 1 << 30);
+      const keepAlive = setInterval(() => { }, 1 << 30);
       const cleanup = async () => {
         clearInterval(keepAlive);
         // Force exit if graceful shutdown hangs for more than 10 seconds.

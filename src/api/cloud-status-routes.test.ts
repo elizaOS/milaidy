@@ -6,7 +6,7 @@ const validateCloudBaseUrlMock = vi.hoisted(() =>
   vi.fn(async () => null as string | null),
 );
 
-vi.mock("@elizaos/autonomous/cloud/validate-url", () => ({
+vi.mock("@elizaos/agent/cloud/validate-url", () => ({
   validateCloudBaseUrl: validateCloudBaseUrlMock,
 }));
 

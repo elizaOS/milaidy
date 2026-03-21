@@ -2,10 +2,6 @@ import type http from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMockHeadersRequest } from "./../test-support/test-helpers";
 
-vi.mock("@elizaos/plugin-pi-ai", () => ({
-  listPiAiModelOptions: () => [],
-}));
-
 vi.mock("@elizaos/plugin-agent-orchestrator", () => ({
   createCodingAgentRouteHandler: () => async () => false,
 }));

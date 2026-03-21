@@ -1,5 +1,5 @@
-import type { client as appClient } from "@elizaos/app-core/api";
-import { invokeDesktopBridgeRequest } from "@elizaos/app-core/bridge";
+import type { client as appClient } from "@miladyai/app-core/api";
+import { invokeDesktopBridgeRequest } from "@miladyai/app-core/bridge";
 
 const PATCH_STATE = Symbol.for("milady.desktopPermissionsPatch");
 
@@ -34,7 +34,7 @@ export function installDesktopPermissionsClientPatch(
 ): () => void {
   const existingPatch = client[PATCH_STATE] as PatchState | undefined;
   if (existingPatch) {
-    return () => {};
+    return () => { };
   }
 
   const originalGetPermissions = client.getPermissions.bind(client);

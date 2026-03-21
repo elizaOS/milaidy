@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/config/paths";
+export * from "@elizaos/agent/config/paths";

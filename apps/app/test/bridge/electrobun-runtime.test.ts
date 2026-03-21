@@ -1,7 +1,7 @@
 import {
   getBackendStartupTimeoutMs,
   isElectrobunRuntime,
-} from "@elizaos/app-core/bridge";
+} from "@miladyai/app-core/bridge";
 import { afterEach, describe, expect, it } from "vitest";
 
 const originalWindow = globalThis.window;

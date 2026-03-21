@@ -5,7 +5,7 @@
  * fast-path through the shared desktop bridge when available.
  */
 
-import { invokeDesktopBridgeRequest } from "@elizaos/app-core/bridge/electrobun-rpc";
+import { invokeDesktopBridgeRequest } from "@miladyai/app-core/bridge/electrobun-rpc";
 import type {
   ScreenCapturePlugin,
   ScreenshotOptions,
@@ -20,8 +20,7 @@ interface NativeScreenshotResponse {
 
 export class ScreenCaptureElectrobun
   extends ScreenCaptureWeb
-  implements ScreenCapturePlugin
-{
+  implements ScreenCapturePlugin {
   async captureScreenshot(
     options?: ScreenshotOptions,
   ): Promise<ScreenshotResult> {

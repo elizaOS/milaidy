@@ -2,7 +2,7 @@
  * Type declarations for @elizaos/plugin-todo.
  *
  * The published package ships JS-only (no .d.ts). This declaration covers
- * the dynamic import in @elizaos/autonomous (server.ts / eliza.ts) that
+ * the dynamic import in @elizaos/agent (server.ts / eliza.ts) that
  * TypeScript resolves through the Bun source export condition.
  *
  * TODO: remove once plugin-todo publishes its own declarations.

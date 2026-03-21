@@ -1,1 +1,1 @@
-export * from "@elizaos/autonomous/services/skill-marketplace";
+export * from "@elizaos/agent/services/skill-marketplace";
