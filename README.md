@@ -10,6 +10,47 @@ tl;dr: local AI gf that's actually fast and doesn't phone home
 
 ---
 
+## BSC / BNB Chain Integration
+
+Milady ships with native **BNB Smart Chain (BSC)** support — your agent can trade tokens, track meme launches, and interact with DeFi on BSC out of the box.
+
+### Trading (PancakeSwap)
+
+The built-in `EXECUTE_TRADE` action lets your agent swap tokens on BSC via PancakeSwap. Supports buy/sell with configurable slippage.
+
+To enable BSC trading, add to your `.env` or `~/.eliza/.env`:
+
+```bash
+EVM_PRIVATE_KEY=0x...                    # wallet private key (hex, 0x-prefixed)
+ELIZA_TRADE_PERMISSION_MODE=agent        # "agent" for autonomous, "user" for manual confirm
+```
+
+Optional RPC configuration (defaults to public BSC RPC):
+
+```bash
+ALCHEMY_API_KEY=...                      # or use ANKR_API_KEY / INFURA_API_KEY
+EVM_RPC_PROVIDER=alchemy                 # alchemy | infura | ankr | elizacloud
+```
+
+Once configured, just tell your agent: *"buy 0.1 BNB of \<token address\>"* or *"sell all my \<token\>"*.
+
+### Meme Token Discovery (Binance Skills Hub)
+
+Install the **meme-rush** skill from [Binance Skills Hub](https://github.com/binance/binance-skills-hub) to track meme token launches across BSC and Solana:
+
+- **Meme Rush** — real-time token lists from Pump.fun, Four.meme across new, finalizing, and migrated stages
+- **Topic Rush** — AI-powered market hot topics with tokens ranked by net inflow
+
+Install from the Skills Marketplace in the app, or ask your agent to install it.
+
+### Wallet
+
+Milady auto-generates EVM and Solana wallet addresses on startup. For BSC trading you need to import your own private key (see above). If connected to **Eliza Cloud**, managed wallets via Privy are available without local key management.
+
+View your agent's wallet addresses in the Settings tab or ask: *"what's my wallet address?"*
+
+---
+
 ## Downloads
 
 ### Desktop App (recommended for normies)
