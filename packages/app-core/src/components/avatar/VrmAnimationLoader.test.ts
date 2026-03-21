@@ -139,7 +139,7 @@ describe("VrmAnimationLoader", () => {
     const fbx = {
       animations: [sourceClip],
     };
-    const clip = { name: "happy" };
+    const clip = { name: "happy", tracks: [] };
     hoisted.fbxParseMock.mockReturnValueOnce(fbx);
     hoisted.retargetFbxMock.mockReturnValueOnce(clip);
 

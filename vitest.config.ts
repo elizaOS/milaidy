@@ -55,6 +55,15 @@ export default defineConfig({
       ...(appCoreSourceRoot
         ? [
             {
+              find: "@miladyai/app-core/bridge/electrobun-rpc.js",
+              replacement: path.join(
+                repoRoot,
+                "test",
+                "stubs",
+                "app-core-bridge.ts",
+              ),
+            },
+            {
               find: "@miladyai/app-core/bridge/electrobun-rpc",
               replacement: path.join(
                 repoRoot,

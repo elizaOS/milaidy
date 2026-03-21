@@ -105,7 +105,7 @@
     "start:desktop": "node scripts/desktop-build.mjs run --variant=base",
     "start:eliza": "bun packages/app-core/src/runtime/eliza.ts",
     "test": "node test/scripts/test-parallel.mjs",
-    "test:coverage": "bunx vitest run --coverage",
+    "test:coverage": "bunx vitest run --config vitest.unit.config.ts --coverage",
     "test:e2e": "bunx vitest run --config vitest.e2e.config.ts",
     "test:force": "node --import tsx test/scripts/test-force.ts",
     "test:live": "node scripts/run-with-env.mjs MILADY_LIVE_TEST=1 -- bun exec vitest run --config vitest.e2e.config.ts test/wallet-live.e2e.test.ts test/api-auth-live.e2e.test.ts test/cloud-providers.e2e.test.ts",

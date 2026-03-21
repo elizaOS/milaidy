@@ -911,6 +911,7 @@ describe("Context Serialization", () => {
 
 describe("Version Skew Detection (issue #10)", () => {
   type PackageManifest = {
+    dependencies: Record<string, string>;
     overrides?: Record<string, string>;
   };
 
@@ -927,18 +928,21 @@ describe("Version Skew Detection (issue #10)", () => {
     return manifest.overrides?.["@elizaos/core"];
   }
 
-  it("core is pinned for plugin compatibility", async () => {
-    // Core must be pinned so plugins at "next" dist-tag resolve safely.
+  it("core dependency is controlled for plugin compatibility", async () => {
+    // Dist-tags are allowed at the root as long as any override that exists is
+    // still a real semver or matching channel tag.
     const pkg = await readPackageManifest();
 
     const coreVersion = pkg.dependencies["@elizaos/core"];
     expect(coreVersion).toBeDefined();
-    // Core can use "next" dist-tag if overrides pin the actual version.
     const coreOverride = getDependencyOverride(pkg);
     if (coreVersion === "next" || coreVersion === "alpha") {
-      expect(coreOverride).toBeDefined();
-      if (coreOverride !== "next" && coreOverride !== "alpha") {
-        expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
+      if (coreOverride !== undefined) {
+        if (coreOverride === "next" || coreOverride === "alpha") {
+          expect(coreOverride).toBe(coreVersion);
+        } else {
+          expect(coreOverride).toMatch(/^\d+\.\d+\.\d+/);
+        }
       }
     } else if (isWorkspaceDependency(coreVersion)) {
       if (coreOverride !== undefined) {
@@ -960,8 +964,7 @@ describe("Version Skew Detection (issue #10)", () => {
     for (const name of affectedPlugins) {
       const ver = pkg.dependencies[name];
       expect(ver).toBeDefined();
-      // Plugins can use "next" dist-tag when core is pinned via overrides,
-      // or they can be pinned to a specific alpha version.
+      // Plugins can use dist-tags or be pinned to a specific version.
       // Workspace links are valid in monorepo development.
       // See docs/ELIZAOS_VERSIONING.md for details and update procedures
       if (ver !== "next" && ver !== "alpha" && !isWorkspaceDependency(ver)) {

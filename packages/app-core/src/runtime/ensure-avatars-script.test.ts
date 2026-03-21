@@ -6,7 +6,7 @@ import {
   hasValidAnimations,
   hasValidVrm,
   runEnsureAvatars,
-} from "../../scripts/ensure-avatars.mjs";
+} from "../../../../scripts/ensure-avatars.mjs";
 
 // ── Deterministic helpers ─────────────────────────────────────────────
 

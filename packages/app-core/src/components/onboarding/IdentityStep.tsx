@@ -3,15 +3,13 @@ import { getVrmPreviewUrl, useApp } from "@miladyai/app-core/state";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CharacterRoster,
-  INSET_CLIP,
-  SLANT_CLIP,
   type CharacterRosterEntry,
   resolveRosterEntries,
 } from "../CharacterRoster";
 
 /* ── Hardcoded frontend presets — no server needed ─────────────── */
 
-const FRONTEND_PRESETS = resolveRosterEntries(STYLE_PRESETS as any);
+const FRONTEND_PRESETS = resolveRosterEntries(STYLE_PRESETS);
 
 export function IdentityStep() {
   const { onboardingStyle, handleOnboardingNext, setState, t } = useApp();

@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const DOCS_DIR = join(__dirname, "..", "..", "..", "docs");
+const DOCS_DIR = resolve(__dirname, "..", "..", "..", "..", "..", "docs");
 const raw = readFileSync(join(DOCS_DIR, "docs.json"), "utf8");
 const config = JSON.parse(raw);
 

@@ -5,7 +5,7 @@
  * right panel has style rules + examples. Footer has voice + save + reset.
  */
 
-import { client } from "@miladyai/app-core/api";
+import { client, type StylePreset } from "@miladyai/app-core/api";
 import {
   APP_EMOTE_EVENT,
   dispatchWindowEvent,
@@ -119,15 +119,7 @@ const EDGE_VOICE_GROUPS = [
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
-interface OnboardingPreset {
-  catchphrase: string;
-  bio: string[];
-  system: string;
-  adjectives: string[];
-  style: { all: string[]; chat: string[]; post: string[] };
-  messageExamples: Array<Array<{ user: string; content: { text: string } }>>;
-  postExamples: string[];
-}
+type OnboardingPreset = StylePreset;
 
 function getOnboardingPresetStyles(
   options: unknown,
@@ -142,7 +134,7 @@ function replaceCharacterToken(value: string, name: string) {
 }
 
 function buildCharacterDraftFromPreset(entry: CharacterRosterEntry) {
-  const p = entry.preset as unknown as OnboardingPreset;
+  const p: OnboardingPreset = entry.preset;
   const name = entry.name;
   return {
     name,
@@ -310,11 +302,11 @@ export function CharacterEditor({
     if (onboardingPresetStyles.length) {
       setRosterStyles([...onboardingPresetStyles]);
     } else {
-      setRosterStyles(STYLE_PRESETS as unknown as OnboardingPreset[]);
+      setRosterStyles([...STYLE_PRESETS]);
     }
   }, [onboardingPresetStyles]);
 
-  const characterRoster = resolveRosterEntries(rosterStyles as any);
+  const characterRoster = resolveRosterEntries(rosterStyles);
 
   const d = characterDraft;
   const fallbackCharacterName =

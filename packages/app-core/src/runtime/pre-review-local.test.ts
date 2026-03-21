@@ -10,7 +10,7 @@ import {
   runChecks,
   scanDiffTextForBlockedPatterns,
   scopeVerdictFor,
-} from "../../scripts/pre-review-local.mjs";
+} from "../../../../scripts/pre-review-local.mjs";
 
 describe("pre-review-local helpers", () => {
   it("classifies branch/message context", () => {

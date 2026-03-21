@@ -912,14 +912,14 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
   it("patchAppCoreMiladyAssets patches app-core runtime files and logs", () => {
     const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
     try {
-      const rootPkgDir = join(tmp, "node_modules", "@elizaos", "app-core");
+      const rootPkgDir = join(tmp, "node_modules", "@miladyai", "app-core");
       const cachedPkgDir = join(
         tmp,
         "node_modules",
         ".bun",
-        "@elizaos+app-core@2.0.0-alpha.53",
+        "@miladyai+app-core@2.0.0-alpha.53",
         "node_modules",
-        "@elizaos",
+        "@miladyai",
         "app-core",
       );
 
@@ -1017,9 +1017,9 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
         tmp,
         "node_modules",
         "@elizaos",
-        "autonomous",
+        "agent",
         "packages",
-        "autonomous",
+        "agent",
         "src",
         "onboarding-presets.js",
       );
@@ -1043,14 +1043,20 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
   it("patchAutonomousMiladyOnboardingPresets patches installed autonomous copies and logs", () => {
     const tmp = mkdtempSync(join(tmpdir(), "patch-bun-exports-test-"));
     try {
-      const rootSourcePath = join(tmp, "src", "onboarding-presets.ts");
+      const rootSourcePath = join(
+        tmp,
+        "packages",
+        "app-core",
+        "src",
+        "onboarding-presets.ts",
+      );
       const rootPkgPath = join(
         tmp,
         "node_modules",
         "@elizaos",
-        "autonomous",
+        "agent",
         "packages",
-        "autonomous",
+        "agent",
         "src",
         "onboarding-presets.js",
       );
@@ -1058,10 +1064,10 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
         tmp,
         "node_modules",
         ".bun",
-        "@elizaos+autonomous@2.0.0-alpha.74",
+        "@elizaos+agent@2.0.0-alpha.74",
         "node_modules",
         "@elizaos",
-        "autonomous",
+        "agent",
         "src",
         "onboarding-presets.ts",
       );
@@ -1069,12 +1075,12 @@ const avatarIndex = meta?.avatarIndex ?? (index % 4) + 1;
         tmp,
         "node_modules",
         ".bun",
-        "@elizaos+autonomous@2.0.0-alpha.53",
+        "@elizaos+agent@2.0.0-alpha.53",
         "node_modules",
         "@elizaos",
-        "autonomous",
+        "agent",
         "packages",
-        "autonomous",
+        "agent",
         "src",
         "onboarding-presets.js",
       );

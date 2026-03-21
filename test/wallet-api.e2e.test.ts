@@ -46,6 +46,7 @@ function req(
   method: string,
   p: string,
   body?: Record<string, unknown>,
+  headers?: http.OutgoingHttpHeaders,
 ): Promise<{
   status: number;
   headers: http.IncomingHttpHeaders;
@@ -63,6 +64,7 @@ function req(
         headers: {
           "Content-Type": "application/json",
           ...(b ? { "Content-Length": Buffer.byteLength(b) } : {}),
+          ...headers,
         },
       },
       (res) => {
@@ -488,6 +490,32 @@ describe("Wallet API E2E", () => {
       expect(status).toBe(200);
       expect(Array.isArray(data.evm)).toBe(true);
       expect("solana" in data).toBe(true);
+    });
+
+    it("requires the compat API token when one is configured", async () => {
+      const previousToken = process.env.MILADY_API_TOKEN;
+      process.env.MILADY_API_TOKEN = "nft-test-token";
+
+      try {
+        const unauthorized = await req(port, "GET", "/api/wallet/nfts");
+        expect(unauthorized.status).toBe(401);
+
+        const authorized = await req(
+          port,
+          "GET",
+          "/api/wallet/nfts",
+          undefined,
+          { Authorization: "Bearer nft-test-token" },
+        );
+        expect(authorized.status).toBe(200);
+        expect(Array.isArray(authorized.data.evm)).toBe(true);
+      } finally {
+        if (previousToken === undefined) {
+          delete process.env.MILADY_API_TOKEN;
+        } else {
+          process.env.MILADY_API_TOKEN = previousToken;
+        }
+      }
     });
 
     it("fetches real EVM NFTs with Alchemy key", async () => {

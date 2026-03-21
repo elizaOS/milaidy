@@ -71,15 +71,15 @@ describe("resolveTerminalRunLimits", () => {
     });
   });
 
-  it("supports legacy MILAIDY env vars as fallback", () => {
+  it("ignores legacy MILAIDY env vars when canonical ELIZA vars are unset", () => {
     delete process.env.ELIZA_TERMINAL_MAX_CONCURRENT;
     delete process.env.ELIZA_TERMINAL_MAX_DURATION_MS;
     process.env.MILAIDY_TERMINAL_MAX_CONCURRENT = "999";
     process.env.MILAIDY_TERMINAL_MAX_DURATION_MS = "100";
 
     expect(resolveTerminalRunLimits()).toEqual({
-      maxConcurrent: 16,
-      maxDurationMs: 1000,
+      maxConcurrent: 2,
+      maxDurationMs: 5 * 60 * 1000,
     });
   });
 

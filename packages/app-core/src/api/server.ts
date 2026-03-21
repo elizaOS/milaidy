@@ -2303,6 +2303,10 @@ async function handleMiladyCompatRoute(
   }
 
   if (method === "GET" && url.pathname === "/api/wallet/nfts") {
+    if (!ensureCompatApiAuthorized(req, res)) {
+      return true;
+    }
+
     const config = loadElizaConfig();
     const addresses = getWalletAddresses();
     const rpcReadiness = resolveWalletRpcReadiness(config);

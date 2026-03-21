@@ -496,6 +496,8 @@ vi.mock("../native/desktop", async () => {
       isPackaged: vi.fn(() => Promise.resolve({ packaged: false })),
       getPath: vi.fn(() => Promise.resolve({ path: "/mock/path" })),
       openExternal: vi.fn(() => Promise.resolve()),
+      openSettings: vi.fn(() => Promise.resolve()),
+      openSurfaceWindow: vi.fn(() => Promise.resolve()),
     })),
   };
 });
@@ -4687,4 +4689,25 @@ describe("Updater (automated)", () => {
   it.todo("Check for updates contacts the release server (network)");
   it.todo("Applying update relaunches the app (e2e)");
   it.todo("Update check works on both canary and stable channels (network)");
+});
+
+describe("RPC handler delegation — desktop", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("desktopOpenSurfaceWindow ignores invalid surfaces", async () => {
+    const desktopModule = await import("../native/desktop");
+    const getDesktopManagerMock = desktopModule.getDesktopManager as Mock;
+
+    getDesktopManagerMock.mockClear();
+    const { handlers } = await captureHandlers();
+    const manager = getDesktopManagerMock.mock.results.at(-1)?.value;
+
+    expect(manager).toBeDefined();
+    await expect(
+      handlers.desktopOpenSurfaceWindow?.({ surface: "evil" } as never),
+    ).resolves.toBeUndefined();
+    expect(manager?.openSurfaceWindow).not.toHaveBeenCalled();
+  });
 });
