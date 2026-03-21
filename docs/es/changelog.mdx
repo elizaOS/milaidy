@@ -3,6 +3,42 @@ title: Registro de cambios
 description: Novedades en Milady — funcionalidades, mejoras y correcciones.
 ---
 
+<Update label="2026-04-16" description="Semana del 10 al 16 de abril" tags={["Feature", "Update", "Fix"]}>
+<div id="keyboard-shortcuts-overlay">
+## Superposición de atajos de teclado
+</div>
+
+Presiona `Shift+?` desde cualquier lugar de la aplicación para ver todos los atajos de teclado disponibles. La superposición agrupa los atajos por categoría — agente, navegación, actualización y utilidad — para que puedas descubrir comandos sin dejar el teclado.
+
+<div id="training-backend-detection">
+## Detección de backend de entrenamiento
+</div>
+
+Antes de iniciar un trabajo de ajuste fino, Milady ahora detecta automáticamente los backends de cómputo disponibles (MLX, CUDA, CPU) y valida tu selección. Si solicitas un backend que no está disponible, recibes un error claro en lugar de un fallo silencioso. Los backends detectados también están disponibles a través de la [API de entrenamiento](/es/rest/training).
+
+<div id="orchestrator-trajectory-view">
+## Vista de trayectoria del orquestador
+</div>
+
+Las llamadas LLM realizadas por el orquestador del enjambre ahora están etiquetadas con metadatos de origen y se muestran con insignias púrpuras en la [vista de trayectoria](/es/advanced/trajectories). Puedes ver qué decisiones tomó el orquestador, a qué sesión y tarea se relacionan, y en qué se diferencian de las llamadas individuales de los agentes.
+
+<div id="updates">
+## Actualizaciones
+</div>
+
+- **Recuperación de interrupciones de transmisión** — Si un flujo de respuesta LLM se interrumpe a mitad del mensaje, el chat ahora lo marca como "(Respuesta interrumpida)" y muestra un botón de Reintentar para que puedas regenerar sin volver a escribir. Anteriormente, los flujos interrumpidos dejaban un mensaje parcial sin forma de recuperarse.
+- **Persistencia de sesión de terminal** — Los terminales del agente de codificación ahora permanecen activos cuando cambias entre pestañas y se reconectan automáticamente tras una caída de WebSocket. Ya no pierdes el contexto del terminal al navegar por el panel de control.
+- **Limitación de velocidad de voz** — El endpoint de voz ahora aplica un límite de 2,000 caracteres de texto y un límite de velocidad por sesión para prevenir el abuso rápido de TTS. Las solicitudes que excedan cualquier límite reciben una respuesta de error clara.
+- **Indicador de progreso de reconexión** — Cuando el panel de control pierde su conexión WebSocket, ahora ves un banner ámbar "Reconectando (intento X/15)..." con un indicador giratorio antes de que aparezca el banner de fallo, dándote visibilidad del proceso de reintento.
+
+<div id="bug-fixes">
+## Correcciones de errores
+</div>
+
+- Se corrigió que el botón de detener del agente de codificación no funcionara — hacer clic en detener ahora termina correctamente la sesión activa
+- Se corrigió la salida duplicada del terminal al abrir un panel del agente de codificación
+- Se corrigió que los avatares VRM y los recursos 3D fallaran silenciosamente al cargar cuando el servidor devolvía HTML en lugar de datos binarios
+- Se corrigió el monitoreo de memoria — un nuevo panel de depuración está disponible para rastrear el uso del heap durante sesiones prolongadas
 <Update label="2026-06-11" description="Semana del 5 al 11 de junio" tags={["Update", "Fix"]}>
 <div id="unified-provider-configuration">
 ## Configuración unificada de proveedores
