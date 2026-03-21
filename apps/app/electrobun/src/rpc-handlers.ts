@@ -27,6 +27,7 @@ import { getPermissionManager } from "./native/permissions";
 import { getScreenCaptureManager } from "./native/screencapture";
 import { getSwabbleManager } from "./native/swabble";
 import { getTalkModeManager } from "./native/talkmode";
+import { isDetachedSurface } from "./surface-windows";
 
 /** Push current OS permission states to the agent REST API in-process. */
 async function syncPermissionsToRestApi(): Promise<void> {
@@ -199,8 +200,24 @@ export function registerRpcHandlers(
     desktopGetPath: async (params: Parameters<typeof desktop.getPath>[0]) =>
       desktop.getPath(params),
     desktopBeep: async () => desktop.beep(),
-    desktopOpenSettingsWindow: async () => {
-      desktop.openSettings();
+    desktopOpenSettingsWindow: async (
+      params: { tabHint?: string } | undefined,
+    ) => {
+      desktop.openSettings(params?.tabHint);
+    },
+    desktopOpenSurfaceWindow: async (params: {
+      surface:
+        | "chat"
+        | "browser"
+        | "triggers"
+        | "plugins"
+        | "connectors"
+        | "cloud";
+    }) => {
+      if (!isDetachedSurface(params.surface)) {
+        return;
+      }
+      desktop.openSurfaceWindow(params.surface);
     },
 
     // ---- Desktop: Screen ----

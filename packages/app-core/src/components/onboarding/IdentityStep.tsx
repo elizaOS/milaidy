@@ -9,7 +9,7 @@ import {
 
 /* ── Hardcoded frontend presets — no server needed ─────────────── */
 
-const FRONTEND_PRESETS = resolveRosterEntries(STYLE_PRESETS as any);
+const FRONTEND_PRESETS = resolveRosterEntries(STYLE_PRESETS);
 
 export function IdentityStep() {
   const { onboardingStyle, handleOnboardingNext, setState, t } = useApp();
@@ -28,7 +28,7 @@ export function IdentityStep() {
 
   const handleSelect = useCallback(
     (entry: CharacterRosterEntry) => {
-      setState("onboardingStyle", entry.catchphrase ?? "");
+      setState("onboardingStyle", entry.catchphrase ?? entry.id);
       setState("onboardingName", entry.name);
       setState("selectedVrmIndex", entry.avatarIndex);
     },
@@ -37,8 +37,9 @@ export function IdentityStep() {
 
   // Auto-select the first one if nothing is selected yet
   useEffect(() => {
-    if (!onboardingStyle && entries.length > 0) {
-      handleSelect(entries[0]);
+    const firstEntry = entries[0];
+    if (!onboardingStyle && firstEntry) {
+      handleSelect(firstEntry);
     }
   }, [onboardingStyle, entries, handleSelect]);
 

@@ -1173,11 +1173,7 @@ function DesktopOnboardingPermissions({
             className="h-auto min-w-[8.5rem] bg-accent border-accent px-4 py-2 text-[11px] leading-tight text-accent-foreground"
             onClick={() => onContinue()}
           >
-            {translateWithFallback(
-              t,
-              "onboarding.savedMyKeys",
-              "Continue",
-            )}
+            {translateWithFallback(t, "onboarding.savedMyKeys", "Continue")}
           </Button>
         )}
       </div>

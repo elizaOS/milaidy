@@ -19,6 +19,7 @@ import {
   Image,
   Loader2,
   Mic,
+  Monitor,
   RefreshCw,
   Search,
   Shield,
@@ -33,6 +34,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../state";
 import { CodingAgentSettingsSection } from "./CodingAgentSettingsSection";
 import { ConfigPageView } from "./ConfigPageView";
+import { DesktopWorkspaceSection } from "./DesktopWorkspaceSection";
 import { CloudDashboard } from "./ElizaCloudDashboard";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
@@ -70,6 +72,12 @@ const SETTINGS_SECTIONS: SettingsSectionDef[] = [
     label: "settings.sections.walletrpc.label",
     icon: Wallet,
     description: "settings.sections.walletrpc.desc",
+  },
+  {
+    id: "desktop",
+    label: "Desktop Workspace",
+    icon: Monitor,
+    description: "Native window, clipboard, dialog, and detached surface tools",
   },
   {
     id: "media",
@@ -730,6 +738,17 @@ export function SettingsView({
           className="p-4 sm:p-5 lg:p-6"
         >
           <ConfigPageView embedded />
+        </SectionCard>
+      )}
+
+      {visibleSectionIds.has("desktop") && (
+        <SectionCard
+          id="desktop"
+          title="Desktop Workspace"
+          description="Native runtime diagnostics, detached windows, file dialogs, clipboard, and shell controls."
+          className="p-4 sm:p-5 lg:p-6"
+        >
+          <DesktopWorkspaceSection />
         </SectionCard>
       )}
 

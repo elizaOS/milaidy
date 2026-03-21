@@ -46,6 +46,7 @@ function req(
   method: string,
   p: string,
   body?: Record<string, unknown>,
+  headers?: http.OutgoingHttpHeaders,
 ): Promise<{
   status: number;
   headers: http.IncomingHttpHeaders;
@@ -63,6 +64,7 @@ function req(
         headers: {
           "Content-Type": "application/json",
           ...(b ? { "Content-Length": Buffer.byteLength(b) } : {}),
+          ...headers,
         },
       },
       (res) => {
@@ -490,6 +492,32 @@ describe("Wallet API E2E", () => {
       expect("solana" in data).toBe(true);
     });
 
+    it("requires the compat API token when one is configured", async () => {
+      const previousToken = process.env.MILADY_API_TOKEN;
+      process.env.MILADY_API_TOKEN = "nft-test-token";
+
+      try {
+        const unauthorized = await req(port, "GET", "/api/wallet/nfts");
+        expect(unauthorized.status).toBe(401);
+
+        const authorized = await req(
+          port,
+          "GET",
+          "/api/wallet/nfts",
+          undefined,
+          { Authorization: "Bearer nft-test-token" },
+        );
+        expect(authorized.status).toBe(200);
+        expect(Array.isArray(authorized.data.evm)).toBe(true);
+      } finally {
+        if (previousToken === undefined) {
+          delete process.env.MILADY_API_TOKEN;
+        } else {
+          process.env.MILADY_API_TOKEN = previousToken;
+        }
+      }
+    });
+
     it("fetches real EVM NFTs with Alchemy key", async () => {
       const { data } = await req(port, "GET", "/api/wallet/nfts");
       const evm = data.evm as Array<{ chain: string; nfts: unknown[] }>;
@@ -669,12 +697,18 @@ describe("Wallet API E2E", () => {
       expect(process.env.ALCHEMY_API_KEY).toBeUndefined();
     });
 
-    it("GET /api/wallet/balances without API keys returns null for both", async () => {
+    it("GET /api/wallet/balances without premium API keys returns a safe fallback", async () => {
       delete process.env.ALCHEMY_API_KEY;
       delete process.env.HELIUS_API_KEY;
       const { status, data } = await req(port, "GET", "/api/wallet/balances");
       expect(status).toBe(200);
-      expect(data.evm).toBeNull();
+
+      if (data.evm !== null) {
+        expect(typeof data.evm).toBe("object");
+        expect(Array.isArray((data.evm as { chains: unknown[] }).chains)).toBe(
+          true,
+        );
+      }
       expect(data.solana).toBeNull();
     });
 

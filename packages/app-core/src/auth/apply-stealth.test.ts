@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 // Mock the claude-code-stealth module
 vi.mock("@elizaos/agent/auth/claude-code-stealth", () => ({
@@ -48,15 +51,28 @@ describe("applyClaudeCodeStealth", () => {
 });
 
 describe("findProjectRoot", () => {
-  test("returns project root when package name matches 'elizaai'", async () => {
+  let tempRoot: string | undefined;
+
+  afterEach(() => {
+    if (tempRoot) {
+      rmSync(tempRoot, { force: true, recursive: true });
+      tempRoot = undefined;
+    }
+  });
+
+  test("returns project root when package name matches 'elizaos'", async () => {
     const { findProjectRoot } = await import(
       "@elizaos/agent/auth/apply-stealth"
     );
-    const path = await import("node:path");
-    // The eliza repo has package name "elizaai", which findProjectRoot
-    // now recognizes. It should find the repo root, not fall back.
-    const result = findProjectRoot(__dirname);
-    const expectedRoot = path.resolve(__dirname, "..", "..");
+    tempRoot = mkdtempSync(path.join(tmpdir(), "apply-stealth-root-"));
+    const nestedDir = path.join(tempRoot, "packages", "agent", "src", "auth");
+    writeFileSync(
+      path.join(tempRoot, "package.json"),
+      JSON.stringify({ name: "elizaos" }),
+      "utf8",
+    );
+    const result = findProjectRoot(nestedDir);
+    const expectedRoot = tempRoot;
     expect(result).toBe(expectedRoot);
   });
 

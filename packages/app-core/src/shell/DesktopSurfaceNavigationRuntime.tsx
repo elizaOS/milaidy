@@ -3,7 +3,19 @@ import type { Tab } from "@miladyai/app-core/navigation";
 import { useApp } from "@miladyai/app-core/state";
 import { useEffect } from "react";
 
-const MAIN_SURFACE_TABS = new Set<Tab>(["plugins", "connectors", "triggers"]);
+const MAIN_SURFACE_TABS = new Set<Tab>([
+  "chat",
+  "plugins",
+  "connectors",
+  "triggers",
+]);
+const MAIN_NAVIGATION_TABS = new Set<Tab>([
+  "chat",
+  "plugins",
+  "connectors",
+  "triggers",
+  "settings",
+]);
 
 export function DesktopSurfaceNavigationRuntime() {
   const { setTab, switchShellView } = useApp();
@@ -15,12 +27,20 @@ export function DesktopSurfaceNavigationRuntime() {
       listener: (payload) => {
         const itemId =
           (payload as { itemId?: string } | null | undefined)?.itemId ?? "";
-        if (!itemId.startsWith("show-main:")) {
-          return;
+        let target: Tab | null = null;
+        if (itemId.startsWith("show-main:")) {
+          const candidate = itemId.slice("show-main:".length) as Tab;
+          if (MAIN_SURFACE_TABS.has(candidate)) {
+            target = candidate;
+          }
+        } else if (itemId.startsWith("navigate-")) {
+          const candidate = itemId.slice("navigate-".length) as Tab;
+          if (MAIN_NAVIGATION_TABS.has(candidate)) {
+            target = candidate;
+          }
         }
 
-        const target = itemId.slice("show-main:".length) as Tab;
-        if (!MAIN_SURFACE_TABS.has(target)) {
+        if (!target) {
           return;
         }
 

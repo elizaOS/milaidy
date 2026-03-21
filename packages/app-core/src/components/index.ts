@@ -38,6 +38,7 @@ export * from "./conversations/ConversationListItem";
 export * from "./conversations/conversation-utils";
 export * from "./DatabasePageView";
 export * from "./DatabaseView";
+export * from "./DesktopWorkspaceSection";
 export * from "./ElizaCloudDashboard";
 export * from "./ElizaCloudDashboard";
 export * from "./EmotePicker";

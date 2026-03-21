@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   parseTrackedSubmodules,
   runInitSubmodules,
-} from "../../scripts/init-submodules.mjs";
+} from "../../../../scripts/init-submodules.mjs";
 
 const ROOT = "/tmp/eliza-test-root";
 const GIT_DIR = resolve(ROOT, ".git");

@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockClient } = vi.hoisted(() => ({
   mockClient: {
@@ -52,6 +52,10 @@ function Probe(props: { onChange: (snapshot: StartupSnapshot) => void }) {
 describe("startup stale token handling", () => {
   beforeEach(() => {
     Object.assign(document.documentElement, { setAttribute: vi.fn() });
+    localStorage.setItem(
+      "eliza:connection-mode",
+      JSON.stringify({ runMode: "local" }),
+    );
     mockClient.hasToken.mockReturnValue(true);
     mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.getAuthStatus.mockResolvedValue({
@@ -65,6 +69,10 @@ describe("startup stale token handling", () => {
       path: "/api/onboarding/status",
     });
     mockClient.getOnboardingStatus.mockRejectedValue(err);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem("eliza:connection-mode");
   });
 
   it("clears stale token and exits to pairing/auth instead of retry loop", async () => {
@@ -85,16 +93,13 @@ describe("startup stale token handling", () => {
       );
     });
 
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(mockClient.setToken).toHaveBeenCalledWith(null);
+      expect(latest).not.toBeNull();
+      expect(latest?.onboardingLoading).toBe(false);
+      expect(latest?.authRequired).toBe(true);
+      expect(latest?.startupError).toBeNull();
     });
-
-    expect(mockClient.setToken).toHaveBeenCalledWith(null);
-    expect(latest).not.toBeNull();
-    expect(latest?.onboardingLoading).toBe(false);
-    expect(latest?.authRequired).toBe(true);
-    expect(latest?.startupError).toBeNull();
 
     await act(async () => {
       tree?.unmount();

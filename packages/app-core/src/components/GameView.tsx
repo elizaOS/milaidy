@@ -15,6 +15,7 @@ import { invokeDesktopBridgeRequest, isElectrobunRuntime } from "../bridge";
 import { useRetakeCapture, useTimeout } from "../hooks";
 import { useApp } from "../state";
 import { openExternalUrl } from "../utils";
+import type { DesktopClickAuditItem } from "../utils/desktop-workspace";
 import { formatTime } from "./format";
 
 const DEFAULT_VIEWER_SANDBOX = "allow-scripts allow-same-origin allow-popups";
@@ -36,6 +37,345 @@ const TAG_COLORS: Record<string, { bg: string; fg: string }> = {
   autonomy: { bg: "rgba(245, 158, 11, 0.15)", fg: "rgb(245, 158, 11)" },
   websocket: { bg: "rgba(20, 184, 166, 0.15)", fg: "rgb(20, 184, 166)" },
 };
+
+export const DESKTOP_GAME_CLICK_AUDIT: readonly DesktopClickAuditItem[] = [
+  {
+    id: "game-native-refresh",
+    entryPoint: "game",
+    label: "Refresh Native Window State",
+    expectedAction: "Refresh canvas bounds and GPU window state.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "game-native-focus",
+    entryPoint: "game",
+    label: "Focus Game Window",
+    expectedAction: "Focus the native game canvas window.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "game-native-visibility",
+    entryPoint: "game",
+    label: "Show/Hide Game Window",
+    expectedAction: "Show or hide the native game canvas window.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "game-native-snapshot",
+    entryPoint: "game",
+    label: "Snapshot Game Window",
+    expectedAction: "Capture a native snapshot of the game canvas window.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "game-gpu-window",
+    entryPoint: "game",
+    label: "Launch GPU Diagnostics",
+    expectedAction: "Create or focus a safe GPU diagnostics window.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+] as const;
+
+export function DesktopGameWindowControls({
+  gameWindowId,
+}: {
+  gameWindowId: string | null;
+}) {
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [boundsLabel, setBoundsLabel] = useState("Bounds unavailable.");
+  const [gpuWindowId, setGpuWindowId] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!gameWindowId) {
+      setBoundsLabel("Waiting for native game window.");
+    } else {
+      const bounds = await invokeDesktopBridgeRequest<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }>({
+        rpcMethod: "canvasGetBounds",
+        ipcChannel: "canvas:getBounds",
+        params: { id: gameWindowId },
+      });
+      if (bounds) {
+        setBoundsLabel(
+          `${bounds.width}x${bounds.height} @ ${bounds.x},${bounds.y}`,
+        );
+      }
+    }
+
+    const gpuWindows = await invokeDesktopBridgeRequest<{
+      windows: Array<{ id: string }>;
+    }>({
+      rpcMethod: "gpuWindowList",
+      ipcChannel: "gpuWindow:list",
+    });
+    setGpuWindowId(gpuWindows?.windows[0]?.id ?? null);
+  }, [gameWindowId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const runAction = useCallback(
+    async (
+      id: string,
+      action: () => Promise<void>,
+      successMessage?: string,
+      refreshAfter = true,
+    ) => {
+      setBusyAction(id);
+      setError(null);
+      setMessage(null);
+      try {
+        await action();
+        if (refreshAfter) {
+          await refresh();
+        }
+        if (successMessage) {
+          setMessage(successMessage);
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Native game action failed.",
+        );
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [refresh],
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="rounded border border-border px-2 py-1 text-[10px] text-muted">
+        {boundsLabel}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs shadow-sm hover:border-accent"
+        onClick={() =>
+          void runAction(
+            "game-native-refresh",
+            async () => {},
+            "Native game state refreshed.",
+          )
+        }
+        disabled={busyAction === "game-native-refresh"}
+      >
+        Refresh Native State
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs shadow-sm hover:border-accent"
+        onClick={() =>
+          void runAction(
+            "game-native-focus",
+            async () => {
+              if (!gameWindowId) {
+                throw new Error("Game window not ready yet.");
+              }
+              await invokeDesktopBridgeRequest<void>({
+                rpcMethod: "canvasFocus",
+                ipcChannel: "canvas:focus",
+                params: { id: gameWindowId },
+              });
+            },
+            "Focused native game window.",
+            false,
+          )
+        }
+        disabled={!gameWindowId || busyAction === "game-native-focus"}
+      >
+        Focus Window
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs shadow-sm hover:border-accent"
+        onClick={() =>
+          void runAction(
+            "game-native-show",
+            async () => {
+              if (!gameWindowId) {
+                throw new Error("Game window not ready yet.");
+              }
+              await invokeDesktopBridgeRequest<void>({
+                rpcMethod: "canvasShow",
+                ipcChannel: "canvas:show",
+                params: { id: gameWindowId },
+              });
+            },
+            "Shown native game window.",
+            false,
+          )
+        }
+        disabled={!gameWindowId || busyAction === "game-native-show"}
+      >
+        Show Window
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs shadow-sm hover:border-accent"
+        onClick={() =>
+          void runAction(
+            "game-native-hide",
+            async () => {
+              if (!gameWindowId) {
+                throw new Error("Game window not ready yet.");
+              }
+              await invokeDesktopBridgeRequest<void>({
+                rpcMethod: "canvasHide",
+                ipcChannel: "canvas:hide",
+                params: { id: gameWindowId },
+              });
+            },
+            "Hid native game window.",
+            false,
+          )
+        }
+        disabled={!gameWindowId || busyAction === "game-native-hide"}
+      >
+        Hide Window
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs shadow-sm hover:border-accent"
+        onClick={() =>
+          void runAction(
+            "game-native-snapshot",
+            async () => {
+              if (!gameWindowId) {
+                throw new Error("Game window not ready yet.");
+              }
+              const snapshot = await invokeDesktopBridgeRequest<{
+                data: string;
+              } | null>({
+                rpcMethod: "canvasSnapshot",
+                ipcChannel: "canvas:snapshot",
+                params: { id: gameWindowId, format: "png" },
+              });
+              if (!snapshot?.data) {
+                throw new Error("Snapshot unavailable.");
+              }
+            },
+            "Captured native game snapshot.",
+            false,
+          )
+        }
+        disabled={!gameWindowId || busyAction === "game-native-snapshot"}
+      >
+        Snapshot Window
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs shadow-sm hover:border-accent"
+        onClick={() =>
+          void runAction(
+            "game-gpu-window",
+            async () => {
+              const created = await invokeDesktopBridgeRequest<{ id: string }>({
+                rpcMethod: "gpuWindowCreate",
+                ipcChannel: "gpuWindow:create",
+                params: {
+                  id: "milady-gpu-diagnostics",
+                  title: "Milady GPU Diagnostics",
+                  width: 640,
+                  height: 360,
+                },
+              });
+              const nextGpuWindowId = created?.id ?? gpuWindowId;
+              if (nextGpuWindowId) {
+                await invokeDesktopBridgeRequest<void>({
+                  rpcMethod: "gpuWindowShow",
+                  ipcChannel: "gpuWindow:show",
+                  params: { id: nextGpuWindowId },
+                });
+                await invokeDesktopBridgeRequest<void>({
+                  rpcMethod: "gpuWindowGetInfo",
+                  ipcChannel: "gpuWindow:getInfo",
+                  params: { id: nextGpuWindowId },
+                });
+                setGpuWindowId(nextGpuWindowId);
+              }
+            },
+            "GPU diagnostics window ready.",
+          )
+        }
+        disabled={busyAction === "game-gpu-window"}
+      >
+        Launch GPU Diagnostics
+      </Button>
+      {gpuWindowId && (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs shadow-sm hover:border-accent"
+            onClick={() =>
+              void runAction(
+                "game-gpu-show",
+                async () => {
+                  await invokeDesktopBridgeRequest<void>({
+                    rpcMethod: "gpuWindowShow",
+                    ipcChannel: "gpuWindow:show",
+                    params: { id: gpuWindowId },
+                  });
+                },
+                "GPU diagnostics window shown.",
+                false,
+              )
+            }
+            disabled={busyAction === "game-gpu-show"}
+          >
+            Show GPU Window
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs shadow-sm hover:border-accent"
+            onClick={() =>
+              void runAction(
+                "game-gpu-hide",
+                async () => {
+                  await invokeDesktopBridgeRequest<void>({
+                    rpcMethod: "gpuWindowHide",
+                    ipcChannel: "gpuWindow:hide",
+                    params: { id: gpuWindowId },
+                  });
+                },
+                "GPU diagnostics window hidden.",
+                false,
+              )
+            }
+            disabled={busyAction === "game-gpu-hide"}
+          >
+            Hide GPU Window
+          </Button>
+        </>
+      )}
+      {(message || error) && (
+        <span className={`text-[10px] ${error ? "text-danger" : "text-ok"}`}>
+          {error ?? message}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function GameView() {
   const { setTimeout } = useTimeout();
@@ -459,6 +799,9 @@ export function GameView() {
         >
           {showLogsPanel ? t("game.hideLogs") : t("game.showLogs")}
         </Button>
+        {isElectrobun && (
+          <DesktopGameWindowControls gameWindowId={gameWindowId} />
+        )}
         {retakeEnabled && (
           <Button
             variant={retakeCapture ? "default" : "outline"}

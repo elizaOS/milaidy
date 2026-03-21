@@ -5,7 +5,7 @@
  * right panel has style rules + examples. Footer has voice + save + reset.
  */
 
-import { client } from "@miladyai/app-core/api";
+import { client, type StylePreset } from "@miladyai/app-core/api";
 import {
   APP_EMOTE_EVENT,
   dispatchWindowEvent,
@@ -14,7 +14,11 @@ import {
 import { STYLE_PRESETS } from "@miladyai/app-core/onboarding-presets";
 import { useApp } from "@miladyai/app-core/state";
 import { normalizeCharacterMessageExamples } from "@miladyai/app-core/utils/character-message-examples";
-import { EDGE_BACKUP_VOICES, PREMADE_VOICES, sanitizeApiKey } from "@miladyai/app-core/voice";
+import {
+  EDGE_BACKUP_VOICES,
+  PREMADE_VOICES,
+  sanitizeApiKey,
+} from "@miladyai/app-core/voice";
 import { Button, Input, Textarea, ThemedSelect } from "@miladyai/ui";
 import {
   CharacterRoster,
@@ -115,15 +119,7 @@ const EDGE_VOICE_GROUPS = [
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
-interface OnboardingPreset {
-  catchphrase: string;
-  bio: string[];
-  system: string;
-  adjectives: string[];
-  style: { all: string[]; chat: string[]; post: string[] };
-  messageExamples: Array<Array<{ user: string; content: { text: string } }>>;
-  postExamples: string[];
-}
+type OnboardingPreset = StylePreset;
 
 function getOnboardingPresetStyles(
   options: unknown,
@@ -138,7 +134,7 @@ function replaceCharacterToken(value: string, name: string) {
 }
 
 function buildCharacterDraftFromPreset(entry: CharacterRosterEntry) {
-  const p = entry.preset as unknown as OnboardingPreset;
+  const p: OnboardingPreset = entry.preset;
   const name = entry.name;
   return {
     name,
@@ -306,13 +302,11 @@ export function CharacterEditor({
     if (onboardingPresetStyles.length) {
       setRosterStyles([...onboardingPresetStyles]);
     } else {
-      setRosterStyles(STYLE_PRESETS as unknown as OnboardingPreset[]);
+      setRosterStyles([...STYLE_PRESETS]);
     }
   }, [onboardingPresetStyles]);
 
-  const characterRoster = resolveRosterEntries(
-    rosterStyles as any,
-  );
+  const characterRoster = resolveRosterEntries(rosterStyles);
 
   const d = characterDraft;
   const fallbackCharacterName =
@@ -321,9 +315,9 @@ export function CharacterEditor({
     "Agent";
   const normalizedMessageExamples = Array.isArray(d.messageExamples)
     ? normalizeCharacterMessageExamples(
-      d.messageExamples,
-      fallbackCharacterName,
-    )
+        d.messageExamples,
+        fallbackCharacterName,
+      )
     : [];
   const bioText =
     typeof d.bio === "string"
@@ -414,7 +408,7 @@ export function CharacterEditor({
             setSelectedVoicePresetId(preset?.id ?? null);
           }
         }
-      } catch { }
+      } catch {}
       setVoiceLoading(false);
     })();
   }, []);
@@ -426,7 +420,10 @@ export function CharacterEditor({
       const isEdgeVoice = EDGE_BACKUP_VOICES.some((v) => v.id === preset.id);
       setVoiceConfig((prev) => {
         if (isEdgeVoice) {
-          const existingEdge = (prev.edge ?? {}) as Record<string, string | undefined>;
+          const existingEdge = (prev.edge ?? {}) as Record<
+            string,
+            string | undefined
+          >;
           return {
             ...prev,
             provider: "edge" as const,
@@ -464,7 +461,8 @@ export function CharacterEditor({
         const elPreset = PREMADE_VOICES.find(
           (p) => p.id === entry.voicePresetId,
         );
-        const edgeGender = elPreset?.gender === "male" ? "edge-male" : "edge-female";
+        const edgeGender =
+          elPreset?.gender === "male" ? "edge-male" : "edge-female";
         const edgeVoice = EDGE_BACKUP_VOICES.find((v) => v.id === edgeGender);
         if (edgeVoice) {
           handleSelectPreset(edgeVoice);
@@ -502,16 +500,20 @@ export function CharacterEditor({
         // provider when streamVoiceSpeak is called for the catchphrase.
         // We build a minimal payload inline to avoid referencing persistVoiceConfig
         // (which is defined after this callback in the file).
-        const presetVoice = PREMADE_VOICES.find((p) => p.id === entry.voicePresetId);
+        const presetVoice = PREMADE_VOICES.find(
+          (p) => p.id === entry.voicePresetId,
+        );
         if (presetVoice && useElevenLabs) {
-          void client.updateConfig({
-            messages: {
-              tts: {
-                provider: "elevenlabs",
-                elevenlabs: { voiceId: presetVoice.voiceId },
+          void client
+            .updateConfig({
+              messages: {
+                tts: {
+                  provider: "elevenlabs",
+                  elevenlabs: { voiceId: presetVoice.voiceId },
+                },
               },
-            },
-          }).catch(() => {});
+            })
+            .catch(() => {});
         }
       }
       if (applyDefaults) {
@@ -522,8 +524,7 @@ export function CharacterEditor({
         pendingGreetingRef.current = {
           catchphrase: entry.catchphrase,
           animationPath:
-            entry.greetingAnimation ??
-            "animations/emotes/greeting.fbx",
+            entry.greetingAnimation ?? "animations/emotes/greeting.fbx",
         };
       }
     },
@@ -601,7 +602,7 @@ export function CharacterEditor({
           loop: false,
           showOverlay: false,
         });
-        void client.streamVoiceSpeak(greeting.catchphrase).catch(() => { });
+        void client.streamVoiceSpeak(greeting.catchphrase).catch(() => {});
       }, 400);
     };
     const eventName = "eliza:vrm-teleport-complete";
@@ -660,7 +661,8 @@ export function CharacterEditor({
   /* ── Persist voice config ───────────────────────────────────────── */
   const persistVoiceConfig = useCallback(async () => {
     setVoiceSaveError(null);
-    const provider = voiceConfig.provider ?? (useElevenLabs ? "elevenlabs" : "edge");
+    const provider =
+      voiceConfig.provider ?? (useElevenLabs ? "elevenlabs" : "edge");
     let normalizedVoiceConfig: Record<string, unknown>;
     if (provider === "edge") {
       normalizedVoiceConfig = {
@@ -773,7 +775,7 @@ export function CharacterEditor({
               if (parsed.chat) handleStyleEdit("chat", parsed.chat.join("\n"));
               if (parsed.post) handleStyleEdit("post", parsed.post.join("\n"));
             }
-          } catch { }
+          } catch {}
         } else if (field === "chatExamples") {
           const formatted = normalizeCharacterMessageExamples(
             generated,
@@ -795,7 +797,7 @@ export function CharacterEditor({
                 handleCharacterArrayInput("postExamples", parsed.join("\n"));
               }
             }
-          } catch { }
+          } catch {}
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Generation failed";
@@ -949,7 +951,9 @@ export function CharacterEditor({
       {customizing && (
         <div className="ce-panels ce-panels--single">
           {/* ── LEFT PANEL (Character identity) ───────────────────────── */}
-          <div className={`ce-panel ce-panel-left ${activePage !== "identity" ? "ce-panel--hidden" : ""}`}>
+          <div
+            className={`ce-panel ce-panel-left ${activePage !== "identity" ? "ce-panel--hidden" : ""}`}
+          >
             {/* Name + Voice (50/50 split) */}
             <section className="ce-section">
               <div className="ce-name-voice-row">
@@ -974,9 +978,15 @@ export function CharacterEditor({
                   <div className="ce-voice-inline">
                     <ThemedSelect
                       value={voiceSelectValue}
-                      groups={useElevenLabs ? ELEVENLABS_VOICE_GROUPS : EDGE_VOICE_GROUPS}
+                      groups={
+                        useElevenLabs
+                          ? ELEVENLABS_VOICE_GROUPS
+                          : EDGE_VOICE_GROUPS
+                      }
                       onChange={(id: string) => {
-                        const allVoices = useElevenLabs ? PREMADE_VOICES : EDGE_BACKUP_VOICES;
+                        const allVoices = useElevenLabs
+                          ? PREMADE_VOICES
+                          : EDGE_BACKUP_VOICES;
                         const preset = allVoices.find((p) => p.id === id);
                         if (preset) handleSelectPreset(preset);
                       }}
@@ -1081,8 +1091,9 @@ export function CharacterEditor({
           </div>
 
           {/* ── RIGHT PANEL ───────────────────────────────────────────── */}
-          <div className={`ce-panel ce-panel-right ${activePage === "identity" ? "ce-panel--hidden" : ""}`}>
-
+          <div
+            className={`ce-panel ce-panel-right ${activePage === "identity" ? "ce-panel--hidden" : ""}`}
+          >
             {/* Style Rules */}
             <section
               className="ce-section ce-section--grow"

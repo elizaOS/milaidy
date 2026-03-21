@@ -34,10 +34,13 @@ import {
 } from "../utils/sql-compat";
 import { handleCloudRoute } from "./cloud-routes";
 import { handleCloudStatusRoutes } from "./cloud-status-routes";
+import { getWalletAddresses } from "./wallet";
+import { fetchEvmNfts } from "./wallet-evm-balance";
 import {
   type WalletExportRejection as CompatWalletExportRejection,
   createHardenedExportGuard,
 } from "./wallet-export-guard";
+import { resolveWalletRpcReadiness } from "./wallet-rpc";
 
 const hardenedGuard = createHardenedExportGuard(
   resolveCompatWalletExportRejection,
@@ -2277,7 +2280,6 @@ async function handleMiladyCompatRoute(
     const solKey = process.env.SOLANA_PRIVATE_KEY ?? "";
 
     try {
-      const { getWalletAddresses } = await import("@elizaos/agent/api/wallet");
       const addresses = getWalletAddresses();
       sendJsonResponse(res, 200, {
         evmPrivateKey: evmKey,
@@ -2297,6 +2299,51 @@ async function handleMiladyCompatRoute(
         solanaAddress: "",
       });
     }
+    return true;
+  }
+
+  if (method === "GET" && url.pathname === "/api/wallet/nfts") {
+    if (!ensureCompatApiAuthorized(req, res)) {
+      return true;
+    }
+
+    const config = loadElizaConfig();
+    const addresses = getWalletAddresses();
+    const rpcReadiness = resolveWalletRpcReadiness(config);
+    const alchemyKey = process.env.ALCHEMY_API_KEY?.trim() || null;
+    const ankrKey = process.env.ANKR_API_KEY?.trim() || null;
+    const result: {
+      evm: Array<{ chain: string; nfts: unknown[] }>;
+      solana: { nfts: unknown[] } | null;
+    } = {
+      evm: [],
+      // Solana NFT indexing is not exposed through the compat server yet.
+      solana: null,
+    };
+
+    if (addresses.evmAddress && rpcReadiness.evmBalanceReady) {
+      try {
+        result.evm = await fetchEvmNfts(addresses.evmAddress, {
+          alchemyKey,
+          ankrKey,
+          cloudManagedAccess: rpcReadiness.cloudManagedAccess,
+          bscRpcUrls: rpcReadiness.bscRpcUrls,
+          ethereumRpcUrls: rpcReadiness.ethereumRpcUrls,
+          baseRpcUrls: rpcReadiness.baseRpcUrls,
+          avaxRpcUrls: rpcReadiness.avalancheRpcUrls,
+          nodeRealBscRpcUrl: process.env.NODEREAL_BSC_RPC_URL,
+          quickNodeBscRpcUrl: process.env.QUICKNODE_BSC_RPC_URL,
+          bscRpcUrl: process.env.BSC_RPC_URL,
+          ethereumRpcUrl: process.env.ETHEREUM_RPC_URL,
+          baseRpcUrl: process.env.BASE_RPC_URL,
+          avaxRpcUrl: process.env.AVALANCHE_RPC_URL,
+        });
+      } catch (err) {
+        logger.warn(`[wallet] EVM NFT fetch failed: ${err}`);
+      }
+    }
+
+    sendJsonResponse(res, 200, result);
     return true;
   }
 

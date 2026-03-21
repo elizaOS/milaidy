@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { isElectrobunRuntime } from "../bridge";
 import {
   buildCommands as buildCommandPaletteCommands,
   type CommandItem,
@@ -6,6 +7,11 @@ import {
 import { COMMAND_PALETTE_EVENT } from "../events";
 import { useBugReport } from "../hooks";
 import { useApp } from "../state";
+import {
+  openDesktopSettingsWindow,
+  openDesktopSurfaceWindow,
+  requestDesktopBridge,
+} from "../utils";
 
 export function CommandPalette() {
   const {
@@ -14,7 +20,7 @@ export function CommandPalette() {
     commandActiveIndex,
     agentStatus,
     handleStart,
-
+    handleStop,
     handleRestart,
     setTab,
     loadPlugins,
@@ -37,13 +43,14 @@ export function CommandPalette() {
   const agentState = agentStatus?.state ?? "stopped";
   const currentGameViewerUrl =
     typeof activeGameViewerUrl === "string" ? activeGameViewerUrl : "";
+  const desktopRuntime = isElectrobunRuntime();
 
   const allCommands = useMemo<CommandItem[]>(() => {
     return buildCommandPaletteCommands({
       agentState,
       activeGameViewerUrl: currentGameViewerUrl,
       handleStart,
-
+      handleStop,
       handleRestart,
       setTab,
       setAppsSubTab: () => setState("appsSubTab", "games"),
@@ -53,12 +60,25 @@ export function CommandPalette() {
       loadWorkbench,
       handleChatClear,
       openBugReport,
+      desktopRuntime,
+      focusDesktopMainWindow: () => {
+        void requestDesktopBridge<void>(
+          "desktopFocusWindow",
+          "desktop:focusWindow",
+        );
+      },
+      openDesktopSettingsWindow: (tabHint?: string) => {
+        void openDesktopSettingsWindow(tabHint);
+      },
+      openDesktopSurfaceWindow: (surface) => {
+        void openDesktopSurfaceWindow(surface);
+      },
     });
   }, [
     agentState,
     currentGameViewerUrl,
     handleStart,
-
+    handleStop,
     handleRestart,
     setTab,
     setState,
@@ -68,6 +88,7 @@ export function CommandPalette() {
     loadWorkbench,
     handleChatClear,
     openBugReport,
+    desktopRuntime,
   ]);
 
   // Filter commands by query

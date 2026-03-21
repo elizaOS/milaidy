@@ -46,7 +46,9 @@ export const CompanionView = memo(function CompanionView() {
         t={t}
         showCompanionControls
         chatAgentVoiceMuted={chatAgentVoiceMuted}
-        onToggleVoiceMute={() => setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)}
+        onToggleVoiceMute={() =>
+          setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)
+        }
         onNewChat={() => void handleStartDraftConversation()}
       />
 

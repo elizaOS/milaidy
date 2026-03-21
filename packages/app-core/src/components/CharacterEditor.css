@@ -21,7 +21,9 @@
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: width 0.4s ease, margin-left 0.4s ease;
+  transition:
+    width 0.4s ease,
+    margin-left 0.4s ease;
 }
 
 /* On large screens, right-align editor panel at 50% when customizing */
@@ -668,8 +670,6 @@
     0 0 18px var(--ce-gold-glow),
     inset 0 1px 0 var(--ce-white-glow);
 }
-
-
 
 /* ── Style Rules ───────────────────────────────────────────────── */
 

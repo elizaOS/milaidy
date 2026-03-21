@@ -16,10 +16,12 @@ import {
   type VoiceMode,
   type VoiceProvider,
 } from "../api";
+import { invokeDesktopBridgeRequest, isElectrobunRuntime } from "../bridge";
 import { getSwabblePlugin, type SwabbleConfig } from "../bridge/native-plugins";
 import { dispatchWindowEvent, VOICE_CONFIG_UPDATED_EVENT } from "../events";
 import { useTimeout } from "../hooks";
 import { useApp } from "../state";
+import type { DesktopClickAuditItem } from "../utils";
 import { PREMADE_VOICES, sanitizeApiKey, VOICE_PROVIDERS } from "../voice";
 import {
   CloudConnectionStatus,
@@ -39,6 +41,295 @@ const MODEL_SIZES: Array<{
   { id: "medium", hint: "(accurate)" },
   { id: "large", hint: "(accurate)" },
 ];
+
+export const DESKTOP_TALKMODE_CLICK_AUDIT: readonly DesktopClickAuditItem[] = [
+  {
+    id: "voice-talkmode-refresh",
+    entryPoint: "settings:voice",
+    label: "Refresh Talk Mode",
+    expectedAction:
+      "Refresh talk mode state, speaking status, and whisper availability.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "voice-talkmode-start-stop",
+    entryPoint: "settings:voice",
+    label: "Start/Stop Talk Mode",
+    expectedAction: "Start or stop desktop talk mode.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "voice-talkmode-speak",
+    entryPoint: "settings:voice",
+    label: "Speak Test Phrase",
+    expectedAction: "Send a test phrase to talk mode speech output.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "voice-talkmode-stop-speaking",
+    entryPoint: "settings:voice",
+    label: "Stop Speaking",
+    expectedAction: "Stop current desktop speech output.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+] as const;
+
+export function DesktopTalkModePanel() {
+  const desktopRuntime = isElectrobunRuntime();
+  const [loading, setLoading] = useState(desktopRuntime);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [phrase, setPhrase] = useState("Hello from Milady desktop talk mode.");
+  const [panelState, setPanelState] = useState<{
+    state: string;
+    enabled: boolean;
+    speaking: boolean;
+    whisperAvailable: boolean;
+    whisperModel?: string;
+  }>({
+    state: "idle",
+    enabled: false,
+    speaking: false,
+    whisperAvailable: false,
+  });
+
+  const refresh = useCallback(async () => {
+    if (!desktopRuntime) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    const [state, enabled, speaking, whisperInfo] = await Promise.all([
+      invokeDesktopBridgeRequest<{ state: string }>({
+        rpcMethod: "talkmodeGetState",
+        ipcChannel: "talkmode:getState",
+      }),
+      invokeDesktopBridgeRequest<{ enabled: boolean }>({
+        rpcMethod: "talkmodeIsEnabled",
+        ipcChannel: "talkmode:isEnabled",
+      }),
+      invokeDesktopBridgeRequest<{ speaking: boolean }>({
+        rpcMethod: "talkmodeIsSpeaking",
+        ipcChannel: "talkmode:isSpeaking",
+      }),
+      invokeDesktopBridgeRequest<{ available: boolean; modelSize?: string }>({
+        rpcMethod: "talkmodeGetWhisperInfo",
+        ipcChannel: "talkmode:getWhisperInfo",
+      }),
+    ]);
+    setPanelState({
+      state: state?.state ?? "idle",
+      enabled: enabled?.enabled ?? false,
+      speaking: speaking?.speaking ?? false,
+      whisperAvailable: whisperInfo?.available ?? false,
+      whisperModel: whisperInfo?.modelSize,
+    });
+    setLoading(false);
+  }, [desktopRuntime]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const runAction = useCallback(
+    async (
+      id: string,
+      action: () => Promise<void>,
+      successMessage?: string,
+      refreshAfter = true,
+    ) => {
+      setBusyAction(id);
+      setError(null);
+      setMessage(null);
+      try {
+        await action();
+        if (refreshAfter) {
+          await refresh();
+        }
+        if (successMessage) {
+          setMessage(successMessage);
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Talk mode action failed.",
+        );
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [refresh],
+  );
+
+  if (!desktopRuntime) {
+    return (
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-3 text-xs text-[var(--muted)]">
+        Desktop talk mode controls are only available inside the Electrobun
+        runtime.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold text-[var(--text)]">
+            Desktop Talk Mode
+          </div>
+          <div className="text-[10px] text-[var(--muted)]">
+            Native voice loop controls, speech output, and whisper diagnostics.
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            void runAction(
+              "voice-talkmode-refresh",
+              async () => {},
+              "Talk mode state refreshed.",
+            )
+          }
+          disabled={loading || busyAction === "voice-talkmode-refresh"}
+        >
+          Refresh
+        </Button>
+      </div>
+
+      {(error || message) && (
+        <div
+          className={`rounded-lg border px-2.5 py-2 text-[11px] ${
+            error
+              ? "border-danger/40 bg-danger/10 text-danger"
+              : "border-ok/40 bg-ok/10 text-ok"
+          }`}
+        >
+          {error ?? message}
+        </div>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[11px]">
+          <div className="text-[10px] text-[var(--muted)]">State</div>
+          <div className="font-semibold text-[var(--text)]">
+            {panelState.state}
+          </div>
+        </div>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[11px]">
+          <div className="text-[10px] text-[var(--muted)]">Enabled</div>
+          <div className="font-semibold text-[var(--text)]">
+            {panelState.enabled ? "Yes" : "No"}
+          </div>
+        </div>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[11px]">
+          <div className="text-[10px] text-[var(--muted)]">Speaking</div>
+          <div className="font-semibold text-[var(--text)]">
+            {panelState.speaking ? "Yes" : "No"}
+          </div>
+        </div>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-2 text-[11px]">
+          <div className="text-[10px] text-[var(--muted)]">Whisper</div>
+          <div className="font-semibold text-[var(--text)]">
+            {panelState.whisperAvailable
+              ? panelState.whisperModel || "Available"
+              : "Unavailable"}
+          </div>
+        </div>
+      </div>
+
+      <Input
+        type="text"
+        className="bg-[var(--card)] text-xs"
+        value={phrase}
+        onChange={(event) => setPhrase(event.target.value)}
+        placeholder="Speech test phrase"
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            void runAction(
+              "voice-talkmode-start-stop",
+              async () => {
+                if (panelState.enabled) {
+                  await invokeDesktopBridgeRequest<void>({
+                    rpcMethod: "talkmodeStop",
+                    ipcChannel: "talkmode:stop",
+                  });
+                  return;
+                }
+
+                const result = await invokeDesktopBridgeRequest<{
+                  available: boolean;
+                  reason?: string;
+                }>({
+                  rpcMethod: "talkmodeStart",
+                  ipcChannel: "talkmode:start",
+                });
+                if (result?.available === false) {
+                  throw new Error(result.reason || "Talk mode unavailable.");
+                }
+              },
+              panelState.enabled ? "Talk mode stopped." : "Talk mode started.",
+            )
+          }
+          disabled={busyAction === "voice-talkmode-start-stop" || loading}
+        >
+          {panelState.enabled ? "Stop Talk Mode" : "Start Talk Mode"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            void runAction(
+              "voice-talkmode-speak",
+              async () => {
+                await invokeDesktopBridgeRequest<void>({
+                  rpcMethod: "talkmodeSpeak",
+                  ipcChannel: "talkmode:speak",
+                  params: { text: phrase },
+                });
+              },
+              "Speech requested.",
+              false,
+            )
+          }
+          disabled={!phrase.trim() || busyAction === "voice-talkmode-speak"}
+        >
+          Speak Test Phrase
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            void runAction(
+              "voice-talkmode-stop-speaking",
+              async () => {
+                await invokeDesktopBridgeRequest<void>({
+                  rpcMethod: "talkmodeStopSpeaking",
+                  ipcChannel: "talkmode:stopSpeaking",
+                });
+              },
+              "Stopped current speech output.",
+            )
+          }
+          disabled={busyAction === "voice-talkmode-stop-speaking"}
+        >
+          Stop Speaking
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function WakeWordSection({
   serverConfig,
@@ -664,6 +955,8 @@ export function VoiceConfigView() {
 
       {/* Wake Word subsection */}
       <WakeWordSection serverConfig={swabbleServerConfig} />
+
+      <DesktopTalkModePanel />
 
       <ConfigSaveFooter
         dirty={dirty}

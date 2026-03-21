@@ -15,7 +15,9 @@ describe("onboarding style overrides", () => {
     const source = fs.readFileSync(MAIN_PATH, "utf8");
 
     expect(source).toContain('import "@miladyai/app-core/styles/styles.css";');
-    expect(source).toContain('import "@miladyai/app-core/styles/onboarding-overrides.css";');
+    expect(source).toContain(
+      'import "@miladyai/app-core/styles/onboarding-overrides.css";',
+    );
   });
 
   it("normalizes provider card text layout without enlarging the card footprint", () => {

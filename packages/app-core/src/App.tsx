@@ -44,6 +44,7 @@ import {
   StreamView,
   SystemWarningBanner,
 } from "./components";
+import { DeferredSetupChecklist } from "./components/FlaminaGuide";
 import {
   BugReportProvider,
   useBugReportState,
@@ -302,6 +303,17 @@ export function App() {
     setEditingAction(null);
   }, []);
 
+  const handleDeferredTaskOpen = useCallback(
+    (task: "provider" | "rpc" | "permissions" | "voice") => {
+      if (task === "voice") {
+        setTab("voice");
+        return;
+      }
+      setTab("settings");
+    },
+    [setTab],
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handleResize = () => {
@@ -414,6 +426,10 @@ export function App() {
         {isChatMobileLayout ? (
           <>
             <main className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden pt-2 px-2">
+              <DeferredSetupChecklist
+                className="mb-3"
+                onOpenTask={handleDeferredTaskOpen}
+              />
               <ChatView />
             </main>
 
@@ -430,6 +446,10 @@ export function App() {
           <>
             <ConversationsSidebar />
             <main className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden pt-3 px-3 xl:px-5">
+              <DeferredSetupChecklist
+                className="mb-3"
+                onOpenTask={handleDeferredTaskOpen}
+              />
               <ChatView />
             </main>
           </>

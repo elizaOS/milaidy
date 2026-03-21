@@ -347,7 +347,7 @@ export function registerSetupCommand(program: Command) {
             const envKey =
               providerEntry?.key ??
               opts.provider.toUpperCase().replace(/[^A-Z0-9]/g, "_") +
-              "_API_KEY";
+                "_API_KEY";
             const config = loadConfig(configPath);
             const envSection = getEnvSection(config);
             envSection[envKey] = keyValue;

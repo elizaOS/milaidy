@@ -19,8 +19,10 @@ import {
   type VideoProvider,
   type VisionProvider,
 } from "../api";
+import { invokeDesktopBridgeRequest, isElectrobunRuntime } from "../bridge";
 import { useTimeout } from "../hooks";
 import { useApp } from "../state";
+import type { DesktopClickAuditItem } from "../utils";
 import {
   CloudConnectionStatus,
   CloudSourceModeToggle,
@@ -28,6 +30,59 @@ import {
 import { ConfigSaveFooter } from "./ConfigSaveFooter";
 
 type MediaCategory = "image" | "video" | "audio" | "vision";
+
+export const DESKTOP_MEDIA_CLICK_AUDIT: readonly DesktopClickAuditItem[] = [
+  {
+    id: "media-refresh-native",
+    entryPoint: "settings:media",
+    label: "Refresh Native Media",
+    expectedAction:
+      "Refresh camera devices, permissions, screen sources, and recording state.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "media-camera-preview",
+    entryPoint: "settings:media",
+    label: "Start/Stop Camera Preview",
+    expectedAction: "Start or stop the native camera preview.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "media-camera-capture",
+    entryPoint: "settings:media",
+    label: "Capture Photo",
+    expectedAction: "Capture a still photo from the native camera surface.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "media-camera-recording",
+    entryPoint: "settings:media",
+    label: "Start/Stop Camera Recording",
+    expectedAction: "Start or stop native camera recording.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "media-screen-screenshot",
+    entryPoint: "settings:media",
+    label: "Take Screenshot",
+    expectedAction:
+      "Capture and save a screenshot using the native screen capture API.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "media-screen-recording",
+    entryPoint: "settings:media",
+    label: "Start/Stop Screen Recording",
+    expectedAction: "Start or stop native screen recording.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+] as const;
 
 interface ProviderOption {
   id: string;
@@ -243,6 +298,587 @@ function setNestedValue(
   }
   current[parts[parts.length - 1]] = value;
   return result;
+}
+
+export function DesktopMediaControlPanel() {
+  const desktopRuntime = isElectrobunRuntime();
+  const [loading, setLoading] = useState(desktopRuntime);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [cameraDevices, setCameraDevices] = useState<
+    Array<{ deviceId: string; label: string }>
+  >([]);
+  const [cameraPermission, setCameraPermission] = useState("unknown");
+  const [cameraPreviewRunning, setCameraPreviewRunning] = useState(false);
+  const [cameraRecording, setCameraRecording] = useState(false);
+  const [cameraRecordingDuration, setCameraRecordingDuration] = useState(0);
+  const [selectedCameraId, setSelectedCameraId] = useState("");
+  const [screenSources, setScreenSources] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [selectedSourceId, setSelectedSourceId] = useState("");
+  const [screenPermission, setScreenPermission] = useState("unknown");
+  const [screenRecording, setScreenRecording] = useState(false);
+  const [screenPaused, setScreenPaused] = useState(false);
+  const [screenRecordingDuration, setScreenRecordingDuration] = useState(0);
+  const [lastSavedPath, setLastSavedPath] = useState<string | null>(null);
+  const [lastPhotoStatus, setLastPhotoStatus] = useState(
+    "No photo captured yet.",
+  );
+
+  const refresh = useCallback(async () => {
+    if (!desktopRuntime) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    const [
+      devicesResult,
+      cameraPermissionResult,
+      cameraRecordingState,
+      sourcesResult,
+      screenPermissionResult,
+      screenRecordingState,
+    ] = await Promise.all([
+      invokeDesktopBridgeRequest<{
+        devices: Array<{ deviceId: string; label: string }>;
+        available: boolean;
+      }>({
+        rpcMethod: "cameraGetDevices",
+        ipcChannel: "camera:getDevices",
+      }),
+      invokeDesktopBridgeRequest<{ status: string }>({
+        rpcMethod: "cameraCheckPermissions",
+        ipcChannel: "camera:checkPermissions",
+      }),
+      invokeDesktopBridgeRequest<{ recording: boolean; duration: number }>({
+        rpcMethod: "cameraGetRecordingState",
+        ipcChannel: "camera:getRecordingState",
+      }),
+      invokeDesktopBridgeRequest<{
+        sources: Array<{ id: string; name: string }>;
+        available: boolean;
+      }>({
+        rpcMethod: "screencaptureGetSources",
+        ipcChannel: "screencapture:getSources",
+      }),
+      invokeDesktopBridgeRequest<{ status: string }>({
+        rpcMethod: "permissionsCheck",
+        ipcChannel: "permissions:check",
+        params: { id: "screen-recording" },
+      }),
+      invokeDesktopBridgeRequest<{
+        recording: boolean;
+        duration: number;
+        paused: boolean;
+      }>({
+        rpcMethod: "screencaptureGetRecordingState",
+        ipcChannel: "screencapture:getRecordingState",
+      }),
+    ]);
+
+    const nextDevices = devicesResult?.devices ?? [];
+    const nextSources = sourcesResult?.sources ?? [];
+
+    setCameraDevices(nextDevices);
+    setSelectedCameraId((current) => current || nextDevices[0]?.deviceId || "");
+    setCameraPermission(cameraPermissionResult?.status ?? "unknown");
+    setCameraRecording(cameraRecordingState?.recording ?? false);
+    setCameraRecordingDuration(cameraRecordingState?.duration ?? 0);
+    setScreenSources(nextSources);
+    setSelectedSourceId((current) => current || nextSources[0]?.id || "");
+    setScreenPermission(screenPermissionResult?.status ?? "unknown");
+    setScreenRecording(screenRecordingState?.recording ?? false);
+    setScreenPaused(screenRecordingState?.paused ?? false);
+    setScreenRecordingDuration(screenRecordingState?.duration ?? 0);
+    setLoading(false);
+  }, [desktopRuntime]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const runAction = useCallback(
+    async (
+      id: string,
+      action: () => Promise<void>,
+      successMessage?: string,
+      refreshAfter = true,
+    ) => {
+      setBusyAction(id);
+      setError(null);
+      setMessage(null);
+      try {
+        await action();
+        if (refreshAfter) {
+          await refresh();
+        }
+        if (successMessage) {
+          setMessage(successMessage);
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Native media action failed.",
+        );
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [refresh],
+  );
+
+  if (!desktopRuntime) {
+    return (
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-3 text-xs text-[var(--muted)]">
+        Native camera and screen capture controls are only available inside the
+        Electrobun runtime.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold text-[var(--text)]">
+            Native Capture Controls
+          </div>
+          <div className="text-[10px] text-[var(--muted)]">
+            Camera preview, capture, recording, and screencapture tools owned by
+            the desktop runtime.
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            void runAction(
+              "media-refresh-native",
+              async () => {},
+              "Native media state refreshed.",
+            )
+          }
+          disabled={loading || busyAction === "media-refresh-native"}
+        >
+          Refresh
+        </Button>
+      </div>
+
+      {(error || message) && (
+        <div
+          className={`rounded-lg border px-2.5 py-2 text-[11px] ${
+            error
+              ? "border-danger/40 bg-danger/10 text-danger"
+              : "border-ok/40 bg-ok/10 text-ok"
+          }`}
+        >
+          {error ?? message}
+        </div>
+      )}
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-3">
+          <div className="text-xs font-semibold text-[var(--text)]">Camera</div>
+          <div className="text-[10px] text-[var(--muted)]">
+            Permission: {cameraPermission} · Recording:{" "}
+            {cameraRecording ? "on" : "off"} · Duration:{" "}
+            {cameraRecordingDuration}s
+          </div>
+          <select
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1.5 text-xs"
+            value={selectedCameraId}
+            onChange={(event) => setSelectedCameraId(event.target.value)}
+          >
+            {cameraDevices.length === 0 ? (
+              <option value="">No camera devices</option>
+            ) : (
+              cameraDevices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || device.deviceId}
+                </option>
+              ))
+            )}
+          </select>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-camera-permission",
+                  async () => {
+                    await invokeDesktopBridgeRequest<{ status: string }>({
+                      rpcMethod: "cameraRequestPermissions",
+                      ipcChannel: "camera:requestPermissions",
+                    });
+                  },
+                  "Camera permission request sent.",
+                )
+              }
+              disabled={busyAction === "media-camera-permission"}
+            >
+              Request Camera Permission
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-camera-preview",
+                  async () => {
+                    if (cameraPreviewRunning) {
+                      await invokeDesktopBridgeRequest<void>({
+                        rpcMethod: "cameraStopPreview",
+                        ipcChannel: "camera:stopPreview",
+                      });
+                      setCameraPreviewRunning(false);
+                      return;
+                    }
+
+                    const result = await invokeDesktopBridgeRequest<{
+                      available: boolean;
+                      reason?: string;
+                    }>({
+                      rpcMethod: "cameraStartPreview",
+                      ipcChannel: "camera:startPreview",
+                      params: selectedCameraId
+                        ? { deviceId: selectedCameraId }
+                        : {},
+                    });
+                    if (result?.available === false) {
+                      throw new Error(
+                        result.reason || "Camera preview unavailable.",
+                      );
+                    }
+                    setCameraPreviewRunning(true);
+                  },
+                  cameraPreviewRunning
+                    ? "Camera preview stopped."
+                    : "Camera preview started.",
+                  false,
+                )
+              }
+              disabled={busyAction === "media-camera-preview"}
+            >
+              {cameraPreviewRunning ? "Stop Preview" : "Start Preview"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-camera-switch",
+                  async () => {
+                    if (!selectedCameraId) {
+                      throw new Error("Select a camera device first.");
+                    }
+                    await invokeDesktopBridgeRequest<{ available: boolean }>({
+                      rpcMethod: "cameraSwitchCamera",
+                      ipcChannel: "camera:switchCamera",
+                      params: { deviceId: selectedCameraId },
+                    });
+                  },
+                  "Camera switched.",
+                )
+              }
+              disabled={
+                !selectedCameraId || busyAction === "media-camera-switch"
+              }
+            >
+              Switch Camera
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-camera-capture",
+                  async () => {
+                    const result = await invokeDesktopBridgeRequest<{
+                      available: boolean;
+                      data?: string;
+                    }>({
+                      rpcMethod: "cameraCapturePhoto",
+                      ipcChannel: "camera:capturePhoto",
+                    });
+                    if (result?.available === false) {
+                      throw new Error("Photo capture unavailable.");
+                    }
+                    setLastPhotoStatus(
+                      result?.data
+                        ? "Photo captured in memory."
+                        : "Photo capture completed.",
+                    );
+                  },
+                  "Photo capture requested.",
+                  false,
+                )
+              }
+              disabled={busyAction === "media-camera-capture"}
+            >
+              Capture Photo
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-camera-recording",
+                  async () => {
+                    if (cameraRecording) {
+                      const result = await invokeDesktopBridgeRequest<{
+                        available: boolean;
+                        path?: string;
+                      }>({
+                        rpcMethod: "cameraStopRecording",
+                        ipcChannel: "camera:stopRecording",
+                      });
+                      setLastSavedPath(result?.path ?? null);
+                      return;
+                    }
+
+                    const result = await invokeDesktopBridgeRequest<{
+                      available: boolean;
+                    }>({
+                      rpcMethod: "cameraStartRecording",
+                      ipcChannel: "camera:startRecording",
+                    });
+                    if (result?.available === false) {
+                      throw new Error("Camera recording unavailable.");
+                    }
+                  },
+                  cameraRecording
+                    ? "Camera recording stopped."
+                    : "Camera recording started.",
+                )
+              }
+              disabled={busyAction === "media-camera-recording"}
+            >
+              {cameraRecording
+                ? "Stop Camera Recording"
+                : "Start Camera Recording"}
+            </Button>
+          </div>
+          <div className="text-[11px] text-[var(--muted)]">
+            {lastPhotoStatus}
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-3">
+          <div className="text-xs font-semibold text-[var(--text)]">
+            Screen Capture
+          </div>
+          <div className="text-[10px] text-[var(--muted)]">
+            Permission: {screenPermission} · Recording:{" "}
+            {screenRecording ? "on" : "off"} · Duration:{" "}
+            {screenRecordingDuration}s{screenPaused ? " · paused" : ""}
+          </div>
+          <select
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1.5 text-xs"
+            value={selectedSourceId}
+            onChange={(event) => setSelectedSourceId(event.target.value)}
+          >
+            {screenSources.length === 0 ? (
+              <option value="">No screen sources</option>
+            ) : (
+              screenSources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name}
+                </option>
+              ))
+            )}
+          </select>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-screen-open-settings",
+                  async () => {
+                    await invokeDesktopBridgeRequest<void>({
+                      rpcMethod: "permissionsOpenSettings",
+                      ipcChannel: "permissions:openSettings",
+                      params: { id: "screen-recording" },
+                    });
+                  },
+                  "Opened screen recording settings.",
+                  false,
+                )
+              }
+              disabled={busyAction === "media-screen-open-settings"}
+            >
+              Open Screen Permission Settings
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-screen-switch-source",
+                  async () => {
+                    if (!selectedSourceId) {
+                      throw new Error("Select a screen source first.");
+                    }
+                    await invokeDesktopBridgeRequest<{ available: boolean }>({
+                      rpcMethod: "screencaptureSwitchSource",
+                      ipcChannel: "screencapture:switchSource",
+                      params: { sourceId: selectedSourceId },
+                    });
+                  },
+                  "Screen source switched.",
+                )
+              }
+              disabled={
+                !selectedSourceId || busyAction === "media-screen-switch-source"
+              }
+            >
+              Switch Source
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-screen-screenshot",
+                  async () => {
+                    const screenshot = await invokeDesktopBridgeRequest<{
+                      available: boolean;
+                      data?: string;
+                    }>({
+                      rpcMethod: "screencaptureTakeScreenshot",
+                      ipcChannel: "screencapture:takeScreenshot",
+                    });
+                    if (screenshot?.available === false || !screenshot?.data) {
+                      throw new Error("Screenshot unavailable.");
+                    }
+                    const saved = await invokeDesktopBridgeRequest<{
+                      available: boolean;
+                      path?: string;
+                    }>({
+                      rpcMethod: "screencaptureSaveScreenshot",
+                      ipcChannel: "screencapture:saveScreenshot",
+                      params: {
+                        data: screenshot.data,
+                        filename: "milady-desktop-screenshot.png",
+                      },
+                    });
+                    setLastSavedPath(saved?.path ?? null);
+                  },
+                  "Screenshot captured and saved.",
+                  false,
+                )
+              }
+              disabled={busyAction === "media-screen-screenshot"}
+            >
+              Take Screenshot
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runAction(
+                  "media-screen-recording",
+                  async () => {
+                    if (screenRecording) {
+                      const stopped = await invokeDesktopBridgeRequest<{
+                        available: boolean;
+                        path?: string;
+                      }>({
+                        rpcMethod: "screencaptureStopRecording",
+                        ipcChannel: "screencapture:stopRecording",
+                      });
+                      setLastSavedPath(stopped?.path ?? null);
+                      return;
+                    }
+
+                    const started = await invokeDesktopBridgeRequest<{
+                      available: boolean;
+                      reason?: string;
+                    }>({
+                      rpcMethod: "screencaptureStartRecording",
+                      ipcChannel: "screencapture:startRecording",
+                    });
+                    if (started?.available === false) {
+                      throw new Error(
+                        started.reason || "Screen recording unavailable.",
+                      );
+                    }
+                  },
+                  screenRecording
+                    ? "Screen recording stopped."
+                    : "Screen recording started.",
+                )
+              }
+              disabled={busyAction === "media-screen-recording"}
+            >
+              {screenRecording
+                ? "Stop Screen Recording"
+                : "Start Screen Recording"}
+            </Button>
+            {screenRecording && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void runAction(
+                    "media-screen-pause-toggle",
+                    async () => {
+                      await invokeDesktopBridgeRequest<{ available: boolean }>({
+                        rpcMethod: screenPaused
+                          ? "screencaptureResumeRecording"
+                          : "screencapturePauseRecording",
+                        ipcChannel: screenPaused
+                          ? "screencapture:resumeRecording"
+                          : "screencapture:pauseRecording",
+                      });
+                    },
+                    screenPaused
+                      ? "Screen recording resumed."
+                      : "Screen recording paused.",
+                  )
+                }
+                disabled={busyAction === "media-screen-pause-toggle"}
+              >
+                {screenPaused ? "Resume Recording" : "Pause Recording"}
+              </Button>
+            )}
+            {lastSavedPath && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void runAction(
+                    "media-open-saved-path",
+                    async () => {
+                      await invokeDesktopBridgeRequest<void>({
+                        rpcMethod: "desktopOpenPath",
+                        ipcChannel: "desktop:openPath",
+                        params: { path: lastSavedPath },
+                      });
+                    },
+                    "Opened saved capture.",
+                    false,
+                  )
+                }
+                disabled={busyAction === "media-open-saved-path"}
+              >
+                Open Saved Capture
+              </Button>
+            )}
+          </div>
+          <div className="text-[11px] text-[var(--muted)] break-all">
+            {lastSavedPath
+              ? `Last saved path: ${lastSavedPath}`
+              : "No saved capture path yet."}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function MediaSettingsSection() {
@@ -880,6 +1516,8 @@ export function MediaSettingsSection() {
           )}
         </div>
       )}
+
+      <DesktopMediaControlPanel />
 
       <ConfigSaveFooter
         dirty={dirty}

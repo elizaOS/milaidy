@@ -6,6 +6,8 @@
  */
 
 import type { Tab } from "../navigation";
+import type { DesktopClickAuditItem, DesktopWorkspaceSurface } from "../utils";
+import { DESKTOP_WORKSPACE_SURFACES } from "../utils";
 
 const ROUTINE_CODING_AGENT_RE =
   /^\[.+?\] (?:Approved:|Responded:|Sent keys:|Turn done, continuing:|Idle for \d+[smh])/;
@@ -96,7 +98,12 @@ export function isRoutineCodingAgentMessage(message: {
 
 // ── Typed command registry ───────────────────────────────────────────────
 
-export type CommandCategory = "agent" | "navigation" | "refresh" | "utility";
+export type CommandCategory =
+  | "agent"
+  | "navigation"
+  | "refresh"
+  | "utility"
+  | "desktop";
 
 export interface CommandDef {
   id: string;
@@ -133,7 +140,7 @@ export interface BuildCommandsArgs {
   agentState: string;
   activeGameViewerUrl: string;
   handleStart: () => void;
-
+  handleStop: () => void;
   handleRestart: () => void;
   setTab: (tab: Tab) => void;
   setAppsSubTab: () => void;
@@ -143,14 +150,66 @@ export interface BuildCommandsArgs {
   loadWorkbench: () => void;
   handleChatClear: () => void;
   openBugReport: () => void;
+  desktopRuntime: boolean;
+  focusDesktopMainWindow: () => void;
+  openDesktopSettingsWindow: (tabHint?: string) => void;
+  openDesktopSurfaceWindow: (surface: DesktopWorkspaceSurface) => void;
 }
+
+export const DESKTOP_COMMAND_CLICK_AUDIT: readonly DesktopClickAuditItem[] = [
+  {
+    id: "desktop-open-workspace",
+    entryPoint: "command-palette",
+    label: "Open Desktop Workspace",
+    expectedAction:
+      "Open a detached settings window focused on the desktop workspace section.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "desktop-open-voice-controls",
+    entryPoint: "command-palette",
+    label: "Open Voice Controls",
+    expectedAction:
+      "Open a detached settings window focused on the voice section.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "desktop-open-media-controls",
+    entryPoint: "command-palette",
+    label: "Open Media Controls",
+    expectedAction:
+      "Open a detached settings window focused on the media section.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  {
+    id: "desktop-focus-main-window",
+    entryPoint: "command-palette",
+    label: "Focus Main Window",
+    expectedAction: "Focus the main desktop window.",
+    runtimeRequirement: "desktop",
+    coverage: "automated",
+  },
+  ...DESKTOP_WORKSPACE_SURFACES.map(
+    (surface): DesktopClickAuditItem => ({
+      id: `desktop-command-${surface.id}`,
+      entryPoint: "command-palette",
+      label: `Open ${surface.label}`,
+      expectedAction: `Open the detached ${surface.id} surface from the command palette.`,
+      runtimeRequirement: "desktop",
+      coverage: "automated",
+    }),
+  ),
+] as const;
 
 export function buildCommands(args: BuildCommandsArgs): CommandItem[] {
   const {
     agentState,
     activeGameViewerUrl,
     handleStart,
-
+    handleStop,
     handleRestart,
     setTab,
     setAppsSubTab,
@@ -160,6 +219,10 @@ export function buildCommands(args: BuildCommandsArgs): CommandItem[] {
     loadWorkbench,
     handleChatClear,
     openBugReport,
+    desktopRuntime,
+    focusDesktopMainWindow,
+    openDesktopSettingsWindow,
+    openDesktopSurfaceWindow,
   } = args;
 
   const commands: CommandItem[] = [];
@@ -170,6 +233,13 @@ export function buildCommands(args: BuildCommandsArgs): CommandItem[] {
       label: "Start Agent",
       category: "agent",
       action: handleStart,
+    });
+  } else {
+    commands.push({
+      id: "stop-agent",
+      label: "Stop Agent",
+      category: "agent",
+      action: handleStop,
     });
   }
   commands.push({
@@ -200,6 +270,42 @@ export function buildCommands(args: BuildCommandsArgs): CommandItem[] {
         setAppsSubTab();
       },
     });
+  }
+
+  if (desktopRuntime) {
+    commands.push(
+      {
+        id: "desktop-open-workspace",
+        label: "Open Desktop Workspace",
+        category: "desktop",
+        action: () => openDesktopSettingsWindow("desktop"),
+      },
+      {
+        id: "desktop-open-voice-controls",
+        label: "Open Voice Controls",
+        category: "desktop",
+        action: () => openDesktopSettingsWindow("voice"),
+      },
+      {
+        id: "desktop-open-media-controls",
+        label: "Open Media Controls",
+        category: "desktop",
+        action: () => openDesktopSettingsWindow("media"),
+      },
+      {
+        id: "desktop-focus-main-window",
+        label: "Focus Main Window",
+        category: "desktop",
+        action: focusDesktopMainWindow,
+      },
+      ...DESKTOP_WORKSPACE_SURFACES.map((surface) => ({
+        id: `desktop-command-${surface.id}`,
+        label: `Open ${surface.label}`,
+        category: "desktop" as const,
+        hint: surface.description,
+        action: () => openDesktopSurfaceWindow(surface.id),
+      })),
+    );
   }
 
   // Refresh

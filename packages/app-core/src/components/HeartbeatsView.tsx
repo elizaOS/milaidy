@@ -752,9 +752,7 @@ export function HeartbeatsView() {
 
               <div className="grid gap-4">
                 <div>
-                  <span className={FIELD_LABEL_CLASS}>
-                    {t("wallet.name")}
-                  </span>
+                  <span className={FIELD_LABEL_CLASS}>{t("wallet.name")}</span>
                   <Input
                     className={INPUT_CLASS}
                     value={form.displayName}

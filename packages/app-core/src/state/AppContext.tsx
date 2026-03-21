@@ -6060,7 +6060,7 @@ export function AppProvider({
           ? window.location.hash.replace(/^#/, "") || "/"
           : window.location.pathname;
       const urlTab = tabFromPath(navPath);
-      
+
       // If the user navigates directly to /character while onboarding is incomplete,
       // override the persisted step to show them the character select page.
       if (onboardingNeedsOptions && navPath === "/character") {

@@ -81,6 +81,8 @@ const CHANNEL_TO_RPC: Record<string, string> = {
   "desktop:isPackaged": "desktopIsPackaged",
   "desktop:getPath": "desktopGetPath",
   "desktop:beep": "desktopBeep",
+  "desktop:openSettingsWindow": "desktopOpenSettingsWindow",
+  "desktop:openSurfaceWindow": "desktopOpenSurfaceWindow",
 
   // Desktop: Screen
   "desktop:getPrimaryDisplay": "desktopGetPrimaryDisplay",

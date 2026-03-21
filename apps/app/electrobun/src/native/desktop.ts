@@ -137,7 +137,18 @@ export class DesktopManager {
   private _appActive = false;
 
   // Callback to open the settings window (set by index.ts)
-  private openSettingsCallback: (() => void) | null = null;
+  private openSettingsCallback: ((tabHint?: string) => void) | null = null;
+  private openSurfaceWindowCallback:
+    | ((
+        surface:
+          | "chat"
+          | "browser"
+          | "triggers"
+          | "plugins"
+          | "connectors"
+          | "cloud",
+      ) => void)
+    | null = null;
   private openExternalHandler:
     | ((url: string) => boolean | Promise<boolean>)
     | null = null;
@@ -145,9 +156,6 @@ export class DesktopManager {
   // Track menu items for context-menu-clicked matching
   private trayMenuItems: Map<string, TrayMenuItem> = new Map();
   private trayClickHandler: (() => void) | null = null;
-  private applicationMenuHandler:
-    | ((e: { data?: { action?: string } }) => void)
-    | null = null;
   private contextMenuHandler: ((action: string) => void) | null = null;
   private windowEventHandlers: Partial<
     Record<"focus" | "blur" | "close" | "resize" | "move", () => void>
@@ -178,8 +186,25 @@ export class DesktopManager {
   /**
    * Set the callback used to open the settings window from menus.
    */
-  setOpenSettingsCallback(cb: () => void): void {
+  setOpenSettingsCallback(cb: (tabHint?: string) => void): void {
     this.openSettingsCallback = cb;
+  }
+
+  /**
+   * Set the callback used to open detached surface windows from RPC or menus.
+   */
+  setOpenSurfaceWindowCallback(
+    cb: (
+      surface:
+        | "chat"
+        | "browser"
+        | "triggers"
+        | "plugins"
+        | "connectors"
+        | "cloud",
+    ) => void,
+  ): void {
+    this.openSurfaceWindowCallback = cb;
   }
 
   /**
@@ -194,8 +219,23 @@ export class DesktopManager {
   /**
    * Open the settings window via the registered callback.
    */
-  openSettings(): void {
-    this.openSettingsCallback?.();
+  openSettings(tabHint?: string): void {
+    this.openSettingsCallback?.(tabHint);
+  }
+
+  /**
+   * Open a detached surface window via the registered callback.
+   */
+  openSurfaceWindow(
+    surface:
+      | "chat"
+      | "browser"
+      | "triggers"
+      | "plugins"
+      | "connectors"
+      | "cloud",
+  ): void {
+    this.openSurfaceWindowCallback?.(surface);
   }
 
   private getWindow(): BrowserWindow {
@@ -335,10 +375,6 @@ export class DesktopManager {
     };
     this.tray.on("tray-clicked", this.trayClickHandler);
 
-    // Context menu item clicks come through the global event bus.
-    // This single handler covers both native actions (show/quit) and
-    // renderer notifications, eliminating the need for a duplicate handler
-    // in index.ts.
     const triggerAgentRestart = () => {
       // Lazy import to avoid circular dependency (agent → desktop → agent).
       import("./agent").then(({ getAgentManager }) => {
@@ -349,23 +385,6 @@ export class DesktopManager {
           });
       });
     };
-
-    this.applicationMenuHandler = (e: { data?: { action?: string } }) => {
-      if (e?.data?.action === "show") {
-        void this.showWindow().catch((err: unknown) => {
-          console.warn(
-            "[Desktop] Failed to show window from application menu:",
-            err,
-          );
-        });
-      } else if (e?.data?.action === "restart-agent") {
-        triggerAgentRestart();
-      }
-    };
-    Electrobun.events.on(
-      "application-menu-clicked",
-      this.applicationMenuHandler,
-    );
 
     // Tray menu item clicks fire "tray-clicked" on the global event bus
     // (NOT "context-menu-clicked" — that's for right-click context menus).
@@ -404,16 +423,10 @@ export class DesktopManager {
     this.removeEventHandler(this.tray, "tray-clicked", this.trayClickHandler);
     this.removeEventHandler(
       Electrobun.events,
-      "application-menu-clicked",
-      this.applicationMenuHandler,
-    );
-    this.removeEventHandler(
-      Electrobun.events,
       "tray-clicked",
       this.contextMenuHandler,
     );
     this.trayClickHandler = null;
-    this.applicationMenuHandler = null;
     this.contextMenuHandler = null;
   }
 
