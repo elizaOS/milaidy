@@ -162,17 +162,23 @@ export function retargetMixamoFbxToVrm(
 
   // ── Diagnostic summary ──
   const armBones = [
-    "leftShoulder", "leftUpperArm", "leftLowerArm", "leftHand",
-    "rightShoulder", "rightUpperArm", "rightLowerArm", "rightHand",
+    "leftShoulder",
+    "leftUpperArm",
+    "leftLowerArm",
+    "leftHand",
+    "rightShoulder",
+    "rightUpperArm",
+    "rightLowerArm",
+    "rightHand",
   ];
   const missingArms = armBones.filter((b) => !mapped.includes(b));
   console.debug(
     `[retargetMixamoFbx] clip="${sourceClip.name}" ` +
-    `tracks=${sourceClip.tracks.length}→${tracks.length} ` +
-    `mapped=${mapped.length} ` +
-    `unmappedNames=[${unmappedNames.join(",")}] ` +
-    `unmappedNodes=[${unmappedNodes.join(",")}] ` +
-    `missingArmBones=[${missingArms.join(",")}]`,
+      `tracks=${sourceClip.tracks.length}→${tracks.length} ` +
+      `mapped=${mapped.length} ` +
+      `unmappedNames=[${unmappedNames.join(",")}] ` +
+      `unmappedNodes=[${unmappedNodes.join(",")}] ` +
+      `missingArmBones=[${missingArms.join(",")}]`,
   );
 
   return clip;

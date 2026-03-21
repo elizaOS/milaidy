@@ -245,9 +245,13 @@ export function Header({
             showNavigationMenu ? "header-theme-toggle-desktop" : undefined
           }
           rightExtras={renderCloudCredits("desktop")}
-          showCompanionControls={activeShellView === "companion" || activeShellView === "character"}
+          showCompanionControls={
+            activeShellView === "companion" || activeShellView === "character"
+          }
           chatAgentVoiceMuted={chatAgentVoiceMuted}
-          onToggleVoiceMute={() => setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)}
+          onToggleVoiceMute={() =>
+            setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)
+          }
           onNewChat={() => void handleStartDraftConversation()}
           trailingExtras={
             showNavigationMenu ? (

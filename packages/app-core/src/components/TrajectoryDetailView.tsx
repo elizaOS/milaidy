@@ -333,9 +333,7 @@ export function TrajectoryDetailView({
           </span>
         </div>
         <div>
-          <span className="text-muted">
-            {t("knowledgeview.Source")}{" "}
-          </span>
+          <span className="text-muted">{t("knowledgeview.Source")} </span>
           <span className="text-txt">{trajectory.source}</span>
         </div>
         <div>

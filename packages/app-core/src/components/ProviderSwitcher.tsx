@@ -880,9 +880,7 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
               onClick={() => void handlePiAiSave()}
               disabled={piAiSaving}
             >
-              {piAiSaving
-                ? t("apikeyconfig.saving")
-                : t("apikeyconfig.save")}
+              {piAiSaving ? t("apikeyconfig.saving") : t("apikeyconfig.save")}
             </Button>
           </div>
         </div>

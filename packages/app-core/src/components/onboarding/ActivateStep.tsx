@@ -3,7 +3,8 @@ import { useBranding } from "../../config/branding";
 
 export function ActivateStep() {
   const branding = useBranding();
-  const { onboardingName, handleOnboardingNext, t, onboardingRestarting } = useApp();
+  const { onboardingName, handleOnboardingNext, t, onboardingRestarting } =
+    useApp();
 
   return (
     <>

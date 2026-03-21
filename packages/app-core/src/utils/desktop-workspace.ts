@@ -1,7 +1,4 @@
-import {
-  invokeDesktopBridgeRequest,
-  isElectrobunRuntime,
-} from "../bridge";
+import { invokeDesktopBridgeRequest, isElectrobunRuntime } from "../bridge";
 
 export type DesktopClickAuditEntryPoint =
   | "tray"

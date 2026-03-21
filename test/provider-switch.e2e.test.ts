@@ -6,8 +6,8 @@
  */
 
 import http from "node:http";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApiServer } from "@miladyai/app-core/src/api/server";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
 // HTTP helper (same pattern as api-server.e2e.test.ts)
@@ -264,7 +264,9 @@ describe("POST /api/provider/switch", () => {
       });
 
       expect(process.env.OPENAI_API_KEY).toBeUndefined();
-      expect(process.env.MILADY_USE_PI_AI).toBe("1");
+      expect(process.env.ELIZA_USE_PI_AI ?? process.env.MILADY_USE_PI_AI).toBe(
+        "1",
+      );
     });
 
     it("trims whitespace from API keys before storing", async () => {

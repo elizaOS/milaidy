@@ -1,7 +1,16 @@
 import { LanguageDropdown, ThemeToggle } from "@miladyai/app-core/components";
 import type { UiLanguage } from "@miladyai/app-core/i18n";
 import type { ShellView, UiTheme } from "@miladyai/app-core/state";
-import { type LucideIcon, MessageCircle, Monitor, PencilLine, Smartphone, UserRound, Volume2, VolumeX } from "lucide-react";
+import {
+  type LucideIcon,
+  MessageCircle,
+  Monitor,
+  PencilLine,
+  Smartphone,
+  UserRound,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
 export const HEADER_ICON_BUTTON_CLASSNAME =
