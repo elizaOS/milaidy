@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from "react";
+import { type RefObject, useEffect } from "react";
 
 /**
  * Calls `handler` when a click lands outside `ref.current` or Escape is pressed.

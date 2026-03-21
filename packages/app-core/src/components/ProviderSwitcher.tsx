@@ -197,13 +197,13 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
           typeof vars.LARGE_MODEL === "string" ? vars.LARGE_MODEL : "";
         setCurrentSmallModel(
           models?.small ||
-          envSmall ||
-          (elizaCloudEnabledCfg ? defaultSmall : ""),
+            envSmall ||
+            (elizaCloudEnabledCfg ? defaultSmall : ""),
         );
         setCurrentLargeModel(
           models?.large ||
-          envLarge ||
-          (elizaCloudEnabledCfg ? defaultLarge : ""),
+            envLarge ||
+            (elizaCloudEnabledCfg ? defaultLarge : ""),
         );
         const rawPiAi =
           (typeof vars.ELIZA_USE_PI_AI === "string"
@@ -309,8 +309,8 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
       : selectedProviderId === "pi-ai"
         ? "pi-ai"
         : selectedProviderId &&
-          (allAiProviders.some((p) => p.id === selectedProviderId) ||
-            isSubscriptionProviderSelectionId(selectedProviderId))
+            (allAiProviders.some((p) => p.id === selectedProviderId) ||
+              isSubscriptionProviderSelectionId(selectedProviderId))
           ? selectedProviderId
           : cloudHandlesInference
             ? "__cloud__"
@@ -324,9 +324,9 @@ export function ProviderSwitcher(props: ProviderSwitcherProps = {}) {
 
   const selectedProvider =
     resolvedSelectedId &&
-      resolvedSelectedId !== "__cloud__" &&
-      resolvedSelectedId !== "pi-ai" &&
-      !isSubscriptionProviderSelectionId(resolvedSelectedId)
+    resolvedSelectedId !== "__cloud__" &&
+    resolvedSelectedId !== "pi-ai" &&
+    !isSubscriptionProviderSelectionId(resolvedSelectedId)
       ? (allAiProviders.find((p) => p.id === resolvedSelectedId) ?? null)
       : null;
 

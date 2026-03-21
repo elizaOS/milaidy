@@ -1,6 +1,6 @@
+import { CHARACTER_PRESETS } from "@miladyai/app-core/onboarding-presets";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CHARACTER_PRESETS } from "../../../../../src/onboarding-presets";
 import { AgentProvider, useAgents } from "../../lib/AgentProvider";
 import { AuthGate } from "./AuthGate";
 

@@ -101,11 +101,11 @@ function baseContext(overrides?: Record<string, unknown>) {
     elizaCloudConnected: false,
     elizaCloudLoginBusy: false,
     elizaCloudLoginError: "",
-    handleOnboardingNext: vi.fn(async () => { }),
+    handleOnboardingNext: vi.fn(async () => {}),
     handleOnboardingBack: vi.fn(),
-    handleOnboardingRemoteConnect: vi.fn(async () => { }),
+    handleOnboardingRemoteConnect: vi.fn(async () => {}),
     handleOnboardingUseLocalBackend: vi.fn(),
-    handleCloudLogin: vi.fn(async () => { }),
+    handleCloudLogin: vi.fn(async () => {}),
     setState: vi.fn(),
     ...overrides,
   };
@@ -144,17 +144,17 @@ describe("IdentityStep", () => {
   });
 
   it("calls handleOnboardingNext when Continue is clicked", async () => {
-    const next = vi.fn(async () => { });
-    mockUseApp.mockReturnValue(baseContext({ onboardingStep: "identity", handleOnboardingNext: next }));
+    const next = vi.fn(async () => {});
+    mockUseApp.mockReturnValue(
+      baseContext({ onboardingStep: "identity", handleOnboardingNext: next }),
+    );
     let tree: TestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       tree = TestRenderer.create(React.createElement(IdentityStep));
     });
 
     const buttons = findButtons(tree?.root as TestRenderer.ReactTestInstance);
-    const continueBtn = buttons.find(
-      (b) => collectText(b) === "Continue",
-    );
+    const continueBtn = buttons.find((b) => collectText(b) === "Continue");
     expect(continueBtn).toBeDefined();
     await act(async () => {
       continueBtn?.props.onClick();
@@ -344,7 +344,7 @@ describe("ActivateStep", () => {
   });
 
   it("calls handleOnboardingNext when Enter is clicked", async () => {
-    const next = vi.fn(async () => { });
+    const next = vi.fn(async () => {});
     mockUseApp.mockReturnValue(
       baseContext({ onboardingName: "Nova", handleOnboardingNext: next }),
     );

@@ -57,11 +57,11 @@ function createContext(overrides: Record<string, unknown> = {}) {
     ],
     activeConversationId: "conv-1",
     unreadConversations: new Set<string>(),
-    handleStartDraftConversation: vi.fn(async () => { }),
+    handleStartDraftConversation: vi.fn(async () => {}),
     handleNewConversation: vi.fn(),
-    handleSelectConversation: vi.fn(async () => { }),
-    handleDeleteConversation: vi.fn(async () => { }),
-    handleRenameConversation: vi.fn(async () => { }),
+    handleSelectConversation: vi.fn(async () => {}),
+    handleDeleteConversation: vi.fn(async () => {}),
+    handleRenameConversation: vi.fn(async () => {}),
     uiLanguage: "en",
     ...overrides,
   };
@@ -90,7 +90,7 @@ describe("ConversationsSidebar", () => {
   });
 
   it("requires explicit confirmation before deleting", async () => {
-    const handleDeleteConversation = vi.fn(async () => { });
+    const handleDeleteConversation = vi.fn(async () => {});
     mockUseApp.mockReturnValue(createContext({ handleDeleteConversation }));
 
     let tree!: TestRenderer.ReactTestRenderer;
@@ -103,8 +103,8 @@ describe("ConversationsSidebar", () => {
     });
     await act(async () => {
       rowTrigger.props.onContextMenu({
-        preventDefault: () => { },
-        stopPropagation: () => { },
+        preventDefault: () => {},
+        stopPropagation: () => {},
         clientX: 40,
         clientY: 60,
       });
@@ -122,7 +122,7 @@ describe("ConversationsSidebar", () => {
   });
 
   it("deletes only after clicking Yes", async () => {
-    const handleDeleteConversation = vi.fn(async () => { });
+    const handleDeleteConversation = vi.fn(async () => {});
     mockUseApp.mockReturnValue(createContext({ handleDeleteConversation }));
 
     let tree!: TestRenderer.ReactTestRenderer;
@@ -135,8 +135,8 @@ describe("ConversationsSidebar", () => {
     });
     await act(async () => {
       rowTrigger.props.onContextMenu({
-        preventDefault: () => { },
-        stopPropagation: () => { },
+        preventDefault: () => {},
+        stopPropagation: () => {},
         clientX: 40,
         clientY: 60,
       });
@@ -160,8 +160,8 @@ describe("ConversationsSidebar", () => {
   });
 
   it("starts a draft chat instead of creating a persisted conversation immediately", async () => {
-    const handleStartDraftConversation = vi.fn(async () => { });
-    const handleNewConversation = vi.fn(async () => { });
+    const handleStartDraftConversation = vi.fn(async () => {});
+    const handleNewConversation = vi.fn(async () => {});
     mockUseApp.mockReturnValue(
       createContext({
         handleStartDraftConversation,

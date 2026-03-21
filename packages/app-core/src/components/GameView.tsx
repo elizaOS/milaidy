@@ -201,7 +201,7 @@ export function GameView() {
           rpcMethod: "canvasDestroyWindow",
           ipcChannel: "canvas:destroyWindow",
           params: { id: gameWindowIdRef.current },
-        }).catch(() => { });
+        }).catch(() => {});
         gameWindowIdRef.current = null;
         setGameWindowId(null);
       }
@@ -387,12 +387,13 @@ export function GameView() {
                   {formatTime(entry.timestamp, { fallback: "—" })}
                 </span>
                 <span
-                  className={`font-semibold text-[10px] uppercase ${entry.level === "error"
+                  className={`font-semibold text-[10px] uppercase ${
+                    entry.level === "error"
                       ? "text-danger"
                       : entry.level === "warn"
                         ? "text-warn"
                         : "text-muted"
-                    }`}
+                  }`}
                 >
                   {entry.level}
                 </span>

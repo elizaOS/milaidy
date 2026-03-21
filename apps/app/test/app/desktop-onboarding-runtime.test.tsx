@@ -20,7 +20,7 @@ vi.mock("@miladyai/app-core/state", () => ({
   useApp: useAppMock,
 }));
 
-import { DesktopOnboardingRuntime } from "../../src/DesktopOnboardingRuntime";
+import { DesktopOnboardingRuntime } from "@miladyai/app-core/src/DesktopOnboardingRuntime";
 
 describe("DesktopOnboardingRuntime", () => {
   beforeEach(() => {

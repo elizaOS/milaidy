@@ -22,7 +22,6 @@ import type {
   VisionProvider,
 } from "@elizaos/agent/contracts/config";
 import type { DropStatus, MintResult } from "@elizaos/agent/contracts/drop";
-import type { VerificationResult } from "@elizaos/agent/contracts/verification";
 import type {
   CloudProviderOption,
   ConnectorConfig,
@@ -41,6 +40,14 @@ import type {
   SubscriptionProviderStatus,
   SubscriptionStatusResponse,
 } from "@elizaos/agent/contracts/onboarding";
+import type {
+  AllPermissionsState,
+  PermissionState,
+  PermissionStatus,
+  SystemPermissionDefinition,
+  SystemPermissionId,
+} from "@elizaos/agent/contracts/permissions";
+import type { VerificationResult } from "@elizaos/agent/contracts/verification";
 import type {
   BscTradeExecuteRequest,
   BscTradeExecuteResponse,
@@ -74,13 +81,6 @@ import {
   normalizeWalletRpcSelections,
   WALLET_RPC_PROVIDER_OPTIONS,
 } from "@elizaos/agent/contracts/wallet";
-import type {
-  AllPermissionsState,
-  PermissionState,
-  PermissionStatus,
-  SystemPermissionDefinition,
-  SystemPermissionId,
-} from "@elizaos/agent/contracts/permissions";
 import type { ConfigUiHint } from "../types";
 import { stripAssistantStageDirections } from "../utils/assistant-text";
 import { mergeStreamingText } from "../utils/streaming-text";
@@ -123,8 +123,8 @@ export type {
   PermissionStatus,
   PiAiModelOption,
   ProviderOption,
-  RpcProviderOption,
   ReleaseChannel,
+  RpcProviderOption,
   SolanaNft,
   SolanaTokenBalance,
   StylePreset,
@@ -567,12 +567,12 @@ export interface PluginInfo {
   configured: boolean;
   envKey: string | null;
   category:
-  | "ai-provider"
-  | "connector"
-  | "streaming"
-  | "database"
-  | "app"
-  | "feature";
+    | "ai-provider"
+    | "connector"
+    | "streaming"
+    | "database"
+    | "app"
+    | "feature";
   source: "bundled" | "store";
   parameters: PluginParamDef[];
   validationErrors: Array<{ field: string; message: string }>;
@@ -843,14 +843,14 @@ export interface SecurityAuditResponse {
 
 export type SecurityAuditStreamEvent =
   | {
-    type: "snapshot";
-    entries: SecurityAuditEntry[];
-    totalBuffered: number;
-  }
+      type: "snapshot";
+      entries: SecurityAuditEntry[];
+      totalBuffered: number;
+    }
   | {
-    type: "entry";
-    entry: SecurityAuditEntry;
-  };
+      type: "entry";
+      entry: SecurityAuditEntry;
+    };
 
 export type StreamEventType =
   | "agent_event"
@@ -1344,12 +1344,12 @@ export interface CodingAgentSession {
   originalTask: string;
   workdir: string;
   status:
-  | "active"
-  | "blocked"
-  | "completed"
-  | "stopped"
-  | "error"
-  | "tool_running";
+    | "active"
+    | "blocked"
+    | "completed"
+    | "stopped"
+    | "error"
+    | "tool_running";
   decisionCount: number;
   autoResolvedCount: number;
   /** Description of the active tool when status is "tool_running". */
@@ -1575,10 +1575,10 @@ export type HyperscapeJsonValue =
 export type HyperscapePosition =
   | [number, number, number]
   | {
-    x: number;
-    y: number;
-    z: number;
-  };
+      x: number;
+      y: number;
+      z: number;
+    };
 
 export interface HyperscapeEmbeddedAgent {
   agentId: string;
@@ -5540,9 +5540,12 @@ export class MiladyClient {
    * Initiate a direct login to Eliza Cloud without going through a local agent.
    * Used in sandbox mode when no local backend exists yet.
    */
-  async cloudLoginDirect(
-    cloudApiBase: string,
-  ): Promise<{ ok: boolean; browserUrl?: string; sessionId?: string; error?: string }> {
+  async cloudLoginDirect(cloudApiBase: string): Promise<{
+    ok: boolean;
+    browserUrl?: string;
+    sessionId?: string;
+    error?: string;
+  }> {
     const sessionId = globalThis.crypto.randomUUID();
     try {
       const res = await fetch(`${cloudApiBase}/api/auth/cli-session`, {
@@ -5559,7 +5562,10 @@ export class MiladyClient {
         browserUrl: `${cloudApiBase}/auth/cli-login?session=${encodeURIComponent(sessionId)}`,
       };
     } catch (err) {
-      return { ok: false, error: `Failed to reach Eliza Cloud: ${err instanceof Error ? err.message : String(err)}` };
+      return {
+        ok: false,
+        error: `Failed to reach Eliza Cloud: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
   }
 
@@ -5581,14 +5587,21 @@ export class MiladyClient {
       );
       if (!res.ok) {
         if (res.status === 404) {
-          return { status: "expired", error: "Auth session expired or not found" };
+          return {
+            status: "expired",
+            error: "Auth session expired or not found",
+          };
         }
         return { status: "error", error: `Poll failed (${res.status})` };
       }
       const data = await res.json();
       // Map cli-session response shape to expected poll shape
       if (data.status === "authenticated" && data.apiKey) {
-        return { status: "authenticated", token: data.apiKey, userId: data.userId };
+        return {
+          status: "authenticated",
+          token: data.apiKey,
+          userId: data.userId,
+        };
       }
       return { status: data.status ?? "pending" };
     } catch {

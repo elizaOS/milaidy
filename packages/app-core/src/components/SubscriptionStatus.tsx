@@ -22,13 +22,13 @@ function formatRequestError(err: unknown): string {
 
 function normalizeOpenAICallbackInput(input: string):
   | {
-    ok: true;
-    code: string;
-  }
+      ok: true;
+      code: string;
+    }
   | {
-    ok: false;
-    error: string;
-  } {
+      ok: false;
+      error: string;
+    } {
   const trimmed = input.trim();
   if (!trimmed) {
     return {
@@ -370,20 +370,22 @@ export function SubscriptionStatus({
           <div className="flex items-center gap-4 border-b border-[var(--border)] mb-3">
             <button
               type="button"
-              className={`text-xs pb-2 border-b-2 ${subscriptionTab === "token"
+              className={`text-xs pb-2 border-b-2 ${
+                subscriptionTab === "token"
                   ? "border-[var(--accent)] text-[var(--accent)]"
                   : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
-                }`}
+              }`}
               onClick={() => setSubscriptionTab("token")}
             >
               {t("subscriptionstatus.SetupToken")}
             </button>
             <button
               type="button"
-              className={`text-xs pb-2 border-b-2 ${subscriptionTab === "oauth"
+              className={`text-xs pb-2 border-b-2 ${
+                subscriptionTab === "oauth"
                   ? "border-[var(--accent)] text-[var(--accent)]"
                   : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
-                }`}
+              }`}
               onClick={() => setSubscriptionTab("oauth")}
             >
               {t("subscriptionstatus.OAuthLogin")}

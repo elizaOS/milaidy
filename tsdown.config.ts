@@ -25,14 +25,14 @@ const allExternals = [...nativeExternals, pluginExternal];
 
 export default [
   {
-    entry: "src/index.ts",
+    entry: "packages/app-core/src/index.ts",
     env,
     fixedExtension: false,
     platform: "node",
     external: nativeExternals,
   },
   {
-    entry: "src/entry.ts",
+    entry: "packages/app-core/src/entry.ts",
     env,
     fixedExtension: false,
     platform: "node",
@@ -41,7 +41,7 @@ export default [
     external: allExternals,
   },
   {
-    entry: "src/runtime/eliza.ts",
+    entry: "packages/app-core/src/runtime/eliza.ts",
     env,
     fixedExtension: false,
     platform: "node",
@@ -50,7 +50,7 @@ export default [
     outputOptions: { codeSplitting: false },
   },
   {
-    entry: "src/api/server.ts",
+    entry: "packages/app-core/src/api/server.ts",
     env,
     fixedExtension: false,
     platform: "node",

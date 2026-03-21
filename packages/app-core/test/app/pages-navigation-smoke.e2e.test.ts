@@ -124,75 +124,75 @@ vi.mock("@miladyai/app-core/components", async () => {
   };
 });
 
-vi.mock("../../../packages/app-core/src/components/Header", () => ({
+vi.mock("@miladyai/app-core/src/components/Header", () => ({
   Header: () => React.createElement("header", null, "Header"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/CommandPalette", () => ({
+vi.mock("@miladyai/app-core/src/components/CommandPalette", () => ({
   CommandPalette: () => React.createElement("div", null, "CommandPalette"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/EmotePicker", () => ({
+vi.mock("@miladyai/app-core/src/components/EmotePicker", () => ({
   EmotePicker: () => React.createElement("div", null, "EmotePicker"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/PairingView", () => ({
+vi.mock("@miladyai/app-core/src/components/PairingView", () => ({
   PairingView: () => React.createElement("div", null, "PairingView"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/OnboardingWizard", () => ({
+vi.mock("@miladyai/app-core/src/components/OnboardingWizard", () => ({
   OnboardingWizard: () => React.createElement("div", null, "OnboardingWizard"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/ChatView", () => ({
+vi.mock("@miladyai/app-core/src/components/ChatView", () => ({
   ChatView: () => React.createElement("section", null, "ChatView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/StreamView", () => ({
+vi.mock("@miladyai/app-core/src/components/StreamView", () => ({
   StreamView: () => React.createElement("section", null, "StreamView Ready"),
 }));
 
 vi.mock(
-  "../../../packages/app-core/src/components/ConversationsSidebar",
+  "@miladyai/app-core/src/components/ConversationsSidebar",
   () => ({
     ConversationsSidebar: () =>
       React.createElement("aside", null, "ConversationsSidebar"),
   }),
 );
 
-vi.mock("../../../packages/app-core/src/components/CustomActionsPanel", () => ({
+vi.mock("@miladyai/app-core/src/components/CustomActionsPanel", () => ({
   CustomActionsPanel: () =>
     React.createElement("aside", null, "CustomActionsPanel"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/CustomActionEditor", () => ({
+vi.mock("@miladyai/app-core/src/components/CustomActionEditor", () => ({
   CustomActionEditor: () =>
     React.createElement("aside", null, "CustomActionEditor"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/AppsPageView", () => ({
+vi.mock("@miladyai/app-core/src/components/AppsPageView", () => ({
   AppsPageView: () =>
     React.createElement("section", null, "AppsPageView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/CharacterView", () => ({
+vi.mock("@miladyai/app-core/src/components/CharacterView", () => ({
   CharacterView: () =>
     React.createElement("section", null, "CharacterView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/CompanionView", () => ({
+vi.mock("@miladyai/app-core/src/components/CompanionView", () => ({
   CompanionView: () =>
     React.createElement("section", null, "CompanionView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/CompanionShell", () => ({
+vi.mock("@miladyai/app-core/src/components/CompanionShell", () => ({
   COMPANION_OVERLAY_TABS: companionOverlayTabs,
   CompanionShell: ({ tab }: { tab: string }) =>
     React.createElement("main", null, `CompanionShell Ready: ${tab}`),
 }));
 
 vi.mock(
-  "../../../packages/app-core/src/components/companion/CompanionSceneHost",
+  "@miladyai/app-core/src/components/companion/CompanionSceneHost",
   async () => {
     const React = await vi.importActual<typeof import("react")>("react");
     return {
@@ -208,22 +208,22 @@ vi.mock(
   },
 );
 
-vi.mock("../../../packages/app-core/src/components/TriggersView", () => ({
+vi.mock("@miladyai/app-core/src/components/TriggersView", () => ({
   TriggersView: () =>
     React.createElement("section", null, "TriggersView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/ConnectorsPageView", () => ({
+vi.mock("@miladyai/app-core/src/components/ConnectorsPageView", () => ({
   ConnectorsPageView: () =>
     React.createElement("section", null, "ConnectorsPageView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/InventoryView", () => ({
+vi.mock("@miladyai/app-core/src/components/InventoryView", () => ({
   InventoryView: () =>
     React.createElement("section", null, "InventoryView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/KnowledgeView", () => ({
+vi.mock("@miladyai/app-core/src/components/KnowledgeView", () => ({
   KnowledgeView: () =>
     React.createElement("section", null, "KnowledgeView Ready"),
 }));
@@ -232,39 +232,39 @@ vi.mock("@miladyai/app-core/components/AvatarLoader", () => ({
   AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/PluginsPageView", () => ({
+vi.mock("@miladyai/app-core/src/components/PluginsPageView", () => ({
   PluginsPageView: () =>
     React.createElement("section", null, "PluginsPageView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/SkillsView", () => ({
+vi.mock("@miladyai/app-core/src/components/SkillsView", () => ({
   SkillsView: () => React.createElement("section", null, "SkillsView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/CustomActionsView", () => ({
+vi.mock("@miladyai/app-core/src/components/CustomActionsView", () => ({
   CustomActionsView: () =>
     React.createElement("section", null, "CustomActionsView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/FineTuningView", () => ({
+vi.mock("@miladyai/app-core/src/components/FineTuningView", () => ({
   FineTuningView: () =>
     React.createElement("section", null, "FineTuningView Ready"),
 }));
 
-vi.mock("../../../packages/app-core/src/components/TrajectoriesView", () => ({
+vi.mock("@miladyai/app-core/src/components/TrajectoriesView", () => ({
   TrajectoriesView: () =>
     React.createElement("section", null, "TrajectoriesView Ready"),
 }));
 
 vi.mock(
-  "../../../packages/app-core/src/components/TrajectoryDetailView",
+  "@miladyai/app-core/src/components/TrajectoryDetailView",
   () => ({
     TrajectoryDetailView: () =>
       React.createElement("section", null, "TrajectoryDetailView Ready"),
   }),
 );
 
-vi.mock("../../../packages/app-core/src/components/LifoSandboxView", () => ({
+vi.mock("@miladyai/app-core/src/components/LifoSandboxView", () => ({
   LifoSandboxView: () =>
     React.createElement("section", null, "LifoSandboxView Ready"),
 }));
@@ -283,7 +283,7 @@ vi.mock("@miladyai/app-core/hooks", async () => {
   };
 });
 
-import { App } from "../../src/App";
+import { App } from "@miladyai/app-core/src/App";
 
 type HarnessState = {
   onboardingLoading: boolean;
@@ -537,36 +537,36 @@ describe("pages navigation smoke (e2e)", () => {
       patch: Partial<HarnessState>;
       token: string;
     }> = [
-        {
-          name: "loading",
-          patch: {
-            onboardingLoading: true,
-            onboardingComplete: false,
-            startupStatus: "loading",
-          },
-          token: "AvatarLoader",
+      {
+        name: "loading",
+        patch: {
+          onboardingLoading: true,
+          onboardingComplete: false,
+          startupStatus: "loading",
         },
-        {
-          name: "pairing",
-          patch: {
-            onboardingLoading: false,
-            onboardingComplete: true,
-            authRequired: true,
-            startupStatus: "auth-blocked",
-          },
-          token: "PairingView",
+        token: "AvatarLoader",
+      },
+      {
+        name: "pairing",
+        patch: {
+          onboardingLoading: false,
+          onboardingComplete: true,
+          authRequired: true,
+          startupStatus: "auth-blocked",
         },
-        {
-          name: "onboarding",
-          patch: {
-            onboardingLoading: false,
-            authRequired: false,
-            onboardingComplete: false,
-            startupStatus: "onboarding",
-          },
-          token: "OnboardingWizard",
+        token: "PairingView",
+      },
+      {
+        name: "onboarding",
+        patch: {
+          onboardingLoading: false,
+          authRequired: false,
+          onboardingComplete: false,
+          startupStatus: "onboarding",
         },
-      ];
+        token: "OnboardingWizard",
+      },
+    ];
 
     for (const entry of cases) {
       state = {

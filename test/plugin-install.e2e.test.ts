@@ -18,11 +18,11 @@ vi.mock("@elizaos/core", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("../src/services/registry-client", () => ({
+vi.mock("@miladyai/app-core/src/services/registry-client", () => ({
   getPluginInfo: vi.fn(),
 }));
 
-vi.mock("../src/runtime/restart", () => ({
+vi.mock("@miladyai/app-core/src/runtime/restart", () => ({
   requestRestart: vi.fn(),
 }));
 
@@ -123,7 +123,7 @@ async function writeLocalPlugin(
 }
 
 async function loadInstaller() {
-  return await import("../src/services/plugin-installer");
+  return await import("@miladyai/app-core/src/services/plugin-installer");
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +169,9 @@ describe("Plugin Install E2E", () => {
         "@elizaos/plugin-lifecycle",
         "3.0.0",
       );
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(
         fixturePluginInfo({
           name: "@elizaos/plugin-lifecycle",
@@ -232,7 +234,9 @@ describe("Plugin Install E2E", () => {
         "@elizaos/plugin-reinstall",
         "1.0.0",
       );
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(
         fixturePluginInfo({
           name: "@elizaos/plugin-reinstall",
@@ -266,7 +270,9 @@ describe("Plugin Install E2E", () => {
         "@elizaos/plugin-progress",
         "1.0.0",
       );
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(
         fixturePluginInfo({
           name: "@elizaos/plugin-progress",
@@ -296,7 +302,9 @@ describe("Plugin Install E2E", () => {
 
   describe("install error handling", () => {
     it("returns error when plugin not found in registry", async () => {
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(null);
 
       const { installPlugin } = await loadInstaller();
@@ -308,7 +316,9 @@ describe("Plugin Install E2E", () => {
     });
 
     it("returns error when both npm and git install fail", async () => {
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(
         fixturePluginInfo({ name: "@elizaos/plugin-fail" }),
       );
@@ -325,7 +335,9 @@ describe("Plugin Install E2E", () => {
     }, 180_000);
 
     it("cleans up temp directory when git clone fails (rollback)", async () => {
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(
         fixturePluginInfo({ name: "@elizaos/plugin-rollback" }),
       );
@@ -435,7 +447,9 @@ describe("Plugin Install E2E", () => {
 
   describe("serialisation", () => {
     it("concurrent installs don't corrupt config", async () => {
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(null);
 
       const { installPlugin } = await loadInstaller();
@@ -455,10 +469,14 @@ describe("Plugin Install E2E", () => {
 
   describe("installAndRestart", () => {
     it("does NOT call requestRestart when install fails", async () => {
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(null);
 
-      const { requestRestart } = await import("../src/runtime/restart");
+      const { requestRestart } = await import(
+        "@miladyai/app-core/src/runtime/restart"
+      );
       const { installAndRestart } = await loadInstaller();
 
       const result = await installAndRestart("@elizaos/plugin-fail");
@@ -473,7 +491,9 @@ describe("Plugin Install E2E", () => {
         "@elizaos/plugin-restart",
         "1.0.0",
       );
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(
         fixturePluginInfo({
           name: "@elizaos/plugin-restart",
@@ -487,7 +507,9 @@ describe("Plugin Install E2E", () => {
         }),
       );
 
-      const { requestRestart } = await import("../src/runtime/restart");
+      const { requestRestart } = await import(
+        "@miladyai/app-core/src/runtime/restart"
+      );
       const { installAndRestart } = await loadInstaller();
 
       const result = await installAndRestart("@elizaos/plugin-restart");
@@ -499,7 +521,9 @@ describe("Plugin Install E2E", () => {
 
   describe("git clone install", () => {
     it("succeeds via git clone when npm install fails", async () => {
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(
         fixturePluginInfo({ name: "@elizaos/plugin-gitclone" }),
       );
@@ -590,7 +614,9 @@ describe("Plugin Install E2E", () => {
         "@elizaos/plugin-persist",
         "2.0.0",
       );
-      const { getPluginInfo } = await import("../src/services/registry-client");
+      const { getPluginInfo } = await import(
+        "@miladyai/app-core/src/services/registry-client"
+      );
       vi.mocked(getPluginInfo).mockResolvedValue(
         fixturePluginInfo({
           name: "@elizaos/plugin-persist",

@@ -19,7 +19,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
 
 // ---------------------------------------------------------------------------
 // HTTP helper (same pattern as api-server.e2e.test.ts)

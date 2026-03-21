@@ -1,10 +1,9 @@
-import { useApp } from "@miladyai/app-core/state";
-import { getVrmPreviewUrl } from "@miladyai/app-core/state";
+import { getVrmPreviewUrl, useApp } from "@miladyai/app-core/state";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CHARACTER_PRESET_META,
-  SLANT_CLIP,
   INSET_CLIP,
+  SLANT_CLIP,
 } from "../CharacterRoster";
 
 /* ── Hardcoded frontend presets — no server needed ─────────────── */
@@ -22,12 +21,7 @@ const FRONTEND_PRESETS = Object.entries(CHARACTER_PRESET_META).map(
 type PresetEntry = (typeof FRONTEND_PRESETS)[number];
 
 export function IdentityStep() {
-  const {
-    onboardingStyle,
-    handleOnboardingNext,
-    setState,
-    t,
-  } = useApp();
+  const { onboardingStyle, handleOnboardingNext, setState, t } = useApp();
 
   const entries = FRONTEND_PRESETS;
   const selectedId = onboardingStyle || entries[0]?.catchphrase || "";

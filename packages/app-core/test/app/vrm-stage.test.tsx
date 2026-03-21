@@ -10,7 +10,7 @@ let viewerRenderCount = 0;
 
 vi.mock("@miladyai/app-core/api", () => ({
   client: {
-    onWsEvent: vi.fn(() => () => { }),
+    onWsEvent: vi.fn(() => () => {}),
   },
 }));
 

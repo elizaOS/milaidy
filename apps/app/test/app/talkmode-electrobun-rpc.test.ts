@@ -73,7 +73,7 @@ function installAudioCaptureStubs(): void {
       connect: vi.fn(),
       disconnect: vi.fn(),
     }));
-    close = vi.fn(async () => { });
+    close = vi.fn(async () => {});
   }
 
   Object.defineProperty(globalThis, "AudioContext", {

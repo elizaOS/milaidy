@@ -10,7 +10,7 @@ vi.mock("@miladyai/app-core/bridge", () => ({
   invokeDesktopBridgeRequest: invokeDesktopBridgeRequestMock,
 }));
 
-import { installDesktopPermissionsClientPatch } from "../../src/desktop-permissions-client";
+import { installDesktopPermissionsClientPatch } from "@miladyai/app-core/src/desktop-permissions-client";
 
 describe("desktop permissions client patch", () => {
   beforeEach(() => {

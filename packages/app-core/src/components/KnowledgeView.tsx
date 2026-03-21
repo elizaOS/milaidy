@@ -199,10 +199,11 @@ function UploadZone({
         </label>
       </div>
       <div
-        className={`mt-2 rounded-xl border px-3 py-2.5 transition-colors sm:min-w-[24rem] ${dragOver
-          ? "border-accent/50 bg-accent/5"
-          : "border border-dashed border-border/30 bg-card/10"
-          } ${uploading ? "opacity-60" : ""}`}
+        className={`mt-2 rounded-xl border px-3 py-2.5 transition-colors sm:min-w-[24rem] ${
+          dragOver
+            ? "border-accent/50 bg-accent/5"
+            : "border border-dashed border-border/30 bg-card/10"
+        } ${uploading ? "opacity-60" : ""}`}
       >
         {(dragOver || uploading) && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted/80">
@@ -346,7 +347,9 @@ function DocumentCard({
           {doc.fragmentCount != null && (
             <>
               <span className="w-1 h-1 rounded-full bg-border/50" />
-              <span className="text-xs text-muted">{doc.fragmentCount} fragments</span>
+              <span className="text-xs text-muted">
+                {doc.fragmentCount} fragments
+              </span>
             </>
           )}
           <span className="w-1 h-1 rounded-full bg-border/50" />
@@ -745,14 +748,14 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
           typeof window === "undefined"
             ? true
             : await confirmDesktopAction({
-              title: "Upload Large Files",
-              message: `${largeFiles.length} large file(s) detected.`,
-              detail:
-                "Uploading can take longer and may increase embedding or vision costs.",
-              confirmLabel: "Continue",
-              cancelLabel: "Cancel",
-              type: "warning",
-            });
+                title: "Upload Large Files",
+                message: `${largeFiles.length} large file(s) detected.`,
+                detail:
+                  "Uploading can take longer and may increase embedding or vision costs.",
+                confirmLabel: "Continue",
+                cancelLabel: "Cancel",
+                type: "warning",
+              });
         if (!shouldContinue) return;
       }
 
@@ -1038,9 +1041,14 @@ export function KnowledgeView({ inModal }: { inModal?: boolean } = {}) {
 
       <div className="flex items-center gap-4 mb-4 px-4 py-2.5 bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl">
         <span className="w-2 h-2 rounded-full bg-ok" />
-        <span className="text-xs font-medium text-txt">{documents.length} documents</span>
+        <span className="text-xs font-medium text-txt">
+          {documents.length} documents
+        </span>
         <span className="text-xs text-muted">•</span>
-        <span className="text-xs text-muted">{documents.reduce((sum, d) => sum + (d.fragmentCount || 0), 0)} fragments</span>
+        <span className="text-xs text-muted">
+          {documents.reduce((sum, d) => sum + (d.fragmentCount || 0), 0)}{" "}
+          fragments
+        </span>
       </div>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-2">

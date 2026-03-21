@@ -15,14 +15,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks
@@ -231,13 +224,22 @@ function prepareCharacterDraftForSave(draft: CharacterData) {
     prepared.bio = lines.length > 0 ? lines : undefined;
   }
 
-  if (Array.isArray(prepared.adjectives) && (prepared.adjectives as string[]).length === 0) {
+  if (
+    Array.isArray(prepared.adjectives) &&
+    (prepared.adjectives as string[]).length === 0
+  ) {
     delete prepared.adjectives;
   }
-  if (Array.isArray(prepared.postExamples) && (prepared.postExamples as string[]).length === 0) {
+  if (
+    Array.isArray(prepared.postExamples) &&
+    (prepared.postExamples as string[]).length === 0
+  ) {
     delete prepared.postExamples;
   }
-  if (Array.isArray(prepared.messageExamples) && (prepared.messageExamples as unknown[]).length === 0) {
+  if (
+    Array.isArray(prepared.messageExamples) &&
+    (prepared.messageExamples as unknown[]).length === 0
+  ) {
     delete prepared.messageExamples;
   }
 
@@ -249,9 +251,15 @@ function prepareCharacterDraftForSave(draft: CharacterData) {
     if (!style.all && !style.chat && !style.post) delete prepared.style;
   }
 
-  if (typeof prepared.username === "string" && (prepared.username as string).trim().length > 0) {
+  if (
+    typeof prepared.username === "string" &&
+    (prepared.username as string).trim().length > 0
+  ) {
     prepared.username = (prepared.username as string).trim();
-  } else if (typeof prepared.name === "string" && (prepared.name as string).trim().length > 0) {
+  } else if (
+    typeof prepared.name === "string" &&
+    (prepared.name as string).trim().length > 0
+  ) {
     prepared.username = (prepared.name as string).trim();
   }
   if (!prepared.name) delete prepared.name;
@@ -311,9 +319,7 @@ async function renderCharacterView(
 ): Promise<TestRenderer.ReactTestRenderer> {
   let tree: TestRenderer.ReactTestRenderer | null = null;
   await act(async () => {
-    tree = TestRenderer.create(
-      React.createElement(CharacterView, props),
-    );
+    tree = TestRenderer.create(React.createElement(CharacterView, props));
   });
   return tree!;
 }
@@ -433,9 +439,7 @@ describe("Character Save Journey", () => {
       const appHook = mockUseApp();
       appHook.handleCharacterFieldInput("bio", "A new biography for the agent");
 
-      expect(state.characterDraft?.bio).toBe(
-        "A new biography for the agent",
-      );
+      expect(state.characterDraft?.bio).toBe("A new biography for the agent");
     });
 
     it("editing system prompt updates local draft state", () => {
@@ -448,9 +452,7 @@ describe("Character Save Journey", () => {
         "You are a coding assistant.",
       );
 
-      expect(state.characterDraft?.system).toBe(
-        "You are a coding assistant.",
-      );
+      expect(state.characterDraft?.system).toBe("You are a coding assistant.");
     });
 
     it("field edits mark the form as dirty", () => {
@@ -508,7 +510,9 @@ describe("Character Save Journey", () => {
           if (!characterDraft) throw new Error("No draft");
           const prepared = prepareCharacterDraftForSave(characterDraft);
           await client.updateCharacter(prepared as unknown as CharacterData);
-          await client.updateConfig({ ui: { avatarIndex: state.selectedVrmIndex } });
+          await client.updateConfig({
+            ui: { avatarIndex: state.selectedVrmIndex },
+          });
           state.characterSaving = false;
           state.characterDirty = false;
           state.characterSaveSuccess = "Character saved successfully.";
@@ -820,10 +824,7 @@ describe("Character Save Journey", () => {
       setupMockUseApp(state);
 
       const appHook = mockUseApp();
-      appHook.handleCharacterFieldInput(
-        "system",
-        "Generated system prompt",
-      );
+      appHook.handleCharacterFieldInput("system", "Generated system prompt");
 
       expect(state.characterDraft?.system).toBe("Generated system prompt");
     });
@@ -858,7 +859,9 @@ describe("Character Save Journey", () => {
           if (!characterDraft) throw new Error("No draft");
           const prepared = prepareCharacterDraftForSave(characterDraft);
           await client.updateCharacter(prepared as unknown as CharacterData);
-          await client.updateConfig({ ui: { avatarIndex: state.selectedVrmIndex } });
+          await client.updateConfig({
+            ui: { avatarIndex: state.selectedVrmIndex },
+          });
           state.characterSaving = false;
           state.characterDirty = false;
         },

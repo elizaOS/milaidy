@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 // Mock dependencies before importing the module under test
 vi.mock("@miladyai/app-core/state", () => ({
-  getVrmPreviewUrl: vi.fn((index: number) => `/vrms/previews/eliza-${index}.png`),
+  getVrmPreviewUrl: vi.fn(
+    (index: number) => `/vrms/previews/eliza-${index}.png`,
+  ),
   useApp: () => ({
     t: (key: string) => key,
     handleChatSend: vi.fn(),

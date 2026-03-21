@@ -39,7 +39,7 @@ const services = [
         {
           name: "api",
           cmd: "bun",
-          args: ["--watch", "src/runtime/dev-server.ts"],
+          args: ["--watch", "packages/app-core/src/runtime/dev-server.ts"],
           cwd: repoRoot,
           env: {
             ELIZA_PORT: apiPort,

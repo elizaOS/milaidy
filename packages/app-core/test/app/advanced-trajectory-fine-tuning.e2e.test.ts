@@ -22,8 +22,8 @@ import type {
   TrajectoryStats,
 } from "@miladyai/app-core/api";
 import React from "react";
-import TestRenderer, { act } from "react-test-renderer";
 import type { ReactTestInstance, ReactTestRenderer } from "react-test-renderer";
+import TestRenderer, { act } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockUseApp, mockClientFns } = vi.hoisted(() => ({
@@ -335,10 +335,9 @@ describe("Advanced trajectories/fine-tuning integration", () => {
 
     await act(async () => {
       tree.update(
-        React.createElement<{ inModal?: boolean }>(
-          AdvancedPageView,
-          { inModal: true },
-        ),
+        React.createElement<{ inModal?: boolean }>(AdvancedPageView, {
+          inModal: true,
+        }),
       );
     });
 

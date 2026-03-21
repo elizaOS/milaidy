@@ -76,7 +76,7 @@ function installAudioStubs(): void {
         array.fill(0);
       }),
     }));
-    close = vi.fn(async () => { });
+    close = vi.fn(async () => {});
   }
 
   Object.defineProperty(globalThis, "AudioContext", {

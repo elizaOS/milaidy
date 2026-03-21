@@ -59,8 +59,8 @@ function createContext() {
     startupPhase: "ready",
     conversationMessages: [],
     chatSending: false,
-    handleNewConversation: vi.fn(async () => { }),
-    handleChatClear: vi.fn(async () => { }),
+    handleNewConversation: vi.fn(async () => {}),
+    handleChatClear: vi.fn(async () => {}),
     setActionNotice: vi.fn(),
     setTab: vi.fn(),
     uiLanguage: "en",
@@ -151,7 +151,7 @@ describe("ChatModalView", () => {
   });
 
   it("does not boot a new conversation in companion dock when none is active", async () => {
-    const handleNewConversation = vi.fn(async () => { });
+    const handleNewConversation = vi.fn(async () => {});
     mockUseApp.mockReturnValue({
       ...createContext(),
       activeConversationId: null,
@@ -170,7 +170,7 @@ describe("ChatModalView", () => {
   });
 
   it("does not boot a new conversation before startup restore finishes", async () => {
-    const handleNewConversation = vi.fn(async () => { });
+    const handleNewConversation = vi.fn(async () => {});
     mockUseApp.mockReturnValue({
       ...createContext(),
       activeConversationId: null,

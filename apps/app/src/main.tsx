@@ -15,7 +15,7 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { StatusBar, Style } from "@capacitor/status-bar";
-import { App } from "@miladyai/app-core";
+import { App } from "@miladyai/app-core/App";
 import { client } from "@miladyai/app-core/api";
 // Import Capacitor bridge utilities
 import {
@@ -130,7 +130,7 @@ window.__MILADY_CHARACTER_EDITOR__ = CharacterEditor;
 
 // Inject onboarding style presets so the frontend-only onboarding flow
 // can populate character data without an API call.
-import { STYLE_PRESETS } from "../../../src/onboarding-presets";
+import { STYLE_PRESETS } from "@miladyai/app-core/onboarding-presets";
 
 (window as unknown as Record<string, unknown>).__APP_ONBOARDING_STYLES__ =
   STYLE_PRESETS;
@@ -413,7 +413,7 @@ async function initializeDesktopShell(): Promise<void> {
         dispatchMiladyEvent(TRAY_ACTION_EVENT, event);
       },
     );
-  } catch { }
+  } catch {}
 }
 
 /**

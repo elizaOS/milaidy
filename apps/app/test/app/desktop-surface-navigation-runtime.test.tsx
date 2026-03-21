@@ -17,7 +17,7 @@ vi.mock("@miladyai/app-core/state", () => ({
   useApp: useAppMock,
 }));
 
-import { DesktopSurfaceNavigationRuntime } from "../../src/DesktopSurfaceNavigationRuntime";
+import { DesktopSurfaceNavigationRuntime } from "@miladyai/app-core/src/DesktopSurfaceNavigationRuntime";
 
 describe("DesktopSurfaceNavigationRuntime", () => {
   const setTab = vi.fn();
@@ -34,7 +34,7 @@ describe("DesktopSurfaceNavigationRuntime", () => {
     });
     subscribeDesktopBridgeEventMock.mockImplementation(({ listener }) => {
       subscribeDesktopBridgeEventMock.listener = listener;
-      return () => { };
+      return () => {};
     });
   });
 

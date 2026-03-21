@@ -248,8 +248,8 @@ describe("PCA Projection Functions", () => {
     // Calculate 3D distance between centroids
     const interClusterDist = Math.sqrt(
       (centroid1[0] - centroid2[0]) ** 2 +
-      (centroid1[1] - centroid2[1]) ** 2 +
-      (centroid1[2] - centroid2[2]) ** 2,
+        (centroid1[1] - centroid2[1]) ** 2 +
+        (centroid1[2] - centroid2[2]) ** 2,
     );
 
     // Expect clusters to be separated
@@ -288,15 +288,15 @@ vi.mock("@miladyai/app-core/components/vector-browser-three", () => {
       return this;
     }
   };
-  const mockColor = class { };
+  const mockColor = class {};
   const mockMaterial = class {
     opacity = 1;
     transparent = false;
-    dispose() { }
+    dispose() {}
   };
   const mockGeometry = class {
-    setAttribute() { }
-    dispose() { }
+    setAttribute() {}
+    dispose() {}
   };
   const mockMesh = class {
     position = new mockVector3();
@@ -306,14 +306,14 @@ vi.mock("@miladyai/app-core/components/vector-browser-three", () => {
   };
   const mockScene = class {
     background = null;
-    add() { }
-    remove() { }
+    add() {}
+    remove() {}
   };
   const mockCamera = class {
     position = new mockVector3();
     aspect = 1;
-    lookAt() { }
-    updateProjectionMatrix() { }
+    lookAt() {}
+    updateProjectionMatrix() {}
   };
   const mockRenderer = class {
     domElement = {
@@ -326,13 +326,13 @@ vi.mock("@miladyai/app-core/components/vector-browser-three", () => {
         height: 600,
       }),
     };
-    setSize() { }
-    setPixelRatio() { }
-    render() { }
-    dispose() { }
+    setSize() {}
+    setPixelRatio() {}
+    render() {}
+    dispose() {}
   };
   const mockRaycaster = class {
-    setFromCamera() { }
+    setFromCamera() {}
     intersectObjects() {
       return [];
     }
@@ -353,7 +353,7 @@ vi.mock("@miladyai/app-core/components/vector-browser-three", () => {
       Vector3: mockVector3,
       Color: mockColor,
       Raycaster: mockRaycaster,
-      BufferAttribute: class { },
+      BufferAttribute: class {},
     },
     createVectorBrowserRenderer: async () => new mockRenderer(),
   };

@@ -52,8 +52,9 @@ export function LifoMonitorPanel({
           </div>
           <div className="flex items-center gap-2">
             <span
-              className={`rounded-full px-2 py-1 text-[11px] font-medium ${monitorOnline ? "bg-ok/20 text-ok" : "bg-warn/20 text-warn"
-                }`}
+              className={`rounded-full px-2 py-1 text-[11px] font-medium ${
+                monitorOnline ? "bg-ok/20 text-ok" : "bg-warn/20 text-warn"
+              }`}
             >
               {monitorOnline ? "live" : "offline"}
             </span>

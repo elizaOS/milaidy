@@ -31,8 +31,8 @@ interface ChatViewContextStub {
     updater:
       | Array<{ data: string; mimeType: string; name: string }>
       | ((
-        prev: Array<{ data: string; mimeType: string; name: string }>,
-      ) => Array<{ data: string; mimeType: string; name: string }>),
+          prev: Array<{ data: string; mimeType: string; name: string }>,
+        ) => Array<{ data: string; mimeType: string; name: string }>),
   ) => void;
   uiLanguage: "en" | "zh-CN";
   chatMode: "simple" | "power";
@@ -73,9 +73,9 @@ vi.mock("@miladyai/app-core/platform", () => ({
 }));
 
 vi.mock("@miladyai/app-core/hooks", async () => {
-  const actual = await vi.importActual<typeof import("@miladyai/app-core/hooks")>(
-    "@miladyai/app-core/hooks",
-  );
+  const actual = await vi.importActual<
+    typeof import("@miladyai/app-core/hooks")
+  >("@miladyai/app-core/hooks");
   return {
     ...actual,
     useVoiceChat: (...args: unknown[]) => mockUseVoiceChat(...args),
@@ -108,7 +108,7 @@ function createContext(
     chatFirstTokenReceived: false,
     companionMessageCutoffTs: 0,
     conversationMessages: [],
-    handleChatSend: vi.fn(async () => { }),
+    handleChatSend: vi.fn(async () => {}),
     handleChatStop: vi.fn(),
     setState: vi.fn(),
     droppedFiles: [],
@@ -119,9 +119,9 @@ function createContext(
     chatMode: "simple",
     chatAgentVoiceMuted: false,
     elizaCloudConnected: false,
-    handleStart: vi.fn(async () => { }),
+    handleStart: vi.fn(async () => {}),
 
-    handleRestart: vi.fn(async () => { }),
+    handleRestart: vi.fn(async () => {}),
     handleChatRetry: vi.fn(),
     handleChatEdit: vi.fn(async () => true),
     lifecycleBusy: false,

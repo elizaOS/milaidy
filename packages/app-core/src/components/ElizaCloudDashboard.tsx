@@ -668,7 +668,7 @@ export function CloudDashboard() {
 
       throw new Error(
         readString(response.message) ??
-        "Eliza Cloud did not return a checkout session.",
+          "Eliza Cloud did not return a checkout session.",
       );
     } catch (err) {
       setActionNotice(
@@ -847,12 +847,12 @@ export function CloudDashboard() {
         Number(chain.nativeBalance) > 0 ||
         chain.tokens.some((token) => Number(token.balance) > 0),
     ) ||
-    ((walletBalances?.solana &&
-      (Number(walletBalances.solana.solBalance) > 0 ||
-        walletBalances.solana.tokens.some(
-          (token) => Number(token.balance) > 0,
-        ))) ??
-      false),
+      ((walletBalances?.solana &&
+        (Number(walletBalances.solana.solBalance) > 0 ||
+          walletBalances.solana.tokens.some(
+            (token) => Number(token.balance) > 0,
+          ))) ??
+        false),
   );
 
   if (!elizaCloudConnected) {
@@ -916,10 +916,11 @@ export function CloudDashboard() {
           <div className="inline-flex items-center gap-1 rounded-2xl border border-border/50 bg-bg/50 p-1">
             <button
               type="button"
-              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${activeView === "billing"
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                activeView === "billing"
                   ? "bg-accent text-accent-fg"
                   : "text-muted hover:text-txt"
-                }`}
+              }`}
               onClick={() => setState("cloudDashboardView", "billing")}
             >
               <CircleDollarSign className="w-4 h-4" />
@@ -927,10 +928,11 @@ export function CloudDashboard() {
             </button>
             <button
               type="button"
-              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${activeView === "agents"
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                activeView === "agents"
                   ? "bg-accent text-accent-fg"
                   : "text-muted hover:text-txt"
-                }`}
+              }`}
               onClick={() => setState("cloudDashboardView", "agents")}
             >
               <Server className="w-4 h-4" />
@@ -999,12 +1001,13 @@ export function CloudDashboard() {
                         <Loader2 className="h-4 w-4 animate-spin text-muted" />
                       ) : null}
                       <span
-                        className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${summaryCritical
+                        className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                          summaryCritical
                             ? "border-danger/30 bg-danger/10 text-danger"
                             : summaryLow
                               ? "border-warn/30 bg-warn/10 text-warn"
                               : "border-ok/30 bg-ok/10 text-ok"
-                          }`}
+                        }`}
                       >
                         {creditStatusTone}
                       </span>
@@ -1053,15 +1056,17 @@ export function CloudDashboard() {
                           value: !autoTopUpEnabled,
                         })
                       }
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full border transition-colors ${autoTopUpEnabled
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full border transition-colors ${
+                        autoTopUpEnabled
                           ? "border-accent bg-accent"
                           : "border-border/60 bg-bg/50"
-                        }`}
+                      }`}
                       aria-label={t("elizaclouddashboard.ToggleAutoTopUp")}
                     >
                       <span
-                        className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${autoTopUpEnabled ? "translate-x-6" : "translate-x-1"
-                          }`}
+                        className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${
+                          autoTopUpEnabled ? "translate-x-6" : "translate-x-1"
+                        }`}
                       />
                     </button>
                   </div>
@@ -1179,10 +1184,11 @@ export function CloudDashboard() {
                         <button
                           key={amount}
                           type="button"
-                          className={`rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${billingAmount === String(amount)
+                          className={`rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                            billingAmount === String(amount)
                               ? "border-accent bg-accent text-accent-fg"
                               : "border-border/50 bg-bg/30 text-txt hover:border-accent/40"
-                            }`}
+                          }`}
                           onClick={() => setBillingAmount(String(amount))}
                         >
                           ${amount}
@@ -1320,7 +1326,7 @@ export function CloudDashboard() {
                           !hasAgentWallet ||
                           !hasWalletFunds ||
                           readString(cryptoQuote.network)?.toLowerCase() !==
-                          "bsc" ||
+                            "bsc" ||
                           !readString(cryptoQuote.payToAddress) ||
                           !readString(cryptoQuote.amount)
                         }

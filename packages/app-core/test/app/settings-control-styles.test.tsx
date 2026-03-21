@@ -52,7 +52,7 @@ describe("settings control styles", () => {
     let tree!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       tree = TestRenderer.create(
-        <CloudSourceModeToggle mode="cloud" onChange={() => { }} />,
+        <CloudSourceModeToggle mode="cloud" onChange={() => {}} />,
       );
     });
 
@@ -94,7 +94,7 @@ describe("settings control styles", () => {
           saving={false}
           saveError={null}
           saveSuccess={false}
-          onSave={() => { }}
+          onSave={() => {}}
         />,
       );
     });

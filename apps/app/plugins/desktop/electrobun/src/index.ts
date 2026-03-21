@@ -34,7 +34,7 @@ import type {
   TrayOptions,
   WindowBounds,
   WindowOptions,
-} from "../../src/definitions";
+} from "@miladyai/app-core/src/definitions";
 
 type DesktopEventPayloads = {
   trayClick: TrayClickEvent;
@@ -71,17 +71,17 @@ type AlwaysOnTopLevel = Parameters<DesktopPlugin["setAlwaysOnTop"]>[0]["level"];
 type DesktopPathName = Parameters<DesktopPlugin["getPath"]>[0]["name"];
 type DesktopVersionResult =
   | {
-    version: string;
-    name: string;
-    runtime: string;
-  }
+      version: string;
+      name: string;
+      runtime: string;
+    }
   | {
-    version: string;
-    name: string;
-    runtime: string;
-    chrome: string;
-    node: string;
-  };
+      version: string;
+      name: string;
+      runtime: string;
+      chrome: string;
+      node: string;
+    };
 
 const DESKTOP_RPC_EVENTS: Partial<
   Record<DesktopEventName, { rpcMessage: string; ipcChannel: string }>
@@ -127,7 +127,7 @@ const DESKTOP_RPC_EVENTS: Partial<
 function requireIPC(feature: string): never {
   throw new Error(
     `${feature} is not available: desktop bridge not found. ` +
-    "The Desktop plugin requires the Electrobun main process with properly configured handlers.",
+      "The Desktop plugin requires the Electrobun main process with properly configured handlers.",
   );
 }
 

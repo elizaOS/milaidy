@@ -44,7 +44,7 @@ vi.mock("@miladyai/app-core/components/vector-browser-three", () => {
     }
   }
 
-  class MockColor { }
+  class MockColor {}
 
   class MockMaterial {
     opacity = 1;
@@ -59,12 +59,12 @@ vi.mock("@miladyai/app-core/components/vector-browser-three", () => {
       }
     }
 
-    dispose() { }
+    dispose() {}
   }
 
   class MockGeometry {
-    setAttribute() { }
-    dispose() { }
+    setAttribute() {}
+    dispose() {}
   }
 
   class MockMesh {
@@ -91,31 +91,31 @@ vi.mock("@miladyai/app-core/components/vector-browser-three", () => {
 
   class MockScene {
     background: unknown = null;
-    add() { }
-    remove() { }
+    add() {}
+    remove() {}
   }
 
   class MockCamera {
     position = new MockVector3();
     aspect = 1;
 
-    lookAt() { }
-    updateProjectionMatrix() { }
+    lookAt() {}
+    updateProjectionMatrix() {}
   }
 
   class MockRenderer {
     domElement = document.createElement("canvas");
 
-    setSize() { }
-    setPixelRatio() { }
-    render() { }
+    setSize() {}
+    setPixelRatio() {}
+    render() {}
     dispose() {
       rendererDisposeMock();
     }
   }
 
   class MockRaycaster {
-    setFromCamera() { }
+    setFromCamera() {}
     intersectObjects() {
       return [];
     }
@@ -136,7 +136,7 @@ vi.mock("@miladyai/app-core/components/vector-browser-three", () => {
       Vector3: MockVector3,
       Color: MockColor,
       Raycaster: MockRaycaster,
-      BufferAttribute: class { },
+      BufferAttribute: class {},
     },
     createVectorBrowserRenderer:
       createVectorBrowserRendererMock.mockImplementation(
@@ -206,7 +206,7 @@ describe("VectorBrowserView async cleanup", () => {
 
     vi.stubGlobal("requestAnimationFrame", requestAnimationFrameMock);
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
-    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => { });
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -284,7 +284,7 @@ describe("VectorBrowserView async cleanup", () => {
     HTMLDivElement.prototype.appendChild = originalAppendChild;
     try {
       root.unmount();
-    } catch { }
+    } catch {}
     host.remove();
 
     if (clientWidthDescriptor) {

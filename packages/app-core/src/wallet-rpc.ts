@@ -121,8 +121,8 @@ export function buildWalletRpcUpdateRequest(args: {
   walletConfig?: WalletConfigStatus | null;
   rpcFieldValues: Partial<Record<WalletRpcCredentialKey, string>>;
   selectedProviders:
-  | WalletRpcSelections
-  | Partial<Record<WalletRpcChain, string | null | undefined>>;
+    | WalletRpcSelections
+    | Partial<Record<WalletRpcChain, string | null | undefined>>;
 }): WalletConfigUpdateRequest {
   const { walletConfig, rpcFieldValues, selectedProviders } = args;
   const credentials: Partial<Record<WalletRpcCredentialKey, string>> = {};

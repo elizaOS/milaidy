@@ -31,6 +31,7 @@
   "header.cloudDisconnected": "Nube desconectada",
   "header.nativeMode": "Modo nativo",
   "header.companionMode": "Modo acompañante",
+  "header.characterMode": "Editar personaje",
   "header.switchToNative": "Cambiar a nativo",
   "pairing.expiresIn": "Caduca en {{seconds}} segundos",
   "chat.inputPlaceholder": "Escribe un mensaje...",

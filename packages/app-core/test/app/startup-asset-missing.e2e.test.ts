@@ -64,7 +64,7 @@ describe("startup failure: bundled assets missing", () => {
   beforeEach(() => {
     Object.assign(document.documentElement, { setAttribute: vi.fn() });
     mockClient.hasToken.mockReturnValue(false);
-    mockClient.disconnectWs.mockImplementation(() => { });
+    mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.getAuthStatus.mockResolvedValue({
       required: false,
       pairingEnabled: false,

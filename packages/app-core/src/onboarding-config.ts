@@ -116,7 +116,7 @@ export function isElizaCloudConnectionReady(args: {
   }
   return Boolean(
     isCloudManagedConnection(args.connection) &&
-    args.connection.cloudProvider === "elizacloud" &&
-    args.connection.apiKey?.trim(),
+      args.connection.cloudProvider === "elizacloud" &&
+      args.connection.apiKey?.trim(),
   );
 }

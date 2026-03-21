@@ -32,8 +32,9 @@ export function AgentActivityBox({ sessions }: AgentActivityBoxProps) {
       {sessions.map((s) => (
         <div key={s.sessionId} className="flex items-center gap-1.5 min-w-0">
           <span
-            className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[s.status] ?? "bg-muted"
-              }${PULSE_STATUSES.has(s.status) ? " animate-pulse" : ""}`}
+            className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+              STATUS_DOT[s.status] ?? "bg-muted"
+            }${PULSE_STATUSES.has(s.status) ? " animate-pulse" : ""}`}
           />
           <span className="text-[11px] font-medium text-txt max-w-[120px] truncate shrink-0">
             {s.label}

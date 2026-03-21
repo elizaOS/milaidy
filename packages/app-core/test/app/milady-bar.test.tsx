@@ -15,7 +15,13 @@ const { mockUseApp } = vi.hoisted(() => ({
   mockUseApp: vi.fn(),
 }));
 
-const { mockInvoke, mockIsDesktop, mockScanProviderCredentials, mockScanAndValidateProviderCredentials, mockSubscribe } = vi.hoisted(() => ({
+const {
+  mockInvoke,
+  mockIsDesktop,
+  mockScanProviderCredentials,
+  mockScanAndValidateProviderCredentials,
+  mockSubscribe,
+} = vi.hoisted(() => ({
   mockInvoke: vi.fn().mockResolvedValue(null),
   mockIsDesktop: vi.fn(() => true),
   mockScanProviderCredentials: vi.fn().mockResolvedValue([]),
@@ -47,12 +53,37 @@ import { useMiladyBar } from "../../src/hooks/useMiladyBar";
 function defaultAppState(overrides: Record<string, unknown> = {}) {
   return {
     plugins: [
-      { id: "openai", name: "OpenAI", category: "ai-provider", enabled: true, configured: true, parameters: [] },
-      { id: "anthropic", name: "Anthropic", category: "ai-provider", enabled: true, configured: false, parameters: [] },
-      { id: "streaming-base", name: "Streaming", category: "streaming", enabled: true, configured: true, parameters: [] },
+      {
+        id: "openai",
+        name: "OpenAI",
+        category: "ai-provider",
+        enabled: true,
+        configured: true,
+        parameters: [],
+      },
+      {
+        id: "anthropic",
+        name: "Anthropic",
+        category: "ai-provider",
+        enabled: true,
+        configured: false,
+        parameters: [],
+      },
+      {
+        id: "streaming-base",
+        name: "Streaming",
+        category: "streaming",
+        enabled: true,
+        configured: true,
+        parameters: [],
+      },
     ],
     uiTheme: "dark",
-    agentStatus: { state: "running", agentName: "Milady", startedAt: Date.now() - 3600000 },
+    agentStatus: {
+      state: "running",
+      agentName: "Milady",
+      startedAt: Date.now() - 3600000,
+    },
     elizaCloudEnabled: false,
     elizaCloudConnected: false,
     elizaCloudCredits: null,
@@ -72,16 +103,37 @@ function TestHarness() {
   return React.createElement("div", null, "harness");
 }
 
-function getLastMenuCall(): Array<{ id: string; label?: string; type?: string; enabled?: boolean; submenu?: Array<{ id: string; label?: string; type?: string; enabled?: boolean; checked?: boolean }> }> | null {
+function getLastMenuCall(): Array<{
+  id: string;
+  label?: string;
+  type?: string;
+  enabled?: boolean;
+  submenu?: Array<{
+    id: string;
+    label?: string;
+    type?: string;
+    enabled?: boolean;
+    checked?: boolean;
+  }>;
+}> | null {
   const calls = mockInvoke.mock.calls.filter(
-    (c: unknown[]) => (c[0] as { rpcMethod: string }).rpcMethod === "desktopSetTrayMenu",
+    (c: unknown[]) =>
+      (c[0] as { rpcMethod: string }).rpcMethod === "desktopSetTrayMenu",
   );
   if (calls.length === 0) return null;
   const lastCall = calls[calls.length - 1][0] as { params: { menu: unknown } };
-  return lastCall.params.menu as Array<{ id: string; label?: string; type?: string; enabled?: boolean }>;
+  return lastCall.params.menu as Array<{
+    id: string;
+    label?: string;
+    type?: string;
+    enabled?: boolean;
+  }>;
 }
 
-function getMenuItemById(menu: Array<{ id: string; label?: string }>, id: string) {
+function getMenuItemById(
+  menu: Array<{ id: string; label?: string }>,
+  id: string,
+) {
   return menu.find((item) => item.id === id) ?? null;
 }
 
@@ -185,9 +237,22 @@ describe("useMiladyBar", () => {
             address: "0x123",
             chains: [
               {
-                chain: "ethereum", chainId: 1,
-                nativeBalance: "1.0", nativeSymbol: "ETH", nativeValueUsd: "100.00",
-                tokens: [{ symbol: "USDC", valueUsd: "52.50", name: "USDC", contractAddress: "0x", balance: "52.5", decimals: 6, logoUrl: "" }],
+                chain: "ethereum",
+                chainId: 1,
+                nativeBalance: "1.0",
+                nativeSymbol: "ETH",
+                nativeValueUsd: "100.00",
+                tokens: [
+                  {
+                    symbol: "USDC",
+                    valueUsd: "52.50",
+                    name: "USDC",
+                    contractAddress: "0x",
+                    balance: "52.5",
+                    decimals: 6,
+                    logoUrl: "",
+                  },
+                ],
                 error: null,
               },
             ],
@@ -289,10 +354,18 @@ describe("useMiladyBar", () => {
       TestRenderer.create(React.createElement(TestHarness));
     });
     const menu = getLastMenuCall()!;
-    expect(getMenuItemById(menu, "detected-provider-a")!.label).toContain("via Codex CLI");
-    expect(getMenuItemById(menu, "detected-provider-b")!.label).toContain("via Claude Code");
-    expect(getMenuItemById(menu, "detected-provider-c")!.label).toContain("via Keychain");
-    expect(getMenuItemById(menu, "detected-provider-d")!.label).toContain("via Environment");
+    expect(getMenuItemById(menu, "detected-provider-a")!.label).toContain(
+      "via Codex CLI",
+    );
+    expect(getMenuItemById(menu, "detected-provider-b")!.label).toContain(
+      "via Claude Code",
+    );
+    expect(getMenuItemById(menu, "detected-provider-c")!.label).toContain(
+      "via Keychain",
+    );
+    expect(getMenuItemById(menu, "detected-provider-d")!.label).toContain(
+      "via Environment",
+    );
   });
 
   it("updates tray when state changes", () => {
@@ -303,7 +376,8 @@ describe("useMiladyBar", () => {
       TestRenderer.create(React.createElement(TestHarness)),
     );
     const callCount1 = mockInvoke.mock.calls.filter(
-      (c: unknown[]) => (c[0] as { rpcMethod: string }).rpcMethod === "desktopSetTrayMenu",
+      (c: unknown[]) =>
+        (c[0] as { rpcMethod: string }).rpcMethod === "desktopSetTrayMenu",
     ).length;
 
     mockUseApp.mockReturnValue(
@@ -319,12 +393,20 @@ describe("useMiladyBar", () => {
     });
 
     const menuCalls = mockInvoke.mock.calls.filter(
-      (c: unknown[]) => (c[0] as { rpcMethod: string }).rpcMethod === "desktopSetTrayMenu",
+      (c: unknown[]) =>
+        (c[0] as { rpcMethod: string }).rpcMethod === "desktopSetTrayMenu",
     );
     expect(menuCalls.length).toBeGreaterThan(callCount1);
-    const lastCall = menuCalls[menuCalls.length - 1][0] as { params: { menu: unknown } };
-    const latestMenu = lastCall.params.menu as Array<{ id: string; label?: string }>;
-    expect(getMenuItemById(latestMenu, "cloud-credits")!.label).toContain("$5.00");
+    const lastCall = menuCalls[menuCalls.length - 1][0] as {
+      params: { menu: unknown };
+    };
+    const latestMenu = lastCall.params.menu as Array<{
+      id: string;
+      label?: string;
+    }>;
+    expect(getMenuItemById(latestMenu, "cloud-credits")!.label).toContain(
+      "$5.00",
+    );
   });
 });
 
@@ -337,9 +419,15 @@ describe("useMiladyBar — agent status", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("shows agent status with running state and green indicator", () => {
-    mockUseApp.mockReturnValue(defaultAppState({
-      agentStatus: { state: "running", agentName: "TestAgent", startedAt: Date.now() - 60000 },
-    }));
+    mockUseApp.mockReturnValue(
+      defaultAppState({
+        agentStatus: {
+          state: "running",
+          agentName: "TestAgent",
+          startedAt: Date.now() - 60000,
+        },
+      }),
+    );
     renderAct(() => TestRenderer.create(React.createElement(TestHarness)));
     const menu = getLastMenuCall()!;
     const status = getMenuItemById(menu, "agent-status");
@@ -350,9 +438,15 @@ describe("useMiladyBar — agent status", () => {
   });
 
   it("shows uptime when agent is running with startedAt", () => {
-    mockUseApp.mockReturnValue(defaultAppState({
-      agentStatus: { state: "running", agentName: "Milady", startedAt: Date.now() - 7200000 },
-    }));
+    mockUseApp.mockReturnValue(
+      defaultAppState({
+        agentStatus: {
+          state: "running",
+          agentName: "Milady",
+          startedAt: Date.now() - 7200000,
+        },
+      }),
+    );
     renderAct(() => TestRenderer.create(React.createElement(TestHarness)));
     const menu = getLastMenuCall()!;
     const uptime = getMenuItemById(menu, "agent-uptime");
@@ -362,9 +456,11 @@ describe("useMiladyBar — agent status", () => {
   });
 
   it("shows error state with hint", () => {
-    mockUseApp.mockReturnValue(defaultAppState({
-      agentStatus: { state: "error", agentName: "Milady" },
-    }));
+    mockUseApp.mockReturnValue(
+      defaultAppState({
+        agentStatus: { state: "error", agentName: "Milady" },
+      }),
+    );
     renderAct(() => TestRenderer.create(React.createElement(TestHarness)));
     const menu = getLastMenuCall()!;
     const status = getMenuItemById(menu, "agent-status");
@@ -375,9 +471,11 @@ describe("useMiladyBar — agent status", () => {
   });
 
   it("shows stopped state when agent is not running", () => {
-    mockUseApp.mockReturnValue(defaultAppState({
-      agentStatus: { state: "stopped", agentName: "Milady" },
-    }));
+    mockUseApp.mockReturnValue(
+      defaultAppState({
+        agentStatus: { state: "stopped", agentName: "Milady" },
+      }),
+    );
     renderAct(() => TestRenderer.create(React.createElement(TestHarness)));
     const menu = getLastMenuCall()!;
     const status = getMenuItemById(menu, "agent-status");
@@ -394,15 +492,20 @@ describe("useMiladyBar — agent status", () => {
   });
 
   it("updates tray tooltip with agent status", () => {
-    mockUseApp.mockReturnValue(defaultAppState({
-      agentStatus: { state: "running", agentName: "MyAgent" },
-    }));
+    mockUseApp.mockReturnValue(
+      defaultAppState({
+        agentStatus: { state: "running", agentName: "MyAgent" },
+      }),
+    );
     renderAct(() => TestRenderer.create(React.createElement(TestHarness)));
     const tooltipCalls = mockInvoke.mock.calls.filter(
-      (c: unknown[]) => (c[0] as { rpcMethod: string }).rpcMethod === "desktopUpdateTray",
+      (c: unknown[]) =>
+        (c[0] as { rpcMethod: string }).rpcMethod === "desktopUpdateTray",
     );
     expect(tooltipCalls.length).toBeGreaterThan(0);
-    const lastTooltip = tooltipCalls[tooltipCalls.length - 1][0] as { params: { tooltip: string } };
+    const lastTooltip = tooltipCalls[tooltipCalls.length - 1][0] as {
+      params: { tooltip: string };
+    };
     expect(lastTooltip.params.tooltip).toContain("MyAgent");
     expect(lastTooltip.params.tooltip).toContain("Running");
   });
@@ -420,7 +523,10 @@ describe("useMiladyBar — actions and refresh", () => {
     mockUseApp.mockReturnValue(defaultAppState());
     renderAct(() => TestRenderer.create(React.createElement(TestHarness)));
     const menu = getLastMenuCall()!;
-    const settings = getMenuItemById(menu, "open-settings") as Record<string, unknown>;
+    const settings = getMenuItemById(menu, "open-settings") as Record<
+      string,
+      unknown
+    >;
     expect(settings).not.toBeNull();
     expect(settings.label).toBe("Settings...");
     expect(settings.enabled).toBeUndefined(); // interactive
@@ -430,7 +536,10 @@ describe("useMiladyBar — actions and refresh", () => {
     mockUseApp.mockReturnValue(defaultAppState());
     renderAct(() => TestRenderer.create(React.createElement(TestHarness)));
     const menu = getLastMenuCall()!;
-    const refresh = getMenuItemById(menu, "refresh-now") as Record<string, unknown>;
+    const refresh = getMenuItemById(menu, "refresh-now") as Record<
+      string,
+      unknown
+    >;
     expect(refresh).not.toBeNull();
     expect(refresh.label).toBe("Refresh Now");
     expect(refresh.enabled).toBeUndefined();
@@ -448,10 +557,12 @@ describe("useMiladyBar — actions and refresh", () => {
 
   it("refresh-now click triggers validated credential re-scan", async () => {
     let capturedListener: ((payload: unknown) => void) | null = null;
-    mockSubscribe.mockImplementation((opts: { listener: (payload: unknown) => void }) => {
-      capturedListener = opts.listener;
-      return vi.fn();
-    });
+    mockSubscribe.mockImplementation(
+      (opts: { listener: (payload: unknown) => void }) => {
+        capturedListener = opts.listener;
+        return vi.fn();
+      },
+    );
     mockUseApp.mockReturnValue(defaultAppState());
     await act(async () => {
       TestRenderer.create(React.createElement(TestHarness));
@@ -468,10 +579,12 @@ describe("useMiladyBar — actions and refresh", () => {
 
   it("open-settings click calls desktopOpenSettingsWindow RPC", async () => {
     let capturedListener: ((payload: unknown) => void) | null = null;
-    mockSubscribe.mockImplementation((opts: { listener: (payload: unknown) => void }) => {
-      capturedListener = opts.listener;
-      return vi.fn();
-    });
+    mockSubscribe.mockImplementation(
+      (opts: { listener: (payload: unknown) => void }) => {
+        capturedListener = opts.listener;
+        return vi.fn();
+      },
+    );
     mockUseApp.mockReturnValue(defaultAppState());
     await act(async () => {
       TestRenderer.create(React.createElement(TestHarness));
@@ -540,7 +653,13 @@ describe("useMiladyBar — provider submenus", () => {
 
   it("invalid credential shows Invalid badge in label", async () => {
     mockScanProviderCredentials.mockResolvedValue([
-      { id: "groq", source: "env", cliInstalled: false, status: "invalid", statusDetail: "API key rejected" },
+      {
+        id: "groq",
+        source: "env",
+        cliInstalled: false,
+        status: "invalid",
+        statusDetail: "API key rejected",
+      },
     ]);
     await act(async () => {
       TestRenderer.create(React.createElement(TestHarness));
@@ -555,10 +674,12 @@ describe("useMiladyBar — provider submenus", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     let capturedListener: ((payload: unknown) => void) | null = null;
-    mockSubscribe.mockImplementation((opts: { listener: (payload: unknown) => void }) => {
-      capturedListener = opts.listener;
-      return vi.fn();
-    });
+    mockSubscribe.mockImplementation(
+      (opts: { listener: (payload: unknown) => void }) => {
+        capturedListener = opts.listener;
+        return vi.fn();
+      },
+    );
     mockUseApp.mockReturnValue(defaultAppState());
     await act(async () => {
       TestRenderer.create(React.createElement(TestHarness));

@@ -192,12 +192,13 @@ export function LogsView() {
 
               {/* Level */}
               <span
-                className={`font-semibold w-[44px] uppercase text-[11px] ${entry.level === "error"
+                className={`font-semibold w-[44px] uppercase text-[11px] ${
+                  entry.level === "error"
                     ? "text-danger"
                     : entry.level === "warn"
                       ? "text-warn"
                       : "text-muted"
-                  }`}
+                }`}
               >
                 {entry.level}
               </span>

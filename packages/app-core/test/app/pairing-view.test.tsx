@@ -20,7 +20,7 @@ function createContext(overrides?: Record<string, unknown>) {
     pairingCodeInput: "",
     pairingError: null,
     pairingBusy: false,
-    handlePairingSubmit: vi.fn(async () => { }),
+    handlePairingSubmit: vi.fn(async () => {}),
     setState: vi.fn(),
     ...(overrides ?? {}),
   };

@@ -93,7 +93,7 @@ const { mockClient } = vi.hoisted(() => ({
     sendWsMessage: vi.fn(),
     connectWs: vi.fn(),
     disconnectWs: vi.fn(),
-    onWsEvent: vi.fn(() => () => { }),
+    onWsEvent: vi.fn(() => () => {}),
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
@@ -286,10 +286,10 @@ describe("chat send locking", () => {
       memories: [],
       knowledge: [],
     });
-    mockClient.sendWsMessage.mockImplementation(() => { });
-    mockClient.connectWs.mockImplementation(() => { });
-    mockClient.disconnectWs.mockImplementation(() => { });
-    mockClient.onWsEvent.mockReturnValue(() => { });
+    mockClient.sendWsMessage.mockImplementation(() => {});
+    mockClient.connectWs.mockImplementation(() => {});
+    mockClient.disconnectWs.mockImplementation(() => {});
+    mockClient.onWsEvent.mockReturnValue(() => {});
     mockClient.getAgentEvents.mockResolvedValue({
       events: [],
       latestEventId: null,
@@ -967,8 +967,420 @@ describe("chat send locking", () => {
       lang: "en",
     });
 
-  await act(async () => {
-    deferred.resolve({
+    await act(async () => {
+      deferred.resolve({
+        conversation: {
+          id: "conv-fresh",
+          title: "Fresh chat",
+          roomId: "room-fresh",
+          createdAt: "2026-02-02T00:00:00.000Z",
+          updatedAt: "2026-02-02T00:00:00.000Z",
+        },
+        greeting: {
+          text: "Hey there.",
+          persisted: false,
+        },
+      });
+      await newConversationPromise;
+    });
+
+    expect(api?.snapshot()).toEqual(
+      expect.objectContaining({
+        activeConversationId: "conv-fresh",
+        conversationMessages: [
+          expect.objectContaining({
+            role: "assistant",
+            text: "Hey there.",
+            source: "agent_greeting",
+          }),
+        ],
+      }),
+    );
+    expect(mockClient.sendWsMessage).toHaveBeenCalledWith({
+      type: "active-conversation",
+      conversationId: "conv-fresh",
+    });
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("preserves repeated characters in incremental token streams", async () => {
+    const deferred = createDeferred<{ text: string; agentName: string }>();
+    mockClient.sendConversationMessageStream.mockImplementation(
+      async (
+        _conversationId: string,
+        _text: string,
+        onToken: (token: string) => void,
+      ) => {
+        for (const token of [
+          "H",
+          "e",
+          "l",
+          "l",
+          "o",
+          " ",
+          "w",
+          "o",
+          "r",
+          "l",
+          "d",
+        ]) {
+          onToken(token);
+        }
+        return deferred.promise;
+      },
+    );
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(api).not.toBeNull();
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("stream me");
+    });
+
+    let sendPromise: Promise<void> | null = null;
+    await act(async () => {
+      sendPromise = api?.handleChatSend();
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      const snapshot = api?.snapshot();
+      const streamedAssistant = snapshot.conversationMessages.find(
+        (message) =>
+          message.role === "assistant" && message.id.startsWith("temp-resp-"),
+      );
+      expect(streamedAssistant?.text).toBe("Hello world");
+      expect(snapshot.chatSending).toBe(true);
+    });
+
+    await act(async () => {
+      deferred.resolve({ text: "Hello world", agentName: "Eliza" });
+      await sendPromise;
+    });
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("does not block stream completion on conversation list refresh", async () => {
+    const refreshDeferred = createDeferred<{
+      conversations: Array<{
+        id: string;
+        title: string;
+        roomId: string;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+    }>();
+
+    mockClient.listConversations
+      .mockResolvedValueOnce({
+        conversations: [
+          {
+            id: "conv-1",
+            title: "Chat",
+            roomId: "room-1",
+            createdAt: "2026-02-01T00:00:00.000Z",
+            updatedAt: "2026-02-01T00:00:00.000Z",
+          },
+        ],
+      })
+      .mockImplementationOnce(async () => refreshDeferred.promise);
+
+    mockClient.sendConversationMessageStream.mockResolvedValue({
+      text: "done",
+      agentName: "Eliza",
+    });
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(api).not.toBeNull();
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("quick response");
+    });
+
+    let resolved = false;
+    await act(async () => {
+      const promise = api?.handleChatSend() ?? Promise.resolve();
+      promise.then(() => {
+        resolved = true;
+      });
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(resolved).toBe(true);
+      expect(api?.snapshot().chatSending).toBe(false);
+    });
+
+    await act(async () => {
+      refreshDeferred.resolve({
+        conversations: [
+          {
+            id: "conv-1",
+            title: "Chat",
+            roomId: "room-1",
+            createdAt: "2026-02-01T00:00:00.000Z",
+            updatedAt: "2026-02-01T00:00:00.000Z",
+          },
+        ],
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("executes custom actions via slash commands without persisting chat", async () => {
+    mockClient.listCustomActions.mockResolvedValue([
+      {
+        id: "action-1",
+        name: "SAY_HELLO",
+        description: "Says hello",
+        parameters: [{ name: "name", description: "Name", required: true }],
+        handler: { type: "code", code: "return 'ok';" },
+        enabled: true,
+        createdAt: "2026-02-01T00:00:00.000Z",
+        updatedAt: "2026-02-01T00:00:00.000Z",
+      },
+    ]);
+    mockClient.testCustomAction.mockResolvedValue({
+      ok: true,
+      output: "Hello, Alice!",
+      durationMs: 12,
+    });
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("/say_hello name=Alice");
+    });
+
+    await act(async () => {
+      await api?.handleChatSend();
+    });
+
+    expect(mockClient.testCustomAction).toHaveBeenCalledWith("action-1", {
+      name: "Alice",
+    });
+    expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(0);
+    const assistant = [...(api?.snapshot().conversationMessages ?? [])]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    expect(assistant?.text).toContain("Hello, Alice!");
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("handles #remember by storing memory and skipping conversation send", async () => {
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("# remember we use typescript");
+    });
+
+    await act(async () => {
+      await api?.handleChatSend();
+    });
+
+    expect(mockClient.rememberMemory).toHaveBeenCalledWith("we use typescript");
+    expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(0);
+    const assistant = [...(api?.snapshot().conversationMessages ?? [])]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    expect(assistant?.text).toContain("Saved memory note");
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("rejects $ with trailing text and requires bare $", async () => {
+    mockClient.quickContext.mockResolvedValue({
+      query: "hello",
+      answer: "Hi there.",
+      memories: [
+        { id: "m1", text: "we use typescript", createdAt: 1, score: 1 },
+      ],
+      knowledge: [
+        {
+          id: "k1",
+          text: "Eliza is a TypeScript project",
+          similarity: 0.91,
+          documentTitle: "README.md",
+        },
+      ],
+    });
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("$ hello");
+    });
+
+    await act(async () => {
+      await api?.handleChatSend();
+    });
+
+    expect(mockClient.quickContext).toHaveBeenCalledTimes(0);
+    expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(0);
+    const assistant = [...(api?.snapshot().conversationMessages ?? [])]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    expect(assistant?.text).toContain("Use bare `$` only");
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("handles bare $ as quick context shortcut", async () => {
+    mockClient.quickContext.mockResolvedValue({
+      query: "default",
+      answer: "Default quick context.",
+      memories: [],
+      knowledge: [],
+    });
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+      api?.setChatInput("$");
+    });
+
+    await act(async () => {
+      await api?.handleChatSend();
+    });
+
+    expect(mockClient.quickContext).toHaveBeenCalledWith(
+      "What is most relevant from memory and knowledge right now?",
+      { limit: 6 },
+    );
+    expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(0);
+    const assistant = [...(api?.snapshot().conversationMessages ?? [])]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    expect(assistant?.text).toContain("Default quick context.");
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it("does not mark a fallback greeting basic-capabilities as an active chat send", async () => {
+    const deferred = createDeferred<{
+      text: string;
+      agentName: string;
+      generated: boolean;
+      persisted: boolean;
+    }>();
+    mockClient.createConversation.mockResolvedValue({
       conversation: {
         id: "conv-fresh",
         title: "Fresh chat",
@@ -976,490 +1388,78 @@ describe("chat send locking", () => {
         createdAt: "2026-02-02T00:00:00.000Z",
         updatedAt: "2026-02-02T00:00:00.000Z",
       },
-      greeting: {
+      greeting: undefined,
+    });
+    mockClient.requestGreeting.mockReturnValue(deferred.promise);
+
+    let api: ProbeApi | null = null;
+    let tree: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(
+          AppProvider,
+          null,
+          React.createElement(Probe, {
+            onReady: (nextApi) => {
+              api = nextApi;
+            },
+          }),
+        ),
+      );
+    });
+
+    expect(api).not.toBeNull();
+
+    await act(async () => {
+      await api?.handleSelectConversation("conv-1");
+    });
+
+    await act(async () => {
+      await api?.handleNewConversation();
+    });
+
+    await vi.waitFor(() => {
+      expect(mockClient.requestGreeting).toHaveBeenCalledWith(
+        "conv-fresh",
+        "en",
+      );
+    });
+
+    expect(api?.snapshot()).toEqual(
+      expect.objectContaining({
+        activeConversationId: "conv-fresh",
+        chatSending: false,
+        chatFirstTokenReceived: false,
+        conversationMessages: [],
+      }),
+    );
+
+    await act(async () => {
+      deferred.resolve({
         text: "Hey there.",
+        agentName: "Eliza",
+        generated: true,
         persisted: false,
-      },
+      });
+      await Promise.resolve();
     });
-    await newConversationPromise;
-  });
 
-  expect(api?.snapshot()).toEqual(
-    expect.objectContaining({
-      activeConversationId: "conv-fresh",
-      conversationMessages: [
-        expect.objectContaining({
-          role: "assistant",
-          text: "Hey there.",
-          source: "agent_greeting",
-        }),
-      ],
-    }),
-  );
-  expect(mockClient.sendWsMessage).toHaveBeenCalledWith({
-    type: "active-conversation",
-    conversationId: "conv-fresh",
-  });
-
-  await act(async () => {
-    tree?.unmount();
-  });
-});
-
-it("preserves repeated characters in incremental token streams", async () => {
-  const deferred = createDeferred<{ text: string; agentName: string }>();
-  mockClient.sendConversationMessageStream.mockImplementation(
-    async (
-      _conversationId: string,
-      _text: string,
-      onToken: (token: string) => void,
-    ) => {
-      for (const token of [
-        "H",
-        "e",
-        "l",
-        "l",
-        "o",
-        " ",
-        "w",
-        "o",
-        "r",
-        "l",
-        "d",
-      ]) {
-        onToken(token);
-      }
-      return deferred.promise;
-    },
-  );
-
-  let api: ProbeApi | null = null;
-  let tree: TestRenderer.ReactTestRenderer;
-
-  await act(async () => {
-    tree = TestRenderer.create(
-      React.createElement(
-        AppProvider,
-        null,
-        React.createElement(Probe, {
-          onReady: (nextApi) => {
-            api = nextApi;
-          },
-        }),
-      ),
+    expect(api?.snapshot()).toEqual(
+      expect.objectContaining({
+        chatSending: false,
+        conversationMessages: [
+          expect.objectContaining({
+            role: "assistant",
+            text: "Hey there.",
+            source: "agent_greeting",
+          }),
+        ],
+      }),
     );
-  });
 
-  expect(api).not.toBeNull();
-
-  await act(async () => {
-    await api?.handleSelectConversation("conv-1");
-    api?.setChatInput("stream me");
-  });
-
-  let sendPromise: Promise<void> | null = null;
-  await act(async () => {
-    sendPromise = api?.handleChatSend();
-    await Promise.resolve();
-  });
-
-  await vi.waitFor(() => {
-    const snapshot = api?.snapshot();
-    const streamedAssistant = snapshot.conversationMessages.find(
-      (message) =>
-        message.role === "assistant" && message.id.startsWith("temp-resp-"),
-    );
-    expect(streamedAssistant?.text).toBe("Hello world");
-    expect(snapshot.chatSending).toBe(true);
-  });
-
-  await act(async () => {
-    deferred.resolve({ text: "Hello world", agentName: "Eliza" });
-    await sendPromise;
-  });
-
-  await act(async () => {
-    tree?.unmount();
-  });
-});
-
-it("does not block stream completion on conversation list refresh", async () => {
-  const refreshDeferred = createDeferred<{
-    conversations: Array<{
-      id: string;
-      title: string;
-      roomId: string;
-      createdAt: string;
-      updatedAt: string;
-    }>;
-  }>();
-
-  mockClient.listConversations
-    .mockResolvedValueOnce({
-      conversations: [
-        {
-          id: "conv-1",
-          title: "Chat",
-          roomId: "room-1",
-          createdAt: "2026-02-01T00:00:00.000Z",
-          updatedAt: "2026-02-01T00:00:00.000Z",
-        },
-      ],
-    })
-    .mockImplementationOnce(async () => refreshDeferred.promise);
-
-  mockClient.sendConversationMessageStream.mockResolvedValue({
-    text: "done",
-    agentName: "Eliza",
-  });
-
-  let api: ProbeApi | null = null;
-  let tree: TestRenderer.ReactTestRenderer;
-
-  await act(async () => {
-    tree = TestRenderer.create(
-      React.createElement(
-        AppProvider,
-        null,
-        React.createElement(Probe, {
-          onReady: (nextApi) => {
-            api = nextApi;
-          },
-        }),
-      ),
-    );
-  });
-
-  expect(api).not.toBeNull();
-
-  await act(async () => {
-    await api?.handleSelectConversation("conv-1");
-    api?.setChatInput("quick response");
-  });
-
-  let resolved = false;
-  await act(async () => {
-    const promise = api?.handleChatSend() ?? Promise.resolve();
-    promise.then(() => {
-      resolved = true;
+    await act(async () => {
+      tree?.unmount();
     });
-    await Promise.resolve();
   });
-
-  await vi.waitFor(() => {
-    expect(resolved).toBe(true);
-    expect(api?.snapshot().chatSending).toBe(false);
-  });
-
-  await act(async () => {
-    refreshDeferred.resolve({
-      conversations: [
-        {
-          id: "conv-1",
-          title: "Chat",
-          roomId: "room-1",
-          createdAt: "2026-02-01T00:00:00.000Z",
-          updatedAt: "2026-02-01T00:00:00.000Z",
-        },
-      ],
-    });
-    await Promise.resolve();
-  });
-
-  await act(async () => {
-    tree?.unmount();
-  });
-});
-
-it("executes custom actions via slash commands without persisting chat", async () => {
-  mockClient.listCustomActions.mockResolvedValue([
-    {
-      id: "action-1",
-      name: "SAY_HELLO",
-      description: "Says hello",
-      parameters: [{ name: "name", description: "Name", required: true }],
-      handler: { type: "code", code: "return 'ok';" },
-      enabled: true,
-      createdAt: "2026-02-01T00:00:00.000Z",
-      updatedAt: "2026-02-01T00:00:00.000Z",
-    },
-  ]);
-  mockClient.testCustomAction.mockResolvedValue({
-    ok: true,
-    output: "Hello, Alice!",
-    durationMs: 12,
-  });
-
-  let api: ProbeApi | null = null;
-  let tree: TestRenderer.ReactTestRenderer;
-
-  await act(async () => {
-    tree = TestRenderer.create(
-      React.createElement(
-        AppProvider,
-        null,
-        React.createElement(Probe, {
-          onReady: (nextApi) => {
-            api = nextApi;
-          },
-        }),
-      ),
-    );
-  });
-
-  await act(async () => {
-    await api?.handleSelectConversation("conv-1");
-    api?.setChatInput("/say_hello name=Alice");
-  });
-
-  await act(async () => {
-    await api?.handleChatSend();
-  });
-
-  expect(mockClient.testCustomAction).toHaveBeenCalledWith("action-1", {
-    name: "Alice",
-  });
-  expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(0);
-  const assistant = [...(api?.snapshot().conversationMessages ?? [])]
-    .reverse()
-    .find((message) => message.role === "assistant");
-  expect(assistant?.text).toContain("Hello, Alice!");
-
-  await act(async () => {
-    tree?.unmount();
-  });
-});
-
-it("handles #remember by storing memory and skipping conversation send", async () => {
-  let api: ProbeApi | null = null;
-  let tree: TestRenderer.ReactTestRenderer;
-
-  await act(async () => {
-    tree = TestRenderer.create(
-      React.createElement(
-        AppProvider,
-        null,
-        React.createElement(Probe, {
-          onReady: (nextApi) => {
-            api = nextApi;
-          },
-        }),
-      ),
-    );
-  });
-
-  await act(async () => {
-    await api?.handleSelectConversation("conv-1");
-    api?.setChatInput("# remember we use typescript");
-  });
-
-  await act(async () => {
-    await api?.handleChatSend();
-  });
-
-  expect(mockClient.rememberMemory).toHaveBeenCalledWith("we use typescript");
-  expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(0);
-  const assistant = [...(api?.snapshot().conversationMessages ?? [])]
-    .reverse()
-    .find((message) => message.role === "assistant");
-  expect(assistant?.text).toContain("Saved memory note");
-
-  await act(async () => {
-    tree?.unmount();
-  });
-});
-
-it("rejects $ with trailing text and requires bare $", async () => {
-  mockClient.quickContext.mockResolvedValue({
-    query: "hello",
-    answer: "Hi there.",
-    memories: [
-      { id: "m1", text: "we use typescript", createdAt: 1, score: 1 },
-    ],
-    knowledge: [
-      {
-        id: "k1",
-        text: "Eliza is a TypeScript project",
-        similarity: 0.91,
-        documentTitle: "README.md",
-      },
-    ],
-  });
-
-  let api: ProbeApi | null = null;
-  let tree: TestRenderer.ReactTestRenderer;
-
-  await act(async () => {
-    tree = TestRenderer.create(
-      React.createElement(
-        AppProvider,
-        null,
-        React.createElement(Probe, {
-          onReady: (nextApi) => {
-            api = nextApi;
-          },
-        }),
-      ),
-    );
-  });
-
-  await act(async () => {
-    await api?.handleSelectConversation("conv-1");
-    api?.setChatInput("$ hello");
-  });
-
-  await act(async () => {
-    await api?.handleChatSend();
-  });
-
-  expect(mockClient.quickContext).toHaveBeenCalledTimes(0);
-  expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(0);
-  const assistant = [...(api?.snapshot().conversationMessages ?? [])]
-    .reverse()
-    .find((message) => message.role === "assistant");
-  expect(assistant?.text).toContain("Use bare `$` only");
-
-  await act(async () => {
-    tree?.unmount();
-  });
-});
-
-it("handles bare $ as quick context shortcut", async () => {
-  mockClient.quickContext.mockResolvedValue({
-    query: "default",
-    answer: "Default quick context.",
-    memories: [],
-    knowledge: [],
-  });
-
-  let api: ProbeApi | null = null;
-  let tree: TestRenderer.ReactTestRenderer;
-
-  await act(async () => {
-    tree = TestRenderer.create(
-      React.createElement(
-        AppProvider,
-        null,
-        React.createElement(Probe, {
-          onReady: (nextApi) => {
-            api = nextApi;
-          },
-        }),
-      ),
-    );
-  });
-
-  await act(async () => {
-    await api?.handleSelectConversation("conv-1");
-    api?.setChatInput("$");
-  });
-
-  await act(async () => {
-    await api?.handleChatSend();
-  });
-
-  expect(mockClient.quickContext).toHaveBeenCalledWith(
-    "What is most relevant from memory and knowledge right now?",
-    { limit: 6 },
-  );
-  expect(mockClient.sendConversationMessageStream).toHaveBeenCalledTimes(0);
-  const assistant = [...(api?.snapshot().conversationMessages ?? [])]
-    .reverse()
-    .find((message) => message.role === "assistant");
-  expect(assistant?.text).toContain("Default quick context.");
-
-  await act(async () => {
-    tree?.unmount();
-  });
-});
-
-it("does not mark a fallback greeting basic-capabilities as an active chat send", async () => {
-  const deferred = createDeferred<{
-    text: string;
-    agentName: string;
-    generated: boolean;
-    persisted: boolean;
-  }>();
-  mockClient.createConversation.mockResolvedValue({
-    conversation: {
-      id: "conv-fresh",
-      title: "Fresh chat",
-      roomId: "room-fresh",
-      createdAt: "2026-02-02T00:00:00.000Z",
-      updatedAt: "2026-02-02T00:00:00.000Z",
-    },
-    greeting: undefined,
-  });
-  mockClient.requestGreeting.mockReturnValue(deferred.promise);
-
-  let api: ProbeApi | null = null;
-  let tree: TestRenderer.ReactTestRenderer;
-
-  await act(async () => {
-    tree = TestRenderer.create(
-      React.createElement(
-        AppProvider,
-        null,
-        React.createElement(Probe, {
-          onReady: (nextApi) => {
-            api = nextApi;
-          },
-        }),
-      ),
-    );
-  });
-
-  expect(api).not.toBeNull();
-
-  await act(async () => {
-    await api?.handleSelectConversation("conv-1");
-  });
-
-  await act(async () => {
-    await api?.handleNewConversation();
-  });
-
-  await vi.waitFor(() => {
-    expect(mockClient.requestGreeting).toHaveBeenCalledWith(
-      "conv-fresh",
-      "en",
-    );
-  });
-
-  expect(api?.snapshot()).toEqual(
-    expect.objectContaining({
-      activeConversationId: "conv-fresh",
-      chatSending: false,
-      chatFirstTokenReceived: false,
-      conversationMessages: [],
-    }),
-  );
-
-  await act(async () => {
-    deferred.resolve({
-      text: "Hey there.",
-      agentName: "Eliza",
-      generated: true,
-      persisted: false,
-    });
-    await Promise.resolve();
-  });
-
-  expect(api?.snapshot()).toEqual(
-    expect.objectContaining({
-      chatSending: false,
-      conversationMessages: [
-        expect.objectContaining({
-          role: "assistant",
-          text: "Hey there.",
-          source: "agent_greeting",
-        }),
-      ],
-    }),
-  );
-
-  await act(async () => {
-    tree?.unmount();
-  });
-});
 });

@@ -93,7 +93,7 @@ const { mockClient } = vi.hoisted(() => ({
     sendWsMessage: vi.fn(),
     connectWs: vi.fn(),
     disconnectWs: vi.fn(),
-    onWsEvent: vi.fn(() => () => { }),
+    onWsEvent: vi.fn(() => () => {}),
     getAgentEvents: vi.fn(async () => ({ events: [], latestEventId: null })),
     getStatus: vi.fn(async () => ({
       state: "running",
@@ -284,10 +284,10 @@ function resetMockClient(): void {
     memories: [],
     knowledge: [],
   });
-  mockClient.sendWsMessage.mockImplementation(() => { });
-  mockClient.connectWs.mockImplementation(() => { });
-  mockClient.disconnectWs.mockImplementation(() => { });
-  mockClient.onWsEvent.mockReturnValue(() => { });
+  mockClient.sendWsMessage.mockImplementation(() => {});
+  mockClient.connectWs.mockImplementation(() => {});
+  mockClient.disconnectWs.mockImplementation(() => {});
+  mockClient.onWsEvent.mockReturnValue(() => {});
   mockClient.getAgentEvents.mockResolvedValue({
     events: [],
     latestEventId: null,
@@ -351,7 +351,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -375,7 +377,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -427,7 +431,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -475,7 +481,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -509,7 +517,9 @@ describe("chat journey", () => {
 
     it("shows optimistic user message immediately on send", async () => {
       const deferred = createDeferred<{ text: string; agentName: string }>();
-      mockClient.sendConversationMessageStream.mockReturnValue(deferred.promise);
+      mockClient.sendConversationMessageStream.mockReturnValue(
+        deferred.promise,
+      );
 
       let api: ProbeApi | null = null;
       let tree: TestRenderer.ReactTestRenderer;
@@ -520,7 +530,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -559,7 +571,9 @@ describe("chat journey", () => {
 
     it("disables sending while message is in flight (send lock)", async () => {
       const deferred = createDeferred<{ text: string; agentName: string }>();
-      mockClient.sendConversationMessageStream.mockReturnValue(deferred.promise);
+      mockClient.sendConversationMessageStream.mockReturnValue(
+        deferred.promise,
+      );
 
       let api: ProbeApi | null = null;
       let tree: TestRenderer.ReactTestRenderer;
@@ -570,7 +584,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -611,7 +627,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -664,7 +682,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -723,7 +743,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -766,7 +788,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -812,7 +836,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -839,13 +865,28 @@ describe("chat journey", () => {
       mockClient.getConversationMessages
         .mockResolvedValueOnce({
           messages: [
-            { id: "msg-u1", role: "user", text: "user said something", timestamp: 1 },
-            { id: "msg-1", role: "assistant", text: "hello from conv-1", timestamp: 2 },
+            {
+              id: "msg-u1",
+              role: "user",
+              text: "user said something",
+              timestamp: 1,
+            },
+            {
+              id: "msg-1",
+              role: "assistant",
+              text: "hello from conv-1",
+              timestamp: 2,
+            },
           ],
         })
         .mockResolvedValueOnce({
           messages: [
-            { id: "msg-2", role: "assistant", text: "hello from conv-2", timestamp: 3 },
+            {
+              id: "msg-2",
+              role: "assistant",
+              text: "hello from conv-2",
+              timestamp: 3,
+            },
           ],
         });
 
@@ -858,7 +899,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -871,7 +914,9 @@ describe("chat journey", () => {
       });
 
       expect(api!.snapshot().activeConversationId).toBe("conv-1");
-      expect(api!.snapshot().conversationMessages[0].text).toBe("user said something");
+      expect(api!.snapshot().conversationMessages[0].text).toBe(
+        "user said something",
+      );
 
       await act(async () => {
         await api!.handleSelectConversation("conv-2");
@@ -879,7 +924,9 @@ describe("chat journey", () => {
 
       expect(api!.snapshot().activeConversationId).toBe("conv-2");
       expect(mockClient.getConversationMessages).toHaveBeenCalledWith("conv-2");
-      expect(api!.snapshot().conversationMessages[0].text).toBe("hello from conv-2");
+      expect(api!.snapshot().conversationMessages[0].text).toBe(
+        "hello from conv-2",
+      );
 
       await act(async () => {
         tree!.unmount();
@@ -896,7 +943,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -940,7 +989,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -995,7 +1046,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );
@@ -1021,7 +1074,9 @@ describe("chat journey", () => {
       ).toBe(false);
       // Temp response IDs should be cleaned up
       expect(
-        snapshot.conversationMessages.some((m) => m.id.startsWith("temp-resp-")),
+        snapshot.conversationMessages.some((m) =>
+          m.id.startsWith("temp-resp-"),
+        ),
       ).toBe(false);
 
       await act(async () => {
@@ -1043,7 +1098,9 @@ describe("chat journey", () => {
             AppProvider,
             null,
             React.createElement(Probe, {
-              onReady: (nextApi) => { api = nextApi; },
+              onReady: (nextApi) => {
+                api = nextApi;
+              },
             }),
           ),
         );

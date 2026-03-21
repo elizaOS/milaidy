@@ -61,7 +61,7 @@ describe("startup failure: backend missing", () => {
       JSON.stringify({ runMode: "local" }),
     );
     mockClient.hasToken.mockReturnValue(false);
-    mockClient.disconnectWs.mockImplementation(() => { });
+    mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.getAuthStatus.mockResolvedValue({
       required: false,
       pairingEnabled: false,

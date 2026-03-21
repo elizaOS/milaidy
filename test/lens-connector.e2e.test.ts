@@ -33,7 +33,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveLensPluginImportSpecifier,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment Setup
@@ -1031,7 +1031,7 @@ describe("Lens Connector - Integration", () => {
   it("Lens is mapped in CONNECTOR_PLUGINS", async () => {
     const mod = await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[lens-connector] Workspace not built — skipping");
       return;
@@ -1044,7 +1044,7 @@ describe("Lens Connector - Integration", () => {
     try {
       mod = await tryWorkspaceImport<{
         CHANNEL_PLUGIN_MAP: Record<string, string>;
-      }>("../src/runtime/eliza");
+      }>("@miladyai/app-core/src/runtime/eliza");
     } catch {
       mod = null;
     }
@@ -1063,7 +1063,7 @@ describe("Lens Connector - Integration", () => {
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[lens-connector] Workspace not built — skipping");
       return;
@@ -1080,7 +1080,7 @@ describe("Lens Connector - Integration", () => {
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[lens-connector] Workspace not built — skipping");
       return;
@@ -1095,7 +1095,7 @@ describe("Lens Connector - Integration", () => {
   it("Lens connector is in CONNECTOR_PLUGINS list", async () => {
     const mod = await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[lens-connector] Workspace not built — skipping");
       return;
@@ -1109,7 +1109,7 @@ describe("Lens Connector - Integration", () => {
     try {
       mod = await tryWorkspaceImport<{
         collectPluginNames: (config: unknown) => Set<string>;
-      }>("../src/runtime/eliza");
+      }>("@miladyai/app-core/src/runtime/eliza");
     } catch {
       mod = null;
     }

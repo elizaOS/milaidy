@@ -123,8 +123,7 @@ export const VrmStage = memo(function VrmStage({
         enabled: true,
         swayAmplitude: cameraProfile === "companion_close" ? 0.028 : 0.04,
         bobAmplitude: cameraProfile === "companion_close" ? 0.016 : 0.022,
-        rotationAmplitude:
-          cameraProfile === "companion_close" ? 0.008 : 0.012,
+        rotationAmplitude: cameraProfile === "companion_close" ? 0.008 : 0.012,
         speed: cameraProfile === "companion_close" ? 0.48 : 0.42,
       });
       engine.setPointerParallaxEnabled(false);

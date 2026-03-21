@@ -61,7 +61,7 @@ vi.mock("@elizaos/agent/contracts/permissions", () => ({}));
 // Provide window.location so connectWs() can build a WS URL
 vi.stubGlobal("window", {
   location: { protocol: "http:", host: "localhost:2138" },
-  sessionStorage: { getItem: () => null, setItem: () => { } },
+  sessionStorage: { getItem: () => null, setItem: () => {} },
   navigator: { userAgent: "" },
   __ELIZA_API_BASE__: undefined,
 });

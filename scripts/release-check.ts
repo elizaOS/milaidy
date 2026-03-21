@@ -94,7 +94,7 @@ const requiredWorkflowSnippets = [
   'Get-ChildItem -Path (Join-Path $PWD "node_modules\\.bun") -Directory -Filter "rcedit@*"',
   "Seeding rcedit from $seedRceditDir",
   "node scripts/desktop-build.mjs package --env=$" +
-  "{{ needs.prepare.outputs.env }}",
+    "{{ needs.prepare.outputs.env }}",
   "MILADY_ELECTROBUN_NOTARIZE: 0",
   'MILADY_DISABLE_LOCAL_EMBEDDINGS: "1"',
   'MILADY_WINDOWS_SMOKE_REQUIRE_INSTALLER: "1"',
@@ -111,13 +111,13 @@ const forbiddenWorkflowSnippets = [
   "path: ~/.bun/install/cache",
   "restore-keys: bun-electrobun-validate-",
   "restore-keys: bun-electrobun-$" +
-  "{{ matrix.platform.artifact-name }}" +
-  "-",
+    "{{ matrix.platform.artifact-name }}" +
+    "-",
   "key: bun-electrobun-validate-$" + "{{ hashFiles('bun.lock') }}",
   "key: bun-electrobun-$" +
-  "{{ matrix.platform.artifact-name }}" +
-  "-$" +
-  "{{ hashFiles('bun.lock') }}",
+    "{{ matrix.platform.artifact-name }}" +
+    "-$" +
+    "{{ hashFiles('bun.lock') }}",
 ];
 const requiredElectrobunConfigSnippets = [
   'postBuild: "scripts/postwrap-sign-runtime-macos.ts"',

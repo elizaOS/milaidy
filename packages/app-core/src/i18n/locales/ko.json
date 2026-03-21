@@ -31,6 +31,7 @@
   "header.cloudDisconnected": "클라우드 연결이 끊어졌습니다.",
   "header.nativeMode": "네이티브 모드",
   "header.companionMode": "컴패니언 모드",
+  "header.characterMode": "캐릭터 편집",
   "header.switchToNative": "네이티브로 전환",
   "pairing.expiresIn": "{{seconds}}초 후에 만료됩니다.",
   "chat.inputPlaceholder": "메시지를 입력하세요...",

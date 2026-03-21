@@ -246,10 +246,11 @@ export function TrajectoriesView({
               <Button
                 variant="outline"
                 size="sm"
-                className={`h-6 px-2 py-0.5 text-[11px] shadow-sm ${config?.enabled
-                  ? "bg-success/20 border-success text-success hover:bg-success/30"
-                  : "bg-warn/20 border-warn text-warn hover:bg-warn/30"
-                  }`}
+                className={`h-6 px-2 py-0.5 text-[11px] shadow-sm ${
+                  config?.enabled
+                    ? "bg-success/20 border-success text-success hover:bg-success/30"
+                    : "bg-warn/20 border-warn text-warn hover:bg-warn/30"
+                }`}
                 onClick={handleToggleLogging}
                 disabled={!config || updatingLogging}
                 aria-pressed={config?.enabled ?? false}

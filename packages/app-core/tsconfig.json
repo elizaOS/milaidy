@@ -8,7 +8,13 @@
     "skipLibCheck": true,
     "types": ["node"],
     "declaration": false,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": "../../",
+    "paths": {
+      "@miladyai/ui": ["./packages/ui/src/index.ts"],
+      "@miladyai/ui/*": ["./packages/ui/src/*"],
+      "@elizaos/agent/*": ["./node_modules/@elizaos/agent/packages/agent/src/*"]
+    }
   },
   "exclude": [
     "src/**/*.stories.ts",

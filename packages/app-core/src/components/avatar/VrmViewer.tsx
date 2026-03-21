@@ -86,11 +86,17 @@ async function captureVrmPreviews(options?: {
   }
 
   const count = getVrmCount();
-  console.log(`[captureVrmPreviews] Capturing ${count} VRM previews at ${width}×${height} with physics disabled...`);
+  console.log(
+    `[captureVrmPreviews] Capturing ${count} VRM previews at ${width}×${height} with physics disabled...`,
+  );
 
   for (let i = 1; i <= count; i++) {
     const vrmUrl = getVrmUrl(i);
-    const slug = vrmUrl.split("/").pop()?.replace(/\.vrm(\.gz)?$/, "") ?? `vrm-${i}`;
+    const slug =
+      vrmUrl
+        .split("/")
+        .pop()
+        ?.replace(/\.vrm(\.gz)?$/, "") ?? `vrm-${i}`;
 
     console.log(`[captureVrmPreviews] Loading VRM ${i}/${count}: ${slug}...`);
     try {
@@ -98,7 +104,11 @@ async function captureVrmPreviews(options?: {
       // Let the idle animation settle
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const blob = await engine.snapshot({ width, height, disablePhysics: true });
+      const blob = await engine.snapshot({
+        width,
+        height,
+        disablePhysics: true,
+      });
       if (!blob) {
         console.warn(`[captureVrmPreviews] Failed to capture ${slug}`);
         continue;

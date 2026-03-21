@@ -25,7 +25,7 @@ import type {
   CanvasTextStyle,
   CanvasTouchEvent,
   CanvasTransform,
-} from "../../src/definitions";
+} from "@miladyai/app-core/src/definitions";
 
 type EventCallback<T> = (event: T) => void;
 type CanvasEvent = CanvasTouchEvent | CanvasRenderEvent;

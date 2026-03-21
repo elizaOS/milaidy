@@ -1,7 +1,7 @@
 const DEFAULT_CLOUD_BASE =
   typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1")
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1")
     ? "http://localhost:3000"
     : "https://www.elizacloud.ai";
 const DEFAULT_LOCAL_AGENT_BASE = "http://localhost:2138";

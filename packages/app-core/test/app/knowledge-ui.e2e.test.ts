@@ -86,23 +86,23 @@ function createKnowledgeTestServer(): Promise<{
     createdAt: string;
     size: number;
   }> = [
-      {
-        id: "doc-1",
-        title: "README.md",
-        content: "# Project Documentation",
-        fragmentCount: 3,
-        createdAt: new Date().toISOString(),
-        size: 1024,
-      },
-      {
-        id: "doc-2",
-        title: "guide.pdf",
-        content: "User guide content",
-        fragmentCount: 10,
-        createdAt: new Date().toISOString(),
-        size: 50000,
-      },
-    ];
+    {
+      id: "doc-1",
+      title: "README.md",
+      content: "# Project Documentation",
+      fragmentCount: 3,
+      createdAt: new Date().toISOString(),
+      size: 1024,
+    },
+    {
+      id: "doc-2",
+      title: "guide.pdf",
+      content: "User guide content",
+      fragmentCount: 10,
+      createdAt: new Date().toISOString(),
+      size: 50000,
+    },
+  ];
 
   const json = (res: http.ServerResponse, data: unknown, status = 200) => {
     res.writeHead(status, {

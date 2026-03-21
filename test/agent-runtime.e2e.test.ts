@@ -29,13 +29,13 @@ import {
 } from "@elizaos/core";
 import dotenv from "dotenv";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server";
-import { ensureAgentWorkspace } from "../src/providers/workspace";
-import { configureLocalEmbeddingPlugin } from "../src/runtime/eliza";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
+import { ensureAgentWorkspace } from "@miladyai/app-core/src/providers/workspace";
+import { configureLocalEmbeddingPlugin } from "@miladyai/app-core/src/runtime/eliza";
 import {
   extractPlugin,
   type PluginModuleShape,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment
@@ -1235,7 +1235,7 @@ describe("Agent Runtime E2E", () => {
       async () => {
         // Register the trigger worker on the real runtime (same as milady-plugin.ts does).
         const { registerTriggerTaskWorker } = await import(
-          "../src/triggers/runtime"
+          "@miladyai/app-core/src/triggers/runtime"
         );
         registerTriggerTaskWorker(runtime);
 

@@ -112,7 +112,10 @@ const { fetchMock, mockClient, wsHandlers, invokeDesktopBridgeRequestMock } =
         })),
         getWalletAddresses: vi.fn(async () => null),
         getConfig: vi.fn(async () => ({})),
-        getCloudStatus: vi.fn(async () => ({ enabled: false, connected: false })),
+        getCloudStatus: vi.fn(async () => ({
+          enabled: false,
+          connected: false,
+        })),
         getCodingAgentStatus: vi.fn(async () => null),
         getWorkbenchOverview: vi.fn(async () => ({
           tasks: [],
@@ -323,9 +326,9 @@ describe("AppContext autonomy replay", () => {
       memories: [],
       knowledge: [],
     });
-    mockClient.sendWsMessage.mockImplementation(() => { });
-    mockClient.connectWs.mockImplementation(() => { });
-    mockClient.disconnectWs.mockImplementation(() => { });
+    mockClient.sendWsMessage.mockImplementation(() => {});
+    mockClient.connectWs.mockImplementation(() => {});
+    mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.saveStreamSettings.mockResolvedValue(undefined);
     mockClient.onWsEvent.mockImplementation(
       (type: string, handler: (data: Record<string, unknown>) => void) => {

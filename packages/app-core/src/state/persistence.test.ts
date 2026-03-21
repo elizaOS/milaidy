@@ -8,9 +8,9 @@ import { describe, expect, it } from "vitest";
 // Import the load/save helpers that call normalizeOnboardingStep internally so
 // we can verify the contract without re-exporting the private function.
 import {
+  clearPersistedOnboardingStep,
   loadPersistedOnboardingStep,
   saveOnboardingStep,
-  clearPersistedOnboardingStep,
 } from "./persistence";
 
 // We need a localStorage-like environment. Vitest (jsdom not configured here)

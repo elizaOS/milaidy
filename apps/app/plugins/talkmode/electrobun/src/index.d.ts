@@ -25,7 +25,7 @@ import type {
   TTSSpeakingEvent,
   TTSCompleteEvent,
   TalkModeErrorEvent,
-} from "../../src/definitions";
+} from "@miladyai/app-core/src/definitions";
 type IpcPrimitive = string | number | boolean | null | undefined;
 type IpcObject = {
   [key: string]: IpcValue;

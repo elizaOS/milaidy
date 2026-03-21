@@ -813,8 +813,9 @@ export function FineTuningView() {
               jobs.map((job) => (
                 <div
                   key={job.id}
-                  className={`px-2 py-2 border-b border-border text-xs ${selectedJobId === job.id ? "bg-bg-hover" : ""
-                    }`}
+                  className={`px-2 py-2 border-b border-border text-xs ${
+                    selectedJobId === job.id ? "bg-bg-hover" : ""
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <Button
@@ -897,10 +898,11 @@ export function FineTuningView() {
                 <Button
                   variant="ghost"
                   key={model.id}
-                  className={`w-full h-auto text-left justify-start flex-col items-start px-2 py-2 border-b border-border rounded-none text-xs ${selectedModelId === model.id
-                    ? "bg-bg-hover"
-                    : "hover:bg-bg-hover"
-                    }`}
+                  className={`w-full h-auto text-left justify-start flex-col items-start px-2 py-2 border-b border-border rounded-none text-xs ${
+                    selectedModelId === model.id
+                      ? "bg-bg-hover"
+                      : "hover:bg-bg-hover"
+                  }`}
                   onClick={() => setSelectedModelId(model.id)}
                 >
                   <div className="font-mono">

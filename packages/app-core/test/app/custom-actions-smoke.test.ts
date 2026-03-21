@@ -29,9 +29,9 @@ vi.mock("@miladyai/app-core/platform", () => ({
 }));
 
 vi.mock("@miladyai/app-core/hooks", async () => {
-  const actual = await vi.importActual<typeof import("@miladyai/app-core/hooks")>(
-    "@miladyai/app-core/hooks",
-  );
+  const actual = await vi.importActual<
+    typeof import("@miladyai/app-core/hooks")
+  >("@miladyai/app-core/hooks");
   return {
     ...actual,
     useVoiceChat: () => mockUseVoiceChat(),
@@ -83,7 +83,7 @@ function createContext(
     chatSending: false,
     chatFirstTokenReceived: false,
     conversationMessages: [],
-    handleChatSend: vi.fn(async () => { }),
+    handleChatSend: vi.fn(async () => {}),
     handleChatStop: vi.fn(),
     handleChatRetry: vi.fn(),
     handleChatEdit: vi.fn(async () => true),

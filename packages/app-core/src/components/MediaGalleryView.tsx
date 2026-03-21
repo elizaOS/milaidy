@@ -257,10 +257,11 @@ export function MediaGalleryView() {
               variant={filter === chip.id ? "default" : "outline"}
               size="sm"
               key={chip.id}
-              className={`px-3 py-1 h-7 text-xs shadow-sm transition-colors ${filter === chip.id
-                ? ""
-                : "bg-transparent text-[var(--muted)] hover:text-[var(--txt)] border-[var(--border)]"
-                }`}
+              className={`px-3 py-1 h-7 text-xs shadow-sm transition-colors ${
+                filter === chip.id
+                  ? ""
+                  : "bg-transparent text-[var(--muted)] hover:text-[var(--txt)] border-[var(--border)]"
+              }`}
               onClick={() => setFilter(chip.id)}
             >
               {chip.label}
@@ -334,12 +335,13 @@ export function MediaGalleryView() {
                 </div>
                 <div className="flex items-center gap-1 mt-1">
                   <span
-                    className={`text-[9px] px-1.5 py-0.5 uppercase font-bold ${item.type === "image"
-                      ? "bg-blue-500/20 text-blue-400"
-                      : item.type === "video"
-                        ? "bg-purple-500/20 text-purple-400"
-                        : "bg-green-500/20 text-green-400"
-                      }`}
+                    className={`text-[9px] px-1.5 py-0.5 uppercase font-bold ${
+                      item.type === "image"
+                        ? "bg-blue-500/20 text-blue-400"
+                        : item.type === "video"
+                          ? "bg-purple-500/20 text-purple-400"
+                          : "bg-green-500/20 text-green-400"
+                    }`}
                   >
                     {item.type}
                   </span>

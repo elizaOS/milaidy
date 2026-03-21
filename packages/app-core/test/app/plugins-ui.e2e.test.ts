@@ -309,7 +309,7 @@ vi.mock("@miladyai/app-core/api", () => ({
     getPlugins: vi.fn().mockResolvedValue([]),
     togglePlugin: vi.fn().mockResolvedValue({ ok: true }),
     savePluginConfig: vi.fn().mockResolvedValue({ ok: true }),
-    onWsEvent: vi.fn().mockReturnValue(() => { }),
+    onWsEvent: vi.fn().mockReturnValue(() => {}),
     runPluginAction: vi.fn().mockResolvedValue({ ok: true }),
     installPlugin: vi.fn().mockResolvedValue({ ok: true }),
     testPluginConfig: vi.fn().mockResolvedValue({ ok: true }),

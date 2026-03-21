@@ -27,6 +27,7 @@
   "header.cloudDisconnected": "Cloud disconnected",
   "header.nativeMode": "Native Mode",
   "header.companionMode": "Companion Mode",
+  "header.characterMode": "Character Edit",
   "header.switchToNative": "Switch to Native",
   "pairing.expiresIn": "Expires in {{seconds}} seconds",
   "chat.inputPlaceholder": "Type a message...",

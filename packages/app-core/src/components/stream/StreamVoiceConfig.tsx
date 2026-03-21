@@ -100,10 +100,11 @@ export function StreamVoiceConfig({ streamLive }: { streamLive: boolean }) {
         size="sm"
         onClick={toggleEnabled}
         disabled={loading}
-        className={`flex items-center gap-1.5 px-2 py-1 h-7 rounded text-xs font-medium transition-colors ${status.enabled
-          ? "bg-accent/20 text-txt hover:bg-accent/30"
-          : "bg-surface text-muted hover:bg-surface-hover"
-          }`}
+        className={`flex items-center gap-1.5 px-2 py-1 h-7 rounded text-xs font-medium transition-colors ${
+          status.enabled
+            ? "bg-accent/20 text-txt hover:bg-accent/30"
+            : "bg-surface text-muted hover:bg-surface-hover"
+        }`}
         title={
           status.enabled
             ? "Voice on stream: ON (click to disable)"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  shouldReadKnowledgeFileAsText,
   getKnowledgeUploadFilename,
+  shouldReadKnowledgeFileAsText,
 } from "./KnowledgeView";
 
 // SUPPORTED_UPLOAD_EXTENSIONS and isSupportedKnowledgeFile are not exported
@@ -10,15 +10,15 @@ import {
 
 describe("shouldReadKnowledgeFileAsText", () => {
   it("returns true for .md files by name suffix", () => {
-    expect(
-      shouldReadKnowledgeFileAsText({ type: "", name: "notes.md" }),
-    ).toBe(true);
+    expect(shouldReadKnowledgeFileAsText({ type: "", name: "notes.md" })).toBe(
+      true,
+    );
   });
 
   it("returns true for .mdx files by name suffix", () => {
-    expect(
-      shouldReadKnowledgeFileAsText({ type: "", name: "page.mdx" }),
-    ).toBe(true);
+    expect(shouldReadKnowledgeFileAsText({ type: "", name: "page.mdx" })).toBe(
+      true,
+    );
   });
 
   it("returns true for .mdx files via text/markdown content type", () => {
@@ -106,15 +106,15 @@ describe("SUPPORTED_UPLOAD_EXTENSIONS", () => {
 describe("getKnowledgeUploadFilename", () => {
   it("returns webkitRelativePath when present", () => {
     const file = { name: "notes.md", webkitRelativePath: "folder/notes.md" };
-    expect(getKnowledgeUploadFilename(file as File & { webkitRelativePath: string })).toBe(
-      "folder/notes.md",
-    );
+    expect(
+      getKnowledgeUploadFilename(file as File & { webkitRelativePath: string }),
+    ).toBe("folder/notes.md");
   });
 
   it("falls back to name when webkitRelativePath is empty", () => {
     const file = { name: "notes.md", webkitRelativePath: "" };
-    expect(getKnowledgeUploadFilename(file as File & { webkitRelativePath: string })).toBe(
-      "notes.md",
-    );
+    expect(
+      getKnowledgeUploadFilename(file as File & { webkitRelativePath: string }),
+    ).toBe("notes.md");
   });
 });

@@ -135,11 +135,11 @@ function rowToMemory(row: Record<string, unknown>): MemoryRecord {
     roomId: String(row.roomId ?? row.room_id ?? row.roomID ?? ""),
     entityId: String(
       row.entityId ??
-      row.entity_id ??
-      row.entityID ??
-      row.userId ??
-      row.user_id ??
-      "",
+        row.entity_id ??
+        row.entityID ??
+        row.userId ??
+        row.user_id ??
+        "",
     ),
     type: String(row.type ?? row.memoryType ?? row.memory_type ?? ""),
     createdAt: String(row.createdAt ?? row.created_at ?? row.timestamp ?? ""),
@@ -601,7 +601,10 @@ function VectorGraph3D({
 
       // Scene
       const scene = new THREE.Scene();
-      const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#08080a';
+      const bgColor =
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--bg")
+          .trim() || "#08080a";
       scene.background = new THREE.Color(bgColor);
       sceneRef.current = scene;
 
@@ -757,9 +760,17 @@ function VectorGraph3D({
       spheresRef.current = spheres;
 
       // Add subtle grid helper
-      const borderColor3d = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#333333';
+      const borderColor3d =
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--border")
+          .trim() || "#333333";
       const borderColorHex = new THREE.Color(borderColor3d).getHex();
-      gridHelper = new THREE.GridHelper(6, 12, borderColorHex, Math.round(borderColorHex * 0.6));
+      gridHelper = new THREE.GridHelper(
+        6,
+        12,
+        borderColorHex,
+        Math.round(borderColorHex * 0.6),
+      );
       gridHelper.position.y = -2;
       scene.add(gridHelper);
 
@@ -1388,13 +1399,23 @@ export function VectorBrowserView() {
       {stats && !isConnectionError && (
         <div className="flex items-center gap-4 mb-4 px-4 py-2.5 bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl">
           <span className="w-2 h-2 rounded-full bg-ok" />
-          <span className="text-xs font-medium text-txt">{Number(stats.total).toLocaleString()} {t("vectorbrowserview.memories")}</span>
+          <span className="text-xs font-medium text-txt">
+            {Number(stats.total).toLocaleString()}{" "}
+            {t("vectorbrowserview.memories")}
+          </span>
           <span className="text-xs text-muted">•</span>
-          <span className="text-xs text-muted">{Number(stats.dimensions) > 0 ? `${stats.dimensions}D embeddings` : "loading..."}</span>
+          <span className="text-xs text-muted">
+            {Number(stats.dimensions) > 0
+              ? `${stats.dimensions}D embeddings`
+              : "loading..."}
+          </span>
           {Number(stats.uniqueCount) > 0 && (
             <>
               <span className="text-xs text-muted">•</span>
-              <span className="text-xs text-muted">{Number(stats.uniqueCount).toLocaleString()} {t("vectorbrowserview.unique")}</span>
+              <span className="text-xs text-muted">
+                {Number(stats.uniqueCount).toLocaleString()}{" "}
+                {t("vectorbrowserview.unique")}
+              </span>
             </>
           )}
         </div>

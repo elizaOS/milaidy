@@ -32,7 +32,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveNostrPluginImportSpecifier,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment Setup
@@ -43,8 +43,7 @@ const packageRoot = path.resolve(testDir, "..");
 dotenv.config({ path: path.resolve(packageRoot, ".env") });
 
 const NOSTR_PRIVATE_KEY = process.env.NOSTR_PRIVATE_KEY;
-const NOSTR_RELAYS =
-  process.env.NOSTR_RELAYS ?? "wss://relay.damus.io";
+const NOSTR_RELAYS = process.env.NOSTR_RELAYS ?? "wss://relay.damus.io";
 const NOSTR_DM_POLICY = process.env.NOSTR_DM_POLICY;
 const NOSTR_ALLOW_FROM = process.env.NOSTR_ALLOW_FROM;
 
@@ -461,12 +460,15 @@ describe("Nostr Connector - Error Handling", () => {
     }
   });
 
-  it("handles unreachable relay gracefully", async () => {
-    const unreachableRelay = "wss://this-relay-does-not-exist.example.com";
-    const healthy = await checkRelayHealth(unreachableRelay, 5_000);
-    expect(healthy).toBe(false);
-  }, TEST_TIMEOUT);
-
+  it(
+    "handles unreachable relay gracefully",
+    async () => {
+      const unreachableRelay = "wss://this-relay-does-not-exist.example.com";
+      const healthy = await checkRelayHealth(unreachableRelay, 5_000);
+      expect(healthy).toBe(false);
+    },
+    TEST_TIMEOUT,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -486,7 +488,7 @@ describe("Nostr Connector - Integration", () => {
   it("Nostr is mapped in CONNECTOR_PLUGINS", async () => {
     const mod = await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[nostr-connector] Workspace not built — skipping");
       return;
@@ -499,7 +501,7 @@ describe("Nostr Connector - Integration", () => {
     try {
       mod = await tryWorkspaceImport<{
         CHANNEL_PLUGIN_MAP: Record<string, string>;
-      }>("../src/runtime/eliza");
+      }>("@miladyai/app-core/src/runtime/eliza");
     } catch {
       mod = null;
     }
@@ -513,7 +515,7 @@ describe("Nostr Connector - Integration", () => {
   it("Nostr connector is in CONNECTOR_PLUGINS list", async () => {
     const mod = await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[nostr-connector] Workspace not built — skipping");
       return;
@@ -527,7 +529,7 @@ describe("Nostr Connector - Integration", () => {
     try {
       mod = await tryWorkspaceImport<{
         collectPluginNames: (config: unknown) => Set<string>;
-      }>("../src/runtime/eliza");
+      }>("@miladyai/app-core/src/runtime/eliza");
     } catch {
       mod = null;
     }
@@ -558,9 +560,11 @@ describe("Nostr Connector - Integration", () => {
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod?.isConnectorConfigured) {
-      logger.warn("[nostr-connector] isConnectorConfigured not exported — skipping");
+      logger.warn(
+        "[nostr-connector] isConnectorConfigured not exported — skipping",
+      );
       return;
     }
     const configured = mod.isConnectorConfigured("nostr", {
@@ -621,9 +625,7 @@ describe("Nostr Connector - Configuration", () => {
 
   it("default relay is provided when NOSTR_RELAYS is unset", () => {
     const defaultRelay = "wss://relay.damus.io";
-    const relays = (undefined ?? defaultRelay)
-      .split(",")
-      .map((r) => r.trim());
+    const relays = (undefined ?? defaultRelay).split(",").map((r) => r.trim());
 
     expect(relays).toHaveLength(1);
     expect(relays[0]).toBe(defaultRelay);

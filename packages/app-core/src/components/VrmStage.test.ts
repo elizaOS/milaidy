@@ -10,7 +10,7 @@ const testState = vi.hoisted(() => ({
 
 vi.mock("@miladyai/app-core/hooks", () => ({
   useChatAvatarVoiceState: () => ({ mouthOpen: 0, isSpeaking: false }),
-  useRenderGuard: () => { },
+  useRenderGuard: () => {},
 }));
 
 vi.mock("@miladyai/app-core/utils", () => ({

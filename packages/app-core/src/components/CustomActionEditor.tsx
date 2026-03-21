@@ -211,14 +211,14 @@ function parseGeneratedAction(payload: unknown): {
       url,
       headers: parseHeaders(rawHttp.headers).length
         ? parseHeaders(rawHttp.headers).reduce<Record<string, string>>(
-          (acc, item) => {
-            if (item.key) {
-              acc[item.key] = item.value;
-            }
-            return acc;
-          },
-          {},
-        )
+            (acc, item) => {
+              if (item.key) {
+                acc[item.key] = item.value;
+              }
+              return acc;
+            },
+            {},
+          )
         : undefined,
       bodyTemplate: toNonEmptyString(rawHttp.bodyTemplate),
     };
@@ -381,9 +381,9 @@ export function CustomActionEditor({
         setHttpHeaders(
           Object.keys(headers).length > 0
             ? Object.entries(headers).map(([key, value]) => ({
-              key,
-              value,
-            }))
+                key,
+                value,
+              }))
             : [{ key: "", value: "" }],
         );
         setHttpBody(handler.bodyTemplate || "");
@@ -441,9 +441,9 @@ export function CustomActionEditor({
       setHttpHeaders(
         handler.headers
           ? Object.entries(handler.headers).map(([key, value]) => ({
-            key,
-            value,
-          }))
+              key,
+              value,
+            }))
           : [{ key: "", value: "" }],
       );
     } else if (parsed.handlerType === "shell") {
@@ -689,12 +689,17 @@ export function CustomActionEditor({
         // After save, the action should have an ID
         actionId = action?.id;
         if (!actionId) {
-          setTestResult({ error: "Failed to save action before testing. Please save manually first." });
+          setTestResult({
+            error:
+              "Failed to save action before testing. Please save manually first.",
+          });
           setTesting(false);
           return;
         }
       } catch (err) {
-        setTestResult({ error: `Save failed: ${err instanceof Error ? err.message : String(err)}` });
+        setTestResult({
+          error: `Save failed: ${err instanceof Error ? err.message : String(err)}`,
+        });
         setTesting(false);
         return;
       }
@@ -706,9 +711,7 @@ export function CustomActionEditor({
       const result = await client.testCustomAction(actionId, testParams);
       const duration = Date.now() - startTime;
       setTestResult({
-        output: result.error
-          ? undefined
-          : JSON.stringify(result, null, 2),
+        output: result.error ? undefined : JSON.stringify(result, null, 2),
         error: result.error || undefined,
         duration,
       });
@@ -849,10 +852,11 @@ export function CustomActionEditor({
                     setHandlerType(type);
                     setFormError("");
                   }}
-                  className={`px-3 py-1.5 text-xs border cursor-pointer ${handlerType === type
-                    ? "border-accent bg-accent text-[var(--accent-foreground,#1a1f26)]"
-                    : "border-border text-muted hover:text-txt"
-                    }`}
+                  className={`px-3 py-1.5 text-xs border cursor-pointer ${
+                    handlerType === type
+                      ? "border-accent bg-accent text-[var(--accent-foreground,#1a1f26)]"
+                      : "border-border text-muted hover:text-txt"
+                  }`}
                 >
                   {type === "http"
                     ? "HTTP Request"

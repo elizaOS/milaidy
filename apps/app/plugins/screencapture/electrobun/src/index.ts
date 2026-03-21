@@ -10,8 +10,8 @@ import type {
   ScreenCapturePlugin,
   ScreenshotOptions,
   ScreenshotResult,
-} from "../../src/definitions";
-import { ScreenCaptureWeb } from "../../src/web";
+} from "@miladyai/app-core/src/definitions";
+import { ScreenCaptureWeb } from "@miladyai/app-core/src/web";
 
 interface NativeScreenshotResponse {
   available: boolean;
@@ -20,7 +20,8 @@ interface NativeScreenshotResponse {
 
 export class ScreenCaptureElectrobun
   extends ScreenCaptureWeb
-  implements ScreenCapturePlugin {
+  implements ScreenCapturePlugin
+{
   async captureScreenshot(
     options?: ScreenshotOptions,
   ): Promise<ScreenshotResult> {

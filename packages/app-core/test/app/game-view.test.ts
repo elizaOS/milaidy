@@ -64,7 +64,7 @@ function createContext(overrides?: Partial<GameContextStub>): GameContextStub {
     gameOverlayEnabled: false,
     plugins: [],
     logs: [],
-    loadLogs: vi.fn(async () => { }),
+    loadLogs: vi.fn(async () => {}),
     setState: vi.fn<GameContextStub["setState"]>(),
     setActionNotice: vi.fn<GameContextStub["setActionNotice"]>(),
     ...overrides,
@@ -320,7 +320,7 @@ describe("GameView", () => {
       }
     }) as typeof window.addEventListener);
     vi.spyOn(window, "removeEventListener").mockImplementation(
-      (() => { }) as typeof window.removeEventListener,
+      (() => {}) as typeof window.removeEventListener,
     );
 
     const postMessage =
@@ -393,7 +393,7 @@ describe("GameView", () => {
       }
     }) as typeof window.addEventListener);
     vi.spyOn(window, "removeEventListener").mockImplementation(
-      (() => { }) as typeof window.removeEventListener,
+      (() => {}) as typeof window.removeEventListener,
     );
 
     const postMessage =

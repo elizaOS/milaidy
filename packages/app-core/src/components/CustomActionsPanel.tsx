@@ -84,9 +84,9 @@ export function CustomActionsPanel({
         prev.map((item) =>
           item.id === action.id
             ? {
-              ...item,
-              enabled: next,
-            }
+                ...item,
+                enabled: next,
+              }
             : item,
         ),
       );
@@ -127,8 +127,9 @@ export function CustomActionsPanel({
 
   return (
     <div
-      className={`border-l border-border bg-card flex flex-col transition-all duration-200 ${open ? "w-80" : "w-0 overflow-hidden"
-        }`}
+      className={`border-l border-border bg-card flex flex-col transition-all duration-200 ${
+        open ? "w-80" : "w-0 overflow-hidden"
+      }`}
     >
       {open && (
         <>
@@ -221,16 +222,17 @@ export function CustomActionsPanel({
                         {(action.parameters?.length || 0) === 1 ? "" : "s"}
                         {action.similes?.length
                           ? ` • ${action.similes.length} alias`.concat(
-                            action.similes.length === 1 ? "" : "es",
-                          )
+                              action.similes.length === 1 ? "" : "es",
+                            )
                           : ""}
                       </p>
                     </div>
 
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${HANDLER_TYPE_COLORS[action.handler.type] ||
+                      className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${
+                        HANDLER_TYPE_COLORS[action.handler.type] ||
                         "bg-surface text-muted"
-                        }`}
+                      }`}
                     >
                       {HANDLER_TYPE_NAMES[action.handler.type] ??
                         action.handler.type}

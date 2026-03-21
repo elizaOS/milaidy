@@ -55,7 +55,7 @@ describe("Switch", () => {
         React.createElement(Switch, {
           checked: true,
           size: "compact",
-          onChange: () => { },
+          onChange: () => {},
         }),
       );
     });

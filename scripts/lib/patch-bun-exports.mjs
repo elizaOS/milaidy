@@ -137,7 +137,7 @@ export function warnStaleBunCache(root, log = console.log) {
         JSON.parse(readFileSync(pkgJsonPath, "utf8")).version || "";
       const stamp = readFileSync(stampPath, "utf8").trim();
       if (stamp === pkgVersion) return 0;
-    } catch { }
+    } catch {}
   }
 
   const prefixes = [
@@ -183,7 +183,7 @@ export function warnStaleBunCache(root, log = console.log) {
       ? JSON.parse(readFileSync(pkgJsonPath, "utf8")).version || ""
       : "";
     writeFileSync(stampPath, pkgVersion, "utf8");
-  } catch { }
+  } catch {}
 
   if (staleCount > 0) {
     log(
@@ -469,7 +469,10 @@ function loadMiladyCharacterCatalog(root) {
 }
 
 function loadMiladyOnboardingPresetsSource(root, targetPath) {
-  const sourcePath = resolve(root, "src/onboarding-presets.ts");
+  const sourcePath = resolve(
+    root,
+    "packages/app-core/src/onboarding-presets.ts",
+  );
   const source = readFileSync(sourcePath, "utf8");
   if (!targetPath?.endsWith(".js")) {
     return source;
@@ -494,14 +497,14 @@ function buildAppCoreMiladyVrmStateSource(catalog) {
       (asset) => `  {
     title: ${JSON.stringify(asset.title)},
     vrmPath: resolveAppAssetUrl(${JSON.stringify(
-        toAppCoreRelativeAssetPath(`/vrms/${asset.slug}.vrm.gz`),
-      )}),
+      toAppCoreRelativeAssetPath(`/vrms/${asset.slug}.vrm.gz`),
+    )}),
     previewPath: resolveAppAssetUrl(${JSON.stringify(
-        toAppCoreRelativeAssetPath(`/vrms/previews/${asset.slug}.png`),
-      )}),
+      toAppCoreRelativeAssetPath(`/vrms/previews/${asset.slug}.png`),
+    )}),
     backgroundPath: resolveAppAssetUrl(${JSON.stringify(
-        toAppCoreRelativeAssetPath(`/vrms/backgrounds/${asset.slug}.png`),
-      )}),
+      toAppCoreRelativeAssetPath(`/vrms/backgrounds/${asset.slug}.png`),
+    )}),
   },`,
     )
     .join("\n");

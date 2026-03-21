@@ -5,7 +5,7 @@ import {
   resolveDetachedShellTarget,
   shouldInstallMainWindowOnboardingPatches,
   syncDetachedShellLocation,
-} from "../../src/window-shell";
+} from "@miladyai/app-core/src/window-shell";
 
 describe("window shell routing", () => {
   it("parses detached settings and surface routes", () => {

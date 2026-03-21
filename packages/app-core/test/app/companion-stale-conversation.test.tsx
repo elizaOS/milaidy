@@ -89,7 +89,7 @@ const { mockClient } = vi.hoisted(() => ({
     connectWs: vi.fn(),
     disconnectWs: vi.fn(),
     saveStreamSettings: vi.fn(async () => undefined),
-    onWsEvent: vi.fn(() => () => { }),
+    onWsEvent: vi.fn(() => () => {}),
     getAgentEvents: vi.fn(async () => ({
       events: [],
       latestEventId: null,
@@ -272,11 +272,11 @@ describe("companion stale conversation rollover", () => {
       memories: [],
       knowledge: [],
     });
-    mockClient.sendWsMessage.mockImplementation(() => { });
-    mockClient.connectWs.mockImplementation(() => { });
-    mockClient.disconnectWs.mockImplementation(() => { });
+    mockClient.sendWsMessage.mockImplementation(() => {});
+    mockClient.connectWs.mockImplementation(() => {});
+    mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.saveStreamSettings.mockResolvedValue(undefined);
-    mockClient.onWsEvent.mockReturnValue(() => { });
+    mockClient.onWsEvent.mockReturnValue(() => {});
     mockClient.getAgentEvents.mockResolvedValue({
       events: [],
       latestEventId: null,
@@ -419,7 +419,7 @@ describe("companion stale conversation rollover", () => {
           AppProvider,
           null,
           React.createElement(Probe, {
-            onReady: () => { },
+            onReady: () => {},
             onChange: (nextSnapshot) => {
               snapshot = nextSnapshot;
             },

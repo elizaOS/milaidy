@@ -72,7 +72,9 @@ export function getCapabilities(): CapacitorCapabilities {
   const isDesktop = isDesktopPlatform();
   return {
     native: isNative,
-    platform: (isDesktop ? "electrobun" : platform) as CapacitorCapabilities["platform"],
+    platform: (isDesktop
+      ? "electrobun"
+      : platform) as CapacitorCapabilities["platform"],
     haptics: isNative && (isIOS || isAndroid),
     camera: isNative,
     microphone: isNative,

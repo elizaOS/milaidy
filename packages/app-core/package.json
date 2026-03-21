@@ -26,6 +26,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./App": "./src/App.tsx",
     "./api": "./src/api/index.ts",
     "./config": "./src/config/index.ts",
     "./types": "./src/types/index.ts",
@@ -49,6 +50,8 @@
     "./platform": "./src/platform/index.ts",
     "./coding": "./src/coding/index.ts",
     "./onboarding-config": "./src/onboarding-config.ts",
+    "./onboarding-presets": "./src/onboarding-presets.ts",
+    "./utils/character-message-examples": "./src/utils/character-message-examples.ts",
     "./providers": "./src/providers/index.ts",
     "./actions": "./src/actions/index.ts",
     "./styles/base.css": "./src/styles/base.css",

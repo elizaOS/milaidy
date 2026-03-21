@@ -28,7 +28,8 @@ export const CHAT_AVATAR_VOICE_EVENT = "eliza:chat-avatar-voice" as const;
 export const APP_EMOTE_EVENT = "eliza:app-emote" as const;
 
 // ── Avatar / VRM ─────────────────────────────────────────────────────────
-export const VRM_TELEPORT_COMPLETE_EVENT = "eliza:vrm-teleport-complete" as const;
+export const VRM_TELEPORT_COMPLETE_EVENT =
+  "eliza:vrm-teleport-complete" as const;
 
 // ── Sidebar sync ─────────────────────────────────────────────────────────
 export const SELF_STATUS_SYNC_EVENT = "eliza:self-status-refresh" as const;

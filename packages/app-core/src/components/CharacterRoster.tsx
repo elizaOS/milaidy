@@ -24,7 +24,7 @@ export const CHARACTER_PRESET_META: Record<
   "hehe~": { name: "Rin", avatarIndex: 5, voicePresetId: "gigi" },
   "...": { name: "Ryu", avatarIndex: 6, voicePresetId: "daniel" },
   "lmao kms": { name: "Satoshi", avatarIndex: 7, voicePresetId: "callum" },
-  "bruh": { name: "Yuki", avatarIndex: 8, voicePresetId: "echo" },
+  bruh: { name: "Yuki", avatarIndex: 8, voicePresetId: "echo" },
 };
 
 /* ── Types ────────────────────────────────────────────────────────────── */
@@ -78,10 +78,11 @@ export function CharacterRoster({
   if (entries.length === 0) {
     return (
       <div
-        className={`rounded-2xl border p-4 text-sm ${useWhiteBorders
+        className={`rounded-2xl border p-4 text-sm ${
+          useWhiteBorders
             ? "border-white/10 bg-black/10 text-white/50"
             : "border-border/40 bg-black/10 text-muted"
-          }`}
+        }`}
       >
         Loading character presets...
       </div>
@@ -89,10 +90,7 @@ export function CharacterRoster({
   }
 
   return (
-    <div
-      className="ce-roster"
-      data-testid={`${testIdPrefix}-roster-grid`}
-    >
+    <div className="ce-roster" data-testid={`${testIdPrefix}-roster-grid`}>
       {entries.map((entry) => {
         const isSelected = selectedId === entry.id;
 

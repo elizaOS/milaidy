@@ -150,7 +150,7 @@ async function maybeStartServer() {
   printSection("Starting benchmark server");
   serverProcess = spawn(
     "node",
-    ["--import", "tsx", "src/benchmark/server.ts"],
+    ["--import", "tsx", "packages/app-core/src/benchmark/server.ts"],
     {
       cwd: process.cwd(),
       env: childEnv,

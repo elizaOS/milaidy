@@ -412,12 +412,13 @@ export function TradePanel({
       {tradeFeedback && (
         <div
           data-testid="wallet-trade-feedback"
-          className={`border px-2 py-1.5 text-xs ${tradeFeedback.tone === "success"
-            ? "border-green-500/40 text-green-400"
-            : tradeFeedback.tone === "info"
-              ? "border-accent/40 text-txt"
-              : "border-red-500/40 text-red-400"
-            }`}
+          className={`border px-2 py-1.5 text-xs ${
+            tradeFeedback.tone === "success"
+              ? "border-green-500/40 text-green-400"
+              : tradeFeedback.tone === "info"
+                ? "border-accent/40 text-txt"
+                : "border-red-500/40 text-red-400"
+          }`}
         >
           {tradeFeedback.text}
         </div>
@@ -450,10 +451,11 @@ export function TradePanel({
               key={amt}
               type="button"
               data-testid={`wallet-quick-amount-${amt}`}
-              className={`px-2 py-0.5 border text-[10px] font-mono cursor-pointer ${quickAmount === String(amt)
-                ? "border-accent text-txt"
-                : "border-border bg-bg hover:border-accent"
-                }`}
+              className={`px-2 py-0.5 border text-[10px] font-mono cursor-pointer ${
+                quickAmount === String(amt)
+                  ? "border-accent text-txt"
+                  : "border-border bg-bg hover:border-accent"
+              }`}
               onClick={() => setQuickAmount(String(amt))}
             >
               {amt} {t("bsctradepanel.BNB1")}

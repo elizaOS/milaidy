@@ -11,7 +11,7 @@ vi.mock("@miladyai/app-core/components/avatar/VrmEngine", () => {
   class MockVrmEngine {
     static instances: MockVrmEngine[] = [];
 
-    loadVrmFromUrl = vi.fn(async () => { });
+    loadVrmFromUrl = vi.fn(async () => {});
     getState = vi.fn(() => ({
       vrmLoaded: true,
       vrmName: "eliza-1.vrm.gz",
@@ -27,13 +27,13 @@ vi.mock("@miladyai/app-core/components/avatar/VrmEngine", () => {
     setPointerParallaxEnabled = vi.fn();
     setPointerParallaxTarget = vi.fn();
     resetPointerParallax = vi.fn();
-    setWorldUrl = vi.fn(async () => { });
+    setWorldUrl = vi.fn(async () => {});
     resize = vi.fn();
     dispose = vi.fn();
     isInitialized = vi.fn(() => false);
 
     private readyPromise: Promise<void>;
-    private resolveReadyPromise: () => void = () => { };
+    private resolveReadyPromise: () => void = () => {};
 
     constructor() {
       this.readyPromise = new Promise<void>((resolve) => {
@@ -42,7 +42,7 @@ vi.mock("@miladyai/app-core/components/avatar/VrmEngine", () => {
       MockVrmEngine.instances.push(this);
     }
 
-    setup = vi.fn(() => { });
+    setup = vi.fn(() => {});
 
     whenReady = vi.fn(() => this.readyPromise);
 

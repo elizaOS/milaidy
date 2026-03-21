@@ -12,7 +12,7 @@
 
 import http from "node:http";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
 
 // ---------------------------------------------------------------------------
 // Mock mcp-marketplace — returns fixture data
@@ -50,9 +50,9 @@ vi.mock("@elizaos/agent/services/mcp-marketplace", () => ({
     const lq = (query ?? "").toLowerCase();
     const results = lq
       ? mockMcpResults.filter(
-        (r) =>
-          r.name.includes(lq) || r.description.toLowerCase().includes(lq),
-      )
+          (r) =>
+            r.name.includes(lq) || r.description.toLowerCase().includes(lq),
+        )
       : mockMcpResults;
     return { results };
   }),

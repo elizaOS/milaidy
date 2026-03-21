@@ -3,15 +3,12 @@
   "workspaces": {
     ".": {
       "entry": [
-        "src/index.ts",
-        "src/runtime/eliza.ts",
-        "src/entry.ts",
         "milady.mjs",
         "scripts/**/*.ts",
         "scripts/**/*.mjs",
         "scripts/**/*.js"
       ],
-      "project": ["src/**/*.ts", "scripts/**/*.ts"],
+      "project": ["scripts/**/*.ts"],
       "ignore": ["dist/**", "build/**", "coverage/**", "**/*.test.ts"]
     },
     "apps/app": {

@@ -26,6 +26,7 @@
   "header.cloudDisconnected": "云端未连接",
   "header.nativeMode": "原生模式",
   "header.companionMode": "伴侣模式",
+  "header.characterMode": "角色编辑",
   "header.switchToNative": "切换到原生",
   "pairing.expiresIn": "{{seconds}} 秒后过期",
   "chat.inputPlaceholder": "输入消息...",

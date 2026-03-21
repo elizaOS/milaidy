@@ -84,10 +84,7 @@ function hasRootPackage(...segments: string[]): boolean {
   return fs.existsSync(path.join(packageRoot, "node_modules", ...segments));
 }
 
-function skipMissingRootPackage(
-  label: string,
-  ...segments: string[]
-): boolean {
+function skipMissingRootPackage(label: string, ...segments: string[]): boolean {
   const installed = hasRootPackage(...segments);
   if (!installed) {
     console.warn(
@@ -127,7 +124,13 @@ describe("Native Module Installation Verification", () => {
     });
 
     it("@tensorflow/tfjs-node has native binding", () => {
-      if (skipMissingRootPackage("@tensorflow/tfjs-node", "@tensorflow", "tfjs-node")) {
+      if (
+        skipMissingRootPackage(
+          "@tensorflow/tfjs-node",
+          "@tensorflow",
+          "tfjs-node",
+        )
+      ) {
         return;
       }
       const hasBinding = hasNativeBinding("@tensorflow/tfjs-node", [
@@ -460,7 +463,7 @@ describe("Electrobun Native Module Configuration", () => {
 describe("Core Plugins with Vision Integration", () => {
   it("plugin-vision is in OPTIONAL_CORE_PLUGINS", async () => {
     const { OPTIONAL_CORE_PLUGINS } = await import(
-      "../src/runtime/core-plugins"
+      "@miladyai/app-core/src/runtime/core-plugins"
     );
     expect(OPTIONAL_CORE_PLUGINS).toContain("@elizaos/plugin-vision");
   });

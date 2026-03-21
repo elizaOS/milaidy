@@ -300,7 +300,7 @@ function CompanionSceneSurface({
       if (Math.abs(wheelPixels) < 0.01) return;
       setCompanionZoom(
         companionZoomRef.current -
-        wheelPixels * COMPANION_ZOOM_WHEEL_SENSITIVITY,
+          wheelPixels * COMPANION_ZOOM_WHEEL_SENSITIVITY,
       );
       event.preventDefault();
     },
@@ -437,7 +437,7 @@ function CompanionSceneSurface({
     for (const entry of preloadAvatars) {
       // Fire-and-forget fetch to warm browser cache; low priority.
       void fetch(entry.vrmPath, { priority: "low" } as RequestInit).catch(
-        () => { },
+        () => {},
       );
     }
   }, [preloadAvatars]);
@@ -460,8 +460,9 @@ function CompanionSceneSurface({
     >
       <div
         aria-hidden={!active}
-        className={`fixed inset-0 z-0 overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_50%_120%,#212942_0%,#12151e_80%)] transition-opacity duration-200 ${active ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
+        className={`fixed inset-0 z-0 overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_50%_120%,#212942_0%,#12151e_80%)] transition-opacity duration-200 ${
+          active ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
         style={{
           visibility: active ? "visible" : "hidden",
         }}

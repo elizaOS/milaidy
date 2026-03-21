@@ -7,7 +7,7 @@ function createSubject(
   overrides: Partial<React.ComponentProps<typeof ConfirmDeleteControl>> = {},
 ) {
   return React.createElement(ConfirmDeleteControl, {
-    onConfirm: () => { },
+    onConfirm: () => {},
     triggerClassName: "trigger",
     confirmClassName: "confirm",
     cancelClassName: "cancel",

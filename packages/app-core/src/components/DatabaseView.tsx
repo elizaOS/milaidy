@@ -508,10 +508,11 @@ export function DatabaseView() {
           <Button
             variant={view === "tables" ? "default" : "ghost"}
             size="sm"
-            className={`h-auto min-h-[1.75rem] px-4 py-1 whitespace-normal break-words text-left text-xs font-medium rounded-lg transition-all duration-300 ${view === "tables"
+            className={`h-auto min-h-[1.75rem] px-4 py-1 whitespace-normal break-words text-left text-xs font-medium rounded-lg transition-all duration-300 ${
+              view === "tables"
                 ? "bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.4)] border border-accent/50 scale-105"
                 : "text-muted hover:text-txt hover:bg-bg-hover hover:border-border/50"
-              }`}
+            }`}
             onClick={() => setView("tables")}
           >
             {t("databaseview.TableEditor")}
@@ -519,10 +520,11 @@ export function DatabaseView() {
           <Button
             variant={view === "query" ? "default" : "ghost"}
             size="sm"
-            className={`h-auto min-h-[1.75rem] px-4 py-1 whitespace-normal break-words text-left text-xs font-medium rounded-lg transition-all duration-300 ${view === "query"
+            className={`h-auto min-h-[1.75rem] px-4 py-1 whitespace-normal break-words text-left text-xs font-medium rounded-lg transition-all duration-300 ${
+              view === "query"
                 ? "bg-accent text-accent-fg shadow-[0_0_15px_rgba(var(--accent),0.4)] border border-accent/50 scale-105"
                 : "text-muted hover:text-txt hover:bg-bg-hover hover:border-border/50"
-              }`}
+            }`}
             onClick={() => setView("query")}
           >
             {t("databaseview.SQLEditor")}
@@ -598,10 +600,11 @@ export function DatabaseView() {
                       variant={selectedTable === t.name ? "secondary" : "ghost"}
                       key={t.name}
                       onClick={() => handleSelectTable(t.name)}
-                      className={`justify-start h-8 px-3 text-xs w-full transition-all duration-300 rounded-xl ${selectedTable === t.name
+                      className={`justify-start h-8 px-3 text-xs w-full transition-all duration-300 rounded-xl ${
+                        selectedTable === t.name
                           ? "bg-accent/20 text-txt font-semibold border border-accent/30 shadow-[0_0_10px_rgba(var(--accent),0.1)] translate-x-1"
                           : "text-muted hover:text-txt hover:bg-bg-hover hover:translate-x-0.5"
-                        }`}
+                      }`}
                     >
                       <span className="truncate flex-1 text-left">
                         {t.name}
@@ -628,11 +631,11 @@ export function DatabaseView() {
             title={
               sidebarCollapsed
                 ? t("databaseview.showSidebar", {
-                  defaultValue: "Show sidebar",
-                })
+                    defaultValue: "Show sidebar",
+                  })
                 : t("databaseview.hideSidebar", {
-                  defaultValue: "Hide sidebar",
-                })
+                    defaultValue: "Hide sidebar",
+                  })
             }
           >
             {sidebarCollapsed ? (

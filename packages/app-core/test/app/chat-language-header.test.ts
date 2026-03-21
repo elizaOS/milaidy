@@ -54,7 +54,7 @@ describe("ElizaClient language header propagation", () => {
 
     const client = new ElizaClient("http://localhost:2138");
     client.setUiLanguage("zh-CN");
-    await client.sendConversationMessageStream("conv-1", "hello", () => { });
+    await client.sendConversationMessageStream("conv-1", "hello", () => {});
 
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     const headers = new Headers(init.headers as HeadersInit);

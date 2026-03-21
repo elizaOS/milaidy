@@ -29,12 +29,12 @@ import {
 } from "@elizaos/core";
 import dotenv from "dotenv";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
 import {
   extractPlugin,
   isPackageImportResolvable,
   type PluginModuleShape,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment

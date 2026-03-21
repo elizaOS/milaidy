@@ -111,8 +111,8 @@ function scheduleLabel(trigger: TriggerSummary, t: TranslateFn): string {
   if (trigger.triggerType === "once") {
     return trigger.scheduledAtIso
       ? t("heartbeatsview.onceAt", {
-        time: formatDateTime(trigger.scheduledAtIso),
-      })
+          time: formatDateTime(trigger.scheduledAtIso),
+        })
       : t("heartbeatsview.once");
   }
   if (trigger.triggerType === "cron") {
@@ -263,13 +263,13 @@ export function HeartbeatsView() {
     triggerRunsById = {},
     triggerHealth: _triggerHealth = null,
     triggerError = null,
-    loadTriggers = async () => { },
+    loadTriggers = async () => {},
     createTrigger = async () => null,
     updateTrigger = async () => null,
     deleteTrigger = async () => true,
     runTriggerNow = async () => true,
-    loadTriggerRuns = async () => { },
-    loadTriggerHealth = async () => { },
+    loadTriggerRuns = async () => {},
+    loadTriggerHealth = async () => {},
     t,
   } = useApp();
 
@@ -414,8 +414,8 @@ export function HeartbeatsView() {
 
   const modalTitle = editingId
     ? t("heartbeatsview.editTitle", {
-      name: form.displayName.trim() || t("heartbeatsview.heartbeatSingular"),
-    })
+        name: form.displayName.trim() || t("heartbeatsview.heartbeatSingular"),
+      })
     : t("heartbeatsview.newHeartbeat");
   const editorEnabled =
     editingId != null

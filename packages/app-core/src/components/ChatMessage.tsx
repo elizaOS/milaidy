@@ -207,10 +207,11 @@ export function ChatMessage({
       >
         {/* Message Content */}
         <div
-          className={`relative group px-4 py-2.5 text-[15px] leading-[1.7] whitespace-pre-wrap break-words rounded-2xl ${isUser
-            ? "bg-accent text-accent-fg rounded-br-md"
-            : "bg-bg-accent border border-border text-txt rounded-bl-md"
-            }`}
+          className={`relative group px-4 py-2.5 text-[15px] leading-[1.7] whitespace-pre-wrap break-words rounded-2xl ${
+            isUser
+              ? "bg-accent text-accent-fg rounded-br-md"
+              : "bg-bg-accent border border-border text-txt rounded-bl-md"
+          }`}
           style={{ fontFamily: "var(--font-chat)" }}
         >
           {isEditing ? (
@@ -266,8 +267,9 @@ export function ChatMessage({
           {/* Message Actions */}
           {!isEditing && (
             <div
-              className={`absolute ${isUser ? "left-0 -translate-x-full" : "right-0 translate-x-full"} top-0 flex items-center gap-1 p-1 transition-opacity duration-200 ${actionsVisible ? "opacity-100" : "pointer-events-none opacity-0"
-                }`}
+              className={`absolute ${isUser ? "left-0 -translate-x-full" : "right-0 translate-x-full"} top-0 flex items-center gap-1 p-1 transition-opacity duration-200 ${
+                actionsVisible ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
             >
               <Button
                 variant="ghost"

@@ -9,7 +9,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
 
 const WALLET_EXPORT_TEST_TOKEN = "wallet-export-e2e-step-up-token";
 
@@ -779,7 +779,9 @@ describe("Key Management E2E", () => {
 
   describe("Auto-detect chain for Solana keys", () => {
     it("auto-detects a base58 key as Solana when chain is not specified", async () => {
-      const { generateWalletKeys } = await import("../src/api/wallet");
+      const { generateWalletKeys } = await import(
+        "@miladyai/app-core/src/api/wallet"
+      );
       const keys = generateWalletKeys();
 
       const { status, data } = await req(port, "POST", "/api/wallet/import", {
@@ -810,7 +812,9 @@ describe("Key Management E2E", () => {
 
   describe("Cross-chain key confusion rejection", () => {
     it("rejects a Solana base58 key when chain is explicitly 'evm'", async () => {
-      const { generateWalletKeys } = await import("../src/api/wallet");
+      const { generateWalletKeys } = await import(
+        "@miladyai/app-core/src/api/wallet"
+      );
       const keys = generateWalletKeys();
 
       const { status } = await req(port, "POST", "/api/wallet/import", {
@@ -934,7 +938,9 @@ describe("Key Management E2E", () => {
     });
 
     it("exported Solana key matches what was imported", async () => {
-      const { generateWalletKeys } = await import("../src/api/wallet");
+      const { generateWalletKeys } = await import(
+        "@miladyai/app-core/src/api/wallet"
+      );
       const keys = generateWalletKeys();
 
       await req(port, "POST", "/api/wallet/import", {
@@ -955,7 +961,7 @@ describe("Key Management E2E", () => {
 
     it("generate -> export -> re-derive produces same addresses", async () => {
       const { deriveEvmAddress, deriveSolanaAddress } = await import(
-        "../src/api/wallet"
+        "@miladyai/app-core/src/api/wallet"
       );
 
       await req(port, "POST", "/api/wallet/generate", {});
@@ -1109,7 +1115,9 @@ describe("Key Management E2E", () => {
     });
 
     it("failed Solana import does not corrupt existing Solana key", async () => {
-      const { generateWalletKeys } = await import("../src/api/wallet");
+      const { generateWalletKeys } = await import(
+        "@miladyai/app-core/src/api/wallet"
+      );
       const keys = generateWalletKeys();
 
       // Import a good Solana key
@@ -1175,7 +1183,9 @@ describe("Key Management E2E", () => {
 
   describe("Concurrent key operations", () => {
     it("concurrent imports do not leave keys in inconsistent state", async () => {
-      const { generateWalletKeys } = await import("../src/api/wallet");
+      const { generateWalletKeys } = await import(
+        "@miladyai/app-core/src/api/wallet"
+      );
       const keysets = Array.from({ length: 5 }, () => generateWalletKeys());
 
       // Fire 5 concurrent EVM imports — one should win
@@ -1244,7 +1254,9 @@ describe("Key Management E2E", () => {
 
 describe("Wallet module — address derivation", () => {
   it("generates valid wallet keys", async () => {
-    const { generateWalletKeys } = await import("../src/api/wallet");
+    const { generateWalletKeys } = await import(
+      "@miladyai/app-core/src/api/wallet"
+    );
     const keys = generateWalletKeys();
 
     // EVM
@@ -1259,7 +1271,9 @@ describe("Wallet module — address derivation", () => {
   });
 
   it("derives deterministic EVM address", async () => {
-    const { deriveEvmAddress } = await import("../src/api/wallet");
+    const { deriveEvmAddress } = await import(
+      "@miladyai/app-core/src/api/wallet"
+    );
 
     // Hardhat test account #0
     const address = deriveEvmAddress(
@@ -1272,7 +1286,7 @@ describe("Wallet module — address derivation", () => {
 
   it("derives deterministic Solana address", async () => {
     const { generateWalletKeys, deriveSolanaAddress } = await import(
-      "../src/api/wallet"
+      "@miladyai/app-core/src/api/wallet"
     );
 
     // Generate and then re-derive — should be consistent
@@ -1282,7 +1296,9 @@ describe("Wallet module — address derivation", () => {
   });
 
   it("generates different keys on each call", async () => {
-    const { generateWalletKeys } = await import("../src/api/wallet");
+    const { generateWalletKeys } = await import(
+      "@miladyai/app-core/src/api/wallet"
+    );
     const keys1 = generateWalletKeys();
     const keys2 = generateWalletKeys();
 

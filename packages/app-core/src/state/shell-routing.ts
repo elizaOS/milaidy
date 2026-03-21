@@ -19,10 +19,7 @@ export function getTabForShellView(view: ShellView, lastNativeTab: Tab): Tab {
   // Guard against companion-only tabs leaking into native/desktop mode.
   // lastNativeTab should already be sanitized by normalizeLastNativeTab,
   // but be defensive: character-select and companion are never valid here.
-  if (
-    lastNativeTab === "character-select" ||
-    lastNativeTab === "companion"
-  ) {
+  if (lastNativeTab === "character-select" || lastNativeTab === "companion") {
     return "chat";
   }
 

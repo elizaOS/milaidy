@@ -4,8 +4,8 @@
  * Uses the web implementation (MediaDevices API) for parity on desktop.
  */
 
-import type { CameraPlugin } from "../../src/definitions";
-import { CameraWeb } from "../../src/web";
+import type { CameraPlugin } from "@miladyai/app-core/src/definitions";
+import { CameraWeb } from "@miladyai/app-core/src/web";
 
 export class CameraElectrobun extends CameraWeb implements CameraPlugin {}
 

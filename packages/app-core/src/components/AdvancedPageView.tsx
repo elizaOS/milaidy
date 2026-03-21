@@ -37,7 +37,7 @@ type SubTab =
   | "runtime"
   | "database"
   | "lifo"
-  | "logs"
+  | "logs";
 
 const SUB_TABS: Array<{ id: SubTab; label: string; description: string }> = [
   {
@@ -325,10 +325,11 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
                 <button
                   type="button"
                   key={subTab.id}
-                  className={`advanced-subtab-btn px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${isActive
-                    ? "border-accent text-txt"
-                    : "border-transparent text-muted hover:text-txt hover:border-border"
-                    }`}
+                  className={`advanced-subtab-btn px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
+                    isActive
+                      ? "border-accent text-txt"
+                      : "border-transparent text-muted hover:text-txt hover:border-border"
+                  }`}
                   onClick={() => handleSubTabChange(subTab.id)}
                   title={subTab.description}
                 >
@@ -347,15 +348,15 @@ export function AdvancedPageView({ inModal }: { inModal?: boolean } = {}) {
         style={
           inModal
             ? ({
-              "--accent": "var(--section-accent-advanced, #7b8fb5)",
-              "--surface": "rgba(255, 255, 255, 0.06)",
-              "--s-accent": "#7b8fb5",
-              "--s-text-txt": "#7b8fb5",
-              "--s-accent-glow": "rgba(123, 143, 181, 0.35)",
-              "--s-accent-subtle": "rgba(123, 143, 181, 0.12)",
-              "--s-grid-line": "rgba(123, 143, 181, 0.02)",
-              "--s-glow-edge": "rgba(123, 143, 181, 0.08)",
-            } as React.CSSProperties)
+                "--accent": "var(--section-accent-advanced, #7b8fb5)",
+                "--surface": "rgba(255, 255, 255, 0.06)",
+                "--s-accent": "#7b8fb5",
+                "--s-text-txt": "#7b8fb5",
+                "--s-accent-glow": "rgba(123, 143, 181, 0.35)",
+                "--s-accent-subtle": "rgba(123, 143, 181, 0.12)",
+                "--s-grid-line": "rgba(123, 143, 181, 0.02)",
+                "--s-glow-edge": "rgba(123, 143, 181, 0.08)",
+              } as React.CSSProperties)
             : undefined
         }
       >

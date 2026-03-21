@@ -7,7 +7,7 @@ import {
   enableForceFreshOnboarding,
   installForceFreshOnboardingClientPatch,
   isForceFreshOnboardingEnabled,
-} from "../../src/onboarding-reset";
+} from "@miladyai/app-core/src/onboarding-reset";
 
 describe("force fresh onboarding reset", () => {
   it("clears persisted onboarding state and strips the reset query param", () => {

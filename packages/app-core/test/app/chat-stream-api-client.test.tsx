@@ -343,7 +343,7 @@ describe("ElizaClient streaming chat endpoints", () => {
 
     const client = new ElizaClient("http://localhost:2138");
     await expect(
-      client.sendChatStream("boom", () => { }, "DM", undefined, "simple"),
+      client.sendChatStream("boom", () => {}, "DM", undefined, "simple"),
     ).rejects.toThrow("stream failed");
   });
 
@@ -358,7 +358,7 @@ describe("ElizaClient streaming chat endpoints", () => {
     const client = new ElizaClient("http://localhost:2138");
     const request = client.sendChatStream(
       "boom",
-      () => { },
+      () => {},
       "DM",
       undefined,
       "simple",

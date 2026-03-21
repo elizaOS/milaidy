@@ -37,14 +37,14 @@ import {
 } from "@elizaos/core";
 import dotenv from "dotenv";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { validateRuntimeContext } from "../src/api/plugin-validation";
-import { startApiServer } from "../src/api/server";
-import { ensureAgentWorkspace } from "../src/providers/workspace";
+import { validateRuntimeContext } from "@miladyai/app-core/src/api/plugin-validation";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
+import { ensureAgentWorkspace } from "@miladyai/app-core/src/providers/workspace";
 import {
   extractPlugin,
   isPackageImportResolvable,
   type PluginModuleShape,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment

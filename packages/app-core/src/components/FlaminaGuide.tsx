@@ -13,8 +13,7 @@ type GuideContent = {
 const GUIDE_CONTENT: Record<FlaminaGuideTopic, GuideContent> = {
   provider: {
     title: "Model and provider",
-    description:
-      "This picks the intelligence source behind your character.",
+    description: "This picks the intelligence source behind your character.",
     whenToUse:
       "Choose it now if you care about reasoning style, latency, or subscription path.",
     skipEffect:

@@ -52,7 +52,8 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
             return (
               <div
                 key={event.eventId}
-                className={`rounded border px-2 py-1.5 ${isNewViewer
+                className={`rounded border px-2 py-1.5 ${
+                  isNewViewer
                     ? "border-emerald-500/30 bg-emerald-500/5"
                     : isThought
                       ? "border-yellow-500/30 bg-yellow-500/5"
@@ -63,11 +64,12 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
                           : channelStyle
                             ? `${channelStyle.border} ${channelStyle.bg}`
                             : "border-border"
-                  }`}
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className={`text-[11px] font-semibold uppercase ${isNewViewer
+                    className={`text-[11px] font-semibold uppercase ${
+                      isNewViewer
                         ? "text-emerald-400"
                         : isThought
                           ? "text-yellow-400"
@@ -78,7 +80,7 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
                               : channelStyle
                                 ? channelStyle.text
                                 : "text-txt"
-                      }`}
+                    }`}
                   >
                     {isNewViewer
                       ? "new viewer"
@@ -95,8 +97,9 @@ export function ActivityFeed({ events }: { events: StreamEventEnvelope[] }) {
                   </span>
                 </div>
                 <div
-                  className={`text-[12px] mt-0.5 break-words line-clamp-3 ${isThought ? "text-yellow-200/70 italic" : "text-txt"
-                    }`}
+                  className={`text-[12px] mt-0.5 break-words line-clamp-3 ${
+                    isThought ? "text-yellow-200/70 italic" : "text-txt"
+                  }`}
                 >
                   {getEventText(event)}
                 </div>

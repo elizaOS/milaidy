@@ -209,7 +209,7 @@ describe("PermissionsOnboardingSection", () => {
         return null;
       },
     );
-    mockSubscribeDesktopBridgeEvent.mockImplementation(() => () => { });
+    mockSubscribeDesktopBridgeEvent.mockImplementation(() => () => {});
     vi.mocked(navigator.permissions.query).mockReset();
     vi.mocked(navigator.mediaDevices.getUserMedia).mockReset();
     vi.mocked(navigator.mediaDevices.enumerateDevices).mockReset();
@@ -250,35 +250,33 @@ describe("PermissionsOnboardingSection", () => {
     expect(onContinue).toHaveBeenCalledWith({ allowPermissionBypass: true });
   });
 
-  it(
-    "renders mobile streaming permissions when isNative and not running in the desktop app",
-    async () => {
-      mockIsWeb.mockReturnValue(false);
-      mockIsDesktop.mockReturnValue(false);
-      mockIsNative.value = true;
-      const onContinue = vi.fn();
-      mockUseApp.mockReturnValue(baseContext());
+  it("renders mobile streaming permissions when isNative and not running in the desktop app", async () => {
+    mockIsWeb.mockReturnValue(false);
+    mockIsDesktop.mockReturnValue(false);
+    mockIsNative.value = true;
+    const onContinue = vi.fn();
+    mockUseApp.mockReturnValue(baseContext());
 
-      let tree: TestRenderer.ReactTestRenderer | undefined;
-      await act(async () => {
-        tree = TestRenderer.create(
-          React.createElement(PermissionsOnboardingSection, { onContinue }),
-        );
-      });
-
-      const root = tree?.root;
-      const mobileView = root.findByProps({
-        "data-testid": "mobile-onboarding-permissions",
-      });
-      expect(mobileView).toBeDefined();
-      const text = collectText(root);
-      expect(text).toContain("Streaming Permissions");
-      expect(text).toContain("Camera");
-      expect(text).toContain("Microphone");
-
-      // Should have a skip button
-      expect(text).toContain("Skip for Now");
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(
+        React.createElement(PermissionsOnboardingSection, { onContinue }),
+      );
     });
+
+    const root = tree?.root;
+    const mobileView = root.findByProps({
+      "data-testid": "mobile-onboarding-permissions",
+    });
+    expect(mobileView).toBeDefined();
+    const text = collectText(root);
+    expect(text).toContain("Streaming Permissions");
+    expect(text).toContain("Camera");
+    expect(text).toContain("Microphone");
+
+    // Should have a skip button
+    expect(text).toContain("Skip for Now");
+  });
 
   it("renders desktop permissions in the desktop app", async () => {
     mockIsWeb.mockReturnValue(false);

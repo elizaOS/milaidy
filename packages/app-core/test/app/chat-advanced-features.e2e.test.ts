@@ -79,19 +79,19 @@ function createChatTestServer(): Promise<{
     title: string;
     messages: Array<{ role: string; content: string; timestamp: string }>;
   }> = [
-      {
-        id: "conv-1",
-        title: "First conversation",
-        messages: [
-          { role: "user", content: "Hello", timestamp: new Date().toISOString() },
-          {
-            role: "assistant",
-            content: "Hi! How can I help?",
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      },
-    ];
+    {
+      id: "conv-1",
+      title: "First conversation",
+      messages: [
+        { role: "user", content: "Hello", timestamp: new Date().toISOString() },
+        {
+          role: "assistant",
+          content: "Hi! How can I help?",
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    },
+  ];
 
   let activeConversation = "conv-1";
 

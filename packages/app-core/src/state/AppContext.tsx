@@ -15,7 +15,6 @@ import {
   useState,
 } from "react";
 import { prepareDraftForSave } from "../actions/character";
-import { BrandingContext, DEFAULT_BRANDING } from "../config/branding";
 import {
   type AgentStartupDiagnostics,
   type AgentStatus,
@@ -94,6 +93,7 @@ import {
   normalizeSlashCommandName,
 } from "../chat";
 import { mapServerTasksToSessions } from "../coding";
+import { BrandingContext, DEFAULT_BRANDING } from "../config/branding";
 import { type AppEmoteEventDetail, dispatchAppEmoteEvent } from "../events";
 import {
   createTranslator,
@@ -101,7 +101,12 @@ import {
   t as translateText,
   type UiLanguage,
 } from "../i18n";
-import { COMPANION_ENABLED, pathForTab, type Tab, tabFromPath } from "../navigation";
+import {
+  COMPANION_ENABLED,
+  pathForTab,
+  type Tab,
+  tabFromPath,
+} from "../navigation";
 import { buildOnboardingConnectionConfig } from "../onboarding-config";
 import {
   alertDesktopMessage,
@@ -717,7 +722,7 @@ export function AppProvider({
     setSelectedVrmIndexRaw(normalized);
     saveAvatarIndex(normalized);
     // Sync to server so headless stream capture uses the same avatar
-    client.saveStreamSettings({ avatarIndex: normalized }).catch(() => { });
+    client.saveStreamSettings({ avatarIndex: normalized }).catch(() => {});
   }, []);
 
   // --- Eliza Cloud ---
@@ -813,14 +818,12 @@ export function AppProvider({
 
   // --- Onboarding ---
   const [onboardingStep, setOnboardingStepRaw] = useState<OnboardingStep>(
-    () =>
-      loadPersistedOnboardingStep() ?? "welcome",
+    () => loadPersistedOnboardingStep() ?? "welcome",
   );
   const [onboardingMode, setOnboardingMode] =
     useState<AppState["onboardingMode"]>("basic");
-  const [onboardingActiveGuide, setOnboardingActiveGuide] = useState<
-    AppState["onboardingActiveGuide"]
-  >(null);
+  const [onboardingActiveGuide, setOnboardingActiveGuide] =
+    useState<AppState["onboardingActiveGuide"]>(null);
   const [onboardingDeferredTasks, setOnboardingDeferredTasks] = useState<
     AppState["onboardingDeferredTasks"]
   >([]);
@@ -1055,7 +1058,7 @@ export function AppProvider({
   /** Synchronous lock for cloud login action to prevent duplicate clicks in the same tick. */
   const elizaCloudLoginBusyRef = useRef(false);
   /** Forward ref so handleOnboardingNext (defined earlier) can call handleCloudLogin (defined later). */
-  const handleCloudLoginRef = useRef<() => Promise<void>>(async () => { });
+  const handleCloudLoginRef = useRef<() => Promise<void>>(async () => {});
   /** Synchronous lock for update channel changes to prevent duplicate submits. */
   const updateChannelSavingRef = useRef(false);
   /** Synchronous lock for onboarding completion submit to prevent duplicate clicks. */
@@ -1246,7 +1249,9 @@ export function AppProvider({
   const switchShellView = useCallback(
     (view: ShellView) => {
       const nextTab = getTabForShellView(view, lastNativeTab);
-      console.log(`[shell] switchShellView: ${view} → tab=${nextTab}, lastNativeTab=${lastNativeTab}`);
+      console.log(
+        `[shell] switchShellView: ${view} → tab=${nextTab}, lastNativeTab=${lastNativeTab}`,
+      );
       setTab(nextTab);
     },
     [lastNativeTab, setTab],
@@ -2059,7 +2064,8 @@ export function AppProvider({
       setActionNotice(LIFECYCLE_MESSAGES.start.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.start.verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.start.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2078,7 +2084,8 @@ export function AppProvider({
       setActionNotice(LIFECYCLE_MESSAGES.stop.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.stop.verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.stop.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2115,7 +2122,8 @@ export function AppProvider({
       setActionNotice(LIFECYCLE_MESSAGES.restart.success, "success", 2400);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.restart.verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.restart.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2360,7 +2368,8 @@ export function AppProvider({
       setActionNotice(LIFECYCLE_MESSAGES.reset.success, "success", 3200);
     } catch (err) {
       setActionNotice(
-        `Failed to ${LIFECYCLE_MESSAGES.reset.verb} agent: ${err instanceof Error ? err.message : "unknown error"
+        `Failed to ${LIFECYCLE_MESSAGES.reset.verb} agent: ${
+          err instanceof Error ? err.message : "unknown error"
         }`,
         "error",
         4200,
@@ -2578,7 +2587,8 @@ export function AppProvider({
           if (!result.ok) {
             appendLocalCommandTurn(
               rawText,
-              `Custom action "${customAction.name}" failed: ${result.error ?? "unknown error"
+              `Custom action "${customAction.name}" failed: ${
+                result.error ?? "unknown error"
               }`,
             );
             return { handled: true };
@@ -2779,8 +2789,11 @@ export function AppProvider({
         if (!convId) {
           try {
             // Use the first message as the conversation title
-            const convTitle = text.length > 50 ? `${text.slice(0, 47)}...` : text;
-            const { conversation } = await client.createConversation(convTitle || undefined);
+            const convTitle =
+              text.length > 50 ? `${text.slice(0, 47)}...` : text;
+            const { conversation } = await client.createConversation(
+              convTitle || undefined,
+            );
             const nextCutoffTs = Date.now();
             setConversations((prev) => [conversation, ...prev]);
             setActiveConversationId(conversation.id);
@@ -3001,7 +3014,8 @@ export function AppProvider({
         let convId: string = activeConversationId ?? "";
         if (!convId) {
           try {
-            const actionTitle = trimmed.length > 50 ? `${trimmed.slice(0, 47)}...` : trimmed;
+            const actionTitle =
+              trimmed.length > 50 ? `${trimmed.slice(0, 47)}...` : trimmed;
             const { conversation } = await client.createConversation(
               actionTitle || t("conversations.newChatTitle"),
             );
@@ -3132,7 +3146,7 @@ export function AppProvider({
 
     // Also stop any active PTY sessions — the user wants everything to halt
     for (const session of ptySessions) {
-      client.stopCodingAgent(session.sessionId).catch(() => { });
+      client.stopCodingAgent(session.sessionId).catch(() => {});
     }
   }, [ptySessions]);
 
@@ -3290,7 +3304,7 @@ export function AppProvider({
         const prevMessages = conversationMessagesRef.current;
         const hasUserMessage = prevMessages.some((m) => m.role === "user");
         if (!hasUserMessage && prevMessages.length <= 1) {
-          void client.deleteConversation(prevId).catch(() => { });
+          void client.deleteConversation(prevId).catch(() => {});
           setConversations((prev) => prev.filter((c) => c.id !== prevId));
           setUnreadConversations((prev) => {
             const next = new Set(prev);
@@ -3552,7 +3566,8 @@ export function AppProvider({
           /* ignore */
         });
         setActionNotice(
-          `Failed to ${enabled ? "enable" : "disable"} ${pluginName}: ${err instanceof Error ? err.message : "unknown error"
+          `Failed to ${enabled ? "enable" : "disable"} ${pluginName}: ${
+            err instanceof Error ? err.message : "unknown error"
           }`,
           "error",
           4200,
@@ -4152,7 +4167,12 @@ export function AppProvider({
         await client.submitOnboarding({
           name: onboardingName || defaultName,
           bio: style?.bio ?? ["An autonomous AI agent."],
-          systemPrompt: style?.system?.replace(/\{\{name\}\}/g, onboardingName || defaultName) ?? `You are ${onboardingName || defaultName}, an autonomous AI agent powered by elizaOS.`,
+          systemPrompt:
+            style?.system?.replace(
+              /\{\{name\}\}/g,
+              onboardingName || defaultName,
+            ) ??
+            `You are ${onboardingName || defaultName}, an autonomous AI agent powered by elizaOS.`,
           style: style?.style,
           adjectives: style?.adjectives,
           // Cloud onboarding: the API key was already persisted server-side
@@ -4166,7 +4186,9 @@ export function AppProvider({
 
         try {
           setAgentStatus(await client.restartAgent());
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         clearPersistedOnboardingStep();
         setOnboardingComplete(true);
@@ -4274,15 +4296,12 @@ export function AppProvider({
 
       if (isSandboxMode) {
         // Provision a sandbox agent on Eliza Cloud
-        const cloudApiBase = (
-          (window as unknown as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ ??
-          "https://www.elizacloud.ai"
-        ) as string;
+        const cloudApiBase = ((window as unknown as Record<string, unknown>)
+          .__ELIZA_CLOUD_API_BASE__ ?? "https://www.elizacloud.ai") as string;
 
         // Get the auth token from the cloud login state
-        const authToken = (
-          (window as unknown as Record<string, unknown>).__ELIZA_CLOUD_AUTH_TOKEN__ ?? ""
-        ) as string;
+        const authToken = ((window as unknown as Record<string, unknown>)
+          .__ELIZA_CLOUD_AUTH_TOKEN__ ?? "") as string;
 
         if (!authToken) {
           throw new Error(
@@ -4396,8 +4415,7 @@ export function AppProvider({
     } catch (err) {
       const startOver = await confirmDesktopAction({
         title: "Setup Failed",
-        message: `${err instanceof Error ? err.message : "network error"
-          }`,
+        message: `${err instanceof Error ? err.message : "network error"}`,
         detail:
           'You can retry, or choose "Start Over" to begin setup from scratch.',
         type: "warning",
@@ -4462,7 +4480,13 @@ export function AppProvider({
   const handleOnboardingNext = useCallback(
     async (options?: OnboardingNextOptions) => {
       const CLOUD_STEPS: OnboardingStep[] = ["welcome", "cloudLogin"];
-      const CUSTOM_STEPS: OnboardingStep[] = ["identity", "connection", "rpc", "senses", "activate"];
+      const CUSTOM_STEPS: OnboardingStep[] = [
+        "identity",
+        "connection",
+        "rpc",
+        "senses",
+        "activate",
+      ];
       const isCustomFlow = CUSTOM_STEPS.includes(onboardingStep);
       const STEP_ORDER = isCustomFlow ? CUSTOM_STEPS : CLOUD_STEPS;
 
@@ -4510,7 +4534,10 @@ export function AppProvider({
           "";
         if (fallbackProvider) {
           setOnboardingProvider(fallbackProvider);
-          if (detectedProvider?.id === fallbackProvider && detectedProvider.apiKey) {
+          if (
+            detectedProvider?.id === fallbackProvider &&
+            detectedProvider.apiKey
+          ) {
             setOnboardingApiKey(detectedProvider.apiKey);
           }
         }
@@ -4544,16 +4571,18 @@ export function AppProvider({
         );
       }
     },
-    [
-      onboardingMode,
-      onboardingStep,
-      handleOnboardingFinish,
-    ],
+    [onboardingMode, onboardingStep, handleOnboardingFinish],
   );
 
   const handleOnboardingBack = useCallback(() => {
     const CLOUD_STEPS: OnboardingStep[] = ["welcome", "cloudLogin"];
-    const CUSTOM_STEPS: OnboardingStep[] = ["identity", "connection", "rpc", "senses", "activate"];
+    const CUSTOM_STEPS: OnboardingStep[] = [
+      "identity",
+      "connection",
+      "rpc",
+      "senses",
+      "activate",
+    ];
     const isCustomFlow = CUSTOM_STEPS.includes(onboardingStep);
     const STEP_ORDER = isCustomFlow ? CUSTOM_STEPS : CLOUD_STEPS;
 
@@ -4654,12 +4683,17 @@ export function AppProvider({
     const hasBackend = Boolean(client.getBaseUrl());
     const cloudApiBase =
       ((typeof window !== "undefined" &&
-        (window as unknown as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__) as string) ||
-      "https://www.elizacloud.ai";
+        (window as unknown as Record<string, unknown>)
+          .__ELIZA_CLOUD_API_BASE__) as string) || "https://www.elizacloud.ai";
     const useDirectAuth = !hasBackend;
 
     try {
-      let resp: { ok: boolean; browserUrl?: string; sessionId?: string; error?: string };
+      let resp: {
+        ok: boolean;
+        browserUrl?: string;
+        sessionId?: string;
+        error?: string;
+      };
       if (useDirectAuth) {
         resp = await client.cloudLoginDirect(cloudApiBase);
       } else {
@@ -4744,10 +4778,12 @@ export function AppProvider({
 
             // Store the cloud auth token for provisioning
             if (poll.token && typeof window !== "undefined") {
-              (window as unknown as Record<string, unknown>).__ELIZA_CLOUD_AUTH_TOKEN__ =
-                poll.token;
-              (window as unknown as Record<string, unknown>).__ELIZA_CLOUD_API_BASE__ =
-                cloudApiBase;
+              (
+                window as unknown as Record<string, unknown>
+              ).__ELIZA_CLOUD_AUTH_TOKEN__ = poll.token;
+              (
+                window as unknown as Record<string, unknown>
+              ).__ELIZA_CLOUD_API_BASE__ = cloudApiBase;
             }
 
             setActionNotice(
@@ -5248,7 +5284,9 @@ export function AppProvider({
         setOnboardingOptions({
           names: [],
           styles: injectedStyles as StylePreset[],
-          providers: [...ONBOARDING_PROVIDER_CATALOG] as OnboardingOptions["providers"],
+          providers: [
+            ...ONBOARDING_PROVIDER_CATALOG,
+          ] as OnboardingOptions["providers"],
           cloudProviders: [],
           models: { small: [], large: [] },
           inventoryProviders: [],
@@ -5280,8 +5318,13 @@ export function AppProvider({
           }
         } else if (
           persistedConnection.runMode === "local" &&
-          !((typeof window !== "undefined" && (window as unknown as Record<string, unknown>).__MILADY_API_BASE__) ||
-            (typeof window !== "undefined" && (window as unknown as Record<string, unknown>).__ELIZA_API_BASE__))
+          !(
+            (typeof window !== "undefined" &&
+              (window as unknown as Record<string, unknown>)
+                .__MILADY_API_BASE__) ||
+            (typeof window !== "undefined" &&
+              (window as unknown as Record<string, unknown>).__ELIZA_API_BASE__)
+          )
         ) {
           // Local mode but no API base — need to start the agent first.
           // Trigger agent start via RPC and then continue polling.
@@ -5569,7 +5612,7 @@ export function AppProvider({
               setPtySessions(mapServerTasksToSessions(status.tasks));
             }
           })
-          .catch(() => { }); // non-critical
+          .catch(() => {}); // non-critical
       };
       hydratePtySessions();
       let ptyHydratedViaWs = false;
@@ -5829,11 +5872,11 @@ export function AppProvider({
               return prev.map((s) =>
                 s.sessionId === sessionId
                   ? {
-                    ...s,
-                    status: "tool_running" as const,
-                    toolDescription: toolDesc,
-                    lastActivity: `Running ${toolDesc}`.slice(0, 60),
-                  }
+                      ...s,
+                      status: "tool_running" as const,
+                      toolDescription: toolDesc,
+                      lastActivity: `Running ${toolDesc}`.slice(0, 60),
+                    }
                   : s,
               );
             }
@@ -5847,11 +5890,11 @@ export function AppProvider({
               return prev.map((s) =>
                 s.sessionId === sessionId
                   ? {
-                    ...s,
-                    status: "active" as const,
-                    toolDescription: undefined,
-                    lastActivity: excerpt,
-                  }
+                      ...s,
+                      status: "active" as const,
+                      toolDescription: undefined,
+                      lastActivity: excerpt,
+                    }
                   : s,
               );
             }
@@ -5870,11 +5913,11 @@ export function AppProvider({
               return prev.map((s) =>
                 s.sessionId === sessionId
                   ? {
-                    ...s,
-                    status: "active" as const,
-                    toolDescription: undefined,
-                    lastActivity: excerpt,
-                  }
+                      ...s,
+                      status: "active" as const,
+                      toolDescription: undefined,
+                      lastActivity: excerpt,
+                    }
                   : s,
               );
             }
@@ -5882,11 +5925,11 @@ export function AppProvider({
               return prev.map((s) =>
                 s.sessionId === sessionId
                   ? {
-                    ...s,
-                    status: "active" as const,
-                    toolDescription: undefined,
-                    lastActivity: "Running",
-                  }
+                      ...s,
+                      status: "active" as const,
+                      toolDescription: undefined,
+                      lastActivity: "Running",
+                    }
                   : s,
               );
             }
@@ -5896,10 +5939,10 @@ export function AppProvider({
               return prev.map((s) =>
                 s.sessionId === sessionId
                   ? {
-                    ...s,
-                    status: "error" as const,
-                    lastActivity: `Error: ${errMsg}`.slice(0, 60),
-                  }
+                      ...s,
+                      status: "error" as const,
+                      lastActivity: `Error: ${errMsg}`.slice(0, 60),
+                    }
                   : s,
               );
             }
@@ -5994,12 +6037,20 @@ export function AppProvider({
           void loadCharacter();
         } else if (
           !onboardingNeedsOptions &&
-          (!urlTab || urlTab === "chat" || urlTab === "companion" || urlTab === "character-select")
+          (!urlTab ||
+            urlTab === "chat" ||
+            urlTab === "companion" ||
+            urlTab === "character-select")
         ) {
           setTab("companion");
         }
       }
-      if (urlTab && urlTab !== "chat" && urlTab !== "companion" && urlTab !== "character-select") {
+      if (
+        urlTab &&
+        urlTab !== "chat" &&
+        urlTab !== "companion" &&
+        urlTab !== "character-select"
+      ) {
         setTabRaw(urlTab);
         if (urlTab === "plugins" || urlTab === "connectors") {
           void loadPlugins();

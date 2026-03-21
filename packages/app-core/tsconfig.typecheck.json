@@ -4,9 +4,6 @@
     "noEmit": true,
     "noImplicitAny": false
   },
-  "exclude": [
-    "src/**/*.stories.ts",
-    "src/**/*.stories.tsx"
-  ],
+  "exclude": ["src/**/*.stories.ts", "src/**/*.stories.tsx"],
   "include": ["src", "test"]
 }

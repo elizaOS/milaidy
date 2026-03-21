@@ -75,7 +75,9 @@ describe("RestartBanner", () => {
     const markup = renderToStaticMarkup(React.createElement(RestartBanner));
     const text = readAllText(markup);
     expect(text).toContain("Configuration updated");
-    expect(text).toContain("Electrobun still has restart-required changes queued");
+    expect(text).toContain(
+      "Electrobun still has restart-required changes queued",
+    );
     expect(markup).toContain("Review");
   });
 

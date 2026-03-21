@@ -229,50 +229,38 @@ export default defineConfig({
       // Force local @miladyai/app-core when workspace-linked (prevents stale
       // bun cache copies from overriding the symlinked local source).
       ...(() => {
-        const localAppCore = path.resolve(
+        const localSource = path.resolve(miladyRoot, "packages/app-core/src");
+        const uiSource = path.resolve(miladyRoot, "packages/ui/src");
+        const autonomousSource = path.resolve(
           miladyRoot,
-          "node_modules/@miladyai/app-core",
+          "node_modules/@elizaos/agent/packages/agent/src",
         );
-        try {
-          const real = fs.realpathSync(localAppCore);
-          if (real.includes("/eliza/packages/app-core")) {
-            return [
-              {
-                find: "@miladyai/app-core/api",
-                replacement: path.join(real, "dist/api"),
-              },
-              {
-                find: "@miladyai/app-core/state",
-                replacement: path.join(real, "dist/state"),
-              },
-              {
-                find: "@miladyai/app-core/bridge",
-                replacement: path.join(real, "dist/bridge"),
-              },
-              {
-                find: "@miladyai/app-core/config",
-                replacement: path.join(real, "dist/config"),
-              },
-              {
-                find: "@miladyai/app-core/events",
-                replacement: path.join(real, "dist/events"),
-              },
-              {
-                find: "@miladyai/app-core/platform",
-                replacement: path.join(real, "dist/platform"),
-              },
-              {
-                find: "@miladyai/app-core/styles/styles.css",
-                replacement: path.join(real, "dist/styles/styles.css"),
-              },
-              {
-                find: "@miladyai/app-core",
-                replacement: path.join(real, "dist"),
-              },
-            ];
-          }
-        } catch { }
-        return [];
+        return [
+          {
+            find: /^@miladyai\/app-core$/,
+            replacement: path.join(localSource, "index.ts"),
+          },
+          {
+            find: /^@miladyai\/app-core\/(.*)$/,
+            replacement: `${localSource}/$1`,
+          },
+          {
+            find: /^@miladyai\/ui$/,
+            replacement: path.join(uiSource, "index.ts"),
+          },
+          {
+            find: /^@miladyai\/ui\/(.*)$/,
+            replacement: `${uiSource}/$1`,
+          },
+          {
+            find: /^@elizaos\/agent$/,
+            replacement: path.join(autonomousSource, "index.ts"),
+          },
+          {
+            find: /^@elizaos\/agent\/(.*)$/,
+            replacement: `${autonomousSource}/$1`,
+          },
+        ];
       })(),
     ],
   },

@@ -56,17 +56,17 @@ export default defineConfig({
       },
       ...(appCorePackageRoot
         ? [
-          {
-            find: /^@elizaos\/app-core\/(.*)/,
-            replacement: path.join(appCorePackageRoot, "$1"),
-          },
-          {
-            find: "@miladyai/app-core",
-            replacement: resolveModuleEntry(
-              path.join(appCorePackageRoot, "index"),
-            ),
-          },
-        ]
+            {
+              find: /^@elizaos\/app-core\/(.*)/,
+              replacement: path.join(appCorePackageRoot, "$1"),
+            },
+            {
+              find: "@miladyai/app-core",
+              replacement: resolveModuleEntry(
+                path.join(appCorePackageRoot, "index"),
+              ),
+            },
+          ]
         : []),
     ],
   },

@@ -5,3 +5,4 @@ export * from "./desktop-dialogs";
 export * from "./eliza-globals";
 export * from "./number-parsing";
 export * from "./openExternalUrl";
+export * from "./character-message-examples";

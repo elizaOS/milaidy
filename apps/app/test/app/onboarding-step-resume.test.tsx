@@ -7,7 +7,7 @@ import {
   clearForceFreshOnboarding,
   enableForceFreshOnboarding,
   installForceFreshOnboardingClientPatch,
-} from "../../src/onboarding-reset";
+} from "@miladyai/app-core/src/onboarding-reset";
 
 const ONBOARDING_STEP_STORAGE_KEY = "eliza:onboarding:step";
 const { mockClient } = vi.hoisted(() => ({
@@ -63,7 +63,7 @@ const { mockClient } = vi.hoisted(() => ({
     sendWsMessage: vi.fn(),
     connectWs: vi.fn(),
     disconnectWs: vi.fn(),
-    onWsEvent: vi.fn(() => () => { }),
+    onWsEvent: vi.fn(() => () => {}),
     getAgentEvents: vi.fn(async () => ({
       events: [],
       latestEventId: null,
@@ -117,7 +117,7 @@ import {
   deriveOnboardingResumeFields,
   inferOnboardingResumeStep,
 } from "@miladyai/app-core/state/internal";
-import { installLocalProviderCloudPreferencePatch } from "../../src/cloud-preference-patch";
+import { installLocalProviderCloudPreferencePatch } from "@miladyai/app-core/src/cloud-preference-patch";
 
 type ProbeApi = {
   getSnapshot: () => {
@@ -195,7 +195,7 @@ describe("AppProvider onboarding step resume", () => {
     }
 
     mockClient.hasToken.mockReturnValue(false);
-    mockClient.setToken.mockImplementation(() => { });
+    mockClient.setToken.mockImplementation(() => {});
     mockClient.getAuthStatus.mockResolvedValue({
       required: false,
       pairingEnabled: false,
@@ -245,10 +245,10 @@ describe("AppProvider onboarding step resume", () => {
         },
       ],
     });
-    mockClient.sendWsMessage.mockImplementation(() => { });
-    mockClient.connectWs.mockImplementation(() => { });
-    mockClient.disconnectWs.mockImplementation(() => { });
-    mockClient.onWsEvent.mockReturnValue(() => { });
+    mockClient.sendWsMessage.mockImplementation(() => {});
+    mockClient.connectWs.mockImplementation(() => {});
+    mockClient.disconnectWs.mockImplementation(() => {});
+    mockClient.onWsEvent.mockReturnValue(() => {});
     mockClient.getAgentEvents.mockResolvedValue({
       events: [],
       latestEventId: null,

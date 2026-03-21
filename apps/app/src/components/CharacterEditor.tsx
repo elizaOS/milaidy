@@ -11,11 +11,11 @@ import {
   dispatchWindowEvent,
   VOICE_CONFIG_UPDATED_EVENT,
 } from "@miladyai/app-core/events";
+import { STYLE_PRESETS } from "@miladyai/app-core/onboarding-presets";
 import { useApp } from "@miladyai/app-core/state";
 import { PREMADE_VOICES, sanitizeApiKey } from "@miladyai/app-core/voice";
 import { Button, Input, Textarea, ThemedSelect } from "@miladyai/ui";
-import { STYLE_PRESETS } from "../../../../src/onboarding-presets";
-import { normalizeCharacterMessageExamples } from "../../../../src/utils/character-message-examples";
+import { normalizeCharacterMessageExamples } from "@miladyai/app-core/utils/character-message-examples";
 import {
   CharacterRoster,
   type CharacterRosterEntry,
@@ -313,9 +313,9 @@ export function CharacterEditor({
     "Agent";
   const normalizedMessageExamples = Array.isArray(d.messageExamples)
     ? normalizeCharacterMessageExamples(
-      d.messageExamples,
-      fallbackCharacterName,
-    )
+        d.messageExamples,
+        fallbackCharacterName,
+      )
     : [];
   const bioText =
     typeof d.bio === "string"
@@ -401,7 +401,7 @@ export function CharacterEditor({
             setSelectedVoicePresetId(preset?.id ?? null);
           }
         }
-      } catch { }
+      } catch {}
       setVoiceLoading(false);
     })();
   }, []);
@@ -666,7 +666,7 @@ export function CharacterEditor({
               if (parsed.chat) handleStyleEdit("chat", parsed.chat.join("\n"));
               if (parsed.post) handleStyleEdit("post", parsed.post.join("\n"));
             }
-          } catch { }
+          } catch {}
         } else if (field === "chatExamples") {
           const formatted = normalizeCharacterMessageExamples(
             generated,
@@ -688,7 +688,7 @@ export function CharacterEditor({
                 handleCharacterArrayInput("postExamples", parsed.join("\n"));
               }
             }
-          } catch { }
+          } catch {}
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Generation failed";
@@ -802,13 +802,29 @@ export function CharacterEditor({
             }
           >
             {chatAgentVoiceMuted ? (
-              <svg {...svgBase} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                {...svgBase}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <title>Mute</title>
                 <path d="M11 5 6 9H2v6h4l5 4V5Z" />
                 <line x1="23" y1="9" x2="17" y2="15" />
                 <line x1="17" y1="9" x2="23" y2="15" />
               </svg>
             ) : (
-              <svg {...svgBase} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                {...svgBase}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <title>Unmute</title>
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />

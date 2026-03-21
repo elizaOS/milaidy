@@ -56,10 +56,11 @@ function SkillCard({
 
   return (
     <div
-      className={`flex flex-col border bg-[var(--card)] transition-colors ${isQuarantined || isBlocked
+      className={`flex flex-col border bg-[var(--card)] transition-colors ${
+        isQuarantined || isBlocked
           ? "border-[#e74c3c]/40"
           : "border-[var(--border)] hover:border-[var(--accent)]/50"
-        }`}
+      }`}
       data-skill-id={skill.id}
     >
       {/* Main content area */}
@@ -78,8 +79,8 @@ function SkillCard({
             }
             tone={
               skill.scanStatus === "blocked" ||
-                skill.scanStatus === "critical" ||
-                skill.scanStatus === "warning"
+              skill.scanStatus === "critical" ||
+              skill.scanStatus === "warning"
                 ? skill.scanStatus === "warning"
                   ? "warning"
                   : "danger"
@@ -174,14 +175,16 @@ function SkillCard({
                 ) => (
                   <div
                     key={`${f.file}:${f.line}:${f.message}`}
-                    className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${idx > 0 ? "border-t border-[var(--border)]" : ""
-                      }`}
+                    className={`flex items-start gap-2 px-3 py-1.5 text-[11px] font-mono ${
+                      idx > 0 ? "border-t border-[var(--border)]" : ""
+                    }`}
                   >
                     <span
-                      className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${f.severity === "critical"
+                      className={`shrink-0 px-1.5 py-px font-bold text-[10px] uppercase ${
+                        f.severity === "critical"
                           ? "bg-[#e74c3c]/15 text-[#e74c3c]"
                           : "bg-[#f39c12]/15 text-[#f39c12]"
-                        }`}
+                      }`}
                     >
                       {f.severity}
                     </span>

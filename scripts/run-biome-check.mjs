@@ -4,8 +4,8 @@ import { existsSync } from "node:fs";
 const BIOME_CRASHER_PATHS = new Set([
   "apps/app/plugins/screencapture/src/web.ts",
   "apps/app/plugins/talkmode/electrobun/src/index.d.ts",
-  "src/types/elizaos-tui-fallback.d.ts",
-  "src/types/optional-plugin-modules.d.ts",
+  "packages/app-core/src/types/elizaos-tui-fallback.d.ts",
+  "packages/app-core/src/types/optional-plugin-modules.d.ts",
 ]);
 
 const BIOME_ROOTS = ["src", "scripts", "apps"];

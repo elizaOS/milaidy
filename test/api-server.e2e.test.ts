@@ -25,10 +25,10 @@ import path from "node:path";
 import type { AgentRuntime, Content, Task, UUID } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
-import { startApiServer } from "../src/api/server";
-import { AGENT_NAME_POOL } from "../src/runtime/onboarding-names";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
+import { AGENT_NAME_POOL } from "@miladyai/app-core/src/runtime/onboarding-names";
 
-vi.mock("../src/services/mcp-marketplace", () => ({
+vi.mock("@miladyai/app-core/src/services/mcp-marketplace", () => ({
   searchMcpMarketplace: vi
     .fn()
     .mockResolvedValue({ results: [{ name: "test", vendor: "test" }] }),

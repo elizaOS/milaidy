@@ -81,17 +81,19 @@ export function ConversationListItem({
       key={conv.id}
       data-testid="conv-item"
       data-active={isActive || undefined}
-      className={`w-full ${isGameModal
+      className={`w-full ${
+        isGameModal
           ? "group relative flex items-start gap-3 w-full p-2.5 rounded-xl cursor-pointer transition-all border border-transparent"
           : "flex items-center pl-3 pr-2 py-2 gap-1 cursor-pointer transition-colors border-l-[3px]"
-        } ${isActive
+      } ${
+        isActive
           ? isGameModal
             ? "bg-accent/15 border-accent/30 shadow-[0_0_15px_rgba(240,178,50,0.1)]"
             : "bg-bg-hover border-l-accent"
           : isGameModal
             ? "hover:bg-white/5 hover:border-white/10"
             : "border-l-transparent hover:bg-bg-hover"
-        }`}
+      }`}
     >
       {isEditing ? (
         <Input

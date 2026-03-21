@@ -64,10 +64,11 @@ export function InventoryToolbar({
         <button
           type="button"
           data-testid="wallet-view-tokens"
-          className={`h-8 border-b-2 px-2 text-xs font-medium cursor-pointer ${inventoryView === "tokens"
-            ? "border-accent text-txt-strong"
-            : "border-transparent text-muted hover:text-txt"
-            }`}
+          className={`h-8 border-b-2 px-2 text-xs font-medium cursor-pointer ${
+            inventoryView === "tokens"
+              ? "border-accent text-txt-strong"
+              : "border-transparent text-muted hover:text-txt"
+          }`}
           onClick={() => {
             setState("inventoryView", "tokens");
             if (!walletBalances) void loadBalances();
@@ -78,10 +79,11 @@ export function InventoryToolbar({
         <button
           type="button"
           data-testid="wallet-view-nfts"
-          className={`h-8 border-b-2 px-2 text-xs font-medium cursor-pointer ${inventoryView === "nfts"
-            ? "border-accent text-txt-strong"
-            : "border-transparent text-muted hover:text-txt"
-            }`}
+          className={`h-8 border-b-2 px-2 text-xs font-medium cursor-pointer ${
+            inventoryView === "nfts"
+              ? "border-accent text-txt-strong"
+              : "border-transparent text-muted hover:text-txt"
+          }`}
           onClick={() => {
             setState("inventoryView", "nfts");
             if (!walletNfts) void loadNfts();

@@ -115,42 +115,42 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   );
   const ethereumReady = Boolean(
     evmAddr &&
-    !evmChainErrors.get("ethereum") &&
-    (loadedEvmChainKeys.has("ethereum") ||
-      cfg?.ethereumBalanceReady ||
-      cfg?.alchemyKeySet ||
-      cloudManagedAccess),
+      !evmChainErrors.get("ethereum") &&
+      (loadedEvmChainKeys.has("ethereum") ||
+        cfg?.ethereumBalanceReady ||
+        cfg?.alchemyKeySet ||
+        cloudManagedAccess),
   );
   const baseReady = Boolean(
     evmAddr &&
-    !evmChainErrors.get("base") &&
-    (loadedEvmChainKeys.has("base") ||
-      cfg?.baseBalanceReady ||
-      cfg?.alchemyKeySet ||
-      cloudManagedAccess),
+      !evmChainErrors.get("base") &&
+      (loadedEvmChainKeys.has("base") ||
+        cfg?.baseBalanceReady ||
+        cfg?.alchemyKeySet ||
+        cloudManagedAccess),
   );
   const bscReady = Boolean(
     evmAddr &&
-    !evmChainErrors.get("bsc") &&
-    (loadedEvmChainKeys.has("bsc") ||
-      cfg?.bscBalanceReady ||
-      cfg?.ankrKeySet ||
-      hasManagedBscRpc),
+      !evmChainErrors.get("bsc") &&
+      (loadedEvmChainKeys.has("bsc") ||
+        cfg?.bscBalanceReady ||
+        cfg?.ankrKeySet ||
+        hasManagedBscRpc),
   );
   const avaxReady = Boolean(
     evmAddr &&
-    !evmChainErrors.get("avax") &&
-    (loadedEvmChainKeys.has("avax") ||
-      cfg?.avalancheBalanceReady ||
-      cfg?.alchemyKeySet ||
-      cloudManagedAccess),
+      !evmChainErrors.get("avax") &&
+      (loadedEvmChainKeys.has("avax") ||
+        cfg?.avalancheBalanceReady ||
+        cfg?.alchemyKeySet ||
+        cloudManagedAccess),
   );
   const solanaReady = Boolean(
     solAddr &&
-    (Boolean(walletBalances?.solana) ||
-      cfg?.solanaBalanceReady ||
-      cfg?.heliusKeySet ||
-      cloudManagedAccess),
+      (Boolean(walletBalances?.solana) ||
+        cfg?.solanaBalanceReady ||
+        cfg?.heliusKeySet ||
+        cloudManagedAccess),
   );
   const tradeReady = bnbBalance >= BSC_GAS_THRESHOLD;
   const addresses = [
@@ -167,55 +167,56 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
   const inlineError =
     chainFocus !== "all" && focusedChainError
       ? {
-        message: `${focusedChainLabel ?? "Chain"}: ${focusedChainError}`,
-        retryTitle: `Retry fetching ${focusedChainLabel ?? "chain"} balances`,
-      }
+          message: `${focusedChainLabel ?? "Chain"}: ${focusedChainError}`,
+          retryTitle: `Retry fetching ${focusedChainLabel ?? "chain"} balances`,
+        }
       : null;
 
   const legacyRpcChain = chainKeyToWalletRpcChain(chainFocus);
   const headerWarning =
     chainFocus !== "all" &&
-      legacyRpcChain !== null &&
-      cfg?.legacyCustomChains?.includes(legacyRpcChain)
+    legacyRpcChain !== null &&
+    cfg?.legacyCustomChains?.includes(legacyRpcChain)
       ? {
-        title: `${focusedChainLabel ??
-          (chainFocus === "bsc"
-            ? "BSC"
-            : chainFocus === "solana"
-              ? "Solana"
-              : "EVM")
+          title: `${
+            focusedChainLabel ??
+            (chainFocus === "bsc"
+              ? "BSC"
+              : chainFocus === "solana"
+                ? "Solana"
+                : "EVM")
           } is using legacy raw RPC config.`,
-        body: "Re-save a supported provider in Settings to migrate fully.",
-        actionLabel: t("wallet.setup.configureRpc"),
-      }
-      : chainFocus === "bsc" && evmAddr && !bscReady
-        ? {
-          title: t("wallet.setup.rpcNotConfigured"),
-          body: t("portfolioheader.ConnectViaElizaCl"),
+          body: "Re-save a supported provider in Settings to migrate fully.",
           actionLabel: t("wallet.setup.configureRpc"),
         }
-        : chainFocus === "solana" && solAddr && !solanaReady
-          ? {
-            title: "Solana RPC is not configured.",
-            body: "Connect via Eliza Cloud or configure HELIUS_API_KEY / SOLANA_RPC_URL in Settings to load Solana balances.",
+      : chainFocus === "bsc" && evmAddr && !bscReady
+        ? {
+            title: t("wallet.setup.rpcNotConfigured"),
+            body: t("portfolioheader.ConnectViaElizaCl"),
             actionLabel: t("wallet.setup.configureRpc"),
           }
-          : chainFocus !== "all" &&
-            chainFocus !== "bsc" &&
-            chainFocus !== "solana" &&
-            evmAddr &&
-            !(chainFocus === "ethereum"
-              ? ethereumReady
-              : chainFocus === "base"
-                ? baseReady
-                : chainFocus === "avax"
-                  ? avaxReady
-                  : false)
-            ? {
-              title: `${focusedChainLabel ?? "Chain"} access is not configured.`,
-              body: `Connect via Eliza Cloud or configure ${focusedChainLabel ?? "this chain"} RPC access in Settings to load balances.`,
+        : chainFocus === "solana" && solAddr && !solanaReady
+          ? {
+              title: "Solana RPC is not configured.",
+              body: "Connect via Eliza Cloud or configure HELIUS_API_KEY / SOLANA_RPC_URL in Settings to load Solana balances.",
               actionLabel: t("wallet.setup.configureRpc"),
             }
+          : chainFocus !== "all" &&
+              chainFocus !== "bsc" &&
+              chainFocus !== "solana" &&
+              evmAddr &&
+              !(chainFocus === "ethereum"
+                ? ethereumReady
+                : chainFocus === "base"
+                  ? baseReady
+                  : chainFocus === "avax"
+                    ? avaxReady
+                    : false)
+            ? {
+                title: `${focusedChainLabel ?? "Chain"} access is not configured.`,
+                body: `Connect via Eliza Cloud or configure ${focusedChainLabel ?? "this chain"} RPC access in Settings to load balances.`,
+                actionLabel: t("wallet.setup.configureRpc"),
+              }
             : null;
 
   // ── Tracked token handlers ────────────────────────────────────────
@@ -268,10 +269,11 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
     return (
       <div className={inModal ? "p-6 h-full overflow-y-auto" : ""}>
         <div
-          className={`mt-4 border px-4 py-6 text-center ${inModal
+          className={`mt-4 border px-4 py-6 text-center ${
+            inModal
               ? "border-[var(--border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm rounded-xl"
               : "border-border bg-card"
-            }`}
+          }`}
         >
           <div className="text-sm font-bold mb-1">
             {t("wallet.noOnchainWallet")}
@@ -281,10 +283,11 @@ export function InventoryView({ inModal }: { inModal?: boolean } = {}) {
           </p>
           <button
             type="button"
-            className={`px-4 py-1.5 border cursor-pointer text-xs font-mono ${inModal
+            className={`px-4 py-1.5 border cursor-pointer text-xs font-mono ${
+              inModal
                 ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground,#1a1f26)] rounded-md hover:opacity-90"
                 : "border-accent bg-accent text-accent-fg hover:bg-accent-hover hover:border-accent-hover"
-              }`}
+            }`}
             onClick={() => setTab("settings")}
           >
             {t("nav.settings")}

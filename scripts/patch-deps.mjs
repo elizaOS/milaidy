@@ -97,7 +97,7 @@ function patchPluginPdfBrokenDefault() {
           );
         }
       }
-    } catch { }
+    } catch {}
   }
 
   let patched = 0;
@@ -145,7 +145,7 @@ function patchPluginSqlUUID() {
           );
         }
       }
-    } catch { }
+    } catch {}
   }
 
   let patched = 0;
@@ -195,7 +195,7 @@ function patchBrowserServerIndexExtension() {
           );
         }
       }
-    } catch { }
+    } catch {}
   }
 
   let patched = 0;
@@ -310,7 +310,7 @@ function patchAvatarLoaderLinearProgress() {
           );
         }
       }
-    } catch { }
+    } catch {}
   }
 
   let patched = 0;

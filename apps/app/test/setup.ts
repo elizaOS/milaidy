@@ -98,10 +98,10 @@ vi.mock("@miladyai/app-core/bridge/electrobun-rpc", () => {
           );
         };
       }
-      return () => { };
+      return () => {};
     },
-    initializeCapacitorBridge: () => { },
-    initializeStorageBridge: async () => { },
+    initializeCapacitorBridge: () => {},
+    initializeStorageBridge: async () => {},
     ElectrobunRendererRpc: {},
   };
 });
@@ -148,10 +148,10 @@ vi.mock("@miladyai/app-core/bridge", () => {
           );
         };
       }
-      return () => { };
+      return () => {};
     },
-    initializeCapacitorBridge: () => { },
-    initializeStorageBridge: async () => { },
+    initializeCapacitorBridge: () => {},
+    initializeStorageBridge: async () => {},
     ElectrobunRendererRpc: {},
   };
 });
@@ -320,11 +320,11 @@ function createMockStorage(): Storage {
 function hasStorageApi(value: unknown): value is Storage {
   return Boolean(
     value &&
-    typeof value === "object" &&
-    typeof (value as Storage).getItem === "function" &&
-    typeof (value as Storage).setItem === "function" &&
-    typeof (value as Storage).removeItem === "function" &&
-    typeof (value as Storage).clear === "function",
+      typeof value === "object" &&
+      typeof (value as Storage).getItem === "function" &&
+      typeof (value as Storage).setItem === "function" &&
+      typeof (value as Storage).removeItem === "function" &&
+      typeof (value as Storage).clear === "function",
   );
 }
 
@@ -541,8 +541,8 @@ if (typeof globalThis.AudioContext === "undefined") {
         length: 44100,
         sampleRate: 44100,
       }));
-      resume = vi.fn(async () => { });
-      close = vi.fn(async () => { });
+      resume = vi.fn(async () => {});
+      close = vi.fn(async () => {});
     },
     writable: true,
     configurable: true,

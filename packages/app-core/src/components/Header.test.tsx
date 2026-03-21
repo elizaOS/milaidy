@@ -376,7 +376,7 @@ describe("Header", () => {
     );
     expect(
       rightControlChildren[rightControlChildren.length - 1]?.props[
-      "aria-label"
+        "aria-label"
       ],
     ).toBe("Open navigation menu");
 

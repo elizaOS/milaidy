@@ -100,7 +100,7 @@ const hoisted = vi.hoisted(() => {
     render: vi.fn(),
     dispose: vi.fn(),
     domElement: {} as HTMLCanvasElement,
-    init: vi.fn(async () => { }),
+    init: vi.fn(async () => {}),
   };
   const mockMToonMaterialLoaderPlugin = vi.fn(
     function MockMToonMaterialLoaderPlugin(
@@ -254,7 +254,7 @@ vi.mock("three", () => {
     };
   }
 
-  class MockAmbientLight { }
+  class MockAmbientLight {}
 
   class MockVector3 {
     x = 0;
@@ -346,7 +346,7 @@ vi.mock("three", () => {
       rotation = { x: 0, y: 0, z: 0 };
       receiveShadow = false;
     },
-    PlaneGeometry: class MockPlaneGeometry { },
+    PlaneGeometry: class MockPlaneGeometry {},
     MeshBasicMaterial: class MockMeshBasicMaterial {
       opacity = 1;
       dispose = vi.fn();
@@ -405,7 +405,7 @@ vi.mock("@sparkjsdev/spark", () => ({
       this.modifier = modifier;
     }
   },
-  SplatGenerator: class MockSplatGenerator { },
+  SplatGenerator: class MockSplatGenerator {},
   SplatMesh: class MockSplatMesh {
     initialized = Promise.resolve();
     packedSplats = { numSplats: 0 };
@@ -470,7 +470,7 @@ vi.mock("@pixiv/three-vrm", () => ({
 }));
 
 vi.mock("@pixiv/three-vrm/nodes", () => ({
-  MToonNodeMaterial: class MockMToonNodeMaterial { },
+  MToonNodeMaterial: class MockMToonNodeMaterial {},
 }));
 
 vi.mock("three/examples/jsm/loaders/GLTFLoader.js", () => ({
@@ -891,7 +891,11 @@ describe("VrmEngine", () => {
 
     it("setDragOrbitTarget clamps yaw and pitch within bounds", () => {
       const engineAny = engine as unknown as {
-        dragOrbitTarget: { x: number; y: number; set: ReturnType<typeof vi.fn> };
+        dragOrbitTarget: {
+          x: number;
+          y: number;
+          set: ReturnType<typeof vi.fn>;
+        };
       };
 
       engine.setDragOrbitTarget(0.3, -0.2);
@@ -905,7 +909,11 @@ describe("VrmEngine", () => {
 
     it("resetDragOrbit sets target back to zero", () => {
       const engineAny = engine as unknown as {
-        dragOrbitTarget: { x: number; y: number; set: ReturnType<typeof vi.fn> };
+        dragOrbitTarget: {
+          x: number;
+          y: number;
+          set: ReturnType<typeof vi.fn>;
+        };
       };
 
       engine.setDragOrbitTarget(0.3, 0.2);
@@ -920,7 +928,10 @@ describe("VrmEngine", () => {
       await waitForEngineReady(engine);
 
       const engineAny = engine as unknown as {
-        baseCameraPosition: { copy: ReturnType<typeof vi.fn>; lengthSq: ReturnType<typeof vi.fn> };
+        baseCameraPosition: {
+          copy: ReturnType<typeof vi.fn>;
+          lengthSq: ReturnType<typeof vi.fn>;
+        };
       };
 
       // baseCameraPosition.copy should have been called during async init
@@ -1365,7 +1376,7 @@ describe("VrmEngine", () => {
       const engineAny = engine as unknown as {
         emoteTimeout: ReturnType<typeof setTimeout> | null;
       };
-      engineAny.emoteTimeout = setTimeout(() => { }, 10_000);
+      engineAny.emoteTimeout = setTimeout(() => {}, 10_000);
 
       engine.stopEmote();
 

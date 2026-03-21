@@ -11,12 +11,12 @@
  * Pure-function tests — no live server needed.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../src/config/config";
+import type { MiladyConfig } from "@miladyai/app-core/src/config/config";
 import {
   applyCloudConfigToEnv,
   buildCharacterFromConfig,
   collectPluginNames,
-} from "../src/runtime/eliza";
+} from "@miladyai/app-core/src/runtime/eliza";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helper

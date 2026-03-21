@@ -20,10 +20,6 @@
     "useUnknownInCatchVariables": true,
     "types": ["vite/client"]
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "../../packages/app-core/src/types/react-test-renderer.d.ts"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "ios", "android", "electrobun"]
 }

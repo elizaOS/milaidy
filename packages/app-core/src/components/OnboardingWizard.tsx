@@ -28,13 +28,15 @@ const FORCE_VRM =
 
 const DISABLE_ONBOARDING_VRM =
   !FORCE_VRM &&
-  (String(import.meta.env.VITE_E2E_DISABLE_VRM ?? "").toLowerCase() === "true" ||
+  (String(import.meta.env.VITE_E2E_DISABLE_VRM ?? "").toLowerCase() ===
+    "true" ||
     String(import.meta.env.VITE_E2E_DISABLE_VRM ?? "") === "1");
 
 export function OnboardingWizard() {
   const branding = useBranding();
   const isEliza = branding.appName === "Eliza";
-  const disableVrm = !FORCE_VRM && (DISABLE_ONBOARDING_VRM || isEliza || !COMPANION_ENABLED);
+  const disableVrm =
+    !FORCE_VRM && (DISABLE_ONBOARDING_VRM || isEliza || !COMPANION_ENABLED);
   const [revealStarted, setRevealStarted] = useState(disableVrm);
 
   const {
@@ -94,7 +96,6 @@ export function OnboardingWizard() {
 
   return (
     <div className="onboarding-screen">
-
       {/* Keep browser E2E runs lightweight and deterministic by skipping VRM boot. */}
       {disableVrm ? (
         <div

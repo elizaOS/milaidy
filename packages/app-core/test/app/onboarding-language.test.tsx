@@ -102,13 +102,13 @@ function createOnboardingContext(
     elizaCloudConnected: false,
     elizaCloudLoginBusy: false,
     elizaCloudLoginError: "",
-    handleOnboardingNext: vi.fn(async () => { }),
+    handleOnboardingNext: vi.fn(async () => {}),
     handleOnboardingBack: vi.fn(),
-    handleOnboardingRemoteConnect: vi.fn(async () => { }),
+    handleOnboardingRemoteConnect: vi.fn(async () => {}),
     handleOnboardingUseLocalBackend: vi.fn(),
     setState: vi.fn(),
     setTheme: vi.fn(),
-    handleCloudLogin: vi.fn(async () => { }),
+    handleCloudLogin: vi.fn(async () => {}),
     ...overrides,
   };
 }

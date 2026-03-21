@@ -33,12 +33,12 @@ const MODEL_SIZES: Array<{
   id: NonNullable<SwabbleConfig["modelSize"]>;
   hint: string;
 }> = [
-    { id: "tiny", hint: "(faster)" },
-    { id: "base", hint: "(recommended)" },
-    { id: "small", hint: "" },
-    { id: "medium", hint: "(accurate)" },
-    { id: "large", hint: "(accurate)" },
-  ];
+  { id: "tiny", hint: "(faster)" },
+  { id: "base", hint: "(recommended)" },
+  { id: "small", hint: "" },
+  { id: "medium", hint: "(accurate)" },
+  { id: "large", hint: "(accurate)" },
+];
 
 function WakeWordSection({
   serverConfig,
@@ -182,13 +182,15 @@ function WakeWordSection({
         <button
           type="button"
           onClick={() => void handleToggle()}
-          className={`relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors ${enabled ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-            }`}
+          className={`relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors ${
+            enabled ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+          }`}
           aria-label={enabled ? "Disable wake word" : "Enable wake word"}
         >
           <span
-            className={`inline-block h-3.5 w-3.5 rounded-full bg-bg shadow transition-transform ${enabled ? "translate-x-4" : "translate-x-0.5"
-              }`}
+            className={`inline-block h-3.5 w-3.5 rounded-full bg-bg shadow transition-transform ${
+              enabled ? "translate-x-4" : "translate-x-0.5"
+            }`}
           />
         </button>
       </div>
@@ -416,10 +418,10 @@ export function VoiceConfigView() {
       const normalizedElevenLabs =
         provider === "elevenlabs"
           ? {
-            ...voiceConfig.elevenlabs,
-            modelId:
-              voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_FAST_MODEL,
-          }
+              ...voiceConfig.elevenlabs,
+              modelId:
+                voiceConfig.elevenlabs?.modelId ?? DEFAULT_ELEVEN_FAST_MODEL,
+            }
           : voiceConfig.elevenlabs;
       const sanitizedKey = sanitizeApiKey(normalizedElevenLabs?.apiKey);
       if (normalizedElevenLabs) {
@@ -512,10 +514,11 @@ export function VoiceConfigView() {
             : `${providerInfo?.label} — ${t("voiceconfigview.NoApiKeyNeeded")}`}
         </span>
         <span
-          className={`rounded-full border px-1.5 py-0.5 text-[10px] ${isConfigured
+          className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
+            isConfigured
               ? "border-[var(--ok)] bg-[var(--ok)]/10 text-[var(--text)]"
               : "border-[var(--warn)] bg-[var(--warn-subtle)] text-[var(--text)]"
-            }`}
+          }`}
         >
           {isConfigured
             ? t("mediasettingssection.Configured")
@@ -591,10 +594,11 @@ export function VoiceConfigView() {
                   <button
                     key={preset.id}
                     type="button"
-                    className={`h-auto flex flex-col items-start py-2.5 px-3 text-left rounded-lg border transition-all cursor-pointer ${active
+                    className={`h-auto flex flex-col items-start py-2.5 px-3 text-left rounded-lg border transition-all cursor-pointer ${
+                      active
                         ? "border-[var(--accent)] bg-[var(--accent)]/8 text-[var(--text)]"
                         : "border-[var(--border)] bg-[var(--bg-accent)] text-[var(--text)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
-                      }`}
+                    }`}
                     onClick={() => handleVoiceSelect(preset.voiceId)}
                   >
                     <div className="font-semibold text-xs truncate w-full">
@@ -622,8 +626,8 @@ export function VoiceConfigView() {
                 {testing
                   ? t("voiceconfigview.Playing")
                   : t("voiceconfigview.TestVoice", {
-                    name: selectedPreset.name,
-                  })}
+                      name: selectedPreset.name,
+                    })}
               </Button>
               {testing && (
                 <Button

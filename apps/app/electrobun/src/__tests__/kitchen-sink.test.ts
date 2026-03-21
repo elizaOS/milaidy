@@ -4158,7 +4158,7 @@ describe("Deep links and URL schemes (automated)", () => {
     const fs = await vi.importActual<typeof import("node:fs")>("node:fs");
     const path = await vi.importActual<typeof import("node:path")>("node:path");
     const mainSource = fs.readFileSync(
-      path.resolve(__dirname, "../../../src/main.tsx"),
+      path.resolve(__dirname, "@miladyai/app-core/src/main.tsx"),
       "utf8",
     );
     expect(mainSource).toContain("milady:");
@@ -4169,7 +4169,7 @@ describe("Deep links and URL schemes (automated)", () => {
     const fs = await vi.importActual<typeof import("node:fs")>("node:fs");
     const path = await vi.importActual<typeof import("node:path")>("node:path");
     const mainSource = fs.readFileSync(
-      path.resolve(__dirname, "../../../src/main.tsx"),
+      path.resolve(__dirname, "@miladyai/app-core/src/main.tsx"),
       "utf8",
     );
     expect(mainSource).toContain('"chat"');
@@ -4182,7 +4182,7 @@ describe("Deep links and URL schemes (automated)", () => {
     const fs = await vi.importActual<typeof import("node:fs")>("node:fs");
     const path = await vi.importActual<typeof import("node:path")>("node:path");
     const mainSource = fs.readFileSync(
-      path.resolve(__dirname, "../../../src/main.tsx"),
+      path.resolve(__dirname, "@miladyai/app-core/src/main.tsx"),
       "utf8",
     );
     expect(mainSource).toContain("https:");

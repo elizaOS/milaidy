@@ -1,6 +1,14 @@
-export * from "./App";
-export * from "./api/client";
-export * from "./events";
-export * from "./navigation";
-// Note: types/index.ts has overlapping exports with api/client.ts
-// Use "@miladyai/app-core/types" directly for type-only imports
+/**
+ * Public entry point for the eliza package.
+ *
+ * Config types are the primary public API surface.
+ * @module eliza
+ */
+
+export * from "./config/types";
+export type { RestartHandler } from "./runtime/restart";
+export {
+  RESTART_EXIT_CODE,
+  requestRestart,
+  setRestartHandler,
+} from "./runtime/restart";

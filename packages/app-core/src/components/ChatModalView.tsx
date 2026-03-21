@@ -85,8 +85,9 @@ export const ChatModalView = memo(function ChatModalView({
       data-chat-game-dock={isCompanionDock || undefined}
     >
       <div
-        className={`flex-1 flex flex-col min-h-0 relative rounded-2xl bg-transparent ${isCompanionDock ? "overflow-visible" : "overflow-hidden"
-          }`}
+        className={`flex-1 flex flex-col min-h-0 relative rounded-2xl bg-transparent ${
+          isCompanionDock ? "overflow-visible" : "overflow-hidden"
+        }`}
         data-chat-game-shell
       >
         {isCompanionDock && showSidebar && isNarrow && (
@@ -96,21 +97,23 @@ export const ChatModalView = memo(function ChatModalView({
         )}
         <div className="flex-1 flex min-h-0">
           <aside
-            className={`w-[276px] shrink-0 border-r border-white/10 flex flex-col bg-black/20 ${mobileSidebarOpen
+            className={`w-[276px] shrink-0 border-r border-white/10 flex flex-col bg-black/20 ${
+              mobileSidebarOpen
                 ? "block"
                 : companionSidebarVisible
                   ? "hidden md:flex"
                   : isCompanionDock
                     ? "hidden"
                     : "hidden md:flex"
-              }`}
+            }`}
             data-chat-game-sidebar
           >
             <ConversationsSidebar variant="game-modal" />
           </aside>
           <section
-            className={`flex-1 flex flex-col min-w-0 bg-transparent relative ${isCompanionDock ? "overflow-visible" : ""
-              }`}
+            className={`flex-1 flex flex-col min-w-0 bg-transparent relative ${
+              isCompanionDock ? "overflow-visible" : ""
+            }`}
             data-chat-game-thread
           >
             <ChatView variant="game-modal" />

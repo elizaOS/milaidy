@@ -171,13 +171,13 @@ function createUseAppMock(
     importError: null,
     importSuccess: null,
     loadPlugins: vi.fn(),
-    loadTriggers: vi.fn(async () => { }),
+    loadTriggers: vi.fn(async () => {}),
     createTrigger: vi.fn(async () => null),
     updateTrigger: vi.fn(async () => null),
     deleteTrigger: vi.fn(async () => true),
     runTriggerNow: vi.fn(async () => true),
-    loadTriggerRuns: vi.fn(async () => { }),
-    loadTriggerHealth: vi.fn(async () => { }),
+    loadTriggerRuns: vi.fn(async () => {}),
+    loadTriggerHealth: vi.fn(async () => {}),
     handlePluginToggle: vi.fn().mockImplementation((pluginName: string) => {
       const plugin = state.plugins.find((p) => p.name === pluginName);
       if (plugin) plugin.enabled = !plugin.enabled;

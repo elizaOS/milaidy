@@ -382,12 +382,13 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
 
           <div className="flex items-center gap-2">
             <span
-              className={`rounded-full px-2 py-1 text-[11px] font-medium ${error
+              className={`rounded-full px-2 py-1 text-[11px] font-medium ${
+                error
                   ? "bg-danger/20 text-danger"
                   : ready
                     ? "bg-ok/20 text-ok"
                     : "bg-warn/20 text-warn"
-                }`}
+              }`}
             >
               {error ? "error" : ready ? "ready" : "booting"}
             </span>
@@ -418,28 +419,32 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
 
       <div className="grid flex-1 min-h-[360px] grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
         <div
-          className={`${panelCls} min-h-[280px] ${popoutMode ? "" : "pointer-events-none select-none"
-            }`}
+          className={`${panelCls} min-h-[280px] ${
+            popoutMode ? "" : "pointer-events-none select-none"
+          }`}
         >
           <div
-            className={`px-3 py-2 text-xs font-semibold border-b ${inModal
+            className={`px-3 py-2 text-xs font-semibold border-b ${
+              inModal
                 ? "border-[var(--border)] text-[var(--txt)]"
                 : "border-border text-txt"
-              }`}
+            }`}
           >
             {t("lifosandboxview.Explorer")}
           </div>
           <div ref={explorerRef} className="h-[calc(100%-37px)] w-full" />
         </div>
         <div
-          className={`${panelCls} min-h-[280px] ${popoutMode ? "" : "pointer-events-none select-none"
-            }`}
+          className={`${panelCls} min-h-[280px] ${
+            popoutMode ? "" : "pointer-events-none select-none"
+          }`}
         >
           <div
-            className={`px-3 py-2 text-xs font-semibold border-b ${inModal
+            className={`px-3 py-2 text-xs font-semibold border-b ${
+              inModal
                 ? "border-[var(--border)] text-[var(--txt)]"
                 : "border-border text-txt"
-              }`}
+            }`}
           >
             {t("lifosandboxview.Terminal")}
           </div>
@@ -466,10 +471,11 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
       />
 
       <div
-        className={`${inModal
+        className={`${
+          inModal
             ? "rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.04)] backdrop-blur-sm"
             : "rounded-xl border border-border bg-panel"
-          } p-3 min-h-[140px] max-h-[220px] overflow-auto`}
+        } p-3 min-h-[140px] max-h-[220px] overflow-auto`}
       >
         <div
           className={`text-xs font-semibold ${inModal ? "text-[var(--txt)]" : "text-txt"}`}
@@ -477,8 +483,9 @@ export function LifoSandboxView({ inModal }: { inModal?: boolean } = {}) {
           {t("lifosandboxview.AgentReplayLog")}
         </div>
         <pre
-          className={`mt-2 whitespace-pre-wrap break-words text-[11px] font-mono ${inModal ? "text-[var(--muted)]" : "text-muted"
-            }`}
+          className={`mt-2 whitespace-pre-wrap break-words text-[11px] font-mono ${
+            inModal ? "text-[var(--muted)]" : "text-muted"
+          }`}
         >
           {output.length > 0
             ? output.join("\n")

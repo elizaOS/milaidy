@@ -1209,7 +1209,7 @@ if (uiOnly) {
           filePath,
         ]),
         "--watch",
-        "src/runtime/dev-server.ts",
+        "packages/app-core/src/runtime/dev-server.ts",
       ]
     : [
         "node",
@@ -1217,7 +1217,7 @@ if (uiOnly) {
         "--import",
         "tsx",
         "--watch",
-        "src/runtime/dev-server.ts",
+        "packages/app-core/src/runtime/dev-server.ts",
       ];
   apiProcess = spawn(apiCmd[0], apiCmd.slice(1), {
     cwd,

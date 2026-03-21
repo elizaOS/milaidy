@@ -473,7 +473,7 @@ async function loadGltfAsset(
     const reader = response.body.getReader();
     let received = 0;
     const chunks: Uint8Array[] = [];
-    for (; ;) {
+    for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       if (value) {
@@ -763,10 +763,10 @@ export class VrmEngine {
     neckBone: THREE.Object3D | null;
     spineBone: THREE.Object3D | null;
   } = {
-      headBone: null,
-      neckBone: null,
-      spineBone: null,
-    };
+    headBone: null,
+    neckBone: null,
+    spineBone: null,
+  };
   private readonly tempCameraOrbitOffset = new THREE.Vector3();
   private readonly tempCameraSpherical = new THREE.Spherical();
   private readonly tempAvatarLookTarget = new THREE.Vector3();
@@ -917,42 +917,42 @@ export class VrmEngine {
       "dyno" in spark ? Reflect.get(spark as object, "dyno") : undefined
     ) as
       | {
-        Gsplat: unknown;
-        dynoBlock: (
-          inTypes: Record<string, unknown>,
-          outTypes: Record<string, unknown>,
-          construct: (
-            inputs: Record<string, unknown>,
-          ) => Record<string, unknown>,
-        ) => unknown;
-        dynoFloat: (value?: number, key?: string) => { value: number };
-        dynoVec3: (
-          value?: THREE.Vector3,
-          key?: string,
-        ) => { value: THREE.Vector3 };
-        dynoConst: (type: string, value: number) => unknown;
-        splitGsplat: (gsplat: unknown) => {
-          outputs: {
-            center: unknown;
-            scales: unknown;
-            rgb: unknown;
-            opacity: unknown;
+          Gsplat: unknown;
+          dynoBlock: (
+            inTypes: Record<string, unknown>,
+            outTypes: Record<string, unknown>,
+            construct: (
+              inputs: Record<string, unknown>,
+            ) => Record<string, unknown>,
+          ) => unknown;
+          dynoFloat: (value?: number, key?: string) => { value: number };
+          dynoVec3: (
+            value?: THREE.Vector3,
+            key?: string,
+          ) => { value: THREE.Vector3 };
+          dynoConst: (type: string, value: number) => unknown;
+          splitGsplat: (gsplat: unknown) => {
+            outputs: {
+              center: unknown;
+              scales: unknown;
+              rgb: unknown;
+              opacity: unknown;
+            };
           };
-        };
-        combineGsplat: (value: Record<string, unknown>) => unknown;
-        add: (a: unknown, b: unknown) => unknown;
-        sub: (a: unknown, b: unknown) => unknown;
-        mul: (a: unknown, b: unknown) => unknown;
-        div: (a: unknown, b: unknown) => unknown;
-        abs: (a: unknown) => unknown;
-        clamp: (a: unknown, min: unknown, max: unknown) => unknown;
-        max: (a: unknown, b: unknown) => unknown;
-        mix: (a: unknown, b: unknown, t: unknown) => unknown;
-        smoothstep: (edge0: unknown, edge1: unknown, x: unknown) => unknown;
-        pow: (a: unknown, b: unknown) => unknown;
-        length: (a: unknown) => unknown;
-        swizzle: (a: unknown, select: string) => unknown;
-      }
+          combineGsplat: (value: Record<string, unknown>) => unknown;
+          add: (a: unknown, b: unknown) => unknown;
+          sub: (a: unknown, b: unknown) => unknown;
+          mul: (a: unknown, b: unknown) => unknown;
+          div: (a: unknown, b: unknown) => unknown;
+          abs: (a: unknown) => unknown;
+          clamp: (a: unknown, min: unknown, max: unknown) => unknown;
+          max: (a: unknown, b: unknown) => unknown;
+          mix: (a: unknown, b: unknown, t: unknown) => unknown;
+          smoothstep: (edge0: unknown, edge1: unknown, x: unknown) => unknown;
+          pow: (a: unknown, b: unknown) => unknown;
+          length: (a: unknown) => unknown;
+          swizzle: (a: unknown, select: string) => unknown;
+        }
       | undefined;
     if (
       !dyno?.Gsplat ||
@@ -1436,10 +1436,10 @@ export class VrmEngine {
 
     const cameraRotation = this.camera
       ? new THREE.Vector3(
-        this.camera.rotation.x,
-        this.camera.rotation.y,
-        this.camera.rotation.z,
-      )
+          this.camera.rotation.x,
+          this.camera.rotation.y,
+          this.camera.rotation.z,
+        )
       : null;
     const lookAtTarget =
       this.toDebugVector3(this.lookAtTarget) ??
@@ -1927,9 +1927,19 @@ export class VrmEngine {
     await this.ensureSparkRenderer();
     // Re-check after async — the engine may have been disposed during the
     // await (e.g. React StrictMode double-mount or rapid navigation).
-    if (!this.scene || this.loadingAborted || requestId !== this.worldLoadRequestId) return;
+    if (
+      !this.scene ||
+      this.loadingAborted ||
+      requestId !== this.worldLoadRequestId
+    )
+      return;
     const spark = await this.loadSparkModule();
-    if (!this.scene || this.loadingAborted || requestId !== this.worldLoadRequestId) return;
+    if (
+      !this.scene ||
+      this.loadingAborted ||
+      requestId !== this.worldLoadRequestId
+    )
+      return;
     const { SplatMesh } = spark;
     let worldAnchor = new THREE.Vector3(0, 0, 0);
     let worldRevealRadius = 1;
@@ -1974,7 +1984,7 @@ export class VrmEngine {
     const incomingRevealRadius = Math.max(
       worldRevealRadius * COMPANION_WORLD_SCALE,
       getRobustSplatRadialExtent(splat, worldCenterBottom) *
-      COMPANION_WORLD_SCALE,
+        COMPANION_WORLD_SCALE,
     );
     let outgoingAnchor: THREE.Vector3 | null = null;
     let sharedRevealRadius = incomingRevealRadius;
@@ -1983,7 +1993,7 @@ export class VrmEngine {
       sharedRevealRadius = Math.max(
         sharedRevealRadius,
         getRobustSplatRadialExtent(outgoingWorld, outgoingAnchor) *
-        COMPANION_WORLD_SCALE,
+          COMPANION_WORLD_SCALE,
       );
     }
 
@@ -2310,8 +2320,8 @@ export class VrmEngine {
             | undefined;
           mat.opacityNode = origOpacity
             ? (((origOpacity as { mul: (value: unknown) => unknown }).mul(
-              dissolveAlpha,
-            ) as unknown as TslMaterialNode) ?? dissolveAlpha)
+                dissolveAlpha,
+              ) as unknown as TslMaterialNode) ?? dissolveAlpha)
             : dissolveAlpha;
 
           const matWithEmissive = mat as MeshStandardMaterialWithNodeProps;
@@ -2321,8 +2331,8 @@ export class VrmEngine {
             | undefined;
           matWithEmissive.emissiveNode = origEmissive
             ? ((origEmissive as { add: (value: unknown) => unknown }).add(
-              emissiveBoost,
-            ) as unknown as TslMaterialNode)
+                emissiveBoost,
+              ) as unknown as TslMaterialNode)
             : (emissiveBoost as TslMaterialNode);
 
           mat.alphaTest = 0.01;
@@ -2461,7 +2471,7 @@ if (teleportNoise < teleportRatio) discard;
         baseSize:
           TELEPORT_SPARKLE_MIN_SIZE +
           Math.random() *
-          (TELEPORT_SPARKLE_MAX_SIZE - TELEPORT_SPARKLE_MIN_SIZE),
+            (TELEPORT_SPARKLE_MAX_SIZE - TELEPORT_SPARKLE_MIN_SIZE),
       });
     }
 
@@ -2596,7 +2606,9 @@ if (teleportNoise < teleportRatio) discard;
           this.cleanupTeleportSparkles();
           // Notify the app that the teleport-in animation has finished
           if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("eliza:vrm-teleport-complete"));
+            window.dispatchEvent(
+              new CustomEvent("eliza:vrm-teleport-complete"),
+            );
           }
         }
       }
@@ -2844,10 +2856,7 @@ if (teleportNoise < teleportRatio) discard;
 
     // Capture the canvas
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(
-        (b) => resolve(b),
-        "image/png",
-      );
+      canvas.toBlob((b) => resolve(b), "image/png");
     });
 
     // Restore previous renderer state

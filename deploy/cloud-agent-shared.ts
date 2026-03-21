@@ -190,9 +190,7 @@ export function startCloudAgent(userConfig: CloudAgentConfig = {}): void {
             roomId,
             content: {
               text,
-              ...(enableChatMode
-                ? { mode, simple: mode === "simple" }
-                : {}),
+              ...(enableChatMode ? { mode, simple: mode === "simple" } : {}),
               source: "cloud-bridge",
               channelType: ChannelType.DM,
             },
@@ -230,9 +228,7 @@ export function startCloudAgent(userConfig: CloudAgentConfig = {}): void {
             roomId,
             content: {
               text,
-              ...(enableChatMode
-                ? { mode, simple: mode === "simple" }
-                : {}),
+              ...(enableChatMode ? { mode, simple: mode === "simple" } : {}),
               source: "cloud-bridge",
               channelType: ChannelType.DM,
             },
@@ -265,9 +261,7 @@ export function startCloudAgent(userConfig: CloudAgentConfig = {}): void {
         getConfig: () => state.config,
       };
 
-      console.log(
-        "[cloud-agent] elizaOS runtime initialized with real agent",
-      );
+      console.log("[cloud-agent] elizaOS runtime initialized with real agent");
     } else {
       console.warn(
         "[cloud-agent] @elizaos/core not available, running in echo mode",
@@ -404,9 +398,7 @@ export function startCloudAgent(userConfig: CloudAgentConfig = {}): void {
 
       if (rpc.method !== "message.send") {
         res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(
-          JSON.stringify({ error: "Only message.send is streamable" }),
-        );
+        res.end(JSON.stringify({ error: "Only message.send is streamable" }));
         return;
       }
 
@@ -537,9 +529,7 @@ export function startCloudAgent(userConfig: CloudAgentConfig = {}): void {
   });
 
   bridgeServer.listen(BRIDGE_PORT, "0.0.0.0", () => {
-    console.log(
-      `[cloud-agent] Bridge server listening on port ${BRIDGE_PORT}`,
-    );
+    console.log(`[cloud-agent] Bridge server listening on port ${BRIDGE_PORT}`);
     if (!BRIDGE_SECRET) {
       console.warn(
         "[cloud-agent] WARNING: BRIDGE_SECRET is not set — bridge server is running without authentication",

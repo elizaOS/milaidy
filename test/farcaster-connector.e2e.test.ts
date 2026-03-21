@@ -30,7 +30,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveFarcasterPluginImportSpecifier,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment Setup
@@ -872,7 +872,7 @@ describe("Farcaster Connector - Integration", () => {
   it("Farcaster is mapped in CONNECTOR_PLUGINS", async () => {
     const mod = await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[farcaster-connector] Workspace not built — skipping");
       return;
@@ -883,7 +883,7 @@ describe("Farcaster Connector - Integration", () => {
   it("Farcaster is mapped in CHANNEL_PLUGIN_MAP", async () => {
     const mod = await tryWorkspaceImport<{
       CHANNEL_PLUGIN_MAP: Record<string, string>;
-    }>("../src/runtime/eliza");
+    }>("@miladyai/app-core/src/runtime/eliza");
     if (!mod) {
       logger.warn("[farcaster-connector] Workspace not built — skipping");
       return;
@@ -897,7 +897,7 @@ describe("Farcaster Connector - Integration", () => {
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[farcaster-connector] Workspace not built — skipping");
       return;
@@ -916,7 +916,7 @@ describe("Farcaster Connector - Integration", () => {
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[farcaster-connector] Workspace not built — skipping");
       return;
@@ -933,7 +933,7 @@ describe("Farcaster Connector - Integration", () => {
   it("Farcaster connector is in CONNECTOR_PLUGINS list", async () => {
     const mod = await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[farcaster-connector] Workspace not built — skipping");
       return;
@@ -945,7 +945,7 @@ describe("Farcaster Connector - Integration", () => {
   it("collectPluginNames includes farcaster when configured", async () => {
     const mod = await tryWorkspaceImport<{
       collectPluginNames: (config: unknown) => Set<string>;
-    }>("../src/runtime/eliza");
+    }>("@miladyai/app-core/src/runtime/eliza");
     if (!mod) {
       logger.warn("[farcaster-connector] Workspace not built — skipping");
       return;

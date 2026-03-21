@@ -29,7 +29,10 @@ declare global {
 }
 
 function getAssets(): BundledVrmAsset[] {
-  if (typeof window !== "undefined" && Array.isArray(window.__APP_VRM_ASSETS__)) {
+  if (
+    typeof window !== "undefined" &&
+    Array.isArray(window.__APP_VRM_ASSETS__)
+  ) {
     return window.__APP_VRM_ASSETS__;
   }
   return DEFAULT_ASSETS;

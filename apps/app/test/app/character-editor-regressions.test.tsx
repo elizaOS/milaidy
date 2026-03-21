@@ -93,7 +93,7 @@ vi.mock("@miladyai/ui", () => {
   };
 });
 
-vi.mock("../../src/components/CharacterRoster", () => {
+vi.mock("@miladyai/app-core/src/components/CharacterRoster", () => {
   const React = require("react") as typeof import("react");
 
   return {
@@ -118,7 +118,7 @@ vi.mock("../../src/components/CharacterRoster", () => {
   };
 });
 
-import { CharacterEditor } from "../../src/components/CharacterEditor";
+import { CharacterEditor } from "@miladyai/app-core/src/components/CharacterEditor";
 
 function createAppState() {
   return {
@@ -142,7 +142,7 @@ function createAppState() {
     handleCharacterArrayInput: vi.fn(),
     handleCharacterStyleInput: vi.fn(),
     handleSaveCharacter: vi.fn(),
-    loadCharacter: vi.fn(async () => { }),
+    loadCharacter: vi.fn(async () => {}),
     setState: vi.fn(),
     onboardingOptions: {
       styles: [
@@ -164,10 +164,10 @@ function createAppState() {
     registryRegistering: false,
     registryError: null,
     dropStatus: null,
-    loadRegistryStatus: vi.fn(async () => { }),
-    registerOnChain: vi.fn(async () => { }),
-    syncRegistryProfile: vi.fn(async () => { }),
-    loadDropStatus: vi.fn(async () => { }),
+    loadRegistryStatus: vi.fn(async () => {}),
+    registerOnChain: vi.fn(async () => {}),
+    syncRegistryProfile: vi.fn(async () => {}),
+    loadDropStatus: vi.fn(async () => {}),
     walletConfig: null,
   };
 }

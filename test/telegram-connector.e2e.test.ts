@@ -34,7 +34,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveTelegramPluginImportSpecifier,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment Setup
@@ -56,9 +56,7 @@ const hasTelegramPlugin = TELEGRAM_PLUGIN_IMPORT !== null;
 
 const describeIfLive =
   hasTelegramPlugin && runLiveTests ? describe : describe.skip;
-const describeIfPluginAvailable = hasTelegramPlugin
-  ? describe
-  : describe.skip;
+const describeIfPluginAvailable = hasTelegramPlugin ? describe : describe.skip;
 
 logger.info(
   `[telegram-connector] Live tests ${runLiveTests ? "ENABLED" : "DISABLED"} (TELEGRAM_BOT_TOKEN=${hasTelegramToken}, TELEGRAM_TEST_CHAT_ID=${hasChatId}, MILADY_LIVE_TEST=${liveTestsEnabled})`,
@@ -145,131 +143,126 @@ const loadTelegramPlugin = async (): Promise<Plugin | null> => {
 // 1. Setup & Authentication Tests
 // ---------------------------------------------------------------------------
 
-describeIfPluginAvailable(
-  "Telegram Connector - Setup & Authentication",
-  () => {
-    it(
-      "can load the Telegram plugin without errors",
-      async () => {
-        const plugin = await loadTelegramPlugin();
+describeIfPluginAvailable("Telegram Connector - Setup & Authentication", () => {
+  it(
+    "can load the Telegram plugin without errors",
+    async () => {
+      const plugin = await loadTelegramPlugin();
 
-        expect(plugin).not.toBeNull();
-        if (plugin) {
-          expect(plugin.name).toBeDefined();
-        }
-      },
-      TEST_TIMEOUT,
-    );
+      expect(plugin).not.toBeNull();
+      if (plugin) {
+        expect(plugin.name).toBeDefined();
+      }
+    },
+    TEST_TIMEOUT,
+  );
 
-    it(
-      "Telegram plugin exports required structure",
-      async () => {
-        const plugin = await loadTelegramPlugin();
+  it(
+    "Telegram plugin exports required structure",
+    async () => {
+      const plugin = await loadTelegramPlugin();
 
-        expect(plugin).toBeDefined();
-        if (plugin) {
-          expect(plugin.name).toBeDefined();
-          expect(plugin.description).toBeDefined();
-        }
-      },
-      TEST_TIMEOUT,
-    );
+      expect(plugin).toBeDefined();
+      if (plugin) {
+        expect(plugin.name).toBeDefined();
+        expect(plugin.description).toBeDefined();
+      }
+    },
+    TEST_TIMEOUT,
+  );
 
-    describeIfLive("with real Telegram connection", () => {
-      let runtime: AgentRuntime | null = null;
-      let telegramPlugin: Plugin | null = null;
+  describeIfLive("with real Telegram connection", () => {
+    let runtime: AgentRuntime | null = null;
+    let telegramPlugin: Plugin | null = null;
 
-      beforeAll(async () => {
-        const plugin = await loadTelegramPlugin();
-        telegramPlugin = plugin;
+    beforeAll(async () => {
+      const plugin = await loadTelegramPlugin();
+      telegramPlugin = plugin;
 
-        if (!telegramPlugin) {
-          throw new Error("Failed to load Telegram plugin");
-        }
+      if (!telegramPlugin) {
+        throw new Error("Failed to load Telegram plugin");
+      }
 
-        const character = createCharacter({
-          name: "TelegramTestBot",
-          bio: ["Telegram connector test bot"],
-          system:
-            "You are a test bot for validating Telegram connector functionality.",
-        });
-
-        runtime = new AgentRuntime({
-          agentId: stringToUuid("telegram-test-agent"),
-          character,
-          plugins: [telegramPlugin],
-          token: process.env.TELEGRAM_BOT_TOKEN,
-          databaseAdapter: undefined as never,
-          serverUrl: "http://localhost:3000",
-        });
-      }, TEST_TIMEOUT);
-
-      afterAll(async () => {
-        if (runtime) {
-          // @ts-expect-error - cleanup method may not be in type
-          await runtime.cleanup?.();
-          runtime = null;
-        }
+      const character = createCharacter({
+        name: "TelegramTestBot",
+        bio: ["Telegram connector test bot"],
+        system:
+          "You are a test bot for validating Telegram connector functionality.",
       });
 
-      it(
-        "successfully authenticates with Telegram bot token",
-        async () => {
-          expect(runtime).not.toBeNull();
-          expect(process.env.TELEGRAM_BOT_TOKEN).toBeDefined();
-        },
-        TEST_TIMEOUT,
-      );
+      runtime = new AgentRuntime({
+        agentId: stringToUuid("telegram-test-agent"),
+        character,
+        plugins: [telegramPlugin],
+        token: process.env.TELEGRAM_BOT_TOKEN,
+        databaseAdapter: undefined as never,
+        serverUrl: "http://localhost:3000",
+      });
+    }, TEST_TIMEOUT);
 
-      it(
-        "bot connects after initialization",
-        async () => {
-          expect(runtime).not.toBeNull();
-          logger.info("[telegram-connector] Bot connection test passed");
-        },
-        TEST_TIMEOUT,
-      );
-
-      it(
-        "provides helpful error for invalid token",
-        async () => {
-          const invalidToken = "0000000000:invalid-token-12345";
-
-          try {
-            const plugin = await loadTelegramPlugin();
-            if (!plugin) {
-              throw new Error("Failed to load Telegram plugin");
-            }
-
-            const testCharacter = createCharacter({
-              name: "InvalidTokenBot",
-              bio: ["Test bot with invalid token"],
-            });
-
-            void new AgentRuntime({
-              agentId: stringToUuid("invalid-token-test"),
-              character: testCharacter,
-              plugins: plugin ? [plugin] : [],
-              token: invalidToken,
-              databaseAdapter: undefined as never,
-              serverUrl: "http://localhost:3000",
-            });
-
-            logger.warn(
-              "[telegram-connector] Invalid token test - runtime created but should fail on connect",
-            );
-          } catch (error) {
-            expect(error).toBeDefined();
-            logger.info(
-              `[telegram-connector] Invalid token error: ${error}`,
-            );
-          }
-        },
-        TEST_TIMEOUT,
-      );
+    afterAll(async () => {
+      if (runtime) {
+        // @ts-expect-error - cleanup method may not be in type
+        await runtime.cleanup?.();
+        runtime = null;
+      }
     });
-  },
-);
+
+    it(
+      "successfully authenticates with Telegram bot token",
+      async () => {
+        expect(runtime).not.toBeNull();
+        expect(process.env.TELEGRAM_BOT_TOKEN).toBeDefined();
+      },
+      TEST_TIMEOUT,
+    );
+
+    it(
+      "bot connects after initialization",
+      async () => {
+        expect(runtime).not.toBeNull();
+        logger.info("[telegram-connector] Bot connection test passed");
+      },
+      TEST_TIMEOUT,
+    );
+
+    it(
+      "provides helpful error for invalid token",
+      async () => {
+        const invalidToken = "0000000000:invalid-token-12345";
+
+        try {
+          const plugin = await loadTelegramPlugin();
+          if (!plugin) {
+            throw new Error("Failed to load Telegram plugin");
+          }
+
+          const testCharacter = createCharacter({
+            name: "InvalidTokenBot",
+            bio: ["Test bot with invalid token"],
+          });
+
+          void new AgentRuntime({
+            agentId: stringToUuid("invalid-token-test"),
+            character: testCharacter,
+            plugins: plugin ? [plugin] : [],
+            token: invalidToken,
+            databaseAdapter: undefined as never,
+            serverUrl: "http://localhost:3000",
+          });
+
+          logger.warn(
+            "[telegram-connector] Invalid token test - runtime created but should fail on connect",
+          );
+        } catch (error) {
+          expect(error).toBeDefined();
+          logger.info(`[telegram-connector] Invalid token error: ${error}`);
+        }
+      },
+      TEST_TIMEOUT,
+    );
+  });
+});
 
 // ---------------------------------------------------------------------------
 // 2. Message Handling Tests (live Bot API)
@@ -797,7 +790,7 @@ describeIfLive("Telegram Connector - Enhanced Features", () => {
 describe("Telegram Connector - Integration", () => {
   it("Telegram connector is mapped in plugin auto-enable", async () => {
     const { CONNECTOR_PLUGINS } = await import(
-      "../src/config/plugin-auto-enable"
+      "@miladyai/app-core/src/config/plugin-auto-enable"
     );
     expect(CONNECTOR_PLUGINS.telegram).toBe("@elizaos/plugin-telegram");
   });
@@ -819,7 +812,7 @@ describe("Telegram Connector - Integration", () => {
 
   it("Telegram is included in connector list", async () => {
     const { CONNECTOR_PLUGINS } = await import(
-      "../src/config/plugin-auto-enable"
+      "@miladyai/app-core/src/config/plugin-auto-enable"
     );
     const connectors = Object.keys(CONNECTOR_PLUGINS);
     expect(connectors).toContain("telegram");

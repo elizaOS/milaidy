@@ -582,15 +582,15 @@ describe("CharacterView UI", () => {
     expect(json).not.toBeNull();
     expect(
       json &&
-      !Array.isArray(json) &&
-      typeof json.props.className === "string" &&
-      json.props.className.includes("min-h-full"),
+        !Array.isArray(json) &&
+        typeof json.props.className === "string" &&
+        json.props.className.includes("min-h-full"),
     ).toBe(true);
     expect(
       json &&
-      !Array.isArray(json) &&
-      typeof json.props.className === "string" &&
-      json.props.className.includes("justify-end"),
+        !Array.isArray(json) &&
+        typeof json.props.className === "string" &&
+        json.props.className.includes("justify-end"),
     ).toBe(true);
   });
 

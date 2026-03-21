@@ -21,10 +21,11 @@ export function CloudSourceModeToggle({
         type="button"
         variant="ghost"
         size="sm"
-        className={`first:rounded-l-lg first:rounded-r-none last:rounded-l-none last:rounded-r-lg px-3 py-1.5 text-xs font-semibold transition-colors ${mode === "cloud"
+        className={`first:rounded-l-lg first:rounded-r-none last:rounded-l-none last:rounded-r-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+          mode === "cloud"
             ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent)]/90 hover:text-[var(--accent-foreground)]"
             : "bg-transparent text-[var(--muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
-          }`}
+        }`}
         onClick={() => onChange("cloud")}
       >
         {resolvedCloudLabel}
@@ -33,10 +34,11 @@ export function CloudSourceModeToggle({
         type="button"
         variant="ghost"
         size="sm"
-        className={`first:rounded-l-lg first:rounded-r-none last:rounded-l-none last:rounded-r-lg border-l border-[var(--border)] px-3 py-1.5 text-xs font-semibold transition-colors ${mode === "own-key"
+        className={`first:rounded-l-lg first:rounded-r-none last:rounded-l-none last:rounded-r-lg border-l border-[var(--border)] px-3 py-1.5 text-xs font-semibold transition-colors ${
+          mode === "own-key"
             ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent)]/90 hover:text-[var(--accent-foreground)]"
             : "bg-transparent text-[var(--muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
-          }`}
+        }`}
         onClick={() => onChange("own-key")}
       >
         {ownKeyLabel}
@@ -55,8 +57,7 @@ export function CloudConnectionStatus({
   disconnectedText: string;
 }) {
   const { t } = useApp();
-  const resolvedConnectedText =
-    connectedText ?? "Connected to Eliza Cloud";
+  const resolvedConnectedText = connectedText ?? "Connected to Eliza Cloud";
   return (
     <div className="flex items-center justify-between py-2.5 px-3 border border-[var(--border)] bg-[var(--bg-muted)]">
       {connected ? (

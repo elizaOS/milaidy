@@ -15,7 +15,7 @@ vi.mock("@miladyai/app-core/state", () => ({
 }));
 
 // Stub out the onboarding-presets to avoid pulling in the full preset data
-vi.mock("../../../../src/onboarding-presets", () => ({
+vi.mock("@miladyai/app-core/onboarding-presets", () => ({
   CHARACTER_PRESET_META: {
     chaotic: {
       name: "Chen",
@@ -35,7 +35,7 @@ vi.mock("../../../../src/onboarding-presets", () => ({
 import {
   CharacterRoster,
   type CharacterRosterEntry,
-} from "../../src/components/CharacterRoster";
+} from "@miladyai/app-core/src/components/CharacterRoster";
 
 const ENTRIES: CharacterRosterEntry[] = [
   {
@@ -62,7 +62,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId={null}
-          onSelect={() => { }}
+          onSelect={() => {}}
         />,
       );
     });
@@ -78,7 +78,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId={null}
-          onSelect={() => { }}
+          onSelect={() => {}}
         />,
       );
     });
@@ -105,7 +105,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId={null}
-          onSelect={() => { }}
+          onSelect={() => {}}
         />,
       );
     });
@@ -128,7 +128,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId={null}
-          onSelect={() => { }}
+          onSelect={() => {}}
         />,
       );
     });
@@ -146,7 +146,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={ENTRIES}
           selectedId="chaotic"
-          onSelect={() => { }}
+          onSelect={() => {}}
         />,
       );
     });
@@ -185,7 +185,7 @@ describe("CharacterRoster — accessibility attributes (P10-02)", () => {
         <CharacterRoster
           entries={entries}
           selectedId={null}
-          onSelect={() => { }}
+          onSelect={() => {}}
         />,
       );
     });

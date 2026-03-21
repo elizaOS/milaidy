@@ -18,27 +18,27 @@ const APPROVAL_PRESETS: {
   labelKey: string;
   descKey: string;
 }[] = [
-    {
-      value: "readonly",
-      labelKey: "codingagentsettingssection.PresetReadOnly",
-      descKey: "codingagentsettingssection.PresetReadOnlyDesc",
-    },
-    {
-      value: "standard",
-      labelKey: "codingagentsettingssection.PresetStandard",
-      descKey: "codingagentsettingssection.PresetStandardDesc",
-    },
-    {
-      value: "permissive",
-      labelKey: "codingagentsettingssection.PresetPermissive",
-      descKey: "codingagentsettingssection.PresetPermissiveDesc",
-    },
-    {
-      value: "autonomous",
-      labelKey: "codingagentsettingssection.PresetAutonomous",
-      descKey: "codingagentsettingssection.PresetAutonomousDesc",
-    },
-  ];
+  {
+    value: "readonly",
+    labelKey: "codingagentsettingssection.PresetReadOnly",
+    descKey: "codingagentsettingssection.PresetReadOnlyDesc",
+  },
+  {
+    value: "standard",
+    labelKey: "codingagentsettingssection.PresetStandard",
+    descKey: "codingagentsettingssection.PresetStandardDesc",
+  },
+  {
+    value: "permissive",
+    labelKey: "codingagentsettingssection.PresetPermissive",
+    descKey: "codingagentsettingssection.PresetPermissiveDesc",
+  },
+  {
+    value: "autonomous",
+    labelKey: "codingagentsettingssection.PresetAutonomous",
+    descKey: "codingagentsettingssection.PresetAutonomousDesc",
+  },
+];
 
 interface ModelOption {
   value: string;
@@ -314,8 +314,8 @@ export function CodingAgentSettingsSection() {
                 <span className="font-semibold">{AGENT_LABELS[agent]}:</span>{" "}
                 {preflight?.installCommand
                   ? `${t("codingagentsettingssection.InstallWith", {
-                    defaultValue: "Install with",
-                  })} ${preflight.installCommand}`
+                      defaultValue: "Install with",
+                    })} ${preflight.installCommand}`
                   : ""}
                 {preflight?.docsUrl ? ` (${preflight.docsUrl})` : ""}
               </div>
@@ -396,10 +396,10 @@ export function CodingAgentSettingsSection() {
           {APPROVAL_PRESETS.find((preset) => preset.value === approvalPreset)
             ?.descKey
             ? t(
-              APPROVAL_PRESETS.find(
-                (preset) => preset.value === approvalPreset,
-              )?.descKey ?? "",
-            )
+                APPROVAL_PRESETS.find(
+                  (preset) => preset.value === approvalPreset,
+                )?.descKey ?? "",
+              )
             : ""}
           {t("codingagentsettingssection.AppliesToAllNewlySpawned")}
         </div>
@@ -414,10 +414,11 @@ export function CodingAgentSettingsSection() {
               key={agent}
               variant={active ? "default" : "ghost"}
               size="sm"
-              className={`flex-1 h-9 rounded-lg border border-transparent px-3 py-2 text-xs font-semibold ${active
-                ? "bg-accent text-accent-foreground shadow-sm"
-                : "text-muted hover:bg-bg-hover hover:text-txt"
-                }`}
+              className={`flex-1 h-9 rounded-lg border border-transparent px-3 py-2 text-xs font-semibold ${
+                active
+                  ? "bg-accent text-accent-foreground shadow-sm"
+                  : "text-muted hover:bg-bg-hover hover:text-txt"
+              }`}
               onClick={() => setActiveTab(agent)}
             >
               <span className="inline-flex items-center gap-1.5">

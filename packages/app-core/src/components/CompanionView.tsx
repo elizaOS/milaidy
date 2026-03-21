@@ -1,6 +1,5 @@
 import { useRenderGuard } from "@miladyai/app-core/hooks";
 import { useApp } from "@miladyai/app-core/state";
-import { Button } from "@miladyai/ui";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
 import { memo, useCallback, useEffect } from "react";
 import { ChatModalView } from "./ChatModalView";
@@ -53,16 +52,20 @@ export const CompanionView = memo(function CompanionView() {
             data-testid="companion-header-chat-controls"
             data-no-camera-drag="true"
           >
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               aria-label={
-                chatAgentVoiceMuted ? t("companion.agentVoiceOff") : t("companion.agentVoiceOn")
+                chatAgentVoiceMuted
+                  ? t("companion.agentVoiceOff")
+                  : t("companion.agentVoiceOn")
               }
               aria-pressed={!chatAgentVoiceMuted}
-              title={chatAgentVoiceMuted ? t("companion.agentVoiceOff") : t("companion.agentVoiceOn")}
-              className="inline-flex h-11 min-h-[44px] min-w-[44px] select-none items-center rounded-full border border-border/50 bg-bg/50 px-4 text-sm font-medium text-txt shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-accent hover:text-txt hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] active:scale-95"
+              title={
+                chatAgentVoiceMuted
+                  ? t("companion.agentVoiceOff")
+                  : t("companion.agentVoiceOn")
+              }
+              className="inline-flex h-11 min-h-[44px] min-w-[44px] select-none items-center rounded-xl border border-border/50 bg-bg/50 px-4 text-sm font-medium text-txt shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-accent hover:text-txt hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] active:scale-95 cursor-pointer"
               onClick={() =>
                 setState("chatAgentVoiceMuted", !chatAgentVoiceMuted)
               }
@@ -73,19 +76,17 @@ export const CompanionView = memo(function CompanionView() {
                 <Volume2 className="mr-1.5 h-3.5 w-3.5" />
               )}
               {t("companion.voice")}
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               aria-label={t("companion.newChat")}
               title={t("companion.newChat")}
-              className="hidden h-11 min-h-[44px] min-w-[44px] select-none items-center rounded-full border border-border/50 bg-bg/50 px-4 text-sm font-medium text-txt shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-accent hover:text-txt hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] active:scale-95 sm:inline-flex"
+              className="hidden h-11 min-h-[44px] min-w-[44px] select-none items-center rounded-xl border border-border/50 bg-bg/50 px-4 text-sm font-medium text-txt shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-accent hover:text-txt hover:shadow-[0_0_15px_rgba(var(--accent),0.5)] active:scale-95 cursor-pointer sm:inline-flex"
               onClick={() => void handleStartDraftConversation()}
             >
               <MessageCircle className="mr-1 h-3.5 w-3.5" />
               {t("companion.newChat")}
-            </Button>
+            </button>
           </div>
         </div>
       </CompanionHeader>

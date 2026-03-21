@@ -12,7 +12,7 @@ export const SLANT_CLIP =
 export const INSET_CLIP =
   "polygon(0px 0, 100% 0, calc(100% - 4px) 100%, -8px 100%)";
 
-import { CHARACTER_PRESET_META } from "../../../../src/onboarding-presets";
+import { CHARACTER_PRESET_META } from "@miladyai/app-core/onboarding-presets";
 
 export { CHARACTER_PRESET_META };
 
@@ -31,7 +31,7 @@ export type CharacterRosterEntry = {
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
 export function resolveRosterEntries(
-  styles: readonly { catchphrase: string;[k: string]: unknown }[],
+  styles: readonly { catchphrase: string; [k: string]: unknown }[],
 ): CharacterRosterEntry[] {
   return styles.map((preset, index) => {
     const meta = CHARACTER_PRESET_META[preset.catchphrase];
@@ -70,10 +70,11 @@ export function CharacterRoster({
   if (entries.length === 0) {
     return (
       <div
-        className={`rounded-2xl border p-4 text-sm ${useWhiteBorders
+        className={`rounded-2xl border p-4 text-sm ${
+          useWhiteBorders
             ? "border-white/10 bg-black/10 text-white/50"
             : "border-border/40 bg-black/10 text-muted"
-          }`}
+        }`}
       >
         Loading character presets...
       </div>

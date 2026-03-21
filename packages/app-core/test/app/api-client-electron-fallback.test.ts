@@ -42,8 +42,7 @@ describe("ElizaClient Electron API fallback", () => {
   }
 
   it("does not probe localhost on capacitor-electron protocol before API base is injected", async () => {
-    (window as { __ELIZA_API_BASE__?: string }).__ELIZA_API_BASE__ =
-      undefined;
+    (window as { __ELIZA_API_BASE__?: string }).__ELIZA_API_BASE__ = undefined;
     setProtocol("capacitor-electron:");
 
     const fetchMock = vi.fn(async () => ({
@@ -102,8 +101,7 @@ describe("ElizaClient Electron API fallback", () => {
   });
 
   it("starts unavailable on capacitor-electron and switches to injected API base when injected later", async () => {
-    (window as { __ELIZA_API_BASE__?: string }).__ELIZA_API_BASE__ =
-      undefined;
+    (window as { __ELIZA_API_BASE__?: string }).__ELIZA_API_BASE__ = undefined;
     setProtocol("capacitor-electron:");
 
     const fetchMock = vi.fn(async () => ({

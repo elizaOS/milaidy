@@ -4,7 +4,7 @@ import {
   normalizeConfigForLocalProviderPreference,
   shouldMaskInactiveCloudStatus,
   shouldPreferLocalProviderConfig,
-} from "../../src/cloud-preference-patch";
+} from "@miladyai/app-core/src/cloud-preference-patch";
 
 describe("cloud preference patch", () => {
   it("normalizes inactive cloud config when a Claude subscription is already configured", () => {

@@ -159,13 +159,13 @@ function createTriggerRuntimeHarness(): TriggerRuntimeHarness {
       tasks = tasks.map((task) =>
         task.id === taskId
           ? {
-            ...task,
-            ...update,
-            metadata: {
-              ...(task.metadata ?? {}),
-              ...(update.metadata ?? {}),
-            },
-          }
+              ...task,
+              ...update,
+              metadata: {
+                ...(task.metadata ?? {}),
+                ...(update.metadata ?? {}),
+              },
+            }
           : task,
       );
     },

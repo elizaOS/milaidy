@@ -13,13 +13,7 @@ import {
   VOICE_CONFIG_UPDATED_EVENT,
 } from "@miladyai/app-core/events";
 import { COMPANION_ENABLED } from "@miladyai/app-core/navigation";
-import { normalizeGeneratedMessageExamples } from "../actions/character";
 import { useApp } from "@miladyai/app-core/state";
-import {
-  CharacterRoster,
-  type CharacterRosterEntry,
-  resolveRosterEntries,
-} from "./CharacterRoster";
 import {
   PREMADE_VOICES,
   sanitizeApiKey,
@@ -28,18 +22,28 @@ import {
 import { Button, Input, Textarea, ThemedSelect } from "@miladyai/ui";
 import { Lock, LockOpen, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { normalizeGeneratedMessageExamples } from "../actions/character";
+import {
+  CharacterRoster,
+  type CharacterRosterEntry,
+  resolveRosterEntries,
+} from "./CharacterRoster";
 
 const DEFAULT_ELEVEN_FAST_MODEL = "eleven_flash_v2_5";
 
 type StyleSectionKey = "all" | "chat" | "post";
 type CustomizeStep = "core" | "style" | "examples";
 const STYLE_SECTION_KEYS: StyleSectionKey[] = ["all", "chat", "post"];
-const getStyleSectionPlaceholders = (t: any): Record<StyleSectionKey, string> => ({
+const getStyleSectionPlaceholders = (
+  t: any,
+): Record<StyleSectionKey, string> => ({
   all: t("characterview.addSharedRule"),
   chat: t("characterview.addChatRule"),
   post: t("characterview.addPostRule"),
 });
-const getStyleSectionEmptyStates = (t: any): Record<StyleSectionKey, string> => ({
+const getStyleSectionEmptyStates = (
+  t: any,
+): Record<StyleSectionKey, string> => ({
   all: t("characterview.noSharedRules"),
   chat: t("characterview.noChatRules"),
   post: t("characterview.noPostRules"),
@@ -175,7 +179,6 @@ function characterDraftMatchesPreset(
   );
   return JSON.stringify(normalizedCurrent) === JSON.stringify(normalizedPreset);
 }
-
 
 function findMatchingRosterEntry(
   character: CharacterData | null,
@@ -631,7 +634,9 @@ export function CharacterView({
           setState(
             "characterSaveError",
             err instanceof Error
-              ? t("characterview.errorChatExamplesGenerate", { message: err.message })
+              ? t("characterview.errorChatExamplesGenerate", {
+                  message: err.message,
+                })
               : t("characterview.errorChatExamplesGenerateFallback"),
           );
         }
@@ -804,7 +809,9 @@ export function CharacterView({
 
   const handleSaveAll = useCallback(async () => {
     const trimmedName =
-      typeof characterDraft?.name === "string" ? characterDraft.name.trim() : "";
+      typeof characterDraft?.name === "string"
+        ? characterDraft.name.trim()
+        : "";
     if (!trimmedName) {
       setVoiceSaveError(null);
       setState("characterSaveSuccess", null);
@@ -826,7 +833,9 @@ export function CharacterView({
     } catch (err) {
       voiceSaveFailed = true;
       setVoiceSaveError(
-        err instanceof Error ? err.message : t("characterview.errorVoiceSaveFailed"),
+        err instanceof Error
+          ? err.message
+          : t("characterview.errorVoiceSaveFailed"),
       );
     } finally {
       setVoiceSaving(false);
@@ -882,8 +891,9 @@ export function CharacterView({
   const rootCls =
     sceneOverlay && !inModal
       ? "relative z-10 flex min-h-full flex-col justify-end pb-4"
-      : `${inModal || sceneOverlay ? "pb-8" : ""} ${sceneOverlay ? "relative z-10" : ""
-      }`;
+      : `${inModal || sceneOverlay ? "pb-8" : ""} ${
+          sceneOverlay ? "relative z-10" : ""
+        }`;
   const coreFieldsPanel = (
     <div
       className={`${editorCardCls} max-h-[calc(100vh-14rem)] overflow-y-auto`}
@@ -902,7 +912,9 @@ export function CharacterView({
       </div>
       <div className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className={labelCls}>{t("characterview.aboutMeLabel") || "ABOUT ME"}</span>
+          <span className={labelCls}>
+            {t("characterview.aboutMeLabel") || "ABOUT ME"}
+          </span>
           <Button
             variant="ghost"
             size="sm"
@@ -910,7 +922,9 @@ export function CharacterView({
             onClick={() => void handleGenerate("bio")}
             disabled={generating === "bio"}
           >
-            {generating === "bio" ? t("characterview.generating") : t("characterview.regenerate")}
+            {generating === "bio"
+              ? t("characterview.generating")
+              : t("characterview.regenerate")}
           </Button>
         </div>
         <Textarea
@@ -934,7 +948,9 @@ export function CharacterView({
             onClick={() => void handleGenerate("system")}
             disabled={generating === "system"}
           >
-            {generating === "system" ? t("characterview.generating") : t("characterview.regenerate")}
+            {generating === "system"
+              ? t("characterview.generating")
+              : t("characterview.regenerate")}
           </Button>
         </div>
         <Textarea
@@ -973,7 +989,9 @@ export function CharacterView({
             onClick={() => void handleGenerate("style", "replace")}
             disabled={generating === "style"}
           >
-            {generating === "style" ? t("characterview.generating") : t("characterview.regenerate")}
+            {generating === "style"
+              ? t("characterview.generating")
+              : t("characterview.regenerate")}
           </Button>
         </div>
 
@@ -995,7 +1013,10 @@ export function CharacterView({
                       {key}
                     </span>
                     <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted/70">
-                      {items.length} {items.length === 1 ? t("characterview.rule") : t("characterview.rules")}
+                      {items.length}{" "}
+                      {items.length === 1
+                        ? t("characterview.rule")
+                        : t("characterview.rules")}
                     </span>
                   </div>
                 </div>
@@ -1022,18 +1043,14 @@ export function CharacterView({
                                 e.target.value,
                               )
                             }
-                            onBlur={() =>
-                              handleCommitStyleEntry(key, index)
-                            }
+                            onBlur={() => handleCommitStyleEntry(key, index)}
                             className="min-h-[2rem] min-w-0 flex-1 resize-none rounded border-0 bg-transparent p-0 text-sm leading-relaxed focus-visible:ring-0"
                             data-testid={`style-entry-editor-${key}-${index}`}
                           />
                           <button
                             type="button"
                             className="mt-0.5 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
-                            onClick={() =>
-                              handleRemoveStyleEntry(key, index)
-                            }
+                            onClick={() => handleRemoveStyleEntry(key, index)}
                             title={t("characterview.remove")}
                           >
                             ×
@@ -1102,7 +1119,9 @@ export function CharacterView({
           onClick={() => void handleGenerate("chatExamples", "replace")}
           disabled={generating === "chatExamples"}
         >
-          {generating === "chatExamples" ? t("characterview.generating") : t("characterview.generate")}
+          {generating === "chatExamples"
+            ? t("characterview.generating")
+            : t("characterview.generate")}
         </Button>
       </div>
 
@@ -1140,7 +1159,9 @@ export function CharacterView({
                   <span
                     className={`w-12 shrink-0 text-right text-[11px] font-bold uppercase tracking-wider ${msg.name === "{{user1}}" ? "text-muted" : "text-accent"}`}
                   >
-                    {msg.name === "{{user1}}" ? t("characterview.user") : t("characterview.agent")}
+                    {msg.name === "{{user1}}"
+                      ? t("characterview.user")
+                      : t("characterview.agent")}
                   </span>
                   <Input
                     type="text"
@@ -1195,7 +1216,9 @@ export function CharacterView({
           onClick={() => void handleGenerate("postExamples", "replace")}
           disabled={generating === "postExamples"}
         >
-          {generating === "postExamples" ? t("characterview.generating") : t("characterview.generate")}
+          {generating === "postExamples"
+            ? t("characterview.generating")
+            : t("characterview.generate")}
         </Button>
       </div>
 
@@ -1268,7 +1291,9 @@ export function CharacterView({
                   disabled={registryRegistering || registryLoading}
                   onClick={() => void registerOnChain()}
                 >
-                  {registryRegistering ? t("characterview.registering") : t("characterview.registerNow")}
+                  {registryRegistering
+                    ? t("characterview.registering")
+                    : t("characterview.registerNow")}
                 </button>
                 {registryError && (
                   <span className="text-xs text-[var(--danger,#e74c3c)]">
@@ -1317,7 +1342,9 @@ export function CharacterView({
                       disabled={registryRegistering}
                       onClick={() => void syncRegistryProfile()}
                     >
-                      {registryRegistering ? t("characterview.syncing") : t("characterview.syncToChain")}
+                      {registryRegistering
+                        ? t("characterview.syncing")
+                        : t("characterview.syncToChain")}
                     </Button>
                   </div>
                 )}
@@ -1496,10 +1523,14 @@ export function CharacterView({
                         : undefined
                   }
                   aria-label={
-                    voiceTesting ? t("characterview.stopVoicePreview") : t("characterview.previewVoice")
+                    voiceTesting
+                      ? t("characterview.stopVoicePreview")
+                      : t("characterview.previewVoice")
                   }
                   title={
-                    voiceTesting ? t("characterview.stopVoicePreview") : t("characterview.previewVoice")
+                    voiceTesting
+                      ? t("characterview.stopVoicePreview")
+                      : t("characterview.previewVoice")
                   }
                   disabled={!activeVoicePreset || voiceLoading}
                 >
@@ -1522,9 +1553,7 @@ export function CharacterView({
             {characterSaving || voiceSaving ? (
               t("characterview.saving")
             ) : (
-              <>
-                {t("characterview.save")}
-              </>
+              <>{t("characterview.save")}</>
             )}
           </Button>
 
@@ -1533,14 +1562,11 @@ export function CharacterView({
             variant={customOverridesEnabled ? "outline" : "default"}
             size="sm"
             className="ce-save-btn"
-            onClick={() =>
-              handleCustomOverridesChange(!customOverridesEnabled)
-            }
+            onClick={() => handleCustomOverridesChange(!customOverridesEnabled)}
             data-testid="character-customize-toggle"
           >
             {customizationActionLabel}
           </Button>
-
         </div>
       </div>
     </div>

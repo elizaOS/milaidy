@@ -114,7 +114,7 @@ export function installForceFreshOnboardingClientPatch(
 ): () => void {
   const existingPatch = client[PATCH_STATE] as PatchState | undefined;
   if (existingPatch) {
-    return () => { };
+    return () => {};
   }
 
   const originalGetConfig = client.getConfig.bind(client);

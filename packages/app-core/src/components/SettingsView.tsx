@@ -185,15 +185,18 @@ function SettingsSidebar({
                   aria-current={isActive ? "page" : undefined}
                   className={`group w-full flex items-center gap-2.5 text-left px-3 py-2 relative
                     font-mono text-[11px] tracking-wide transition-all duration-150
-                    ${isActive
-                      ? "text-txt bg-surface"
-                      : "text-muted hover:text-txt hover:bg-surface/50"
+                    ${
+                      isActive
+                        ? "text-txt bg-surface"
+                        : "text-muted hover:text-txt hover:bg-surface/50"
                     }`}
                 >
                   {isActive && (
                     <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent" />
                   )}
-                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-accent" : ""}`} />
+                  <Icon
+                    className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-accent" : ""}`}
+                  />
                   <span className="truncate">{t(section.label)}</span>
                 </button>
               );
@@ -822,9 +825,7 @@ export function SettingsView({
         className={`settings-page-content flex-1 min-w-0 scroll-smooth ${inModal ? "px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6" : "px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10"}`}
       >
         <div className="mx-auto max-w-4xl">
-          <div className="space-y-6 pb-20 sm:space-y-8">
-            {sectionsContent}
-          </div>
+          <div className="space-y-6 pb-20 sm:space-y-8">{sectionsContent}</div>
         </div>
       </div>
     </div>

@@ -32,7 +32,7 @@ import type {
   TalkModeTranscriptEvent,
   TTSCompleteEvent,
   TTSSpeakingEvent,
-} from "../../src/definitions";
+} from "@miladyai/app-core/src/definitions";
 
 type EventCallback<T> = (event: T) => void;
 type TalkModeEvent =
@@ -551,7 +551,7 @@ export class TalkModeElectrobun implements TalkModePlugin {
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    void rpcRequest({ data: btoa(binary) }).catch(() => { });
+    void rpcRequest({ data: btoa(binary) }).catch(() => {});
   }
 
   private stopAudioCapture(): void {

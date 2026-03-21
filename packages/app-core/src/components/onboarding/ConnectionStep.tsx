@@ -1,3 +1,4 @@
+import { ONBOARDING_PROVIDER_CATALOG } from "@elizaos/agent/contracts/onboarding";
 import type {
   OpenRouterModelOption,
   PiAiModelOption,
@@ -9,7 +10,6 @@ import { isNative } from "@miladyai/app-core/platform";
 import { getProviderLogo } from "@miladyai/app-core/providers";
 import { useApp } from "@miladyai/app-core/state";
 import { openExternalUrl } from "@miladyai/app-core/utils";
-import { ONBOARDING_PROVIDER_CATALOG } from "@elizaos/agent/contracts/onboarding";
 import { useEffect, useState } from "react";
 
 function formatRequestError(err: unknown): string {
@@ -155,10 +155,11 @@ export function ConnectionStep() {
   // Use the static provider catalog shipped in the frontend bundle — no API
   // call needed. Runtime overrides from `onboardingOptions` (if available)
   // take precedence so the server can still augment the list when present.
-  const catalogProviders: ProviderOption[] =
-    (onboardingOptions?.providers as ProviderOption[] | undefined)?.length
-      ? (onboardingOptions!.providers as ProviderOption[])
-      : ([...ONBOARDING_PROVIDER_CATALOG] as unknown as ProviderOption[]);
+  const catalogProviders: ProviderOption[] = (
+    onboardingOptions?.providers as ProviderOption[] | undefined
+  )?.length
+    ? (onboardingOptions!.providers as ProviderOption[])
+    : ([...ONBOARDING_PROVIDER_CATALOG] as unknown as ProviderOption[]);
   // Merge custom providers from branding (app-injected) with the catalog.
   // Custom providers are appended; duplicates (by id) are skipped.
   const customProviders = branding.customProviders ?? [];
@@ -192,7 +193,10 @@ export function ConnectionStep() {
     string,
     { name: string; description?: string }
   > = {
-    elizacloud: { name: "Eliza Cloud", description: "LLMs, RPCs & more included" },
+    elizacloud: {
+      name: "Eliza Cloud",
+      description: "LLMs, RPCs & more included",
+    },
     "anthropic-subscription": {
       name: "Claude Sub",
       description: "Pro/Max subscription",
@@ -797,7 +801,11 @@ export function ConnectionStep() {
         >
           {selectedProvider && (
             <img
-              src={getProviderLogo(selectedProvider.id, false, getCustomLogo(selectedProvider.id))}
+              src={getProviderLogo(
+                selectedProvider.id,
+                false,
+                getCustomLogo(selectedProvider.id),
+              )}
               alt={selectedDisplay.name}
               className="onboarding-provider-icon"
               style={{ width: "1.5rem", height: "1.5rem" }}

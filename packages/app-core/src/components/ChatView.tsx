@@ -724,17 +724,17 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
         style={
           isGameModal
             ? {
-              zIndex: 1,
-              top: COMPANION_MESSAGE_LAYER_TOP,
-              bottom: COMPANION_MESSAGE_LAYER_BOTTOM,
-              userSelect: "none",
-              WebkitUserSelect: "none",
-              maskImage: COMPANION_MESSAGE_LAYER_MASK,
-              WebkitMaskImage: COMPANION_MESSAGE_LAYER_MASK,
-            }
+                zIndex: 1,
+                top: COMPANION_MESSAGE_LAYER_TOP,
+                bottom: COMPANION_MESSAGE_LAYER_BOTTOM,
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                maskImage: COMPANION_MESSAGE_LAYER_MASK,
+                WebkitMaskImage: COMPANION_MESSAGE_LAYER_MASK,
+              }
             : {
-              zIndex: 1,
-            }
+                zIndex: 1,
+              }
         }
       >
         {visibleMsgs.length === 0 && !chatSending ? (
@@ -756,10 +756,11 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
                   style={{ opacity: gameModalCarryoverOpacity }}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${isUser
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
+                      isUser
                         ? "bg-accent/85 text-white rounded-br-sm"
                         : "border border-white/10 bg-black/45 text-white/95 rounded-bl-sm backdrop-blur-md"
-                      }`}
+                    }`}
                   >
                     <div
                       className="break-words"
@@ -780,10 +781,11 @@ export function ChatView({ variant = "default" }: ChatViewProps) {
                   className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${isUser
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
+                      isUser
                         ? "bg-accent/85 text-white rounded-br-sm"
                         : "border border-white/10 bg-black/45 text-white/95 rounded-bl-sm backdrop-blur-md"
-                      }`}
+                    }`}
                   >
                     <div
                       className="break-words"

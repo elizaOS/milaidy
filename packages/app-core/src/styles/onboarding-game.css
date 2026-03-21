@@ -791,7 +791,8 @@
   width: 100%;
   max-width: 900px;
   padding: 0 0.5rem;
-  animation: ob-roster-slide-up 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.15s both;
+  animation: ob-roster-slide-up 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.15s
+    both;
 }
 
 @keyframes ob-roster-slide-up {
@@ -852,7 +853,11 @@
 }
 
 .ob-identity-card-frame--active {
-  background: linear-gradient(180deg, rgba(240, 185, 11, 0.9), rgba(240, 185, 11, 0.5));
+  background: linear-gradient(
+    180deg,
+    rgba(240, 185, 11, 0.9),
+    rgba(240, 185, 11, 0.5)
+  );
   box-shadow:
     0 0 24px rgba(240, 185, 11, 0.35),
     0 4px 16px rgba(0, 0, 0, 0.3);
@@ -1033,7 +1038,11 @@
 }
 
 .ce-roster-card-frame--active {
-  background: linear-gradient(180deg, rgba(240, 185, 11, 0.9), rgba(240, 185, 11, 0.5));
+  background: linear-gradient(
+    180deg,
+    rgba(240, 185, 11, 0.9),
+    rgba(240, 185, 11, 0.5)
+  );
   box-shadow:
     0 0 24px rgba(240, 185, 11, 0.35),
     0 4px 16px rgba(0, 0, 0, 0.3);

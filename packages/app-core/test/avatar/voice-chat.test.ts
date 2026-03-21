@@ -18,15 +18,15 @@ class MockSpeechRecognition {
   lang = "";
   onresult:
     | ((event: {
-      results: {
-        length: number;
-        [k: number]: {
-          isFinal: boolean;
-          0: { transcript: string; confidence: number };
+        results: {
+          length: number;
+          [k: number]: {
+            isFinal: boolean;
+            0: { transcript: string; confidence: number };
+          };
         };
-      };
-      resultIndex: number;
-    }) => void)
+        resultIndex: number;
+      }) => void)
     | null = null;
   onerror: ((event: { error: string }) => void) | null = null;
   onend: (() => void) | null = null;

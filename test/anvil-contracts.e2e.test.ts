@@ -17,9 +17,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ethers } from "ethers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DropService } from "../src/api/drop-service";
-import { RegistryService } from "../src/api/registry-service";
-import { TxService } from "../src/api/tx-service";
+import { DropService } from "@miladyai/app-core/src/api/drop-service";
+import { RegistryService } from "@miladyai/app-core/src/api/registry-service";
+import { TxService } from "@miladyai/app-core/src/api/tx-service";
 import { type AnvilInstance, startAnvil } from "./anvil-helper";
 import { type DeployedContracts, deployContracts } from "./contract-deployer";
 

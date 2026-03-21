@@ -380,16 +380,18 @@ export function MediaSettingsSection() {
                 key={cat}
                 variant={active ? "default" : "ghost"}
                 size="sm"
-                className={`flex-1 h-9 rounded-lg border border-transparent px-3 py-2 text-xs font-semibold ${active
+                className={`flex-1 h-9 rounded-lg border border-transparent px-3 py-2 text-xs font-semibold ${
+                  active
                     ? "bg-accent text-accent-foreground shadow-sm"
                     : "text-muted hover:bg-bg-hover hover:text-txt"
-                  }`}
+                }`}
                 onClick={() => setActiveTab(cat)}
               >
                 <span>{t(CATEGORY_LABELS[cat])}</span>
                 <span
-                  className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full ${catConfigured ? "bg-[var(--ok)]" : "bg-border-strong"
-                    }`}
+                  className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full ${
+                    catConfigured ? "bg-[var(--ok)]" : "bg-border-strong"
+                  }`}
                 />
               </Button>
             );
@@ -418,10 +420,11 @@ export function MediaSettingsSection() {
 
         {/* Status badge */}
         <span
-          className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] ${configured
+          className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] ${
+            configured
               ? "border-[var(--ok)] bg-[var(--ok)]/10 text-[var(--text)]"
               : "border-[var(--warn)] bg-[var(--warn-subtle)] text-[var(--text)]"
-            }`}
+          }`}
         >
           {configured
             ? t("mediasettingssection.Configured")
@@ -458,10 +461,11 @@ export function MediaSettingsSection() {
                     key={p.id}
                     variant="outline"
                     size="sm"
-                    className={`h-auto px-3 py-2 text-xs font-normal rounded-lg border border-border ${active
+                    className={`h-auto px-3 py-2 text-xs font-normal rounded-lg border border-border ${
+                      active
                         ? "bg-accent/10 border-accent text-txt"
                         : "bg-card text-txt hover:bg-bg-hover"
-                      }`}
+                    }`}
                     onClick={() =>
                       updateCategoryConfig(activeTab, {
                         provider: p.id as

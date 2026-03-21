@@ -34,7 +34,7 @@ export function installDesktopPermissionsClientPatch(
 ): () => void {
   const existingPatch = client[PATCH_STATE] as PatchState | undefined;
   if (existingPatch) {
-    return () => { };
+    return () => {};
   }
 
   const originalGetPermissions = client.getPermissions.bind(client);

@@ -8,7 +8,7 @@
  * These are unit tests that verify the control logic without requiring
  * a real WebGL context or DOM events.
  */
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Minimal mock VrmEngine for testing CompanionSceneHost control logic
@@ -80,7 +80,12 @@ function createCompanionControls() {
     engine.setDragOrbitTarget(dragOrbitRef.yaw, dragOrbitRef.pitch);
   }
 
-  function pointerDown(pointerId: number, clientX: number, clientY: number, pointerType: string = "mouse") {
+  function pointerDown(
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+    pointerType: string = "mouse",
+  ) {
     if (pointerType === "touch") {
       touchPoints.set(pointerId, { x: clientX, y: clientY });
       if (touchPoints.size >= 2) {
@@ -117,12 +122,18 @@ function createCompanionControls() {
   ) {
     if (pointerType === "touch" && touchPoints.has(pointerId)) {
       touchPoints.set(pointerId, { x: clientX, y: clientY });
-      if (pinchState.active && touchPoints.size >= 2 && pinchState.startDistance > 0) {
+      if (
+        pinchState.active &&
+        touchPoints.size >= 2 &&
+        pinchState.startDistance > 0
+      ) {
         const pts = [...touchPoints.values()];
         const dist = Math.hypot(pts[1]!.x - pts[0]!.x, pts[1]!.y - pts[0]!.y);
         const viewportSpan = Math.max(1, Math.min(viewWidth, viewHeight));
         const PINCH_SENSITIVITY = 2.35;
-        const delta = ((dist - pinchState.startDistance) / viewportSpan) * PINCH_SENSITIVITY;
+        const delta =
+          ((dist - pinchState.startDistance) / viewportSpan) *
+          PINCH_SENSITIVITY;
         setCompanionZoom(pinchState.startZoom + delta);
         return;
       }

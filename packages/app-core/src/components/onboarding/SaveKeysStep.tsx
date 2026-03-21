@@ -61,9 +61,7 @@ export function SaveKeysStep() {
         <p className="onboarding-desc">{t("onboarding.saveKeysLoading")}</p>
       )}
 
-      {error && (
-        <p className="onboarding-desc text-[var(--danger)]">{error}</p>
-      )}
+      {error && <p className="onboarding-desc text-[var(--danger)]">{error}</p>}
 
       {keys && (
         <div className="flex flex-col gap-4 w-full">
@@ -81,7 +79,10 @@ export function SaveKeysStep() {
             <span className="text-[11px] text-[var(--text-muted)] uppercase tracking-wide">
               {t("onboarding.evmPrivateKey")}
             </span>
-            <PrivateKeyBox value={keys.evmPrivateKey} onCopy={copyToClipboard} />
+            <PrivateKeyBox
+              value={keys.evmPrivateKey}
+              onCopy={copyToClipboard}
+            />
           </div>
 
           {/* Solana */}

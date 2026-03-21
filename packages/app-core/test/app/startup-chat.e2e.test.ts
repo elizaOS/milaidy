@@ -11,9 +11,9 @@ const { mockUseApp } = vi.hoisted(() => ({
 }));
 
 vi.mock("@miladyai/app-core/state", async () => {
-  const actual = await vi.importActual<typeof import("@miladyai/app-core/state")>(
-    "@miladyai/app-core/state",
-  );
+  const actual = await vi.importActual<
+    typeof import("@miladyai/app-core/state")
+  >("@miladyai/app-core/state");
   return {
     ...actual,
     useApp: () => mockUseApp(),
@@ -61,69 +61,69 @@ vi.mock("@miladyai/app-core/components", async () => {
   };
 });
 
-vi.mock("../../../packages/app-core/src/components/Header", () => ({
+vi.mock("@miladyai/app-core/src/components/Header", () => ({
   Header: ({ mobileLeft }: { mobileLeft?: React.ReactNode }) =>
     React.createElement("div", null, "Header", mobileLeft),
 }));
-vi.mock("../../../packages/app-core/src/components/CommandPalette", () => ({
+vi.mock("@miladyai/app-core/src/components/CommandPalette", () => ({
   CommandPalette: () => React.createElement("div", null, "CommandPalette"),
 }));
-vi.mock("../../../packages/app-core/src/components/EmotePicker", () => ({
+vi.mock("@miladyai/app-core/src/components/EmotePicker", () => ({
   EmotePicker: () => React.createElement("div", null, "EmotePicker"),
 }));
-vi.mock("../../../packages/app-core/src/components/PairingView", () => ({
+vi.mock("@miladyai/app-core/src/components/PairingView", () => ({
   PairingView: () => React.createElement("div", null, "PairingView"),
 }));
-vi.mock("../../../packages/app-core/src/components/OnboardingWizard", () => ({
+vi.mock("@miladyai/app-core/src/components/OnboardingWizard", () => ({
   OnboardingWizard: () => React.createElement("div", null, "OnboardingWizard"),
 }));
-vi.mock("../../../packages/app-core/src/components/ChatView", () => ({
+vi.mock("@miladyai/app-core/src/components/ChatView", () => ({
   ChatView: () => React.createElement("div", null, "ChatView"),
 }));
 vi.mock(
-  "../../../packages/app-core/src/components/ConversationsSidebar",
+  "@miladyai/app-core/src/components/ConversationsSidebar",
   () => ({
     ConversationsSidebar: () =>
       React.createElement("div", null, "ConversationsSidebar"),
   }),
 );
-vi.mock("../../../packages/app-core/src/components/AppsPageView", () => ({
+vi.mock("@miladyai/app-core/src/components/AppsPageView", () => ({
   AppsPageView: () => React.createElement("div", null, "AppsPageView"),
 }));
-vi.mock("../../../packages/app-core/src/components/AdvancedPageView", () => ({
+vi.mock("@miladyai/app-core/src/components/AdvancedPageView", () => ({
   AdvancedPageView: () => React.createElement("div", null, "AdvancedPageView"),
 }));
-vi.mock("../../../packages/app-core/src/components/CharacterView", () => ({
+vi.mock("@miladyai/app-core/src/components/CharacterView", () => ({
   CharacterView: () => React.createElement("div", null, "CharacterView"),
 }));
-vi.mock("../../../packages/app-core/src/components/TriggersView", () => ({
+vi.mock("@miladyai/app-core/src/components/TriggersView", () => ({
   TriggersView: () => React.createElement("div", null, "TriggersView"),
 }));
-vi.mock("../../../packages/app-core/src/components/ConnectorsPageView", () => ({
+vi.mock("@miladyai/app-core/src/components/ConnectorsPageView", () => ({
   ConnectorsPageView: () =>
     React.createElement("div", null, "ConnectorsPageView"),
 }));
-vi.mock("../../../packages/app-core/src/components/InventoryView", () => ({
+vi.mock("@miladyai/app-core/src/components/InventoryView", () => ({
   InventoryView: () => React.createElement("div", null, "InventoryView"),
 }));
-vi.mock("../../../packages/app-core/src/components/KnowledgeView", () => ({
+vi.mock("@miladyai/app-core/src/components/KnowledgeView", () => ({
   KnowledgeView: () => React.createElement("div", null, "KnowledgeView"),
 }));
-vi.mock("../../../packages/app-core/src/components/LifoSandboxView", () => ({
+vi.mock("@miladyai/app-core/src/components/LifoSandboxView", () => ({
   LifoSandboxView: () => React.createElement("div", null, "LifoSandboxView"),
 }));
 vi.mock("@miladyai/app-core/components/AvatarLoader", () => ({
   AvatarLoader: () => React.createElement("div", null, "AvatarLoader"),
 }));
-vi.mock("../../../packages/app-core/src/components/StreamView", () => ({
+vi.mock("@miladyai/app-core/src/components/StreamView", () => ({
   StreamView: () => React.createElement("div", null, "StreamView"),
 }));
-vi.mock("../../../packages/app-core/src/components/CompanionView", () => ({
+vi.mock("@miladyai/app-core/src/components/CompanionView", () => ({
   CompanionView: () => React.createElement("div", null, "CompanionView"),
 }));
 
 vi.mock(
-  "../../../packages/app-core/src/components/companion/CompanionSceneHost",
+  "@miladyai/app-core/src/components/companion/CompanionSceneHost",
   async () => {
     const React = await vi.importActual<typeof import("react")>("react");
     return {
@@ -139,7 +139,7 @@ vi.mock(
   },
 );
 
-import { App } from "../../src/App";
+import { App } from "@miladyai/app-core/src/App";
 
 const ORIGINAL_INNER_WIDTH = window.innerWidth;
 

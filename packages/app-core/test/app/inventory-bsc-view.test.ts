@@ -152,13 +152,13 @@ function createQuote(side: "buy" | "sell" = "buy") {
     slippageBps: 500,
     route: isBuy
       ? [
-        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-        "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-      ]
+          "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+        ]
       : [
-        "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-        "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-      ],
+          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+          "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+        ],
     quoteIn: isBuy
       ? { symbol: "BNB", amount: "0.1", amountWei: "100000000000000000" }
       : { symbol: "CAKE", amount: "1.0", amountWei: "1000000000000000000" },
@@ -203,29 +203,29 @@ function createExecuteResult(
     unsignedApprovalTx:
       !executed && side === "sell" && requiresApproval
         ? {
-          chainId: 56,
-          from: "0x1111111111111111111111111111111111111111",
-          to: "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-          data: "0xabcd",
-          valueWei: "0",
-          explorerUrl: "https://bscscan.com",
-          spender: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
-          amountWei: "1000000000000000000",
-        }
+            chainId: 56,
+            from: "0x1111111111111111111111111111111111111111",
+            to: "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+            data: "0xabcd",
+            valueWei: "0",
+            explorerUrl: "https://bscscan.com",
+            spender: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+            amountWei: "1000000000000000000",
+          }
         : undefined,
     requiresApproval:
       !executed && side === "sell" ? requiresApproval : undefined,
     execution: executed
       ? {
-        hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        nonce: 12,
-        gasLimit: "220000",
-        valueWei: "100000000000000000",
-        explorerUrl:
-          "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        blockNumber: 51_234_567,
-        status: executionStatus,
-      }
+          hash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          nonce: 12,
+          gasLimit: "220000",
+          valueWei: "100000000000000000",
+          explorerUrl:
+            "https://bscscan.com/tx/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          blockNumber: 51_234_567,
+          status: executionStatus,
+        }
       : undefined,
   };
 }
@@ -259,8 +259,8 @@ function createContext(
     inventoryCollapseSolana: true,
     walletError: null,
     elizaCloudConnected: true,
-    loadBalances: vi.fn(async () => { }),
-    loadNfts: vi.fn(async () => { }),
+    loadBalances: vi.fn(async () => {}),
+    loadNfts: vi.fn(async () => {}),
     getBscTradePreflight: vi.fn(async () => createPreflight(true)),
     getBscTradeQuote: vi.fn(async (request?: { side?: "buy" | "sell" }) =>
       createQuote(request?.side ?? "buy"),
@@ -281,7 +281,7 @@ function createContext(
     })),
     setTab: vi.fn(),
     setActionNotice: vi.fn(),
-    copyToClipboard: vi.fn(async () => { }),
+    copyToClipboard: vi.fn(async () => {}),
     uiLanguage: "en",
     t: (k: string) => k,
   };

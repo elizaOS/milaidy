@@ -71,21 +71,21 @@ describe("inferOnboardingResumeStep", () => {
   });
 
   it("returns persisted step 'connection' when persisted", () => {
-    expect(
-      inferOnboardingResumeStep({ persistedStep: "connection" }),
-    ).toBe("connection");
+    expect(inferOnboardingResumeStep({ persistedStep: "connection" })).toBe(
+      "connection",
+    );
   });
 
   it("returns persisted step 'senses' when persisted", () => {
-    expect(
-      inferOnboardingResumeStep({ persistedStep: "senses" }),
-    ).toBe("senses");
+    expect(inferOnboardingResumeStep({ persistedStep: "senses" })).toBe(
+      "senses",
+    );
   });
 
   it("returns persisted step 'activate' when persisted", () => {
-    expect(
-      inferOnboardingResumeStep({ persistedStep: "activate" }),
-    ).toBe("activate");
+    expect(inferOnboardingResumeStep({ persistedStep: "activate" })).toBe(
+      "activate",
+    );
   });
 
   it("does not return identity as a default (welcome is the default now)", () => {

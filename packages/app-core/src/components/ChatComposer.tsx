@@ -172,10 +172,11 @@ export function ChatComposer({
         <Button
           variant={chatPendingImagesCount > 0 ? "secondary" : "ghost"}
           size="icon"
-          className={`${COMPOSER_ICON_BUTTON_CLASSNAME} select-none transition-all duration-300 active:scale-95 ${chatPendingImagesCount > 0
-            ? "bg-accent/15 sm:hover:bg-accent/25 border-accent/40 text-accent hover:text-accent shadow-[0_0_15px_rgba(var(--accent),0.18)] ring-1 ring-inset ring-accent/20"
-            : "border border-border/50 bg-bg/50 backdrop-blur-md text-txt shadow-sm hover:border-accent hover:text-txt hover:shadow-[0_0_15px_rgba(var(--accent),0.5)]"
-            }`}
+          className={`${COMPOSER_ICON_BUTTON_CLASSNAME} select-none transition-all duration-300 active:scale-95 ${
+            chatPendingImagesCount > 0
+              ? "bg-accent/15 sm:hover:bg-accent/25 border-accent/40 text-accent hover:text-accent shadow-[0_0_15px_rgba(var(--accent),0.18)] ring-1 ring-inset ring-accent/20"
+              : "border border-border/50 bg-bg/50 backdrop-blur-md text-txt shadow-sm hover:border-accent hover:text-txt hover:shadow-[0_0_15px_rgba(var(--accent),0.5)]"
+          }`}
           onClick={onAttachImage}
           aria-label="Attach image"
           title={t("chatview.AttachImage")}
@@ -191,10 +192,11 @@ export function ChatComposer({
           size="icon"
           className={
             isGameModal
-              ? `mr-2 select-none flex items-center justify-center rounded-full transition-all active:scale-95 ${COMPOSER_ICON_BUTTON_CLASSNAME} ${voice.isListening
-                ? "animate-pulse border text-[#fff1f2] shadow-[0_0_30px_rgba(255,107,112,0.5)]"
-                : "bg-transparent text-[#fff1f2] shadow-[0_0_6px_rgba(255,107,112,0.25)] hover:bg-[#ff6b70]/10"
-              } ${isComposerLocked ? "opacity-50" : ""}`
+              ? `mr-2 select-none flex items-center justify-center rounded-full transition-all active:scale-95 ${COMPOSER_ICON_BUTTON_CLASSNAME} ${
+                  voice.isListening
+                    ? "animate-pulse border text-[#fff1f2] shadow-[0_0_30px_rgba(255,107,112,0.5)]"
+                    : "bg-transparent text-[#fff1f2] shadow-[0_0_6px_rgba(255,107,112,0.25)] hover:bg-[#ff6b70]/10"
+                } ${isComposerLocked ? "opacity-50" : ""}`
               : `${COMPOSER_ICON_BUTTON_CLASSNAME} ${defaultMicButtonClassName}`
           }
           onClick={handleMicClick}

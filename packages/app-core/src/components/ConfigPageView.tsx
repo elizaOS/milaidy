@@ -67,9 +67,7 @@ function CloudRpcStatus({
     return (
       <div className="flex items-center gap-2 text-xs">
         <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok)]" />
-        <span className="font-semibold">
-          Connected to Eliza Cloud
-        </span>
+        <span className="font-semibold">Connected to Eliza Cloud</span>
         {credits !== null && (
           <span className="text-[var(--muted)] ml-auto">
             {t("configpageview.Credits")}{" "}
@@ -104,9 +102,7 @@ function CloudRpcStatus({
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 text-xs">
         <span className="inline-block w-2 h-2 rounded-full bg-[var(--muted)]" />
-        <span className="text-[var(--muted)]">
-          Requires Eliza Cloud
-        </span>
+        <span className="text-[var(--muted)]">Requires Eliza Cloud</span>
       </div>
       <button
         type="button"
@@ -213,9 +209,7 @@ function RpcConfigSection<T extends string>({
         containerClassName,
         (key: string) => {
           // hack to get t function without breaking hook rules
-          return key === "elizaclouddashboard.ElizaCloud"
-            ? "Eliza Cloud"
-            : key;
+          return key === "elizaclouddashboard.ElizaCloud" ? "Eliza Cloud" : key;
         },
       )}
 
@@ -260,10 +254,11 @@ function renderRpcProviderButtons<T extends string>(
           <button
             type="button"
             key={provider.id}
-            className={`flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-2 text-center text-xs font-semibold leading-tight shadow-sm transition-colors ${active
+            className={`flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-2 text-center text-xs font-semibold leading-tight shadow-sm transition-colors ${
+              active
                 ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
                 : "border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-[var(--accent)] hover:bg-[var(--bg-hover)]"
-              }`}
+            }`}
             onClick={() => onSelect(provider.id)}
           >
             <div className="leading-tight">
@@ -287,32 +282,32 @@ const CLOUD_SERVICE_DEFS: {
   label: string;
   description: string;
 }[] = [
-    {
-      key: "inference",
-      label: "Model Inference",
-      description: `Use Eliza Cloud for LLM calls. Turn off to use your own API keys (Anthropic, OpenAI, etc.)`,
-    },
-    {
-      key: "rpc",
-      label: "Blockchain RPC",
-      description: `Use Eliza Cloud RPC endpoints for EVM, BSC, and Solana`,
-    },
-    {
-      key: "media",
-      label: "Media Generation",
-      description: `Use Eliza Cloud for image, video, audio, and vision`,
-    },
-    {
-      key: "tts",
-      label: "Text-to-Speech",
-      description: `Use Eliza Cloud for TTS voice synthesis`,
-    },
-    {
-      key: "embeddings",
-      label: "Embeddings",
-      description: `Use Eliza Cloud for text embedding generation`,
-    },
-  ];
+  {
+    key: "inference",
+    label: "Model Inference",
+    description: `Use Eliza Cloud for LLM calls. Turn off to use your own API keys (Anthropic, OpenAI, etc.)`,
+  },
+  {
+    key: "rpc",
+    label: "Blockchain RPC",
+    description: `Use Eliza Cloud RPC endpoints for EVM, BSC, and Solana`,
+  },
+  {
+    key: "media",
+    label: "Media Generation",
+    description: `Use Eliza Cloud for image, video, audio, and vision`,
+  },
+  {
+    key: "tts",
+    label: "Text-to-Speech",
+    description: `Use Eliza Cloud for TTS voice synthesis`,
+  },
+  {
+    key: "embeddings",
+    label: "Embeddings",
+    description: `Use Eliza Cloud for text embedding generation`,
+  },
+];
 
 function ToggleSwitch({
   checked,
@@ -333,16 +328,16 @@ function ToggleSwitch({
       aria-labelledby={id}
       disabled={disabled}
       onClick={onChange}
-      className={`relative shrink-0 cursor-pointer w-11 h-6 rounded-full border transition-all duration-200 p-0 ${checked
-          ? "border-accent/50 bg-accent/20"
-          : "border-border bg-input"
-        }`}
+      className={`relative shrink-0 cursor-pointer w-11 h-6 rounded-full border transition-all duration-200 p-0 ${
+        checked ? "border-accent/50 bg-accent/20" : "border-border bg-input"
+      }`}
     >
       <span
-        className={`block w-[18px] h-[18px] rounded-full transition-all duration-200 mt-px ${checked
+        className={`block w-[18px] h-[18px] rounded-full transition-all duration-200 mt-px ${
+          checked
             ? "bg-accent translate-x-[22px]"
             : "bg-muted translate-x-[2px]"
-          }`}
+        }`}
       />
     </button>
   );
@@ -432,8 +427,9 @@ function CloudServicesSection() {
         {CLOUD_SERVICE_DEFS.map(({ key, label, description }) => (
           <div
             key={key}
-            className={`flex items-center justify-between p-3 border border-border rounded-lg transition-colors ${services[key] ? "bg-accent/5" : ""
-              }`}
+            className={`flex items-center justify-between p-3 border border-border rounded-lg transition-colors ${
+              services[key] ? "bg-accent/5" : ""
+            }`}
           >
             <div className="flex-1 min-w-0 mr-4">
               <div
@@ -442,9 +438,7 @@ function CloudServicesSection() {
               >
                 {label}
               </div>
-              <div className="text-[11px] text-muted mt-0.5">
-                {description}
-              </div>
+              <div className="text-[11px] text-muted mt-0.5">{description}</div>
             </div>
             <ToggleSwitch
               checked={services[key]}
@@ -633,7 +627,9 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
       {elizaCloudConnected && (
         <div className="flex items-center gap-2.5 mb-4 p-3 rounded-lg bg-accent/5 border border-accent/15">
           <span className="w-2 h-2 rounded-full bg-ok shrink-0" />
-          <span className="text-[13px] font-semibold text-txt">Eliza Cloud</span>
+          <span className="text-[13px] font-semibold text-txt">
+            Eliza Cloud
+          </span>
           {elizaCloudCredits !== null && (
             <span className="text-xs text-muted ml-auto flex items-center gap-1.5">
               <span
@@ -648,7 +644,14 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
                 ${elizaCloudCredits.toFixed(2)}
               </span>
               {elizaCloudTopUpUrl && (
-                <a href={elizaCloudTopUpUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent underline underline-offset-2">Top up</a>
+                <a
+                  href={elizaCloudTopUpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-accent underline underline-offset-2"
+                >
+                  Top up
+                </a>
               )}
             </span>
           )}
@@ -668,7 +671,16 @@ export function ConfigPageView({ embedded = false }: { embedded?: boolean }) {
               className="settings-button flex items-center gap-1.5 text-[12px] text-[var(--muted)] hover:text-[var(--txt)] bg-transparent border border-[var(--border)] rounded-lg cursor-pointer transition-colors hover:border-[var(--accent)]"
               onClick={() => setSecretsOpen(true)}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <title>Secrets</title>
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />

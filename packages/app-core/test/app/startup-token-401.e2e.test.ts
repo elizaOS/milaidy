@@ -53,7 +53,7 @@ describe("startup stale token handling", () => {
   beforeEach(() => {
     Object.assign(document.documentElement, { setAttribute: vi.fn() });
     mockClient.hasToken.mockReturnValue(true);
-    mockClient.disconnectWs.mockImplementation(() => { });
+    mockClient.disconnectWs.mockImplementation(() => {});
     mockClient.getAuthStatus.mockResolvedValue({
       required: true,
       pairingEnabled: true,

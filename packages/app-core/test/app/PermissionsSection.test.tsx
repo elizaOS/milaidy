@@ -267,29 +267,27 @@ describe("PermissionsSection", () => {
     expect(text).toContain("Microphone");
   });
 
-  it(
-    "renders mobile streaming permissions when isNative and not running in the desktop app",
-    async () => {
-      mockIsWeb.mockReturnValue(false);
-      mockIsDesktop.mockReturnValue(false);
-      mockIsNative.value = true;
-      mockUseApp.mockReturnValue(baseContext());
+  it("renders mobile streaming permissions when isNative and not running in the desktop app", async () => {
+    mockIsWeb.mockReturnValue(false);
+    mockIsDesktop.mockReturnValue(false);
+    mockIsNative.value = true;
+    mockUseApp.mockReturnValue(baseContext());
 
-      let tree: TestRenderer.ReactTestRenderer | undefined;
-      await act(async () => {
-        tree = TestRenderer.create(React.createElement(PermissionsSection));
-      });
-
-      const root = tree?.root;
-      const mobileView = root.findByProps({
-        "data-testid": "mobile-permissions",
-      });
-      expect(mobileView).toBeDefined();
-      const text = collectText(root);
-      expect(text).toContain("Streaming Permissions");
-      expect(text).toContain("Camera");
-      expect(text).toContain("Microphone");
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = TestRenderer.create(React.createElement(PermissionsSection));
     });
+
+    const root = tree?.root;
+    const mobileView = root.findByProps({
+      "data-testid": "mobile-permissions",
+    });
+    expect(mobileView).toBeDefined();
+    const text = collectText(root);
+    expect(text).toContain("Streaming Permissions");
+    expect(text).toContain("Camera");
+    expect(text).toContain("Microphone");
+  });
 
   it("renders desktop permission rows in the desktop app", async () => {
     mockIsWeb.mockReturnValue(false);

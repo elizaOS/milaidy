@@ -37,7 +37,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveFeishuPluginImportSpecifier,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment Setup
@@ -108,14 +108,11 @@ async function feishuGetTenantAccessToken(
   expire?: number;
 }> {
   const base = feishuApiBase(domain);
-  const res = await fetch(
-    `${base}/auth/v3/tenant_access_token/internal`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
-    },
-  );
+  const res = await fetch(`${base}/auth/v3/tenant_access_token/internal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  });
   return (await res.json()) as {
     code: number;
     msg: string;
@@ -176,52 +173,49 @@ const loadFeishuPlugin = async (): Promise<Plugin | null> => {
 // 1. Setup & Authentication
 // ---------------------------------------------------------------------------
 
-describeIfPluginAvailable(
-  "Feishu Connector - Setup & Authentication",
-  () => {
-    it(
-      "can load the Feishu plugin without errors",
-      async () => {
-        const plugin = await loadFeishuPlugin();
-        expect(plugin).not.toBeNull();
-        if (plugin) {
-          expect(plugin.name).toMatch(/feishu/i);
-        }
-      },
-      TEST_TIMEOUT,
-    );
+describeIfPluginAvailable("Feishu Connector - Setup & Authentication", () => {
+  it(
+    "can load the Feishu plugin without errors",
+    async () => {
+      const plugin = await loadFeishuPlugin();
+      expect(plugin).not.toBeNull();
+      if (plugin) {
+        expect(plugin.name).toMatch(/feishu/i);
+      }
+    },
+    TEST_TIMEOUT,
+  );
 
-    it(
-      "Feishu plugin exports required structure",
-      async () => {
-        const plugin = await loadFeishuPlugin();
-        expect(plugin).toBeDefined();
-        if (plugin) {
-          expect(plugin.name).toMatch(/feishu/i);
-          expect(plugin.description).toBeDefined();
-          expect(typeof plugin.description).toBe("string");
-        }
-      },
-      TEST_TIMEOUT,
-    );
+  it(
+    "Feishu plugin exports required structure",
+    async () => {
+      const plugin = await loadFeishuPlugin();
+      expect(plugin).toBeDefined();
+      if (plugin) {
+        expect(plugin.name).toMatch(/feishu/i);
+        expect(plugin.description).toBeDefined();
+        expect(typeof plugin.description).toBe("string");
+      }
+    },
+    TEST_TIMEOUT,
+  );
 
-    it(
-      "plugin has clients or services",
-      async () => {
-        const plugin = await loadFeishuPlugin();
-        expect(plugin).not.toBeNull();
-        if (plugin) {
-          const hasClients =
-            Array.isArray(plugin.clients) && plugin.clients.length > 0;
-          const hasServices =
-            Array.isArray(plugin.services) && plugin.services.length > 0;
-          expect(hasClients || hasServices).toBe(true);
-        }
-      },
-      TEST_TIMEOUT,
-    );
-  },
-);
+  it(
+    "plugin has clients or services",
+    async () => {
+      const plugin = await loadFeishuPlugin();
+      expect(plugin).not.toBeNull();
+      if (plugin) {
+        const hasClients =
+          Array.isArray(plugin.clients) && plugin.clients.length > 0;
+        const hasServices =
+          Array.isArray(plugin.services) && plugin.services.length > 0;
+        expect(hasClients || hasServices).toBe(true);
+      }
+    },
+    TEST_TIMEOUT,
+  );
+});
 
 describe("Feishu Connector - Authentication Formats", () => {
   it("App ID format follows cli_ prefix pattern", () => {
@@ -251,40 +245,37 @@ describe("Feishu Connector - Authentication Formats", () => {
 // Live Authentication Tests
 // ---------------------------------------------------------------------------
 
-describeIfCreds(
-  "Feishu Connector - Live Authentication",
-  () => {
-    it(
-      "can acquire tenant access token",
-      async () => {
-        const result = await feishuGetTenantAccessToken(
-          FEISHU_APP_ID!,
-          FEISHU_APP_SECRET!,
-          FEISHU_DOMAIN,
-        );
-        expect(result.code).toBe(0);
-        expect(result.tenant_access_token).toBeDefined();
-        expect(typeof result.tenant_access_token).toBe("string");
-        expect(result.tenant_access_token!.length).toBeGreaterThan(0);
-      },
-      TEST_TIMEOUT,
-    );
+describeIfCreds("Feishu Connector - Live Authentication", () => {
+  it(
+    "can acquire tenant access token",
+    async () => {
+      const result = await feishuGetTenantAccessToken(
+        FEISHU_APP_ID!,
+        FEISHU_APP_SECRET!,
+        FEISHU_DOMAIN,
+      );
+      expect(result.code).toBe(0);
+      expect(result.tenant_access_token).toBeDefined();
+      expect(typeof result.tenant_access_token).toBe("string");
+      expect(result.tenant_access_token!.length).toBeGreaterThan(0);
+    },
+    TEST_TIMEOUT,
+  );
 
-    it(
-      "tenant access token has an expiry",
-      async () => {
-        const result = await feishuGetTenantAccessToken(
-          FEISHU_APP_ID!,
-          FEISHU_APP_SECRET!,
-          FEISHU_DOMAIN,
-        );
-        expect(result.expire).toBeDefined();
-        expect(result.expire).toBeGreaterThan(0);
-      },
-      TEST_TIMEOUT,
-    );
-  },
-);
+  it(
+    "tenant access token has an expiry",
+    async () => {
+      const result = await feishuGetTenantAccessToken(
+        FEISHU_APP_ID!,
+        FEISHU_APP_SECRET!,
+        FEISHU_DOMAIN,
+      );
+      expect(result.expire).toBeDefined();
+      expect(result.expire).toBeGreaterThan(0);
+    },
+    TEST_TIMEOUT,
+  );
+});
 
 // ---------------------------------------------------------------------------
 // 2. Message Handling
@@ -333,9 +324,7 @@ describe("Feishu Connector - Features", () => {
   });
 
   it("domain options control API endpoint", () => {
-    expect(feishuApiBase("feishu.cn")).toBe(
-      "https://open.feishu.cn/open-apis",
-    );
+    expect(feishuApiBase("feishu.cn")).toBe("https://open.feishu.cn/open-apis");
     expect(feishuApiBase("larksuite.com")).toBe(
       "https://open.larksuite.com/open-apis",
     );
@@ -427,7 +416,9 @@ let _workspaceAvailable: boolean | null = null;
 async function isWorkspaceAvailable(): Promise<boolean> {
   if (_workspaceAvailable === null) {
     _workspaceAvailable =
-      (await tryWorkspaceImport("../src/config/plugin-auto-enable")) !== null;
+      (await tryWorkspaceImport(
+        "@miladyai/app-core/src/config/plugin-auto-enable",
+      )) !== null;
     if (!_workspaceAvailable) {
       logger.warn(
         "[feishu-connector] Workspace not built — integration tests will be skipped",
@@ -446,14 +437,14 @@ describeIfWorkspace("Feishu Connector - Integration", () => {
   it("Feishu is mapped in CONNECTOR_PLUGINS", async () => {
     const mod = (await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable"))!;
+    }>("@miladyai/app-core/src/config/plugin-auto-enable"))!;
     expect(mod.CONNECTOR_PLUGINS.feishu).toBe("@elizaos/plugin-feishu");
   });
 
   it("Feishu connector is in CONNECTOR_PLUGINS list", async () => {
     const mod = (await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable"))!;
+    }>("@miladyai/app-core/src/config/plugin-auto-enable"))!;
     const connectors = Object.keys(mod.CONNECTOR_PLUGINS);
     expect(connectors).toContain("feishu");
   });
@@ -464,7 +455,7 @@ describeIfWorkspace("Feishu Connector - Integration", () => {
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable"))!;
+    }>("@miladyai/app-core/src/config/plugin-auto-enable"))!;
     const configured = mod.isConnectorConfigured("feishu", {
       token: "fs-token",
     });
@@ -477,7 +468,7 @@ describeIfWorkspace("Feishu Connector - Integration", () => {
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable"))!;
+    }>("@miladyai/app-core/src/config/plugin-auto-enable"))!;
     const configured = mod.isConnectorConfigured("feishu", {
       enabled: false,
       token: "fs-token",
@@ -488,7 +479,7 @@ describeIfWorkspace("Feishu Connector - Integration", () => {
   it("collectPluginNames includes feishu when configured", async () => {
     const mod = (await tryWorkspaceImport<{
       collectPluginNames: (config: unknown) => Set<string>;
-    }>("../src/runtime/eliza"))!;
+    }>("@miladyai/app-core/src/runtime/eliza"))!;
 
     const config = {
       connectors: {

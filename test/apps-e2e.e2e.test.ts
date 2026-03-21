@@ -15,7 +15,7 @@
 import http from "node:http";
 import net from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
 
 // ---------------------------------------------------------------------------
 // HTTP helper

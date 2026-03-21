@@ -12,7 +12,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
 
 const authMocks = vi.hoisted(() => ({
   getSubscriptionStatus: vi.fn(() => [{ id: "openai-codex" }]),
@@ -263,7 +263,7 @@ describe("subscription auth routes (e2e contract)", () => {
     it("returns 500 when Anthropic credential exchange rejects", async () => {
       const submitCode = vi.fn();
       const credentialsPromise = Promise.reject(new Error("token expired"));
-      void credentialsPromise.catch(() => { });
+      void credentialsPromise.catch(() => {});
 
       startAnthropicLogin.mockResolvedValueOnce({
         authUrl: "https://auth.example/anthropic",
@@ -289,7 +289,7 @@ describe("subscription auth routes (e2e contract)", () => {
     it("cleans up Anthropic flow after failed exchange so /start works again", async () => {
       const submitCode = vi.fn();
       const failingCreds = Promise.reject(new Error("exchange error"));
-      void failingCreds.catch(() => { });
+      void failingCreds.catch(() => {});
 
       startAnthropicLogin.mockResolvedValueOnce({
         authUrl: "https://auth.example/anthropic",
@@ -406,7 +406,7 @@ describe("subscription auth routes (e2e contract)", () => {
       const firstFlowClose = vi.fn();
       const firstFlowSubmitCode = vi.fn();
       const firstCredentials = Promise.reject(new Error("callback timeout"));
-      void firstCredentials.catch(() => { });
+      void firstCredentials.catch(() => {});
 
       const secondFlowClose = vi.fn();
 
@@ -610,7 +610,7 @@ describe("subscription auth routes (e2e contract)", () => {
     it("failing one provider flow does not poison the other", async () => {
       const anthropicSubmit = vi.fn();
       const failingCreds = Promise.reject(new Error("network error"));
-      void failingCreds.catch(() => { });
+      void failingCreds.catch(() => {});
 
       const openaiSubmit = vi.fn();
       const openaiClose = vi.fn();
@@ -665,14 +665,14 @@ describe("subscription auth routes (e2e contract)", () => {
           authUrl: "https://auth.example/openai?first",
           state: "first",
           submitCode: vi.fn(),
-          credentials: new Promise(() => { }),
+          credentials: new Promise(() => {}),
           close: firstClose,
         })
         .mockResolvedValueOnce({
           authUrl: "https://auth.example/openai?second",
           state: "second",
           submitCode: vi.fn(),
-          credentials: new Promise(() => { }),
+          credentials: new Promise(() => {}),
           close: secondClose,
         });
 

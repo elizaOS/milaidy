@@ -13,7 +13,7 @@
 import http from "node:http";
 import type { AgentRuntime } from "@elizaos/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { startApiServer } from "../src/api/server";
+import { startApiServer } from "@miladyai/app-core/src/api/server";
 
 // ---------------------------------------------------------------------------
 // Mock skill-catalog-client — returns fixture data instead of reading files
@@ -120,7 +120,7 @@ vi.mock("@elizaos/agent/services/skill-catalog-client", () => {
 });
 
 // Also mock mcp-marketplace to prevent real API calls
-vi.mock("../src/services/mcp-marketplace", () => ({
+vi.mock("@miladyai/app-core/src/services/mcp-marketplace", () => ({
   searchMcpMarketplace: vi.fn().mockResolvedValue({ results: [] }),
   getMcpServerDetails: vi.fn().mockResolvedValue(null),
 }));

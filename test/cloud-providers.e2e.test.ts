@@ -16,12 +16,12 @@
  *   MILADY_LIVE_TEST=1 OPENAI_API_KEY=sk-... pnpm test:e2e -- test/cloud-providers.e2e.test.ts
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { MiladyConfig } from "../src/config/config";
+import type { MiladyConfig } from "@miladyai/app-core/src/config/config";
 import {
   applyCloudConfigToEnv,
   buildCharacterFromConfig,
   collectPluginNames,
-} from "../src/runtime/eliza";
+} from "@miladyai/app-core/src/runtime/eliza";
 
 // ---------------------------------------------------------------------------
 // Env snapshot helper
@@ -749,7 +749,9 @@ describe.skipIf(!isLive)("Live model calls (requires real API keys)", () => {
     const key = process.env.ELIZAOS_CLOUD_API_KEY;
     if (!key) {
       // Try loading from config
-      const { loadMiladyConfig } = await import("../src/config/config");
+      const { loadMiladyConfig } = await import(
+        "@miladyai/app-core/src/config/config"
+      );
       const config = loadMiladyConfig();
       if (!config.cloud?.apiKey)
         throw new Error("No Eliza Cloud API key found");

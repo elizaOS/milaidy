@@ -433,7 +433,9 @@ export function RuntimeView() {
 
       <div className="flex-1 min-h-0 border border-border bg-card rounded-2xl overflow-auto p-2">
         {error ? (
-          <div className="border border-danger/30 bg-danger/10 rounded-xl p-3 text-xs text-danger m-2">{error}</div>
+          <div className="border border-danger/30 bg-danger/10 rounded-xl p-3 text-xs text-danger m-2">
+            {error}
+          </div>
         ) : !snapshot ? (
           <div className="border border-border/30 bg-card/20 rounded-xl p-8 text-center text-xs text-muted m-2">
             {loading

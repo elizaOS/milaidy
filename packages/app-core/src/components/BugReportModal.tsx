@@ -76,7 +76,7 @@ export function BugReportModal() {
                     : "Other",
           }));
       })
-      .catch(() => { });
+      .catch(() => {});
     setTimeout(() => descRef.current?.focus(), 50);
 
     return () => {

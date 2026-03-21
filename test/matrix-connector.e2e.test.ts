@@ -36,7 +36,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   extractPlugin,
   resolveMatrixPluginImportSpecifier,
-} from "../src/test-support/test-helpers";
+} from "@miladyai/app-core/src/test-support/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Environment Setup
@@ -47,8 +47,7 @@ const packageRoot = path.resolve(testDir, "..");
 dotenv.config({ path: path.resolve(packageRoot, ".env") });
 
 const MATRIX_ACCESS_TOKEN = process.env.MATRIX_ACCESS_TOKEN;
-const MATRIX_HOMESERVER =
-  process.env.MATRIX_HOMESERVER ?? "https://matrix.org";
+const MATRIX_HOMESERVER = process.env.MATRIX_HOMESERVER ?? "https://matrix.org";
 const MATRIX_USER_ID = process.env.MATRIX_USER_ID;
 const MATRIX_DEVICE_ID = process.env.MATRIX_DEVICE_ID;
 const MATRIX_ROOMS = process.env.MATRIX_ROOMS;
@@ -381,9 +380,7 @@ describe("Matrix Connector - Matrix-Specific Features", () => {
     };
 
     expect(reactionEvent.type).toBe("m.reaction");
-    expect(reactionEvent.content["m.relates_to"].rel_type).toBe(
-      "m.annotation",
-    );
+    expect(reactionEvent.content["m.relates_to"].rel_type).toBe("m.annotation");
     expect(reactionEvent.content["m.relates_to"].event_id).toBeDefined();
     expect(reactionEvent.content["m.relates_to"].key).toBeDefined();
   });
@@ -603,13 +600,17 @@ describe("Matrix Connector - Error Handling", () => {
     }
   });
 
-  it("handles unreachable homeserver gracefully", async () => {
-    const healthy = await checkHomeserverHealth(
-      "https://matrix.nonexistent.example.com",
-      5_000,
-    );
-    expect(healthy).toBe(false);
-  }, TEST_TIMEOUT);
+  it(
+    "handles unreachable homeserver gracefully",
+    async () => {
+      const healthy = await checkHomeserverHealth(
+        "https://matrix.nonexistent.example.com",
+        5_000,
+      );
+      expect(healthy).toBe(false);
+    },
+    TEST_TIMEOUT,
+  );
 
   it("rate limit delay is reasonable", () => {
     expect(RATE_LIMIT_DELAY_MS).toBeGreaterThanOrEqual(200);
@@ -667,7 +668,7 @@ describe("Matrix Connector - Integration", () => {
   it("Matrix is mapped in CONNECTOR_PLUGINS", async () => {
     const mod = await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[matrix-connector] Workspace not built — skipping");
       return;
@@ -680,7 +681,7 @@ describe("Matrix Connector - Integration", () => {
     try {
       mod = await tryWorkspaceImport<{
         CHANNEL_PLUGIN_MAP: Record<string, string>;
-      }>("../src/runtime/eliza");
+      }>("@miladyai/app-core/src/runtime/eliza");
     } catch {
       mod = null;
     }
@@ -694,7 +695,7 @@ describe("Matrix Connector - Integration", () => {
   it("Matrix connector is in CONNECTOR_PLUGINS list", async () => {
     const mod = await tryWorkspaceImport<{
       CONNECTOR_PLUGINS: Record<string, string>;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod) {
       logger.warn("[matrix-connector] Workspace not built — skipping");
       return;
@@ -708,7 +709,7 @@ describe("Matrix Connector - Integration", () => {
     try {
       mod = await tryWorkspaceImport<{
         collectPluginNames: (config: unknown) => Set<string>;
-      }>("../src/runtime/eliza");
+      }>("@miladyai/app-core/src/runtime/eliza");
     } catch {
       mod = null;
     }
@@ -739,7 +740,7 @@ describe("Matrix Connector - Integration", () => {
         name: string,
         config: Record<string, unknown>,
       ) => boolean;
-    }>("../src/config/plugin-auto-enable");
+    }>("@miladyai/app-core/src/config/plugin-auto-enable");
     if (!mod?.isConnectorConfigured) {
       logger.warn(
         "[matrix-connector] isConnectorConfigured not exported — skipping",

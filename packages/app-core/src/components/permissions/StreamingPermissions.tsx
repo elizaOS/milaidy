@@ -346,10 +346,11 @@ export function StreamingPermissionsOnboardingView({
             <div
               key={def.id}
               data-permission-id={def.id}
-              className={`flex items-center gap-4 p-4 border ${isGranted
+              className={`flex items-center gap-4 p-4 border ${
+                isGranted
                   ? "border-[var(--ok)] bg-[var(--ok)]/10"
                   : "border-[var(--border)] bg-[var(--card)]"
-                }`}
+              }`}
             >
               <PermissionIcon icon={def.icon} />
               <div className="flex-1">
@@ -399,11 +400,7 @@ export function StreamingPermissionsOnboardingView({
           className="h-auto min-w-[8.5rem] bg-accent border-accent px-4 py-2 text-[11px] leading-tight text-accent-foreground"
           onClick={() => onContinue()}
         >
-          {translateWithFallback(
-            t,
-            "permissionssection.Continue",
-            "Continue",
-          )}
+          {translateWithFallback(t, "permissionssection.Continue", "Continue")}
         </Button>
       </div>
     </div>

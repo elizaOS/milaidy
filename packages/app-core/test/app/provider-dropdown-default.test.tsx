@@ -74,11 +74,11 @@ function defaultProps() {
     ],
     pluginSaving: new Set<string>(),
     pluginSaveSuccess: new Set<string>(),
-    loadPlugins: vi.fn(async () => { }),
-    handlePluginToggle: vi.fn(async () => { }),
+    loadPlugins: vi.fn(async () => {}),
+    handlePluginToggle: vi.fn(async () => {}),
     handlePluginConfigSave: vi.fn(),
-    handleCloudLogin: vi.fn(async () => { }),
-    handleCloudDisconnect: vi.fn(async () => { }),
+    handleCloudLogin: vi.fn(async () => {}),
+    handleCloudDisconnect: vi.fn(async () => {}),
     setState: vi.fn(),
     setTab: vi.fn(),
   };
@@ -210,7 +210,7 @@ describe("ProviderSwitcher provider dropdown default", () => {
       ],
     });
 
-    const handlePluginToggle = vi.fn(async () => { });
+    const handlePluginToggle = vi.fn(async () => {});
 
     let tree!: ReactTestRenderer;
     await act(async () => {
