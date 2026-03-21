@@ -20,6 +20,7 @@ export interface DesktopClickAuditItem {
 export type DesktopWorkspaceSurface =
   | "chat"
   | "browser"
+  | "release"
   | "triggers"
   | "plugins"
   | "connectors"
@@ -42,6 +43,11 @@ export const DESKTOP_WORKSPACE_SURFACES: readonly DesktopWorkspaceSurfaceDef[] =
       id: "browser",
       label: "Browser Window",
       description: "Open the Electrobun browser surface.",
+    },
+    {
+      id: "release",
+      label: "Release Center",
+      description: "Open the detached release center window.",
     },
     {
       id: "triggers",

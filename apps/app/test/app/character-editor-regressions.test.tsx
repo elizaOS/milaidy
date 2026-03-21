@@ -164,7 +164,10 @@ function createAppState() {
       ],
     },
     selectedVrmIndex: 0,
-    t: vi.fn((value: string) => value),
+    t: vi.fn(
+      (value: string, options?: { defaultValue?: string }) =>
+        options?.defaultValue ?? value,
+    ),
     registryStatus: null,
     registryLoading: false,
     registryRegistering: false,

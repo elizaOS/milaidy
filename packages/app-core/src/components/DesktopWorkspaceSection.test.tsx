@@ -126,11 +126,11 @@ describe("DesktopWorkspaceSection", () => {
       findButtonByText(root, "Open Desktop Settings Window").props.onClick();
     });
     await act(async () => {
-      findButtonByText(root, "Plugins Window").props.onClick();
+      findButtonByText(root, "Release Center").props.onClick();
     });
 
     expect(openDesktopSettingsWindowMock).toHaveBeenCalledWith("desktop");
-    expect(openDesktopSurfaceWindowMock).toHaveBeenCalledWith("plugins");
+    expect(openDesktopSurfaceWindowMock).toHaveBeenCalledWith("release");
   });
 
   it("toggles auto-launch through the typed bridge", async () => {

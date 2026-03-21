@@ -1,6 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { normalizeParallaxCapture } from "@miladyai/app-core/src/benchmark/replay-capture";
+import { normalizeParallaxCapture } from "../packages/app-core/src/benchmark/replay-capture.ts";
 
 interface CliArgs {
   input: string;

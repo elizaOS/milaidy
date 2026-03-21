@@ -201,7 +201,9 @@ export function ShellHeaderControls({
                 ) : (
                   <Volume2 className="h-4 w-4 shrink-0" />
                 )}
-                <span className="hidden sm:inline">{t("companion.voiceToggle")}</span>
+                <span className="hidden sm:inline">
+                  {t("companion.voiceToggle")}
+                </span>
               </button>
               <button
                 type="button"
@@ -211,7 +213,9 @@ export function ShellHeaderControls({
                 onClick={onNewChat}
               >
                 <MessageCirclePlus className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">{t("companion.newChatButton")}</span>
+                <span className="hidden sm:inline">
+                  {t("companion.newChatButton")}
+                </span>
               </button>
             </div>
           </div>

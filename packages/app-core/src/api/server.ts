@@ -614,22 +614,11 @@ function ensureCompatApiAuthorized(
 }
 
 function ensureCompatSensitiveRouteAuthorized(
-  req: Pick<http.IncomingMessage, "headers" | "socket">,
+  req: Pick<http.IncomingMessage, "headers">,
   res: http.ServerResponse,
 ): boolean {
   const env = process.env.NODE_ENV;
-  if (env === "development" || env === "dev" || !env) {
-    return true;
-  }
-
-  // Also allow loopback if no token is configured (fail-open for local dev only)
-  const remoteAddress = req.socket?.remoteAddress;
-  const isLoopback =
-    remoteAddress === "127.0.0.1" ||
-    remoteAddress === "::1" ||
-    remoteAddress === "::ffff:127.0.0.1";
-
-  if (isLoopback && !getCompatApiToken()) {
+  if (env === "development" || env === "dev") {
     return true;
   }
 

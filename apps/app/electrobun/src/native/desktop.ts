@@ -25,10 +25,15 @@ import * as fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Electrobun, {
+  type ApplicationMenuItemConfig,
+  BrowserView,
   type BrowserWindow,
+  BuildConfig,
+  ContextMenu,
   GlobalShortcut,
   type MenuItemConfig,
   Screen,
+  Session,
   Tray,
   Updater,
   Utils,
@@ -37,6 +42,11 @@ import type {
   ClipboardReadResult,
   ClipboardWriteOptions,
   CursorPosition,
+  DesktopBuildInfo,
+  DesktopReleaseNotesWindowInfo,
+  DesktopSessionSnapshot,
+  DesktopSessionStorageType,
+  DesktopUpdaterSnapshot,
   DisplayInfo,
   FileDialogOptions,
   FileDialogResult,
@@ -57,6 +67,7 @@ import {
   makeKeyAndOrderFront,
   orderOut,
 } from "./mac-window-effects";
+import { checkWebGpuSupport } from "./webgpu-browser-support";
 
 // ============================================================================
 // Types
@@ -114,6 +125,17 @@ const PATH_NAME_MAP: Record<string, string | (() => string)> = {
   videos: Utils.paths.videos,
 };
 
+const DEFAULT_RELEASE_NOTES_URL = "https://milady.ai/releases/";
+const RELEASE_NOTES_PARTITION = "persist:milady-release-notes";
+
+let activeDesktopManager: DesktopManager | null = null;
+let nativeContextMenuEventsInstalled = false;
+
+export function resetDesktopManagerForTesting(): void {
+  activeDesktopManager = null;
+  nativeContextMenuEventsInstalled = false;
+}
+
 // ============================================================================
 // DesktopManager
 // ============================================================================
@@ -128,6 +150,8 @@ const PATH_NAME_MAP: Record<string, string | (() => string)> = {
 export class DesktopManager {
   private mainWindow: BrowserWindow | null = null;
   private tray: Tray | null = null;
+  private releaseNotesWindow: BrowserWindow | null = null;
+  private releaseNotesView: BrowserView | null = null;
   private shortcuts: Map<string, ShortcutOptions> = new Map();
   private notificationCounter = 0;
   private sendToWebview: SendToWebview | null = null;
@@ -143,6 +167,7 @@ export class DesktopManager {
         surface:
           | "chat"
           | "browser"
+          | "release"
           | "triggers"
           | "plugins"
           | "connectors"
@@ -160,6 +185,11 @@ export class DesktopManager {
   private windowEventHandlers: Partial<
     Record<"focus" | "blur" | "close" | "resize" | "move", () => void>
   > = {};
+
+  constructor() {
+    activeDesktopManager = this;
+    this.ensureNativeContextMenuEvents();
+  }
 
   // MARK: - Configuration
 
@@ -198,6 +228,7 @@ export class DesktopManager {
       surface:
         | "chat"
         | "browser"
+        | "release"
         | "triggers"
         | "plugins"
         | "connectors"
@@ -230,6 +261,7 @@ export class DesktopManager {
     surface:
       | "chat"
       | "browser"
+      | "release"
       | "triggers"
       | "plugins"
       | "connectors"
@@ -248,6 +280,66 @@ export class DesktopManager {
   private send(message: string, payload?: unknown): void {
     if (this.sendToWebview) {
       this.sendToWebview(message, payload);
+    }
+  }
+
+  private ensureNativeContextMenuEvents(): void {
+    activeDesktopManager = this;
+    if (nativeContextMenuEventsInstalled) {
+      return;
+    }
+
+    nativeContextMenuEventsInstalled = true;
+    ContextMenu.on("context-menu-clicked", (event) => {
+      activeDesktopManager?.handleNativeContextMenuClick(
+        event as {
+          data?: {
+            action?: string;
+            data?: { text?: string };
+          };
+        },
+      );
+    });
+  }
+
+  private handleNativeContextMenuClick(event: {
+    data?: { action?: string; data?: { text?: string } };
+  }): void {
+    const action = event.data?.action;
+    const text = event.data?.data?.text?.trim();
+
+    if (!action) {
+      return;
+    }
+
+    if (action === "copy-selection") {
+      if (text) {
+        Utils.clipboardWriteText(text);
+      }
+      return;
+    }
+
+    if (!text) {
+      return;
+    }
+
+    if (action === "ask-agent") {
+      this.send("contextMenu:askAgent", { text });
+      return;
+    }
+
+    if (action === "quote-in-chat") {
+      this.send("contextMenu:quoteInChat", { text });
+      return;
+    }
+
+    if (action === "create-skill") {
+      this.send("contextMenu:createSkill", { text });
+      return;
+    }
+
+    if (action === "save-as-command") {
+      this.send("contextMenu:saveAsCommand", { text });
     }
   }
 
@@ -1066,6 +1158,220 @@ X-GNOME-Autostart-enabled=true
     return { path: Utils.paths.userData };
   }
 
+  async checkForUpdates(): Promise<DesktopUpdaterSnapshot> {
+    try {
+      const result = await Updater.checkForUpdate();
+      if (result?.updateAvailable) {
+        void Updater.downloadUpdate().catch((error: unknown) => {
+          console.warn("[Desktop] Failed to download update:", error);
+        });
+      }
+      return await this.getUpdaterState();
+    } catch (error) {
+      return this.buildUpdaterSnapshot(error);
+    }
+  }
+
+  async getUpdaterState(): Promise<DesktopUpdaterSnapshot> {
+    return this.buildUpdaterSnapshot();
+  }
+
+  async getBuildInfo(): Promise<DesktopBuildInfo> {
+    const config = await BuildConfig.get();
+    return {
+      platform: process.platform,
+      arch: process.arch,
+      defaultRenderer: config.defaultRenderer,
+      availableRenderers: config.availableRenderers,
+      cefVersion: config.cefVersion,
+      bunVersion: config.bunVersion,
+      runtime: config.runtime,
+    };
+  }
+
+  async getDockIconVisibility(): Promise<{ visible: boolean }> {
+    if (process.platform !== "darwin") {
+      return { visible: true };
+    }
+
+    return {
+      visible: Utils.isDockIconVisible?.() ?? true,
+    };
+  }
+
+  async setDockIconVisibility(options: {
+    visible: boolean;
+  }): Promise<{ visible: boolean }> {
+    if (process.platform === "darwin") {
+      Utils.setDockIconVisible?.(options.visible);
+    }
+
+    return this.getDockIconVisibility();
+  }
+
+  async showSelectionContextMenu(options: {
+    text: string;
+  }): Promise<{ shown: boolean }> {
+    const text = options.text.trim();
+    if (!text) {
+      return { shown: false };
+    }
+
+    const menu: ApplicationMenuItemConfig[] = [
+      {
+        type: "normal",
+        label: "Ask Agent",
+        action: "ask-agent",
+        data: { text },
+      },
+      {
+        type: "normal",
+        label: "Quote in Chat",
+        action: "quote-in-chat",
+        data: { text },
+      },
+      {
+        type: "normal",
+        label: "Create Skill",
+        action: "create-skill",
+        data: { text },
+      },
+      {
+        type: "normal",
+        label: "Save as Command",
+        action: "save-as-command",
+        data: { text },
+      },
+      { type: "separator" },
+      {
+        type: "normal",
+        label: "Copy Selection",
+        action: "copy-selection",
+        data: { text },
+      },
+    ];
+
+    ContextMenu.showContextMenu(menu);
+    return { shown: true };
+  }
+
+  async getSessionSnapshot(options: {
+    partition: string;
+  }): Promise<DesktopSessionSnapshot> {
+    return this.readSessionSnapshot(options.partition);
+  }
+
+  async clearSessionData(options: {
+    partition: string;
+    storageTypes?: DesktopSessionStorageType[] | "all";
+    clearCookies?: boolean;
+  }): Promise<DesktopSessionSnapshot> {
+    const session = this.getSession(options.partition);
+    const shouldClearCookies =
+      options.clearCookies === true ||
+      options.storageTypes === "all" ||
+      options.storageTypes?.includes("cookies");
+
+    if (shouldClearCookies) {
+      session.cookies.clear();
+    }
+
+    if (!options.storageTypes || options.storageTypes === "all") {
+      session.clearStorageData("all");
+    } else {
+      const storageTypes = options.storageTypes.filter(
+        (type) => type !== "cookies",
+      );
+      if (storageTypes.length > 0) {
+        session.clearStorageData(
+          storageTypes as Exclude<DesktopSessionStorageType, "cookies">[],
+        );
+      }
+    }
+
+    return this.readSessionSnapshot(options.partition);
+  }
+
+  async getWebGpuBrowserStatus(): Promise<
+    ReturnType<typeof checkWebGpuSupport>
+  > {
+    const config = await BuildConfig.get();
+    return checkWebGpuSupport(this.resolvePreferredBrowserRenderer(config));
+  }
+
+  async openReleaseNotesWindow(options: {
+    url: string;
+    title?: string;
+  }): Promise<DesktopReleaseNotesWindowInfo> {
+    const url = this.normalizeReleaseNotesUrl(options.url);
+    const title = options.title?.trim() || "Milady Release Notes";
+
+    if (this.releaseNotesWindow && this.releaseNotesView) {
+      this.releaseNotesWindow.setTitle(title);
+      if (this.releaseNotesView.url !== url) {
+        this.releaseNotesView.loadURL(url);
+      }
+      this.releaseNotesWindow.focus();
+      return {
+        url,
+        windowId: this.releaseNotesWindow.id,
+        webviewId: this.releaseNotesView.id,
+      };
+    }
+
+    const buildConfig = await BuildConfig.get();
+    const renderer = this.resolvePreferredBrowserRenderer(buildConfig);
+    const win = new Electrobun.BrowserWindow({
+      title,
+      frame: {
+        x: 170,
+        y: 110,
+        width: 1180,
+        height: 860,
+      },
+      renderer,
+      transparent: false,
+      titleBarStyle: "default",
+    });
+
+    // BrowserWindow always creates a default webview. Remove it so the
+    // manual BrowserView becomes the only live browsing surface.
+    win.webview.remove();
+
+    const view = new BrowserView({
+      url,
+      renderer,
+      windowId: win.id,
+      partition: RELEASE_NOTES_PARTITION,
+      sandbox: true,
+      navigationRules: JSON.stringify(
+        this.buildReleaseNotesNavigationRules(url),
+      ),
+      frame: {
+        x: 0,
+        y: 0,
+        width: win.frame.width,
+        height: win.frame.height,
+      },
+    });
+
+    win.on("close", () => {
+      this.releaseNotesView?.remove();
+      this.releaseNotesWindow = null;
+      this.releaseNotesView = null;
+    });
+
+    this.releaseNotesWindow = win;
+    this.releaseNotesView = view;
+    win.focus();
+
+    return {
+      url,
+      windowId: win.id,
+      webviewId: view.id,
+    };
+  }
+
   // MARK: - Clipboard
 
   async writeToClipboard(options: ClipboardWriteOptions): Promise<void> {
@@ -1297,6 +1603,117 @@ X-GNOME-Autostart-enabled=true
     return iconPath;
   }
 
+  private getSession(partition: string) {
+    const normalized = partition.trim() || "persist:default";
+    if (normalized === "persist:default") {
+      return Session.defaultSession;
+    }
+    return Session.fromPartition(normalized);
+  }
+
+  private readSessionSnapshot(partition: string): DesktopSessionSnapshot {
+    const session = this.getSession(partition);
+    const cookies = session.cookies.get().map((cookie) => ({
+      name: cookie.name,
+      domain: cookie.domain,
+      path: cookie.path,
+      secure: cookie.secure,
+      httpOnly: cookie.httpOnly,
+      session: cookie.session,
+      expirationDate: cookie.expirationDate,
+    }));
+
+    return {
+      partition: session.partition,
+      persistent: session.partition.startsWith("persist:"),
+      cookieCount: cookies.length,
+      cookies,
+    };
+  }
+
+  private normalizeReleaseNotesUrl(url: string): string {
+    const trimmed = url.trim() || DEFAULT_RELEASE_NOTES_URL;
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Release notes URL must use http or https");
+    }
+    return parsed.toString();
+  }
+
+  private buildReleaseNotesNavigationRules(url: string): string[] {
+    const parsed = new URL(url);
+    const origin = parsed.origin.replace(/\/+$/, "");
+    return [parsed.toString(), `${origin}/*`];
+  }
+
+  private async buildUpdaterSnapshot(
+    error?: unknown,
+  ): Promise<DesktopUpdaterSnapshot> {
+    let currentVersion = "unknown";
+    let currentHash: string | undefined;
+    let channel: string | undefined;
+    let baseUrl: string | undefined;
+    let snapshotError =
+      error instanceof Error ? error.message : error ? String(error) : null;
+
+    try {
+      const localInfo = await Updater.getLocallocalInfo();
+      currentVersion = localInfo.version;
+      currentHash = localInfo.hash;
+      channel = localInfo.channel;
+      baseUrl = localInfo.baseUrl;
+    } catch (localError) {
+      if (!snapshotError) {
+        snapshotError =
+          localError instanceof Error
+            ? localError.message
+            : String(localError ?? "Unknown updater error");
+      }
+    }
+
+    const updateInfo =
+      (Updater.updateInfo?.() as Partial<{
+        version: string;
+        hash: string;
+        updateAvailable: boolean;
+        updateReady: boolean;
+        error: string;
+      }>) ?? {};
+    const lastStatusEntry = Updater.getStatusHistory?.().at(-1) ?? null;
+
+    return {
+      currentVersion,
+      currentHash,
+      channel,
+      baseUrl,
+      updateAvailable: Boolean(updateInfo.updateAvailable),
+      updateReady: Boolean(updateInfo.updateReady),
+      latestVersion: updateInfo.version ?? null,
+      latestHash: updateInfo.hash ?? null,
+      error: updateInfo.error || snapshotError,
+      lastStatus: lastStatusEntry
+        ? {
+            status: lastStatusEntry.status,
+            message: lastStatusEntry.message,
+            timestamp: lastStatusEntry.timestamp,
+          }
+        : null,
+    };
+  }
+
+  private resolvePreferredBrowserRenderer(
+    buildInfo: Awaited<ReturnType<typeof BuildConfig.get>>,
+  ): "native" | "cef" {
+    if (
+      process.platform === "linux" &&
+      buildInfo.availableRenderers.includes("cef")
+    ) {
+      return "cef";
+    }
+
+    return buildInfo.defaultRenderer;
+  }
+
   /**
    * Clean up all resources.
    */
@@ -1307,6 +1724,9 @@ X-GNOME-Autostart-enabled=true
     }
     this.teardownWindowEvents(this.mainWindow);
     this.mainWindow = null;
+    this.releaseNotesView?.remove();
+    this.releaseNotesView = null;
+    this.releaseNotesWindow = null;
     this.unregisterAllShortcuts();
     void this.destroyTray();
     this.trayMenuItems.clear();

@@ -11,6 +11,7 @@ import {
   PermissionsSection,
   PluginsPageView,
   ProviderSwitcher,
+  ReleaseCenterView,
   SettingsView,
   StartupFailureView,
   VoiceConfigView,
@@ -47,6 +48,8 @@ function DetachedSettingsSectionView({
       return <VoiceConfigView />;
     case "permissions":
       return <PermissionsSection />;
+    case "updates":
+      return <ReleaseCenterView />;
     default:
       return <SettingsView initialSection={section} />;
   }

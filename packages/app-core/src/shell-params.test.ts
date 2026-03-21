@@ -22,6 +22,10 @@ describe("parseShellRoute", () => {
       mode: "surface",
       tab: "chat",
     });
+    expect(parseShellRoute("?shell=surface&tab=release")).toEqual({
+      mode: "surface",
+      tab: "release",
+    });
     expect(parseShellRoute("?shell=surface&tab=triggers")).toEqual({
       mode: "surface",
       tab: "triggers",

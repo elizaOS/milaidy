@@ -36,6 +36,10 @@ vi.mock("electrobun/bun", () => ({
   default: { events: mockEvents },
   Electrobun: { events: mockEvents },
   Tray: MockTray,
+  ContextMenu: {
+    on: vi.fn(),
+    showContextMenu: vi.fn(),
+  },
   GlobalShortcut: {
     register: vi.fn(),
     unregister: vi.fn(),
@@ -90,7 +94,7 @@ vi.mock("electrobun/bun", () => ({
   },
 }));
 
-import { DesktopManager } from "../desktop";
+import { DesktopManager, resetDesktopManagerForTesting } from "../desktop";
 
 function setPlatform(value: string): void {
   Object.defineProperty(process, "platform", {
@@ -113,10 +117,12 @@ function createWindow() {
 describe("DesktopManager lifecycle cleanup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetDesktopManagerForTesting();
     setPlatform("linux");
   });
 
   afterEach(() => {
+    resetDesktopManagerForTesting();
     setPlatform("darwin");
   });
 

@@ -195,11 +195,31 @@ export function registerRpcHandlers(
     desktopApplyUpdate: async () => {
       Updater.applyUpdate();
     },
+    desktopCheckForUpdates: async () => desktop.checkForUpdates(),
+    desktopGetUpdaterState: async () => desktop.getUpdaterState(),
     desktopGetVersion: async () => desktop.getVersion(),
+    desktopGetBuildInfo: async () => desktop.getBuildInfo(),
     desktopIsPackaged: async () => desktop.isPackaged(),
+    desktopGetDockIconVisibility: async () => desktop.getDockIconVisibility(),
+    desktopSetDockIconVisibility: async (
+      params: Parameters<typeof desktop.setDockIconVisibility>[0],
+    ) => desktop.setDockIconVisibility(params),
     desktopGetPath: async (params: Parameters<typeof desktop.getPath>[0]) =>
       desktop.getPath(params),
     desktopBeep: async () => desktop.beep(),
+    desktopShowSelectionContextMenu: async (
+      params: Parameters<typeof desktop.showSelectionContextMenu>[0],
+    ) => desktop.showSelectionContextMenu(params),
+    desktopGetSessionSnapshot: async (
+      params: Parameters<typeof desktop.getSessionSnapshot>[0],
+    ) => desktop.getSessionSnapshot(params),
+    desktopClearSessionData: async (
+      params: Parameters<typeof desktop.clearSessionData>[0],
+    ) => desktop.clearSessionData(params),
+    desktopGetWebGpuBrowserStatus: async () => desktop.getWebGpuBrowserStatus(),
+    desktopOpenReleaseNotesWindow: async (
+      params: Parameters<typeof desktop.openReleaseNotesWindow>[0],
+    ) => desktop.openReleaseNotesWindow(params),
     desktopOpenSettingsWindow: async (
       params: { tabHint?: string } | undefined,
     ) => {
@@ -209,6 +229,7 @@ export function registerRpcHandlers(
       surface:
         | "chat"
         | "browser"
+        | "release"
         | "triggers"
         | "plugins"
         | "connectors"

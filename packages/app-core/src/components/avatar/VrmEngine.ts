@@ -189,7 +189,7 @@ const CAMERA_PROFILE_TRANSITION_DURATION_SECONDS = 0.8;
 const AVATAR_SWITCH_CAMERA_TRANSITION_DURATION_SECONDS = 3;
 const COMPANION_WORLD_SCALE = 2.5;
 const COMPANION_DARK_WORLD_FLOOR_OFFSET_Y = -0.85;
-const COMPANION_LIGHT_WORLD_FLOOR_OFFSET_Y = -0.30;
+const COMPANION_LIGHT_WORLD_FLOOR_OFFSET_Y = -0.3;
 const COMPANION_WORLD_REVEAL_DURATION = 5.4;
 const COMPANION_WORLD_REVEAL_EDGE = 0.28;
 const COMPANION_WORLD_REVEAL_EASE_EXPONENT = 2;
@@ -469,7 +469,7 @@ async function loadGltfAsset(
     const reader = response.body.getReader();
     let received = 0;
     const chunks: Uint8Array[] = [];
-    for (; ;) {
+    for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       if (value) {
@@ -582,7 +582,10 @@ export class VrmEngine {
   private teleportCompleteTime = -Infinity;
   private teleportProgressUniform: { value: number } | null = null;
   private teleportDissolvedMaterials: THREE.Material[] = [];
-  private teleportFallbackShaders: { uniforms: { uTeleportProgress: { value: number } }; isOutgoing?: boolean }[] = [];
+  private teleportFallbackShaders: {
+    uniforms: { uTeleportProgress: { value: number } };
+    isOutgoing?: boolean;
+  }[] = [];
   private teleportSparkles: TeleportSparkleSystem | null = null;
   private revealStarted = false;
   private mouthValue = 0;
@@ -770,10 +773,10 @@ export class VrmEngine {
     neckBone: THREE.Object3D | null;
     spineBone: THREE.Object3D | null;
   } = {
-      headBone: null,
-      neckBone: null,
-      spineBone: null,
-    };
+    headBone: null,
+    neckBone: null,
+    spineBone: null,
+  };
   private readonly tempCameraOrbitOffset = new THREE.Vector3();
   private readonly tempCameraSpherical = new THREE.Spherical();
   private readonly tempAvatarLookTarget = new THREE.Vector3();
@@ -865,11 +868,15 @@ export class VrmEngine {
     this.scene.add(sparkRenderer);
     this.sparkRenderer = sparkRenderer;
 
-    if (sparkRenderer.material && typeof sparkRenderer.material.vertexShader === 'string') {
-      sparkRenderer.material.vertexShader = sparkRenderer.material.vertexShader.replace(
-        'if (viewCenter.z >= 0.0) {',
-        'if (viewCenter.z > -6.0) {'
-      );
+    if (
+      sparkRenderer.material &&
+      typeof sparkRenderer.material.vertexShader === "string"
+    ) {
+      sparkRenderer.material.vertexShader =
+        sparkRenderer.material.vertexShader.replace(
+          "if (viewCenter.z >= 0.0) {",
+          "if (viewCenter.z > -6.0) {",
+        );
       sparkRenderer.material.needsUpdate = true;
     }
   }
@@ -965,17 +972,35 @@ export class VrmEngine {
       !math.length ||
       !math.swizzle
     ) {
-      console.error("[VrmEngine] createWorldRevealController failed missing dyno/tsl props:", {
-        Gsplat: !!dyno?.Gsplat, dynoBlock: !!dyno?.dynoBlock, dynoFloat: !!dyno?.dynoFloat,
-        dynoVec3: !!dyno?.dynoVec3, dynoConst: !!dyno?.dynoConst, splitGsplat: !!dyno?.splitGsplat,
-        combineGsplat: !!dyno?.combineGsplat, add: !!math.add, sub: !!math.sub,
-        mul: !!math.mul, div: !!math.div, abs: !!math.abs, clamp: !!math.clamp,
-        max: !!math.max, mix: !!math.mix, smoothstep: !!math.smoothstep,
-        pow: !!math.pow, length: !!math.length, swizzle: !!math.swizzle
-      });
+      console.error(
+        "[VrmEngine] createWorldRevealController failed missing dyno/tsl props:",
+        {
+          Gsplat: !!dyno?.Gsplat,
+          dynoBlock: !!dyno?.dynoBlock,
+          dynoFloat: !!dyno?.dynoFloat,
+          dynoVec3: !!dyno?.dynoVec3,
+          dynoConst: !!dyno?.dynoConst,
+          splitGsplat: !!dyno?.splitGsplat,
+          combineGsplat: !!dyno?.combineGsplat,
+          add: !!math.add,
+          sub: !!math.sub,
+          mul: !!math.mul,
+          div: !!math.div,
+          abs: !!math.abs,
+          clamp: !!math.clamp,
+          max: !!math.max,
+          mix: !!math.mix,
+          smoothstep: !!math.smoothstep,
+          pow: !!math.pow,
+          length: !!math.length,
+          swizzle: !!math.swizzle,
+        },
+      );
       return null;
     }
-    console.log("[VrmEngine] createWorldRevealController SUCCESS, dyno/tsl checked ok");
+    console.log(
+      "[VrmEngine] createWorldRevealController SUCCESS, dyno/tsl checked ok",
+    );
 
     const originUniform = dyno.dynoVec3(reveal.origin, "uWorldRevealOrigin");
     const resolvedRadius = Math.max(
@@ -1431,10 +1456,10 @@ export class VrmEngine {
 
     const cameraRotation = this.camera
       ? new THREE.Vector3(
-        this.camera.rotation.x,
-        this.camera.rotation.y,
-        this.camera.rotation.z,
-      )
+          this.camera.rotation.x,
+          this.camera.rotation.y,
+          this.camera.rotation.z,
+        )
       : null;
     const lookAtTarget =
       this.toDebugVector3(this.lookAtTarget) ??
@@ -1566,7 +1591,7 @@ export class VrmEngine {
 
     // To prevent frame-based dynamic offsets (yaw, sway, zoom) from accumulating and causing camera spin,
     // compute the pristine tracking offset from baseCameraPosition, which is unaffected by post-process
-    // modifiers in applyCameraMotion. We do NOT use OrbitControls' getDistance/getAzimuthalAngle because 
+    // modifiers in applyCameraMotion. We do NOT use OrbitControls' getDistance/getAzimuthalAngle because
     // OrbitControls reads from `camera.position` which has the temporary view shifts applied to it every frame.
     const currentOffset = new THREE.Vector3();
     currentOffset.copy(this.baseCameraPosition).sub(startLookAt);
@@ -2007,7 +2032,7 @@ export class VrmEngine {
     const incomingRevealRadius = Math.max(
       worldRevealRadius * COMPANION_WORLD_SCALE,
       getRobustSplatRadialExtent(splat, worldCenterBottom) *
-      COMPANION_WORLD_SCALE,
+        COMPANION_WORLD_SCALE,
     );
     let outgoingAnchor: THREE.Vector3 | null = null;
     let sharedRevealRadius = incomingRevealRadius;
@@ -2016,7 +2041,7 @@ export class VrmEngine {
       sharedRevealRadius = Math.max(
         sharedRevealRadius,
         getRobustSplatRadialExtent(outgoingWorld, outgoingAnchor) *
-        COMPANION_WORLD_SCALE,
+          COMPANION_WORLD_SCALE,
       );
     }
 
@@ -2298,46 +2323,75 @@ export class VrmEngine {
       const applyTslDissolve = (targetVrm: VRM, isOutgoing: boolean) => {
         targetVrm.scene.traverse((obj: THREE.Object3D) => {
           if (!(obj instanceof THREE.Mesh)) return;
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          const mats = Array.isArray(obj.material)
+            ? obj.material
+            : [obj.material];
           for (const mat of mats) {
             if (!mat.isNodeMaterial || mat.userData._dissolveApplied) continue;
             appliedNodeDissolve = true;
             mat.userData._dissolveApplied = true;
             mat.userData._origOpacityNode = mat.opacityNode ?? null;
-            mat.userData._origEmissiveNode = (mat as MeshStandardMaterialWithNodeProps).emissiveNode ?? null;
+            mat.userData._origEmissiveNode =
+              (mat as MeshStandardMaterialWithNodeProps).emissiveNode ?? null;
             mat.userData._origAlphaTest = mat.alphaTest;
 
             const worldY = tsl.positionWorld.y;
-            const threshold = uProgress.mul(TELEPORT_DISSOLVE_END_Y - TELEPORT_DISSOLVE_START_Y).add(TELEPORT_DISSOLVE_START_Y);
+            const threshold = uProgress
+              .mul(TELEPORT_DISSOLVE_END_Y - TELEPORT_DISSOLVE_START_Y)
+              .add(TELEPORT_DISSOLVE_START_Y);
             const diff = worldY.sub(threshold);
 
-            const nx = tsl.sin(tsl.positionWorld.x.mul(18.0).add(worldY.mul(12.0)));
-            const ny = tsl.cos(worldY.mul(15.0).add(tsl.positionWorld.z.mul(10.0)));
-            const nz = tsl.sin(tsl.positionWorld.z.mul(18.0).add(tsl.positionWorld.x.mul(10.0)));
+            const nx = tsl.sin(
+              tsl.positionWorld.x.mul(18.0).add(worldY.mul(12.0)),
+            );
+            const ny = tsl.cos(
+              worldY.mul(15.0).add(tsl.positionWorld.z.mul(10.0)),
+            );
+            const nz = tsl.sin(
+              tsl.positionWorld.z.mul(18.0).add(tsl.positionWorld.x.mul(10.0)),
+            );
             const noise = nx.add(ny).add(nz).div(3.0).add(1.0).mul(0.5);
             const ratio = diff.div(0.3).clamp(0.0, 1.0);
 
             const baseAlpha = tsl.step(ratio, noise);
-            const dissolveAlpha = isOutgoing ? tsl.float(1.0).sub(baseAlpha) : baseAlpha;
+            const dissolveAlpha = isOutgoing
+              ? tsl.float(1.0).sub(baseAlpha)
+              : baseAlpha;
 
             const edgeDist = diff.abs();
             const glowWidth = tsl.float(0.08);
-            const glowIntensity = tsl.float(1.0).sub(edgeDist.div(glowWidth).clamp(0.0, 1.0));
+            const glowIntensity = tsl
+              .float(1.0)
+              .sub(edgeDist.div(glowWidth).clamp(0.0, 1.0));
             const hueShift = tsl.fract(worldY.mul(3.0).add(uProgress.mul(2.0)));
-            const holoR = tsl.smoothstep(tsl.float(0.3), tsl.float(0.7), hueShift).mul(0.8).add(0.2);
+            const holoR = tsl
+              .smoothstep(tsl.float(0.3), tsl.float(0.7), hueShift)
+              .mul(0.8)
+              .add(0.2);
             const holoG = tsl.float(0.9);
-            const holoB = tsl.smoothstep(tsl.float(0.7), tsl.float(0.3), hueShift).mul(0.8).add(0.2);
+            const holoB = tsl
+              .smoothstep(tsl.float(0.7), tsl.float(0.3), hueShift)
+              .mul(0.8)
+              .add(0.2);
             const holoColor = tsl.vec3(holoR, holoG, holoB);
 
-            const glowActive = tsl.step(tsl.float(0.001), uProgress).mul(tsl.float(1.0).sub(tsl.step(tsl.float(0.999), uProgress)));
-            const emissiveBoost = holoColor.mul(glowIntensity.mul(10.0).mul(glowActive).mul(dissolveAlpha));
+            const glowActive = tsl
+              .step(tsl.float(0.001), uProgress)
+              .mul(tsl.float(1.0).sub(tsl.step(tsl.float(0.999), uProgress)));
+            const emissiveBoost = holoColor.mul(
+              glowIntensity.mul(10.0).mul(glowActive).mul(dissolveAlpha),
+            );
 
             const origOpacity = mat.opacityNode as any;
-            mat.opacityNode = origOpacity ? (((origOpacity).mul(dissolveAlpha) as any) ?? dissolveAlpha) : dissolveAlpha;
+            mat.opacityNode = origOpacity
+              ? ((origOpacity.mul(dissolveAlpha) as any) ?? dissolveAlpha)
+              : dissolveAlpha;
 
             const matWithEmissive = mat as any;
             const origEmissive = matWithEmissive.emissiveNode as any;
-            matWithEmissive.emissiveNode = origEmissive ? ((origEmissive).add(emissiveBoost) as any) : emissiveBoost;
+            matWithEmissive.emissiveNode = origEmissive
+              ? (origEmissive.add(emissiveBoost) as any)
+              : emissiveBoost;
 
             mat.alphaTest = 0.01;
             mat.needsUpdate = true;
@@ -2367,7 +2421,9 @@ export class VrmEngine {
     // Force shader compilation by rendering invisible frames before displaying particles
     await new Promise((resolve) => setTimeout(resolve, 0));
     if (typeof window !== "undefined") {
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
     }
 
     if (this.loadingAborted || this.vrm !== vrm) return;
@@ -2417,24 +2473,26 @@ float teleportSmoothNoise(vec3 p) {
   return (nx + ny + nz) / 3.0 * 0.5 + 0.5;
 }
 ${shader.fragmentShader}
-`.replace(
-            "#include <alphatest_fragment>",
-            `float teleportThreshold = mix(${TELEPORT_DISSOLVE_START_Y.toFixed(1)}, ${TELEPORT_DISSOLVE_END_Y.toFixed(1)}, uTeleportProgress);
+`
+            .replace(
+              "#include <alphatest_fragment>",
+              `float teleportThreshold = mix(${TELEPORT_DISSOLVE_START_Y.toFixed(1)}, ${TELEPORT_DISSOLVE_END_Y.toFixed(1)}, uTeleportProgress);
 float teleportDiff = vTeleportWorldPosition.y - teleportThreshold;
 float teleportRatio = clamp(teleportDiff / 0.3, 0.0, 1.0);
 float teleportNoise = teleportSmoothNoise(vTeleportWorldPosition);
 ${isOutgoing ? "if (teleportNoise >= teleportRatio) discard;" : "if (teleportNoise < teleportRatio) discard;"}
 #include <alphatest_fragment>`,
-          ).replace(
-            "#include <emissivemap_fragment>",
-            `#include <emissivemap_fragment>
+            )
+            .replace(
+              "#include <emissivemap_fragment>",
+              `#include <emissivemap_fragment>
             float teleportGlowDist = abs(teleportDiff);
             float teleportGlowIntensity = 1.0 - clamp(teleportGlowDist / 0.08, 0.0, 1.0);
             vec3 teleportHoloColor = vec3(0.3, 0.9, 0.8);
             float teleportGlowActive = step(0.001, uTeleportProgress) * (1.0 - step(0.999, uTeleportProgress));
             float teleportDissolveAlpha = ${isOutgoing ? "1.0 - step(teleportRatio, teleportNoise)" : "step(teleportRatio, teleportNoise)"};
-            totalEmissiveRadiance += teleportHoloColor * (teleportGlowIntensity * 10.0 * teleportGlowActive * teleportDissolveAlpha);`
-          );
+            totalEmissiveRadiance += teleportHoloColor * (teleportGlowIntensity * 10.0 * teleportGlowActive * teleportDissolveAlpha);`,
+            );
 
           const originalOnBeforeCompile = mat.userData._origOnBeforeCompile;
           if (typeof originalOnBeforeCompile === "function") {
@@ -2529,7 +2587,7 @@ ${isOutgoing ? "if (teleportNoise >= teleportRatio) discard;" : "if (teleportNoi
         spin: (Math.random() - 0.5) * 0.5,
         wobble: 0,
         wobbleSpeed: 0,
-        baseSize: 0.02 + Math.random() * 0.05, // Thin width 
+        baseSize: 0.02 + Math.random() * 0.05, // Thin width
       });
     }
 
@@ -2647,9 +2705,9 @@ ${isOutgoing ? "if (teleportNoise >= teleportRatio) discard;" : "if (teleportNoi
     const camera = this.camera;
     if (!renderer || !scene || !camera) return;
 
-    // Reset camera to the pristine tracking base before processing this frame's 
-    // motion and offsets. This ensures OrbitControls and transitions never see 
-    // the temporary frame-based dynamic offsets (zoom, yaw, parallax), 
+    // Reset camera to the pristine tracking base before processing this frame's
+    // motion and offsets. This ensures OrbitControls and transitions never see
+    // the temporary frame-based dynamic offsets (zoom, yaw, parallax),
     // which prevents them from being doubled or accumulated into the state.
     if (this.baseCameraPosition.lengthSq() > 1e-6) {
       camera.position.copy(this.baseCameraPosition);

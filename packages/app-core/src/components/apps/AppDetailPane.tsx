@@ -60,7 +60,8 @@ export function AppDetailPane({
           </div>
         </div>
         <div className="text-[12px] text-muted leading-relaxed mb-4">
-          {app.description ?? t("appsview.NoDescription", { defaultValue: "No description" })}
+          {app.description ??
+            t("appsview.NoDescription", { defaultValue: "No description" })}
         </div>
         <Button
           variant="default"
@@ -69,7 +70,9 @@ export function AppDetailPane({
           disabled={busy}
           onClick={onLaunch}
         >
-          {busy ? t("appsview.Launching", { defaultValue: "Launching..." }) : t("appsview.Launch", { defaultValue: "Launch" })}
+          {busy
+            ? t("appsview.Launching", { defaultValue: "Launching..." })
+            : t("appsview.Launch", { defaultValue: "Launch" })}
         </Button>
         {hasActiveViewer ? (
           <Button
@@ -129,7 +132,10 @@ export function AppDetailPane({
       </div>
 
       <div className="text-[13px] text-muted leading-relaxed mb-5 pb-5 border-b border-border">
-        {app.description ?? t("appsview.NoDescriptionAvailable", { defaultValue: "No description available." })}
+        {app.description ??
+          t("appsview.NoDescriptionAvailable", {
+            defaultValue: "No description available.",
+          })}
       </div>
 
       <div className="flex flex-wrap gap-2 mb-5">
@@ -166,12 +172,16 @@ export function AppDetailPane({
 
       <div className="flex flex-col gap-3 text-[12px] mb-5">
         <div className="flex justify-between">
-          <span className="text-muted">{t("appsview.LaunchType", { defaultValue: "Launch type" })}</span>
+          <span className="text-muted">
+            {t("appsview.LaunchType", { defaultValue: "Launch type" })}
+          </span>
           <span className="text-txt">{app.launchType || "—"}</span>
         </div>
         {app.launchUrl ? (
           <div className="flex justify-between">
-            <span className="text-muted">{t("appsview.URL", { defaultValue: "URL" })}</span>
+            <span className="text-muted">
+              {t("appsview.URL", { defaultValue: "URL" })}
+            </span>
             <span className="text-txt truncate max-w-[260px]">
               {app.launchUrl}
             </span>
@@ -179,7 +189,9 @@ export function AppDetailPane({
         ) : null}
         {app.repository ? (
           <div className="flex justify-between">
-            <span className="text-muted">{t("appsview.Repository", { defaultValue: "Repository" })}</span>
+            <span className="text-muted">
+              {t("appsview.Repository", { defaultValue: "Repository" })}
+            </span>
             <a
               href={app.repository}
               target="_blank"
@@ -223,9 +235,13 @@ export function AppDetailPane({
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted">{t("appsview.Auth", { defaultValue: "Auth" })}</span>
+              <span className="text-muted">
+                {t("appsview.Auth", { defaultValue: "Auth" })}
+              </span>
               <span className="text-txt">
-                {app.viewer.postMessageAuth ? t("appsview.Enabled", { defaultValue: "enabled" }) : t("appsview.Disabled", { defaultValue: "disabled" })}
+                {app.viewer.postMessageAuth
+                  ? t("appsview.Enabled", { defaultValue: "enabled" })
+                  : t("appsview.Disabled", { defaultValue: "disabled" })}
               </span>
             </div>
           </div>

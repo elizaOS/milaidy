@@ -128,6 +128,11 @@ vi.mock("electrobun/bun", () => {
     localInfo: { version: vi.fn(() => "1.0.0") },
   };
 
+  const mockContextMenu = {
+    on: vi.fn(),
+    showContextMenu: vi.fn(),
+  };
+
   const mockElectrobunEvents = {
     on: vi.fn(),
     off: vi.fn(),
@@ -146,6 +151,7 @@ vi.mock("electrobun/bun", () => {
     Screen: mockScreen,
     Utils: mockUtils,
     Updater: mockUpdater,
+    ContextMenu: mockContextMenu,
     Electrobun: mockElectrobun,
   };
 });
@@ -493,8 +499,69 @@ vi.mock("../native/desktop", async () => {
       ),
       quit: vi.fn(() => Promise.resolve()),
       relaunch: vi.fn(() => Promise.resolve()),
+      checkForUpdates: vi.fn(() =>
+        Promise.resolve({
+          currentVersion: "1.0.0",
+          updateAvailable: false,
+          updateReady: false,
+          latestVersion: null,
+          lastStatus: null,
+        }),
+      ),
+      getUpdaterState: vi.fn(() =>
+        Promise.resolve({
+          currentVersion: "1.0.0",
+          updateAvailable: false,
+          updateReady: false,
+          latestVersion: null,
+          lastStatus: null,
+        }),
+      ),
       isPackaged: vi.fn(() => Promise.resolve({ packaged: false })),
+      getBuildInfo: vi.fn(() =>
+        Promise.resolve({
+          platform: "darwin",
+          arch: "arm64",
+          defaultRenderer: "native",
+          availableRenderers: ["native"],
+        }),
+      ),
+      getDockIconVisibility: vi.fn(() => Promise.resolve({ visible: true })),
+      setDockIconVisibility: vi.fn(() => Promise.resolve({ visible: true })),
       getPath: vi.fn(() => Promise.resolve({ path: "/mock/path" })),
+      showSelectionContextMenu: vi.fn(() => Promise.resolve({ shown: true })),
+      getSessionSnapshot: vi.fn(() =>
+        Promise.resolve({
+          partition: "persist:default",
+          persistent: true,
+          cookieCount: 0,
+          cookies: [],
+        }),
+      ),
+      clearSessionData: vi.fn(() =>
+        Promise.resolve({
+          partition: "persist:default",
+          persistent: true,
+          cookieCount: 0,
+          cookies: [],
+        }),
+      ),
+      getWebGpuBrowserStatus: vi.fn(() =>
+        Promise.resolve({
+          available: false,
+          reason: "test",
+          renderer: "native",
+          chromeBetaPath: null,
+          downloadUrl: null,
+        }),
+      ),
+      openReleaseNotesWindow: vi.fn(() =>
+        Promise.resolve({
+          url: "https://milady.ai/releases/",
+          windowId: 1,
+          webviewId: 2,
+        }),
+      ),
       openExternal: vi.fn(() => Promise.resolve()),
       openSettings: vi.fn(() => Promise.resolve()),
       openSurfaceWindow: vi.fn(() => Promise.resolve()),

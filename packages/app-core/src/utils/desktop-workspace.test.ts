@@ -103,7 +103,7 @@ describe("desktop-workspace utilities", () => {
 
   it("opens detached settings and surface windows through the typed bridge", async () => {
     await openDesktopSettingsWindow("desktop");
-    await openDesktopSurfaceWindow("plugins");
+    await openDesktopSurfaceWindow("release");
 
     expect(invokeDesktopBridgeRequestMock).toHaveBeenNthCalledWith(
       1,
@@ -118,7 +118,7 @@ describe("desktop-workspace utilities", () => {
       expect.objectContaining({
         rpcMethod: "desktopOpenSurfaceWindow",
         ipcChannel: "desktop:openSurfaceWindow",
-        params: { surface: "plugins" },
+        params: { surface: "release" },
       }),
     );
   });

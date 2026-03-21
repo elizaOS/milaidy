@@ -39,6 +39,7 @@ import { CloudDashboard } from "./ElizaCloudDashboard";
 import { MediaSettingsSection } from "./MediaSettingsSection";
 import { PermissionsSection } from "./PermissionsSection";
 import { ProviderSwitcher } from "./ProviderSwitcher";
+import { ReleaseCenterView } from "./ReleaseCenterView";
 import { VoiceConfigView } from "./VoiceConfigView";
 
 interface SettingsSectionDef {
@@ -219,56 +220,7 @@ function SettingsSidebar({
 /* ── Updates Section ─────────────────────────────────────────────────── */
 
 function UpdatesSection() {
-  const { t } = useApp();
-  const { updateStatus, updateLoading, loadUpdateStatus } = useApp();
-
-  useEffect(() => {
-    void loadUpdateStatus();
-  }, [loadUpdateStatus]);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between p-5 bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl shadow-sm">
-        <div>
-          <div className="font-medium text-sm">
-            {t("settings.versionPrefix")}
-          </div>
-          <div className="text-2xl font-bold text-txt-strong mt-1">
-            {updateStatus?.currentVersion || `${t("common.loading")}...`}
-          </div>
-        </div>
-        <Button
-          variant="default"
-          size="sm"
-          className="rounded-xl shadow-sm whitespace-normal text-left"
-          onClick={() => void loadUpdateStatus(true)}
-          disabled={updateLoading}
-        >
-          {updateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-          {updateLoading ? t("settings.checking") : t("settings.checkNow")}
-        </Button>
-      </div>
-
-      {updateStatus?.updateAvailable && (
-        <div className="p-4 bg-ok/10 border border-ok/30 rounded-2xl">
-          <div className="font-bold text-ok mb-1">
-            {t("settings.updateAvailable")}
-          </div>
-          <p className="text-sm text-txt-strong">
-            {updateStatus.currentVersion} {t("ui-renderer.Rarr")}{" "}
-            {updateStatus.latestVersion}
-          </p>
-        </div>
-      )}
-
-      {updateStatus?.lastCheckAt && (
-        <div className="text-[11px] text-muted">
-          {t("settings.lastChecked")}{" "}
-          {new Date(updateStatus.lastCheckAt).toLocaleString()}
-        </div>
-      )}
-    </div>
-  );
+  return <ReleaseCenterView />;
 }
 
 /* ── Advanced Section ─────────────────────────────────────────────────── */

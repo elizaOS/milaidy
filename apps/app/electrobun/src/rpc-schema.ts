@@ -95,6 +95,66 @@ export interface VersionInfo {
   runtime: string;
 }
 
+export interface DesktopBuildInfo {
+  platform: string;
+  arch: string;
+  defaultRenderer: "native" | "cef";
+  availableRenderers: Array<"native" | "cef">;
+  cefVersion?: string;
+  bunVersion?: string;
+  runtime?: Record<string, unknown>;
+}
+
+export interface DesktopUpdaterSnapshot {
+  currentVersion: string;
+  currentHash?: string;
+  channel?: string;
+  baseUrl?: string;
+  updateAvailable: boolean;
+  updateReady: boolean;
+  latestVersion?: string | null;
+  latestHash?: string | null;
+  error?: string | null;
+  lastStatus?: {
+    status: string;
+    message: string;
+    timestamp: number;
+  } | null;
+}
+
+export type DesktopSessionStorageType =
+  | "cookies"
+  | "localStorage"
+  | "sessionStorage"
+  | "indexedDB"
+  | "webSQL"
+  | "cache"
+  | "all";
+
+export interface DesktopSessionCookie {
+  name: string;
+  value?: string;
+  domain?: string;
+  path?: string;
+  secure?: boolean;
+  httpOnly?: boolean;
+  session?: boolean;
+  expirationDate?: number;
+}
+
+export interface DesktopSessionSnapshot {
+  partition: string;
+  persistent: boolean;
+  cookieCount: number;
+  cookies: DesktopSessionCookie[];
+}
+
+export interface DesktopReleaseNotesWindowInfo {
+  url: string;
+  windowId: number | null;
+  webviewId: number | null;
+}
+
 export interface PowerState {
   onBattery: boolean;
   idleState: "active" | "idle" | "locked" | "unknown";
@@ -394,13 +454,60 @@ export type MiladyRPCSchema = {
       desktopQuit: { params: undefined; response: undefined };
       desktopRelaunch: { params: undefined; response: undefined };
       desktopApplyUpdate: { params: undefined; response: undefined };
+      desktopCheckForUpdates: {
+        params: undefined;
+        response: DesktopUpdaterSnapshot;
+      };
+      desktopGetUpdaterState: {
+        params: undefined;
+        response: DesktopUpdaterSnapshot;
+      };
       desktopGetVersion: { params: undefined; response: VersionInfo };
+      desktopGetBuildInfo: { params: undefined; response: DesktopBuildInfo };
       desktopIsPackaged: { params: undefined; response: { packaged: boolean } };
+      desktopGetDockIconVisibility: {
+        params: undefined;
+        response: { visible: boolean };
+      };
+      desktopSetDockIconVisibility: {
+        params: { visible: boolean };
+        response: { visible: boolean };
+      };
       desktopGetPath: {
         params: { name: string };
         response: { path: string };
       };
       desktopBeep: { params: undefined; response: undefined };
+      desktopShowSelectionContextMenu: {
+        params: { text: string };
+        response: { shown: boolean };
+      };
+      desktopGetSessionSnapshot: {
+        params: { partition: string };
+        response: DesktopSessionSnapshot;
+      };
+      desktopClearSessionData: {
+        params: {
+          partition: string;
+          storageTypes?: DesktopSessionStorageType[] | "all";
+          clearCookies?: boolean;
+        };
+        response: DesktopSessionSnapshot;
+      };
+      desktopGetWebGpuBrowserStatus: {
+        params: undefined;
+        response: {
+          available: boolean;
+          reason: string;
+          renderer: string;
+          chromeBetaPath: string | null;
+          downloadUrl: string | null;
+        };
+      };
+      desktopOpenReleaseNotesWindow: {
+        params: { url: string; title?: string };
+        response: DesktopReleaseNotesWindowInfo;
+      };
       desktopOpenSettingsWindow: {
         params: { tabHint?: string } | undefined;
         response: undefined;
@@ -410,6 +517,7 @@ export type MiladyRPCSchema = {
           surface:
             | "chat"
             | "browser"
+            | "release"
             | "triggers"
             | "plugins"
             | "connectors"
@@ -1032,10 +1140,20 @@ export const CHANNEL_TO_RPC_METHOD: Record<string, string> = {
   "desktop:quit": "desktopQuit",
   "desktop:relaunch": "desktopRelaunch",
   "desktop:applyUpdate": "desktopApplyUpdate",
+  "desktop:checkForUpdates": "desktopCheckForUpdates",
+  "desktop:getUpdaterState": "desktopGetUpdaterState",
   "desktop:getVersion": "desktopGetVersion",
+  "desktop:getBuildInfo": "desktopGetBuildInfo",
   "desktop:isPackaged": "desktopIsPackaged",
+  "desktop:getDockIconVisibility": "desktopGetDockIconVisibility",
+  "desktop:setDockIconVisibility": "desktopSetDockIconVisibility",
   "desktop:getPath": "desktopGetPath",
   "desktop:beep": "desktopBeep",
+  "desktop:showSelectionContextMenu": "desktopShowSelectionContextMenu",
+  "desktop:getSessionSnapshot": "desktopGetSessionSnapshot",
+  "desktop:clearSessionData": "desktopClearSessionData",
+  "desktop:getWebGpuBrowserStatus": "desktopGetWebGpuBrowserStatus",
+  "desktop:openReleaseNotesWindow": "desktopOpenReleaseNotesWindow",
   "desktop:openSettingsWindow": "desktopOpenSettingsWindow",
   "desktop:openSurfaceWindow": "desktopOpenSurfaceWindow",
 

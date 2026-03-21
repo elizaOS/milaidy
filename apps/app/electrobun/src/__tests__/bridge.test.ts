@@ -69,6 +69,15 @@ describe("CHANNEL_TO_RPC_METHOD mapping", () => {
     expect(CHANNEL_TO_RPC_METHOD["desktop:openSurfaceWindow"]).toBe(
       "desktopOpenSurfaceWindow",
     );
+    expect(CHANNEL_TO_RPC_METHOD["desktop:openReleaseNotesWindow"]).toBe(
+      "desktopOpenReleaseNotesWindow",
+    );
+    expect(CHANNEL_TO_RPC_METHOD["desktop:checkForUpdates"]).toBe(
+      "desktopCheckForUpdates",
+    );
+    expect(CHANNEL_TO_RPC_METHOD["desktop:getBuildInfo"]).toBe(
+      "desktopGetBuildInfo",
+    );
   });
 
   it("maps canvas:eval to canvasEval", () => {

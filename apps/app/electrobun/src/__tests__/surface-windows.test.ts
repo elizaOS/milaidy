@@ -77,6 +77,7 @@ describe("SurfaceWindowManager", () => {
     await manager.openSurfaceWindow("chat");
     await manager.openSurfaceWindow("chat");
     await manager.openSurfaceWindow("browser");
+    await manager.openSurfaceWindow("release");
     await manager.openSurfaceWindow("plugins");
     await manager.openSurfaceWindow("cloud");
 
@@ -86,6 +87,9 @@ describe("SurfaceWindowManager", () => {
     ]);
     expect(manager.listWindows("browser").map((entry) => entry.title)).toEqual([
       "Milady Browser",
+    ]);
+    expect(manager.listWindows("release").map((entry) => entry.title)).toEqual([
+      "Milady Release Center",
     ]);
     expect(manager.listWindows("plugins").map((entry) => entry.title)).toEqual([
       "Milady Plugins",
@@ -138,6 +142,9 @@ describe("buildSurfaceShellQuery", () => {
     );
     expect(buildSurfaceShellQuery("browser")).toBe(
       "?shell=surface&tab=browser",
+    );
+    expect(buildSurfaceShellQuery("release")).toBe(
+      "?shell=surface&tab=release",
     );
     expect(buildSurfaceShellQuery("triggers")).toBe(
       "?shell=surface&tab=triggers",

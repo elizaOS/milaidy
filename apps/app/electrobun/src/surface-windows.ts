@@ -1,6 +1,7 @@
 export type DetachedSurface =
   | "chat"
   | "browser"
+  | "release"
   | "triggers"
   | "plugins"
   | "connectors"
@@ -57,6 +58,7 @@ interface SurfaceWindowManagerOptions {
 const SURFACE_LABELS: Record<ManagedSurface, string> = {
   chat: "Chat",
   browser: "Browser",
+  release: "Release Center",
   triggers: "Heartbeats",
   plugins: "Plugins",
   connectors: "Connectors",
@@ -67,6 +69,7 @@ const SURFACE_LABELS: Record<ManagedSurface, string> = {
 const SURFACE_FRAMES: Record<ManagedSurface, ManagedWindowFrame> = {
   chat: { x: 120, y: 110, width: 1180, height: 840 },
   browser: { x: 140, y: 100, width: 1320, height: 900 },
+  release: { x: 160, y: 100, width: 1260, height: 920 },
   triggers: { x: 160, y: 140, width: 1080, height: 780 },
   plugins: { x: 180, y: 160, width: 1180, height: 860 },
   connectors: { x: 200, y: 180, width: 1180, height: 860 },
@@ -78,6 +81,7 @@ export function isDetachedSurface(value: string): value is DetachedSurface {
   return (
     value === "chat" ||
     value === "browser" ||
+    value === "release" ||
     value === "triggers" ||
     value === "plugins" ||
     value === "connectors" ||

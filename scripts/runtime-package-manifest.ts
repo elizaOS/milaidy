@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getBundledRuntimePackages } from "@miladyai/app-core/src/runtime/release-plugin-policy";
+import { getBundledRuntimePackages } from "../packages/app-core/src/runtime/release-plugin-policy.ts";
 
 const JS_FILE_RE = /\.(?:[cm]?js)$/i;
 const IMPORT_SPECIFIER_RE =

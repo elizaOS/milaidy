@@ -56,35 +56,130 @@ vi.mock("../rpc-schema", () => ({}));
 
 // electrobun/bun must be mocked before module import so PATH_NAME_MAP (which
 // reads Utils.paths.* at module load time) resolves to the mock values.
-vi.mock("electrobun/bun", () => ({
-  Utils: {
-    paths: {
-      home: "/mock/home",
-      appData: "/mock/appdata",
-      userData: "/mock/userdata",
-      temp: "/tmp",
-      cache: "/mock/cache",
-      logs: "/mock/logs",
-      documents: "/mock/documents",
-      downloads: "/mock/downloads",
-      desktop: "/mock/desktop",
+vi.mock("electrobun/bun", () => {
+  const createBrowserWindowInstance = () => ({
+    id: 99,
+    frame: { width: 1180, height: 860 },
+    webview: {
+      remove: vi.fn(),
     },
-    quit: vi.fn(),
-    openExternal: vi.fn(),
-    showItemInFolder: vi.fn(),
-    clipboardWriteText: vi.fn(),
-    clipboardReadText: vi.fn(() => ""),
-    clipboardReadImage: vi.fn(() => null),
-    clipboardWriteImage: vi.fn(),
-    clipboardClear: vi.fn(),
-    showNotification: vi.fn(),
-  },
-  Tray: { create: vi.fn() },
-  GlobalShortcut: { register: vi.fn(), unregister: vi.fn() },
-  Updater: { localInfo: { version: vi.fn(() => "2.0.0") } },
-  BrowserWindow: vi.fn(),
-  Electrobun: {},
-}));
+    on: vi.fn(),
+    focus: vi.fn(),
+    setTitle: vi.fn(),
+  });
+
+  const createBrowserViewInstance = (options: { url?: string | null }) => ({
+    id: 77,
+    url: options.url ?? null,
+    loadURL: vi.fn(),
+    remove: vi.fn(),
+  });
+
+  // biome-ignore lint/complexity/useArrowFunction: constructor mock requires a regular function
+  const MockBrowserWindow = vi.fn(function () {
+    return createBrowserWindowInstance();
+  });
+  // biome-ignore lint/complexity/useArrowFunction: constructor mock requires a regular function
+  const MockBrowserView = vi.fn(function (
+    options: { url?: string | null } = {},
+  ) {
+    return createBrowserViewInstance(options);
+  });
+
+  return {
+    default: {
+      BrowserWindow: MockBrowserWindow,
+    },
+    Utils: {
+      paths: {
+        home: "/mock/home",
+        appData: "/mock/appdata",
+        userData: "/mock/userdata",
+        temp: "/tmp",
+        cache: "/mock/cache",
+        logs: "/mock/logs",
+        documents: "/mock/documents",
+        downloads: "/mock/downloads",
+        desktop: "/mock/desktop",
+      },
+      quit: vi.fn(),
+      openExternal: vi.fn(),
+      showItemInFolder: vi.fn(),
+      openPath: vi.fn(),
+      clipboardWriteText: vi.fn(),
+      clipboardReadText: vi.fn(() => ""),
+      clipboardReadImage: vi.fn(() => null),
+      clipboardWriteImage: vi.fn(),
+      clipboardClear: vi.fn(),
+      clipboardAvailableFormats: vi.fn(() => ["text/plain"]),
+      showNotification: vi.fn(),
+      isDockIconVisible: vi.fn(() => true),
+      setDockIconVisible: vi.fn(),
+    },
+    Tray: { create: vi.fn() },
+    GlobalShortcut: { register: vi.fn(), unregister: vi.fn() },
+    Updater: {
+      localInfo: { version: vi.fn(async () => "2.0.0") },
+      getLocallocalInfo: vi.fn(async () => ({
+        version: "2.0.0",
+        hash: "hash1234",
+        baseUrl: "https://milady.ai/releases/",
+        channel: "stable",
+        name: "Milady",
+        identifier: "sh.blackboard.milady",
+      })),
+      updateInfo: vi.fn(() => ({
+        version: "2.0.1",
+        hash: "hash5678",
+        updateAvailable: false,
+        updateReady: false,
+        error: "",
+      })),
+      getStatusHistory: vi.fn(() => []),
+      checkForUpdate: vi.fn(async () => ({
+        version: "2.0.1",
+        hash: "hash5678",
+        updateAvailable: false,
+        updateReady: false,
+        error: "",
+      })),
+      downloadUpdate: vi.fn(() => Promise.resolve()),
+      applyUpdate: vi.fn(),
+    },
+    BuildConfig: {
+      get: vi.fn(async () => ({
+        defaultRenderer: "native",
+        availableRenderers: ["native"],
+        bunVersion: "1.2.3",
+      })),
+    },
+    ContextMenu: {
+      on: vi.fn(),
+      showContextMenu: vi.fn(),
+    },
+    Session: {
+      defaultSession: {
+        partition: "persist:default",
+        cookies: {
+          get: vi.fn(() => []),
+          clear: vi.fn(),
+        },
+        clearStorageData: vi.fn(),
+      },
+      fromPartition: vi.fn((partition: string) => ({
+        partition,
+        cookies: {
+          get: vi.fn(() => []),
+          clear: vi.fn(),
+        },
+        clearStorageData: vi.fn(),
+      })),
+    },
+    BrowserView: MockBrowserView,
+    BrowserWindow: MockBrowserWindow,
+    Electrobun: {},
+  };
+});
 
 vi.stubGlobal("Bun", {
   spawn: vi.fn(() => makeSpawnResult("")),
@@ -97,7 +192,7 @@ vi.stubGlobal("Bun", {
 
 import * as nodeFs from "node:fs";
 import * as electrobunBun from "electrobun/bun";
-import { DesktopManager } from "../desktop";
+import { DesktopManager, resetDesktopManagerForTesting } from "../desktop";
 import * as macEffects from "../mac-window-effects";
 
 const mockExistsSync = nodeFs.existsSync as ReturnType<typeof vi.fn>;
@@ -111,6 +206,24 @@ const mockOpenExternal = electrobunBun.Utils.openExternal as ReturnType<
 const mockShowItemInFolder = electrobunBun.Utils.showItemInFolder as ReturnType<
   typeof vi.fn
 >;
+const mockSetDockIconVisible = electrobunBun.Utils
+  .setDockIconVisible as ReturnType<typeof vi.fn>;
+const mockIsDockIconVisible = electrobunBun.Utils
+  .isDockIconVisible as ReturnType<typeof vi.fn>;
+const mockContextMenuOn = electrobunBun.ContextMenu.on as ReturnType<
+  typeof vi.fn
+>;
+const mockShowContextMenu = electrobunBun.ContextMenu
+  .showContextMenu as ReturnType<typeof vi.fn>;
+const mockBuildConfigGet = electrobunBun.BuildConfig.get as ReturnType<
+  typeof vi.fn
+>;
+const mockSessionFromPartition = electrobunBun.Session
+  .fromPartition as ReturnType<typeof vi.fn>;
+const mockBrowserView = electrobunBun.BrowserView as ReturnType<typeof vi.fn>;
+const mockBrowserWindow = (
+  electrobunBun.default as { BrowserWindow: ReturnType<typeof vi.fn> }
+).BrowserWindow;
 const mockSpawn = (globalThis as { Bun: { spawn: ReturnType<typeof vi.fn> } })
   .Bun.spawn;
 const mockIsAppActive = macEffects.isAppActive as ReturnType<typeof vi.fn>;
@@ -148,6 +261,7 @@ describe("DesktopManager", () => {
   let manager: DesktopManager;
 
   beforeEach(() => {
+    resetDesktopManagerForTesting();
     manager = new DesktopManager();
     vi.useRealTimers();
     mockExistsSync.mockReset().mockReturnValue(false);
@@ -157,12 +271,34 @@ describe("DesktopManager", () => {
     mockReadFileSync.mockReset().mockReturnValue("");
     mockOpenExternal.mockReset();
     mockShowItemInFolder.mockReset();
+    mockSetDockIconVisible.mockReset();
+    mockIsDockIconVisible.mockReset().mockReturnValue(true);
+    mockContextMenuOn.mockReset();
+    mockShowContextMenu.mockReset();
+    mockBuildConfigGet.mockReset().mockResolvedValue({
+      defaultRenderer: "native",
+      availableRenderers: ["native"],
+      bunVersion: "1.2.3",
+    });
+    mockSessionFromPartition
+      .mockReset()
+      .mockImplementation((partition: string) => ({
+        partition,
+        cookies: {
+          get: vi.fn(() => []),
+          clear: vi.fn(),
+        },
+        clearStorageData: vi.fn(),
+      }));
+    mockBrowserView.mockClear();
+    mockBrowserWindow.mockClear();
     mockSpawn.mockReset().mockReturnValue(makeSpawnResult(""));
     mockIsAppActive.mockReset().mockReturnValue(false);
     mockMakeKeyAndOrderFront.mockReset().mockReturnValue(true);
   });
 
   afterEach(() => {
+    resetDesktopManagerForTesting();
     // Restore platform to darwin (test host)
     setPlatform("darwin");
     delete process.env.NODE_ENV;
@@ -307,6 +443,128 @@ describe("DesktopManager", () => {
       const result = await manager.getPath({ name: "unknownName" });
       // Falls back to Utils.paths.userData
       expect(result.path).toBe("/mock/userdata");
+    });
+  });
+
+  // ── release / build surface ──────────────────────────────────────────────
+
+  describe("release center primitives", () => {
+    it("returns BuildConfig-backed runtime metadata", async () => {
+      mockBuildConfigGet.mockResolvedValueOnce({
+        defaultRenderer: "cef",
+        availableRenderers: ["native", "cef"],
+        bunVersion: "1.2.3",
+        cefVersion: "130.1.2",
+        runtime: { exitOnLastWindowClosed: true },
+      });
+      setPlatform("linux");
+
+      const info = await manager.getBuildInfo();
+
+      expect(info.platform).toBe("linux");
+      expect(info.arch).toBe(process.arch);
+      expect(info.defaultRenderer).toBe("cef");
+      expect(info.availableRenderers).toEqual(["native", "cef"]);
+      expect(info.cefVersion).toBe("130.1.2");
+    });
+
+    it("shows the native selection context menu with Electrobun actions", async () => {
+      const result = await manager.showSelectionContextMenu({
+        text: "Selected release text",
+      });
+
+      expect(result).toEqual({ shown: true });
+      expect(mockShowContextMenu).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            label: "Ask Agent",
+            action: "ask-agent",
+            data: { text: "Selected release text" },
+          }),
+          expect.objectContaining({
+            label: "Copy Selection",
+            action: "copy-selection",
+            data: { text: "Selected release text" },
+          }),
+        ]),
+      );
+    });
+
+    it("uses explicit Session APIs to inspect and clear partition storage", async () => {
+      const clearFn = vi.fn();
+      const clearCookiesFn = vi.fn();
+      mockSessionFromPartition.mockReturnValueOnce({
+        partition: "persist:milady-release-notes",
+        cookies: {
+          get: vi.fn(() => [
+            {
+              name: "release",
+              domain: "milady.ai",
+              path: "/",
+              secure: true,
+              httpOnly: false,
+              session: false,
+              expirationDate: 1234,
+            },
+          ]),
+          clear: vi.fn(),
+        },
+        clearStorageData: vi.fn(),
+      });
+      mockSessionFromPartition.mockReturnValueOnce({
+        partition: "persist:milady-release-notes",
+        cookies: {
+          get: vi.fn(() => []),
+          clear: clearCookiesFn,
+        },
+        clearStorageData: clearFn,
+      });
+      mockSessionFromPartition.mockReturnValueOnce({
+        partition: "persist:milady-release-notes",
+        cookies: {
+          get: vi.fn(() => []),
+          clear: vi.fn(),
+        },
+        clearStorageData: vi.fn(),
+      });
+
+      const snapshot = await manager.getSessionSnapshot({
+        partition: "persist:milady-release-notes",
+      });
+      const cleared = await manager.clearSessionData({
+        partition: "persist:milady-release-notes",
+        storageTypes: "all",
+        clearCookies: true,
+      });
+
+      expect(snapshot.cookieCount).toBe(1);
+      expect(snapshot.cookies[0]?.name).toBe("release");
+      expect(clearCookiesFn).toHaveBeenCalled();
+      expect(clearFn).toHaveBeenCalledWith("all");
+      expect(cleared.cookieCount).toBe(0);
+    });
+
+    it("opens release notes in a dedicated BrowserView window", async () => {
+      await manager.openReleaseNotesWindow({
+        url: "https://milady.ai/releases/",
+      });
+
+      expect(mockBrowserWindow).toHaveBeenCalled();
+      expect(mockBrowserView).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://milady.ai/releases/",
+          partition: "persist:milady-release-notes",
+          sandbox: true,
+        }),
+      );
+    });
+
+    it("toggles dock visibility through Electrobun on macOS", async () => {
+      setPlatform("darwin");
+
+      await manager.setDockIconVisibility({ visible: false });
+
+      expect(mockSetDockIconVisible).toHaveBeenCalledWith(false);
     });
   });
 

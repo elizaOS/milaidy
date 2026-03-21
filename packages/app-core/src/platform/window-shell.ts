@@ -3,6 +3,7 @@ import { pathForTab } from "@miladyai/app-core/navigation";
 export type DetachedSurfaceTab =
   | "chat"
   | "browser"
+  | "release"
   | "triggers"
   | "plugins"
   | "connectors"
@@ -34,6 +35,7 @@ export function parseWindowShellRoute(search: string): WindowShellRoute {
     if (
       tab === "chat" ||
       tab === "browser" ||
+      tab === "release" ||
       tab === "triggers" ||
       tab === "plugins" ||
       tab === "connectors" ||
@@ -80,6 +82,8 @@ export function resolveDetachedShellTarget(
       return { tab: "chat" };
     case "browser":
       return { tab: "browser" };
+    case "release":
+      return { tab: "settings", settingsSection: "updates" };
     case "triggers":
       return { tab: "triggers" };
     case "plugins":

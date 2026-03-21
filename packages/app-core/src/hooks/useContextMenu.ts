@@ -4,7 +4,11 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { subscribeDesktopBridgeEvent } from "../bridge";
+import {
+  invokeDesktopBridgeRequest,
+  isElectrobunRuntime,
+  subscribeDesktopBridgeEvent,
+} from "../bridge";
 import {
   appendSavedCustomCommand,
   loadSavedCustomCommands,
@@ -27,8 +31,26 @@ export interface ContextMenuState {
   confirmSaveCommand: (name: string) => void;
 }
 
+function getSelectedText(target: EventTarget | null): string {
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement
+  ) {
+    const start = target.selectionStart ?? 0;
+    const end = target.selectionEnd ?? start;
+    return target.value.slice(start, end).trim();
+  }
+
+  if (typeof window.getSelection === "function") {
+    return window.getSelection()?.toString().trim() ?? "";
+  }
+
+  return "";
+}
+
 export function useContextMenu(): ContextMenuState {
   const { setState, chatInput, handleChatSend, setActionNotice } = useApp();
+  const desktopRuntime = isElectrobunRuntime();
 
   const [saveCommandModalOpen, setSaveCommandModalOpen] = useState(false);
   const [saveCommandText, setSaveCommandText] = useState("");
@@ -95,6 +117,35 @@ export function useContextMenu(): ContextMenuState {
       }
     };
   }, [setState, chatInput, handleChatSend]);
+
+  useEffect(() => {
+    if (!desktopRuntime || typeof window === "undefined") {
+      return;
+    }
+
+    const onContextMenu = (event: MouseEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      const text = getSelectedText(event.target);
+      if (!text) {
+        return;
+      }
+
+      event.preventDefault();
+      void invokeDesktopBridgeRequest({
+        rpcMethod: "desktopShowSelectionContextMenu",
+        ipcChannel: "desktop:showSelectionContextMenu",
+        params: { text },
+      });
+    };
+
+    window.addEventListener("contextmenu", onContextMenu);
+    return () => {
+      window.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, [desktopRuntime]);
 
   const closeSaveCommandModal = useCallback(() => {
     setSaveCommandModalOpen(false);
